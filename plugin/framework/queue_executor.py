@@ -221,7 +221,7 @@ def grammar_llm_request_gate(ctx: Any, timeout: float = 60.0) -> Generator[None,
 
 
 class _WorkItem:
-    __slots__ = ("id", "fn", "args", "kwargs", "blocking", "event", "result", "exception", "cancelled", "_claim_lock", "_claimed")
+    __slots__ = ("id", "fn", "args", "kwargs", "blocking", "event", "result", "exception", "cancelled", "_claimed")
 
     def __init__(self, item_id, fn, args, kwargs, blocking=True):
         self.id = item_id
@@ -233,11 +233,6 @@ class _WorkItem:
         self.result: Any = None
         self.exception: BaseException | None = None
         self.cancelled = False
-        # _claim_lock serialises the timeout-vs-execute race: whoever acquires it first
-        # either claims the item for execution (_claimed=True) or cancels it. This
-        # prevents the main thread from executing a function after the caller has
-        # already given up and raised TimeoutError.
-        self._claim_lock = threading.Lock()
         self._claimed = False
 
 
@@ -252,6 +247,7 @@ class QueueExecutor:
         self._async_callback_service = None
         self._callback_instance = None
         self._init_lock = threading.Lock()
+        self._claim_lock = threading.Lock()
         self._initialized = False
 
     def set_context(self, ctx: Any) -> None:
@@ -349,10 +345,10 @@ class QueueExecutor:
         fn_label = _fn_label(item.fn)
         log.debug("process_queue start fn=%s %s", fn_label, _marshal_thread_tag(self))
 
-        # Atomically claim or cancel: whoever holds _claim_lock first wins.
+        # Atomically claim or cancel: whoever holds self._claim_lock first wins.
         # This closes the race where _wait_for_result times out and sets
         # item.cancelled=True just after this thread has already read it as False.
-        with item._claim_lock:
+        with self._claim_lock:
             if item.cancelled:
                 log.debug("QueueExecutor: skipping cancelled item %s (%s)", item.id, getattr(item.fn, "__name__", "<fn>"))
                 if item.blocking and item.event and not item.event.is_set():
@@ -396,11 +392,12 @@ class QueueExecutor:
                 pending.append(self._work_queue.get_nowait())
             except queue.Empty:
                 break
-        for item in pending:
-            item.cancelled = True
-            if item.blocking and item.event and not item.event.is_set():
-                item.exception = SendCancelled()
-                item.event.set()
+        with self._claim_lock:
+            for item in pending:
+                item.cancelled = True
+                if item.blocking and item.event and not item.event.is_set():
+                    item.exception = SendCancelled()
+                    item.event.set()
 
     def _enqueue_work(self, fn, args, kwargs, blocking=True):
         """Add work item to queue."""
@@ -417,7 +414,7 @@ class QueueExecutor:
             # this item for execution. Without _claim_lock there was a window
             # where the main thread could start executing fn() after this thread
             # gave up, causing UNO calls to run against an abandoned caller.
-            with item._claim_lock:
+            with self._claim_lock:
                 if not item._claimed:
                     item.cancelled = True
             raise TimeoutError("Main-thread execution of %s timed out after %ss" % (getattr(item.fn, "__name__", str(item.fn)), timeout))

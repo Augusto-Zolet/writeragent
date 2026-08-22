@@ -33,7 +33,7 @@ invariant.  (A third Layer 1 "tail-replace" existed historically — see below.)
 **Layer 3 — Pre-execute and post-LLM stale checks** (``_latest_seq`` map)
 
     ``enqueue`` records the newest ``enqueue_seq`` per ``inflight_key`` in
-    ``_latest_seq`` (under ``_seq_lock``).  Before sending a batch item to
+    ``_latest_seq`` (under ``_lock``).  Before sending a batch item to
     the LLM, the worker calls ``_is_stale`` — if a newer enqueue has been
     recorded since this item was drained, it is skipped.  After the LLM
     returns, ``inflight_superseded`` is checked again before writing to the
@@ -79,6 +79,7 @@ invariant.  (A third Layer 1 "tail-replace" existed historically — see below.)
 
 from __future__ import annotations
 
+import itertools
 import logging
 import queue
 import threading
@@ -165,7 +166,7 @@ def should_replace_for_key(existing: GrammarWorkItem | None, incoming: GrammarWo
 
 
 def filter_stale_and_group(
-    survivors: list[GrammarWorkItem],
+    items: list[GrammarWorkItem],
     is_stale_fn: Any,
 ) -> dict[tuple[str, str], list[GrammarWorkItem]]:
     """Drop stale items and group the rest by ``(doc_id, grammar_bcp47)``.
@@ -176,7 +177,7 @@ def filter_stale_and_group(
     """
     groups: dict[tuple[str, str], list[GrammarWorkItem]] = defaultdict(list)
     stale_count = 0
-    for item in survivors:
+    for item in items:
         if is_stale_fn(item):
             grammar_obs("queue_stale_skip", doc_id=item.doc_id, locale=item.grammar_bcp47, seq=item.enqueue_seq, inflight_key=item.inflight_key)
             stale_count += 1
@@ -187,16 +188,12 @@ def filter_stale_and_group(
     return dict(groups)
 
 
-_ENQUEUE_SEQ_LOCK = threading.Lock()
-_ENQUEUE_SEQ = 0
+_ENQUEUE_SEQ_COUNTER = itertools.count(1)
 
 
 def next_enqueue_seq() -> int:
     """Monotonic generation stamp for ``GrammarWorkItem.enqueue_seq`` (supersede / stale detection)."""
-    global _ENQUEUE_SEQ
-    with _ENQUEUE_SEQ_LOCK:
-        _ENQUEUE_SEQ += 1
-        return _ENQUEUE_SEQ
+    return next(_ENQUEUE_SEQ_COUNTER)
 
 
 @dataclass(frozen=True)
@@ -214,7 +211,7 @@ class GrammarWorkQueue:
     Up to ``doc.grammar_proofreader_max_in_flight`` daemon drain threads share one
     ``queue.Queue``; each batch still respects ``grammar_llm_request_gate`` for HTTP.
 
-    TD4 note: an ``InflightTracker`` wrapper around ``_seq_lock`` + ``_latest_seq``
+    TD4 note: an ``InflightTracker`` wrapper around ``_lock`` + ``_latest_seq``
     was evaluated and rejected — the tracker would absorb 2 fields and 3 thin methods
     but ``GrammarWorkQueue`` is already small enough that an extra indirection adds more
     cognitive load than it removes.  The pure functions (``should_replace_for_key``,
@@ -224,17 +221,15 @@ class GrammarWorkQueue:
 
     def __init__(self) -> None:
         self._q: queue.Queue[GrammarWorkItem | None] = queue.Queue()
-        self._seq_lock = threading.Lock()
+        self._lock = threading.Lock()
         self._latest_seq: dict[str, int] = {}
         self._worker_count = 0
-        self._worker_lock = threading.Lock()
-        self._status_lock = threading.Lock()
         self._status_inflight = 0
         self._pending_done: _PendingGrammarDone | None = None
 
     def begin_status_cycle(self) -> None:
         """Mark one ``run_llm_and_cache_batch`` in flight (sidebar ``done`` is deferred)."""
-        with self._status_lock:
+        with self._lock:
             self._status_inflight += 1
 
     def record_done_status(
@@ -247,13 +242,13 @@ class GrammarWorkQueue:
         length_hint: int | None = None,
     ) -> None:
         """Remember the latest chunk result; emitted when the last in-flight batch finishes."""
-        with self._status_lock:
+        with self._lock:
             self._pending_done = _PendingGrammarDone(text, result, elapsed_ms, preview_source, length_hint)
 
     def end_status_cycle(self) -> None:
         """Drop in-flight count; emit a single sidebar ``done`` when all parallel batches finish."""
         pending: _PendingGrammarDone | None = None
-        with self._status_lock:
+        with self._lock:
             self._status_inflight = max(0, self._status_inflight - 1)
             if self._status_inflight == 0:
                 pending = self._pending_done
@@ -269,12 +264,12 @@ class GrammarWorkQueue:
             )
 
     def _is_stale(self, item: GrammarWorkItem) -> bool:
-        with self._seq_lock:
+        with self._lock:
             return is_stale(self._latest_seq, item)
 
     def inflight_superseded(self, inflight_key: str, enqueue_seq: int) -> bool:
         """True if a newer grammar enqueue has been recorded for this key (e.g. user kept typing)."""
-        with self._seq_lock:
+        with self._lock:
             return inflight_superseded(self._latest_seq, inflight_key, enqueue_seq)
 
     def enqueue(self, item: GrammarWorkItem) -> None:
@@ -289,7 +284,7 @@ class GrammarWorkQueue:
           supersedes (including language-detection requeues that mint a fresh
           higher seq).
         """
-        with self._seq_lock:
+        with self._lock:
             self._latest_seq, out_of_order, superseded_prev_seq = record_enqueue_latest(self._latest_seq, item)
             if out_of_order:
                 log.error("[grammar] queue enqueue: out-of-order seq detected for key=%s: incoming seq=%s < latest seq=%s; stale detection may be unreliable", item.inflight_key, item.enqueue_seq, superseded_prev_seq)
@@ -313,7 +308,7 @@ class GrammarWorkQueue:
 
     def _ensure_workers(self, ctx: Any) -> None:
         desired = grammar_proofread_locale.grammar_max_in_flight(ctx)
-        with self._worker_lock:
+        with self._lock:
             while self._worker_count < desired:
                 i = self._worker_count
                 if i > 0:

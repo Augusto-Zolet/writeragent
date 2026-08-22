@@ -117,10 +117,31 @@ def _make_handler(model: Any) -> Any:
     return _handler_cls(model)
 
 
+def cleanup_disposed_controllers() -> None:
+    """Passively remove any disposed controllers/handlers from tracking lists."""
+    try:
+        with _lock:
+            alive_controllers = []
+            alive_handlers = []
+            for idx, ctrl in enumerate(_registered_controllers):
+                try:
+                    if ctrl.getModel() is not None:
+                        alive_controllers.append(ctrl)
+                        if idx < len(_handlers):
+                            alive_handlers.append(_handlers[idx])
+                except Exception:
+                    pass
+            _registered_controllers[:] = alive_controllers
+            _handlers[:] = alive_handlers
+    except Exception:
+        log.debug("review_click_popup: cleanup failed", exc_info=True)
+
+
 def register_click_review(controller: Any) -> None:
     """Attach the click handler to one Writer view controller (idempotent per controller)."""
     if controller is None:
         return
+    cleanup_disposed_controllers()
     try:
         with _lock:
             if controller in _registered_controllers:

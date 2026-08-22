@@ -461,7 +461,6 @@ def update_activity_state(phase, round_num=None, tool_name=None):
 
 
 # Per-send timing spans (writeragent_debug.log, DEBUG). One active send at a time.
-_send_timing_lock = threading.Lock()
 _send_timing_origin: float | None = None
 _send_timing_log = logging.getLogger("writeragent.send_timing")
 
@@ -469,20 +468,17 @@ _send_timing_log = logging.getLogger("writeragent.send_timing")
 def begin_send_timing() -> None:
     """Mark send-click origin for subsequent log_send_timing() lines."""
     global _send_timing_origin
-    with _send_timing_lock:
-        _send_timing_origin = time.monotonic()
+    _send_timing_origin = time.monotonic()
 
 
 def clear_send_timing() -> None:
     global _send_timing_origin
-    with _send_timing_lock:
-        _send_timing_origin = None
+    _send_timing_origin = None
 
 
 def log_send_timing(milestone: str, **extra: object) -> None:
     """Log a send-path milestone with +ms since begin_send_timing() (DEBUG)."""
-    with _send_timing_lock:
-        origin = _send_timing_origin
+    origin = _send_timing_origin
     if origin is None:
         if extra:
             _send_timing_log.debug("send_timing %s (no origin) %s", milestone, extra)

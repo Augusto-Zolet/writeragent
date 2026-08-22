@@ -195,10 +195,7 @@ class DocumentPersistence(GrammarPersistence):
     def __init__(self, ctx: Any, doc_id: str, *, model: Any = None) -> None:
         super().__init__(ctx)
         self._doc_id = doc_id
-        self._lock = threading.Lock()
         self._entries: dict[str, list[dict[str, Any]]] = {}
-        self._session_accessed: set[str] = set()
-        self._ignored_rules: set[str] = set()
         self._model: Any = model
         self._doc_listener: Any = None
         self._teardown_done = False

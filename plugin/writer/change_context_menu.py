@@ -130,7 +130,6 @@ def _make_interceptor(model: Any) -> Any:
 def _cleanup_disposed_controllers() -> None:
     """Passively remove any disposed controllers/interceptors from our tracking lists."""
     try:
-        from plugin.writer import review_click_popup
         with _lock:
             alive_controllers = []
             alive_interceptors = []
@@ -145,19 +144,8 @@ def _cleanup_disposed_controllers() -> None:
             _registered_controllers[:] = alive_controllers
             _interceptors[:] = alive_interceptors
 
-        with review_click_popup._lock:
-            alive_popup_controllers = []
-            alive_popup_handlers = []
-            for idx, ctrl in enumerate(review_click_popup._registered_controllers):
-                try:
-                    if ctrl.getModel() is not None:
-                        alive_popup_controllers.append(ctrl)
-                        if idx < len(review_click_popup._handlers):
-                            alive_popup_handlers.append(review_click_popup._handlers[idx])
-                except Exception:
-                    pass
-            review_click_popup._registered_controllers[:] = alive_popup_controllers
-            review_click_popup._handlers[:] = alive_popup_handlers
+        from plugin.writer import review_click_popup
+        review_click_popup.cleanup_disposed_controllers()
     except Exception:
         log.debug("change_context_menu: cleanup failed", exc_info=True)
 
