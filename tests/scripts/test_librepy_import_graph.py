@@ -443,7 +443,7 @@ for mod_name in list(sys.modules):
             "XJob", "XJobExecutor", "XModifyListener", "XCloseListener",
             "XTerminateListener", "DispatchDescriptor", "PropertyValue", "NamedValue",
             "XControlModel", "XControl", "XWindow", "XActionListener", "XItemListener",
-            "XTextComponent", "XListBox", "XComboBox", "XCheckBox", "XRadioButton",
+            "XTextListener", "XTextComponent", "XListBox", "XComboBox", "XCheckBox", "XRadioButton",
             "XDialog", "XDialogProvider2", "XTopWindow", "XTopWindowListener",
             "XSidebarPanel", "XToolPanel", "XUIElement", "XUIElementFactory",
             "Size", "Point"

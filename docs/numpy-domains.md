@@ -23,6 +23,9 @@ WriterAgent builds **domain-specific trusted helpers** on top of the warm venv s
    - [Geospatial](#geospatial)
    - [Audio / Signal Processing](#audio-signal)
    - [Implementation phasing](#implementation-phasing-cross-domain)
+3. [Future Refinements & Polish for Existing Domains](#future-refinements--polish-for-existing-domains)
+   - [Cross-cutting ergonomic improvements](#cross-cutting-ergonomic-improvements)
+   - [Domain-specific polish opportunities](#domain-specific-polish-opportunities)
 
 ---
 
@@ -655,3 +658,41 @@ Results are inserted as compact tables and usable from scripts.
 Keep each domain lean: reuse `payload_codec`, split-grid, document-attached scripts + Monaco, and Settings Test reporting—the same surfaces that make Analysis and Vision usable without an LLM.
 
 Shared-kernel **Calc semantics** (reset, recalc, idempotent cells): [enabling_numpy_in_libreoffice.md §6 — Session modes](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics). Worker lifecycle and code hot cache: [numpy-serialization.md — Warm worker](numpy-serialization.md#warm-worker-lifecycle). Trusted-code pattern (generic): [enabling_numpy_in_libreoffice.md §5](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv).
+
+---
+
+## 3. Future Refinements & Polish for Existing Domains {#future-refinements--polish-for-existing-domains}
+
+Roadmap of ergonomic, output formatting, and parameter enhancements across existing scientific and helper domains (refining what is already shipped rather than inventing new domains).
+
+### Cross-cutting ergonomic improvements {#cross-cutting-ergonomic-improvements}
+
+1. **Vectorized / Array inputs for scalar helpers (`[Units]`, `[Math]`):**
+   - Allow helpers like `convert_quantity([10, 20, 30], "m/s", "km/h")` to accept lists / Calc column ranges directly and return converted column arrays without requiring manual Python list comprehensions in `=PY()`.
+2. **Theme-aware visualization styles:**
+   - Detect active LibreOffice light/dark appearance via `get_monaco_theme_info()` and apply theme-aware figure backgrounds and palette hints (`plt.style.use('dark_background')` or transparent canvas in dark mode) so charts look native in dark documents.
+3. **Presentation-ready number & table styling on Calc egress:**
+   - When tabular analysis results write to Calc, apply light default formatting (bold header row, light fill, percentage and 2-decimal number formatting where metadata indicates it).
+
+### Domain-specific polish opportunities {#domain-specific-polish-opportunities}
+
+- **Vision / OCR:**
+  - *Calc direct grid target:* Route `extract_structure` table results directly into active sheet cell ranges instead of HTML-only.
+  - *Initialization feedback:* Display a progress indicator (`"Initializing OCR engine..."`) on the first heavy model invocation in the status chrome.
+- **Symbolic Math (SymPy):**
+  - *`=PY()` multi-solution unpacking:* Ensure multi-solution outputs from `solve_equation` (e.g. `[-2, 2]`) unpack seamlessly into 1D/2D Calc formula arrays.
+  - *Numerical evaluation toggle:* Optional `evaluate=True` / `float_precision=4` parameter on `solve_equation` and `symbolic_simplify` for engineers wanting exact formulas alongside decimal approximations.
+- **Units (Pint):**
+  - *Offset temperature guidance:* Add template examples and warnings for gauge vs difference temperature conversions (`degC` vs `delta_degC`).
+  - *Dimensionality mismatch diagnostics:* Return clear, human-readable dimension descriptions (e.g. `"Incompatible: [length] vs [mass] * [length] / [time]^2"`) when checks fail.
+- **Analysis Helpers (EDA, Regression, Outliers):**
+  - *Target/feature column auto-detection:* Default `target_col` to the last column and `feature_cols` to all preceding numeric columns when omitted.
+  - *Data hygiene helper:* Add a lightweight `clean_data` helper (`drop_na`, `fill_na_median`, `strip_headers`) to prep spreadsheet tables before statistical modeling.
+- **Time Series & Forecasting:**
+  - *Automatic date frequency inference:* Infer business-day (`'B'`) and weekly intervals gracefully to avoid false missing-period warnings on weekends.
+  - *Summary KPI banner:* Add executive summary metrics (`MAPE`, `Expected Next Value`, `Trend %`) above the projected data table.
+- **Text / Document Analytics:**
+  - *Writer in-document highlighting:* Option to highlight detected entities or low-readability sentences directly in Writer text.
+  - *Topic weight breakdown:* Format `topics` output with relative percentage weights per section for quick at-a-glance density inspection.
+- **Optimization (Scipy):**
+  - *Calc range mapping:* Clarify cell-range parameter mappings in `optimize_portfolio` and `linear_program` templates for easy spreadsheet bound referencing.

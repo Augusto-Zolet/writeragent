@@ -72,6 +72,17 @@ def test_picker_domains_unique_origins_and_prefixes():
         assert callable(d.title_fn)
 
 
-def test_picker_order_starts_with_analysis_sql_vision():
+def test_picker_order_starts_with_vision_math_units_analysis():
     origins = [d.origin for d in get_picker_domains()]
-    assert origins[:3] == ["analysis", "sql", "vision"]
+    assert origins[:4] == ["vision", "math", "units", "analysis"]
+    assert origins == [
+        "vision",
+        "math",
+        "units",
+        "analysis",
+        "sql",
+        "viz",
+        "quant",
+        "optimize",
+        "forecast",
+    ]

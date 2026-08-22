@@ -429,32 +429,11 @@ def _picker_builder_for(wiring: PickerWiring) -> Callable[[], PickerDomainSpec]:
 
 PICKER_WIRING: tuple[PickerWiring, ...] = (
     PickerWiring(
-        origin=SCRIPT_ORIGIN_ANALYSIS,
-        display_prefix=ANALYSIS_SCRIPT_DISPLAY_PREFIX,
-        title="Analysis Helpers",
-        supports="calc_only",
-        templates="plugin.scripting.analysis:get_analysis_script_templates",
-    ),
-    PickerWiring(
-        origin=SCRIPT_ORIGIN_SQL,
-        display_prefix=SQL_SCRIPT_DISPLAY_PREFIX,
-        title="SQL Helpers",
-        supports="calc_only",
-        templates="plugin.scripting.duckdb_sql:get_sql_script_templates",
-    ),
-    PickerWiring(
         origin=SCRIPT_ORIGIN_VISION,
         display_prefix=VISION_SCRIPT_DISPLAY_PREFIX,
         title="Vision Helpers",
         supports="plugin.vision.vision_runner:supports_vision_manual",
         templates="plugin.vision.vision_templates:get_vision_script_templates",
-    ),
-    PickerWiring(
-        origin=SCRIPT_ORIGIN_VIZ,
-        display_prefix=VIZ_SCRIPT_DISPLAY_PREFIX,
-        title="Viz Helpers",
-        supports="plugin.scripting.viz:supports_viz_manual",
-        templates="plugin.scripting.viz:get_viz_script_templates",
     ),
     PickerWiring(
         origin=SCRIPT_ORIGIN_MATH,
@@ -469,6 +448,27 @@ PICKER_WIRING: tuple[PickerWiring, ...] = (
         title="Units Helpers",
         supports="plugin.scripting.units:supports_units_manual",
         templates="plugin.scripting.units:get_units_script_templates",
+    ),
+    PickerWiring(
+        origin=SCRIPT_ORIGIN_ANALYSIS,
+        display_prefix=ANALYSIS_SCRIPT_DISPLAY_PREFIX,
+        title="Analysis Helpers",
+        supports="calc_only",
+        templates="plugin.scripting.analysis:get_analysis_script_templates",
+    ),
+    PickerWiring(
+        origin=SCRIPT_ORIGIN_SQL,
+        display_prefix=SQL_SCRIPT_DISPLAY_PREFIX,
+        title="SQL Helpers",
+        supports="calc_only",
+        templates="plugin.scripting.duckdb_sql:get_sql_script_templates",
+    ),
+    PickerWiring(
+        origin=SCRIPT_ORIGIN_VIZ,
+        display_prefix=VIZ_SCRIPT_DISPLAY_PREFIX,
+        title="Viz Helpers",
+        supports="plugin.scripting.viz:supports_viz_manual",
+        templates="plugin.scripting.viz:get_viz_script_templates",
     ),
     PickerWiring(
         origin=SCRIPT_ORIGIN_QUANT,

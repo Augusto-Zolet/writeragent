@@ -203,6 +203,26 @@ def test_build_scripts_list_message_sections():
     assert section_ids[1] == "document"
 
 
+def test_build_scripts_list_section_order_local_doc_vision_math_units_analysis():
+    ctx = MagicMock()
+    props = _UserDefinedProperties()
+    doc = _DocWithUserDefinedProperties(props)
+    doc.getURL = MagicMock(return_value="file:///tmp/test.ods")
+    doc.supportsService = MagicMock(side_effect=lambda s: s == "com.sun.star.sheet.SpreadsheetDocument")
+    attach_document_script(doc, "SheetHelper", "result = 1")
+    with patch("plugin.framework.config.get_config", return_value={"MyLocal": "result = 0"}), patch(
+        "plugin.framework.config.get_config_str", return_value=""
+    ), patch(
+        "plugin.scripting.python_runner.resolve_run_script_name_config_key", return_value="last_python_script_name_calc"
+    ), patch(
+        "plugin.vision.vision_runner.supports_vision_manual", return_value=True
+    ):
+        msg = build_scripts_list_message(ctx, session_doc=doc, session_doc_url="file:///tmp/test.ods")
+    section_ids = [s["id"] for s in msg["sections"]]
+    # Must be local ("user"), then document ("document"), then vision, math, units, analysis, and the rest
+    assert section_ids[:6] == ["user", "document", "vision", "math", "units", "analysis"]
+
+
 def test_build_scripts_list_message_includes_selected_script():
     ctx = MagicMock()
     doc = MagicMock()
