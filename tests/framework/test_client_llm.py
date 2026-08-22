@@ -1073,6 +1073,10 @@ def test_gemini_shim_inline_data():
 
 def test_stream_request_with_tools_tracks_used_model(client, caplog):
     import logging
+    from tests.strip_bundle import skip_if_release_build
+
+    skip_if_release_build("log.info stripped in release bundle")
+
     mock_responses = [
         b'data: {"model": "deepseek/deepseek-r1:free", "choices": [{"delta": {"role": "assistant", "content": "Hello free world"}}]}\n\n',
         b'data: {"model": "deepseek/deepseek-r1:free", "choices": [{"finish_reason": "stop", "delta": {}}]}\n\n',
@@ -1104,6 +1108,10 @@ def test_stream_request_with_tools_tracks_used_model(client, caplog):
 
 def test_sync_request_with_tools_tracks_used_model(client, caplog):
     import logging
+    from tests.strip_bundle import skip_if_release_build
+
+    skip_if_release_build("log.info stripped in release bundle")
+
     sync_resp_body = json.dumps({
         "id": "gen-123",
         "model": "deepseek/deepseek-r1:free",
@@ -1131,5 +1139,8 @@ def test_sync_request_with_tools_tracks_used_model(client, caplog):
         assert result["content"] == "Sync response"
         assert result["model"] == "deepseek/deepseek-r1:free"
         assert any("LLM sync response received" in rec.message and "deepseek/deepseek-r1:free" in rec.message for rec in caplog.records)
+
+
+
 
 

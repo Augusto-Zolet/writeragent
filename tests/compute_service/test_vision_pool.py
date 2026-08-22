@@ -169,3 +169,37 @@ class TestVisionHttpEndpoint:
         assert body["status"] == "error"
         assert "Missing image input" in body["error"]
 
+    def test_vision_endpoint_disabled_when_zero_workers(self) -> None:
+        """When ocr_workers=0 (the default), /v1/vision returns VISION_SERVICE_DISABLED without error."""
+        port = get_free_port()
+        settings = ComputeSettings(
+            host="127.0.0.1",
+            port=port,
+            api_key="vision-secret",
+            ocr_workers=0,
+        )
+        app = create_wsgi_app(settings)
+        server = WSGIDualStackServer("127.0.0.1", port, max_threads=2)
+        server.set_app(app)
+
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        time.sleep(0.15)
+        try:
+            url = f"http://127.0.0.1:{port}"
+            status, body = self._post(
+                url,
+                {"id": "test-zero-workers", "helper": "extract_text", "image_b64": _TINY_PNG_B64},
+                headers={"Authorization": "Bearer vision-secret"},
+            )
+            assert status == 200
+            assert body.get("id") == "test-zero-workers"
+            assert body.get("status") == "error"
+            assert body.get("code") == "VISION_SERVICE_DISABLED"
+            assert "ocr_workers=0" in body.get("error", "")
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
+

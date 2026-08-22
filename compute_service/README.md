@@ -188,7 +188,7 @@ Example JSON: [`python-compute.example.json`](python-compute.example.json).
 | `PYTHON_COMPUTE_THREADS` / `PYTHON_COMPUTE_MAX_THREADS` | Number of HTTP server listener threads | `2` |
 | `PYTHON_COMPUTE_WORKERS` / `PYTHON_COMPUTE_MAX_WORKERS` | Number of formula worker subprocesses | `1` |
 | `PYTHON_COMPUTE_WORKER_MAX_TASKS` | Tasks before recycling formula worker | `500` |
-| `PYTHON_COMPUTE_OCR_WORKERS` | Dedicated OCR/Vision worker subprocesses | `1` |
+| `PYTHON_COMPUTE_OCR_WORKERS` | Dedicated OCR/Vision worker subprocesses | `0` (disabled by default) |
 | `PYTHON_COMPUTE_OCR_TIMEOUT_SEC` | OCR/Vision execution timeout in seconds | `60` |
 | `PYTHON_COMPUTE_OCR_MAX_TASKS` | Tasks before recycling OCR worker process | `100` |
 
@@ -248,7 +248,7 @@ Wire-format detail for `split_grid` and Pickle5: [`docs/numpy-serialization.md`]
 - **Task Recycling**: Recycles worker processes after `worker_max_tasks` (default: 500) to keep memory fragmentation low.
 
 ### 3. Tier 2: Isolated Vision & OCR Pool (`VisionProcessPool`)
-- Dedicated worker subprocesses (`ocr_workers`, default `1`) for heavy Docling and PaddleOCR tasks.
+- Dedicated worker subprocesses (`ocr_workers`, default `0`, disabled until configured) for heavy Docling and PaddleOCR tasks.
 - Confines heavy Machine Learning models, C++ image decoders, and image buffers to a disposable child process so formula calculations are never blocked.
 
 ### 4. Performance Benchmarks: Why Process Pools?

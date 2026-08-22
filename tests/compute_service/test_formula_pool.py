@@ -48,6 +48,26 @@ class TestFormulaPoolSupervisor:
             pool.shutdown()
             assert not pool.is_enabled()
 
+    def test_check_dependencies_success(self) -> None:
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15)
+        try:
+            ok, err = pool.check_dependencies(["numpy", "sympy"])
+            assert ok is True
+            assert err is None
+        finally:
+            pool.shutdown()
+
+    def test_check_dependencies_missing(self) -> None:
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15)
+        try:
+            ok, err = pool.check_dependencies(["nonexistent_pkg_xyz_12345"])
+            assert ok is False
+            assert err is not None
+            assert "nonexistent_pkg_xyz_12345" in err
+            assert "./compute_service/start.sh" in err
+        finally:
+            pool.shutdown()
+
     def test_sticky_session_affinity(self) -> None:
         pool = FormulaProcessPool(num_workers=4, default_timeout_sec=15)
         try:

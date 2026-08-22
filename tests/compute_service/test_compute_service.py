@@ -663,3 +663,46 @@ print("ok")
         )
         assert proc.returncode == 0, proc.stderr
         assert "ok" in proc.stdout
+
+    def test_server_startup_does_not_import_numpy_or_sympy(self) -> None:
+        """Master compute service server must not load heavy packages (numpy, sympy) into memory."""
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        repo = Path(__file__).resolve().parents[2]
+        code = r"""
+import sys
+from compute_service.config import load_settings
+from compute_service.server import create_wsgi_app, WSGIDualStackServer
+
+s = load_settings(environ={"HOST": "127.0.0.1"})
+app = create_wsgi_app(s)
+assert "numpy" not in sys.modules, f"numpy was loaded into master process: {sys.modules.get('numpy')}"
+assert "sympy" not in sys.modules, f"sympy was loaded into master process: {sys.modules.get('sympy')}"
+print("ok")
+"""
+        proc = subprocess.run(
+            [sys.executable, "-c", code],
+            cwd=str(repo),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert proc.returncode == 0, proc.stderr
+        assert "ok" in proc.stdout
+
+    def test_check_dependencies_exit_on_failure(self, monkeypatch, capsys) -> None:
+        """check_dependencies should print error and exit with code 1 if worker pool reports failure."""
+        from compute_service.server import check_dependencies
+
+        mock_pool = MagicMock()
+        mock_pool.check_dependencies.return_value = (False, "Error: fake_pkg is not installed")
+
+        with pytest.raises(SystemExit) as exc_info:
+            check_dependencies(mock_pool)
+
+        assert exc_info.value.code == 1
+        captured = capsys.readouterr()
+        assert "Error: fake_pkg is not installed" in captured.err
+

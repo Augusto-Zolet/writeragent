@@ -46,16 +46,23 @@ def setup_logging(level_name: str = "INFO") -> None:
     log.setLevel(level)
 
 
-def check_dependencies() -> None:
-    """Verify required dependencies are importable; exit if missing."""
-    try:
-        import sympy  # noqa: F401  # pyright: ignore[reportUnusedImport]
-    except ImportError:
+def check_dependencies(pool: Any = None) -> None:
+    """Verify required dependencies are importable in worker; exit if missing."""
+    if pool is None:
+        from compute_service.formula_pool import get_formula_pool
+
+        pool = get_formula_pool()
+    ok, err = pool.check_dependencies(["numpy", "sympy"])
+    if not ok:
         print(
-            "Error: sympy is not installed in the current Python environment.\n"
+            err
+            or "Error: Required dependencies are not installed in the worker Python environment.\n"
             "Please start the server using './compute_service/start.sh' or activate the correct virtual environment.",
             file=sys.stderr,
         )
+        from compute_service.formula_pool import shutdown_formula_pool
+
+        shutdown_formula_pool()
         sys.exit(1)
 
 
@@ -586,7 +593,6 @@ class WSGIDualStackServer:
 
 
 def run_server(settings: ComputeSettings) -> None:
-    check_dependencies()
     setup_logging(settings.log_level)
     auth_note = "auth=yes" if settings.auth_required else "auth=no (insecure)"
     log.info(
@@ -597,10 +603,11 @@ def run_server(settings: ComputeSettings) -> None:
         settings.workers,
         settings.ocr_workers,
     )
-    # Warm up formula and vision worker pools
+    # Warm up formula worker pool and verify dependencies in worker environment
     from compute_service.formula_pool import get_formula_pool
 
-    get_formula_pool(settings)
+    formula_pool = get_formula_pool(settings)
+    check_dependencies(formula_pool)
 
     if settings.ocr_workers > 0:
         from compute_service.vision_pool import get_vision_pool
@@ -677,7 +684,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         dest="ocr_workers",
         type=int,
         default=None,
-        help="Dedicated OCR/Vision worker subprocesses (default: 1, 0 to disable)",
+        help="Dedicated OCR/Vision worker subprocesses (default: 0, 0 to disable)",
     )
     parser.add_argument(
         "--ocr-timeout",

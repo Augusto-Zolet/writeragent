@@ -11,6 +11,7 @@ termination on hangs/timeouts without affecting the master HTTP server.
 
 from __future__ import annotations
 
+import importlib
 import os
 import sys
 import traceback
@@ -28,6 +29,26 @@ from compute_service.worker_base import run_worker_stdio_loop
 
 def _handle_request(req: dict[str, Any]) -> dict[str, Any]:
     req_id = req.get("id")
+    action = req.get("action")
+
+    if action == "check_dependencies":
+        packages = req.get("packages") or ["numpy", "sympy"]
+        missing: list[str] = []
+        for pkg in packages:
+            try:
+                importlib.import_module(str(pkg))
+            except Exception:
+                missing.append(str(pkg))
+        if missing:
+            return {
+                "id": req_id,
+                "status": "error",
+                "code": "MISSING_DEPENDENCIES",
+                "missing": missing,
+                "error": f"Missing required dependencies in worker environment: {', '.join(missing)}",
+            }
+        return {"id": req_id, "status": "ok"}
+
     code = req.get("code")
     if not code or not isinstance(code, str):
         return {

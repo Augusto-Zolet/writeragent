@@ -51,6 +51,43 @@ class FormulaProcessPool(BaseProcessPool):
             worker_name="Formula worker",
         )
 
+    def check_dependencies(
+        self,
+        packages: list[str] | None = None,
+        timeout_sec: float = 10.0,
+    ) -> tuple[bool, str | None]:
+        """Ask an idle worker to verify required dependencies (e.g. numpy, sympy).
+
+        Returns (success, error_message).
+        """
+        if self._is_shutdown or not self.workers:
+            return False, "Formula compute pool is not running."
+
+        target_packages = ["numpy", "sympy"] if packages is None else packages
+        leased = self.lease_any(timeout_sec=timeout_sec)
+        if leased is None:
+            return False, "Failed to lease a formula worker subprocess for dependency check."
+
+        try:
+            payload = {
+                "action": "check_dependencies",
+                "packages": target_packages,
+            }
+            res = leased.execute(payload, timeout_sec=timeout_sec)
+            if res.get("status") == "ok":
+                return True, None
+            missing = res.get("missing")
+            if missing and isinstance(missing, list):
+                missing_str = ", ".join(str(m) for m in missing)
+                return False, (
+                    f"Error: {missing_str} is not installed in the current Python environment.\n"
+                    "Please start the server using './compute_service/start.sh' or activate the correct virtual environment."
+                )
+            err = res.get("error") or "Unknown error during worker dependency check."
+            return False, str(err)
+        finally:
+            self.release_worker(leased)
+
     def execute(
         self,
         code: str,
