@@ -36,3 +36,34 @@ def test_msgbox_uses_product_display_name() -> None:
         session_manager._msgbox(ctx, "hello")
     name.assert_called_once_with(ctx)
     box.assert_called_once_with(ctx, "LibrePy", "hello")
+
+
+def test_find_document_by_predicate_fallback() -> None:
+    """When getCurrentComponent() is None (e.g. headless), fallback to getComponents enumeration."""
+    from unittest.mock import MagicMock, patch
+
+    ctx = MagicMock()
+    mock_desktop = MagicMock()
+    mock_desktop.getCurrentComponent.return_value = None
+
+    mock_calc_doc = MagicMock()
+    mock_calc_doc.getSheets.return_value = MagicMock()
+
+    mock_elem = MagicMock()
+    mock_elem.getURL.return_value = "file:///test.ods"
+    mock_elem.getSheets.return_value = MagicMock()
+
+    mock_comps = MagicMock()
+    mock_enum = MagicMock()
+    mock_enum.hasMoreElements.side_effect = [True, False]
+    mock_enum.nextElement.return_value = mock_elem
+    mock_comps.createEnumeration.return_value = mock_enum
+    mock_desktop.getComponents.return_value = mock_comps
+
+    with (
+        patch("plugin.scripting.session_manager.get_desktop", return_value=mock_desktop),
+        patch("plugin.scripting.session_manager.is_calc", return_value=True),
+    ):
+        doc = session_manager._calc_document(ctx)
+        assert doc is not None
+

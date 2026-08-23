@@ -51,27 +51,46 @@ def python_session_mode(ctx: Any) -> str:
     return "isolated"
 
 
-def _active_document(ctx: Any) -> Any | None:
+def _find_document_by_predicate(ctx: Any, predicate: Any) -> Any | None:
+    """Find active document matching *predicate*, falling back to desktop component enumeration."""
+    # Bugfix (#411): In headless mode or when focus is outside the frame, getCurrentComponent()
+    # returns None. Fall back to desktop.getComponents() enumeration so session reset and
+    # shared-kernel workbook_session_id always resolve the document model.
     try:
+        from plugin.framework.thread_guard import guard_uno
+
         desktop = get_desktop(ctx)
-        return desktop.getCurrentComponent()
+        doc = desktop.getCurrentComponent()
+        if doc is not None and predicate(doc):
+            return guard_uno(doc)
+        comps = desktop.getComponents()
+        if comps is not None and hasattr(comps, "createEnumeration"):
+            enum = comps.createEnumeration()
+            while enum and enum.hasMoreElements():
+                elem = enum.nextElement()
+                model = None
+                if hasattr(elem, "getURL") and callable(getattr(elem, "getURL")):
+                    model = elem
+                elif hasattr(elem, "getController") and getattr(elem, "getController", lambda: None)():
+                    ctrl = elem.getController()
+                    model = ctrl.getModel() if hasattr(ctrl, "getModel") else None
+                if model is not None and predicate(model):
+                    return guard_uno(model)
     except Exception:
-        log.debug("session_manager: could not get current component", exc_info=True)
-        return None
+        log.debug("session_manager: document resolution failed", exc_info=True)
+    return None
+
+
+def _active_document(ctx: Any) -> Any | None:
+    return _find_document_by_predicate(ctx, lambda d: is_calc(d) or is_writer(d))
 
 
 def _calc_document(ctx: Any) -> Any | None:
-    doc = _active_document(ctx)
-    if doc is None or not is_calc(doc):
-        return None
-    return doc
+    return _find_document_by_predicate(ctx, is_calc)
 
 
 def _writer_document(ctx: Any) -> Any | None:
-    doc = _active_document(ctx)
-    if doc is None or not is_writer(doc):
-        return None
-    return doc
+    return _find_document_by_predicate(ctx, is_writer)
 
 
 def _workbook_session_key(doc: Any) -> str:
