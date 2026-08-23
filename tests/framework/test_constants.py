@@ -332,8 +332,12 @@ def test_calc_formula_syntax_sheet_dot_not_excel_bang():
     assert "=PY(\"result = …\"; Orders.A1:H500)" in CALC_FORMULA_SYNTAX
     assert "data.to_pandas().drop_duplicates()" in CALC_FORMULA_SYNTAX
     assert "mixed cell types" in CALC_FORMULA_SYNTAX
+    assert "always 2D" in CALC_FORMULA_SYNTAX
+    assert "not builtin sum" in CALC_FORMULA_SYNTAX
     assert "data.to_pandas()" in CALC_PYTHON_FORMULA_LLM_HINT
     assert "mixed cell types" in CALC_PYTHON_FORMULA_LLM_HINT
+    assert "always 2D" in CALC_PYTHON_FORMULA_LLM_HINT
+    assert "not builtin sum" in CALC_PYTHON_FORMULA_LLM_HINT
 
 
 def test_calc_cell_links_use_calc_dot():

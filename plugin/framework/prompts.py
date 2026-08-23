@@ -531,6 +531,12 @@ PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE = ""
 # Used when the LLM should emit =PY formulas (chat / specialized python paths). Not the =PROMPT() default.
 CALC_PYTHON_FORMULA_LLM_HINT = ""
 
+# Builtin sum/min/max iterate rows of the 2D CalcRange, not cells (column A1:A3 is [[10],[20],[30]]).
+CALC_PYTHON_DATA_SHAPE_LLM_HINT = (
+    "`data` is always 2D (column A1:A3 is [[10],[20],[30]]); use np.sum(data) / np.mean(data), "
+    "not builtin sum/min/max (those iterate rows → TypeError int+list)."
+)
+
 # Default system prompt for Calc =PROMPT() when systemPrompt arg and extend_selection_system_prompt are empty.
 CALC_PROMPT_CELL_SYSTEM_PROMPT = (
     "Answer the user's request directly in plain text suitable for a spreadsheet cell. "
@@ -574,6 +580,7 @@ Other-sheet refs use a dot (Orders.A1), never Excel bang (Orders!A1 → #NAME?).
 - =PY("result = …"; DataRange) writes Python into a cell (omit DataRange if unused).
   A list/table `result` spills down and right into empty cells.
 - Example: =PY("result = np.sum(data)"; Orders.A1:H500).
+- """ + CALC_PYTHON_DATA_SHAPE_LLM_HINT + """
 - Tables (headers, mixed types): =PY("result = data.to_pandas().drop_duplicates()"; Orders.A1:H500). np.unique on mixed rows fails — NumPy object arrays cannot compare/hash mixed cell types."""
 
 # DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE is built in _init_venv_import_policy_strings() (needs import policy).
@@ -906,6 +913,7 @@ def _init_venv_import_policy_strings() -> None:
         compact
         + " When outputting Calc Python formulas: write `=PY(\"result = …\"; A1:A10)`. "
         "Use semicolon (;) argument separators; code runs in the venv sandbox above. "
+        f"{CALC_PYTHON_DATA_SHAPE_LLM_HINT} "
         "Mixed tables: `data.to_pandas()` (np.unique cannot hash mixed cell types)."
         + (f" {calc_plot_hint}" if calc_plot_hint else "")
     )
@@ -917,6 +925,7 @@ Other-sheet refs use a dot (Orders.A1), never Excel bang (Orders!A1 → #NAME?).
   A list/table `result` spills down and right into empty cells.
 {compact}
 - Example: =PY("result = np.sum(data)"; Orders.A1:H500).
+- {CALC_PYTHON_DATA_SHAPE_LLM_HINT}
 - Tables (headers, mixed types): =PY("result = data.to_pandas().drop_duplicates()"; Orders.A1:H500). np.unique on mixed rows fails — NumPy object arrays cannot compare/hash mixed cell types."""
     DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = f"""You are a LibreOffice Calc spreadsheet assistant who creates polished, professional, and colorful spreadsheets.
 Do not explain, do the operation directly using tools. Perform as many steps as needed in one turn when possible.

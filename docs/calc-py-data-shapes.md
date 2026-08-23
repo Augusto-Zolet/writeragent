@@ -45,6 +45,8 @@ When you write `=PY(code; range)`, the add-in:
 | **Column** (e.g. `B1:B10`) | `CalcRange` shape `(N, 1)` | `np.mean(data)` |
 | **2D rectangle** (e.g. `B1:C5`) | `CalcRange` shape `(rows, cols)` | `data.to_pandas()` or `data.to_numpy()` |
 
+Builtin `sum` / `min` / `max` iterate **rows**, not cells (`sum(data)` on a column is `0 + [10] + …` → TypeError). Use `np.sum(data)` / `np.mean(data)` (via `__array__`).
+
 **API (explicit conversions)** — when `data` is a single `CalcRange`:
 
 ```python
