@@ -262,10 +262,10 @@ vendor:
 	uv pip install --target vendor -r requirements-vendor.txt
 
 ensure-uno:
-	@$(PYTHON) scripts/fix_uno_import.py -q
+	@"$(PYTHON)" scripts/fix_uno_import.py -q
 
 fix-uno:
-	@$(PYTHON) scripts/fix_uno_import.py
+	@"$(PYTHON)" scripts/fix_uno_import.py
 
 docker-build:
 	UID=$$(id -u) GID=$$(id -g) docker compose -f builder/docker-compose.yml up --build
@@ -274,25 +274,25 @@ docker-build:
 auto-translate:
 	@echo "Regenerating translation templates (.pot)..."; \
 	$(MAKE) extract-strings; \
-	$(PYTHON) scripts/translate_missing.py --preview; \
+	"$(PYTHON)" scripts/translate_missing.py --preview; \
 	if [ -n "$$OPENROUTER_API_KEY" ]; then \
 		echo "Auto-translating missing strings with AI..."; \
-		$(PYTHON) scripts/translate_missing.py --execute --skip-initial-status; \
+		"$(PYTHON)" scripts/translate_missing.py --execute --skip-initial-status; \
 	fi
 
 refresh-pot:
 	@if command -v xgettext >/dev/null 2>&1; then \
 		echo "Regenerating translation templates (.pot) without updating .po..."; \
-		$(PYTHON) scripts/extract_xdl_strings.py; \
+		"$(PYTHON)" scripts/extract_xdl_strings.py; \
 		xgettext --add-location=file -d writeragent -o locales/writeragent.pot $$(find plugin -name "*.py"); \
-		$(PYTHON) scripts/merge_module_yaml_into_pot.py locales/writeragent.pot; \
+		"$(PYTHON)" scripts/merge_module_yaml_into_pot.py locales/writeragent.pot; \
 		rm -f plugin/xdl_strings.py; \
 	else \
 		echo "Skipping .pot regeneration (xgettext not found; install gettext: choco install gettext.install)"; \
 	fi
 
 preview-translations: refresh-pot
-	$(PYTHON) scripts/translate_missing.py --preview
+	"$(PYTHON)" scripts/translate_missing.py --preview
 
 
 ifeq ($(USE_DOCKER),1)
@@ -301,13 +301,13 @@ build: ty ruff-for-build preview-translations compile-translations
 else
 build: ty ruff-for-build preview-translations vendor manifest compile-translations
 	@echo "Building $(EXTENSION_NAME).oxt (with tests)..."
-	$(PYTHON) $(SCRIPTS)/build_oxt.py --output build/$(EXTENSION_NAME).oxt $(if $(filter 1,$(NO_RECORDING)),--no-recording)
+	"$(PYTHON)" $(SCRIPTS)/build_oxt.py --output build/$(EXTENSION_NAME).oxt $(if $(filter 1,$(NO_RECORDING)),--no-recording)
 	@echo "Done: build/$(EXTENSION_NAME).oxt  (bundle in build/bundle/)"
 endif
 
 build-no-recording: ty ruff-for-build preview-translations vendor manifest compile-translations
 	@echo "Building $(EXTENSION_NAME).oxt (no voice recording)..."
-	$(PYTHON) $(SCRIPTS)/build_oxt.py --no-recording --output build/$(EXTENSION_NAME).oxt
+	"$(PYTHON)" $(SCRIPTS)/build_oxt.py --no-recording --output build/$(EXTENSION_NAME).oxt
 	@echo "Done: build/$(EXTENSION_NAME).oxt  (bundle in build/bundle/)"
 
 # Full verification: typecheck, bandit, then a stripped-with-tests tree in /tmp
@@ -318,15 +318,15 @@ release: clean
 	@$(MAKE) bandit
 	@echo "Building stripped bundle for verification in a temp dir..."
 	@set -e; \
-	RELEASE_TMP=$$($(PYTHON) -c "import tempfile; print(tempfile.mkdtemp(prefix='writeragent-release-'))"); \
+	RELEASE_TMP=$$("$(PYTHON)" -c "import tempfile; print(tempfile.mkdtemp(prefix='writeragent-release-'))"); \
 	trap '$(MAKE) -C "$(PROJECT_ROOT)" lo-kill || true; rm -rf "$$RELEASE_TMP"' EXIT; \
 	echo "Stripped verification tree: $$RELEASE_TMP"; \
-	$(PYTHON) $(SCRIPTS)/build_oxt.py --strip --bundle-dir "$$RELEASE_TMP" --skip-zip; \
-	$(PYTHON) -m compileall -j 0 -q "$$RELEASE_TMP/plugin" "$$RELEASE_TMP/tests"; \
+	"$(PYTHON)" $(SCRIPTS)/build_oxt.py --strip --bundle-dir "$$RELEASE_TMP" --skip-zip; \
+	"$(PYTHON)" -m compileall -j 0 -q "$$RELEASE_TMP/plugin" "$$RELEASE_TMP/tests"; \
 	cp pyproject.toml "$$RELEASE_TMP/pyproject.toml"; \
 	echo "Running tests against stripped bundle..."; \
 	echo "  (grammar_obs call-site tests self-skip via _grammar_obs_call_sites_present; whole modules ignored below)"; \
-	cd "$$RELEASE_TMP" && PYTHONPATH=. $(abspath $(PYTHON)) -m pytest --ignore=tests/scripts --ignore=tests/compute_service --ignore=tests/test_fix_uno_import.py --ignore=tests/test_merge_module_yaml_into_pot.py --ignore=tests/framework/test_logging.py --ignore=tests/writer/locale/test_grammar_linguistic_xcu.py --ignore=tests/scripting/test_generate_tool_proxies.py --ignore=tests/framework/test_thread_guard.py --ignore=tests/framework/test_thread_affinity.py --ignore=tests/framework/test_thread_token.py --ignore=tests/doc/test_specialized_delegation_threading.py --ignore=tests/writer/locale/test_grammar_obs.py --ignore=tests/writer/locale/test_libreharper_oxt.py -k "not test_sync_tool_marshaled_from_background and not test_execute_on_main_thread_timeout and not test_execute_python_addin_from_background_thread" tests; \
+	cd "$$RELEASE_TMP" && PYTHONPATH=. "$(abspath $(PYTHON))" -m pytest --ignore=tests/scripts --ignore=tests/compute_service --ignore=tests/test_fix_uno_import.py --ignore=tests/test_merge_module_yaml_into_pot.py --ignore=tests/framework/test_logging.py --ignore=tests/writer/locale/test_grammar_linguistic_xcu.py --ignore=tests/scripting/test_generate_tool_proxies.py --ignore=tests/framework/test_thread_guard.py --ignore=tests/framework/test_thread_affinity.py --ignore=tests/framework/test_thread_token.py --ignore=tests/doc/test_specialized_delegation_threading.py --ignore=tests/writer/locale/test_grammar_obs.py --ignore=tests/writer/locale/test_libreharper_oxt.py -k "not test_sync_tool_marshaled_from_background and not test_execute_on_main_thread_timeout and not test_execute_python_addin_from_background_thread" tests; \
 	cd "$$RELEASE_TMP" && PYTHONPATH=. $(LO_PYTHON) -m plugin.testing_runner; \
 	$(MAKE) -C "$(PROJECT_ROOT)" release-build; \
 	$(MAKE) -C "$(PROJECT_ROOT)" register-built-oxt
@@ -336,22 +336,22 @@ release-no-test:
 	@$(MAKE) register-built-oxt
 
 openrouter-catalog:
-	$(PYTHON) scripts/sync_orca_openrouter_catalog.py
-	$(PYTHON) -m ruff format plugin/framework/default_models.py
+	"$(PYTHON)" scripts/sync_orca_openrouter_catalog.py
+	"$(PYTHON)" -m ruff format plugin/framework/default_models.py
 
 update-xml:
-	$(PYTHON) -c "import sys; sys.path.insert(0, '$(SCRIPTS)'); from manifest_registry import generate_update_xml; generate_update_xml('$(PROJECT_ROOT)', 'update.xml')"
+	"$(PYTHON)" -c "import sys; sys.path.insert(0, '$(SCRIPTS)'); from manifest_registry import generate_update_xml; generate_update_xml('$(PROJECT_ROOT)', 'update.xml')"
 
 release-build: auto-translate vendor manifest openrouter-catalog compile-translations update-xml
 	@echo "Building $(EXTENSION_NAME).oxt (release, bundle without tests)..."
-	$(PYTHON) $(SCRIPTS)/build_oxt.py --no-tests --output build/$(EXTENSION_NAME).oxt $(if $(filter 1,$(NO_RECORDING)),--no-recording)
+	"$(PYTHON)" $(SCRIPTS)/build_oxt.py --no-tests --output build/$(EXTENSION_NAME).oxt $(if $(filter 1,$(NO_RECORDING)),--no-recording)
 	@echo "Done: build/$(EXTENSION_NAME).oxt  (bundle in build/bundle/)"
 
 
 
 repack:
 	@echo "Re-packing from build/bundle/..."
-	$(PYTHON) $(SCRIPTS)/build_oxt.py --repack --output build/$(EXTENSION_NAME).oxt
+	"$(PYTHON)" $(SCRIPTS)/build_oxt.py --repack --output build/$(EXTENSION_NAME).oxt
 	@echo "Done: build/$(EXTENSION_NAME).oxt"
 
 repack-deploy: repack register-built-oxt
@@ -374,10 +374,10 @@ register-built-oxt:
 	@echo "Registered org.extension.writeragent (start LibreOffice manually to load it)."
 
 manifest:
-	$(PYTHON) $(SCRIPTS)/generate_manifest.py
+	"$(PYTHON)" $(SCRIPTS)/generate_manifest.py
 
 manifest-core:
-	$(PYTHON) $(SCRIPTS)/generate_manifest.py --modules scripting vision \
+	"$(PYTHON)" $(SCRIPTS)/generate_manifest.py --modules scripting vision \
 		--manifest-output build/generated/_manifest_librepy.py \
 		--skip-writeragent-extension --skip-addons
 
@@ -386,7 +386,7 @@ rdb-core:
 
 build-core: vendor manifest-core rdb-core compile-translations-core
 	@echo "Building LibrePy.oxt (standalone core extension)..."
-	$(PYTHON) $(SCRIPTS)/build_librepy_oxt.py --output $(LIBREPY_OXT)
+	"$(PYTHON)" $(SCRIPTS)/build_librepy_oxt.py --output $(LIBREPY_OXT)
 	@echo "Done: $(LIBREPY_OXT)  (bundle in build/bundle-librepy/)"
 
 build-core-native: native build-core
@@ -412,7 +412,7 @@ manifest-harper:
 
 build-harper: vendor
 	@echo "Building LibreHarper.oxt (Harper grammar Linguistic2 proofreader)..."
-	$(PYTHON) $(SCRIPTS)/build_libreharper_oxt.py --output $(LIBREHARPER_OXT)
+	"$(PYTHON)" $(SCRIPTS)/build_libreharper_oxt.py --output $(LIBREHARPER_OXT)
 	@echo "Done: $(LIBREHARPER_OXT)  (bundle in build/bundle-libreharper/)"
 
 register-libreharper-oxt:
@@ -434,7 +434,7 @@ sync-vec:
 	cp contrib/vec_pack/pack.* plugin/contrib/vec_pack/ 2>/dev/null || true
 
 native:
-	cd native/writeragent_vec && $(PYTHON) setup.py build_ext --inplace
+	cd native/writeragent_vec && "$(PYTHON)" setup.py build_ext --inplace
 	$(MKDIR) plugin/contrib/vec_pack
 	cp native/writeragent_vec/src/writeragent_vec/*.so plugin/contrib/vec_pack/ 2>/dev/null || \
 	cp native/writeragent_vec/src/writeragent_vec/*.pyd plugin/contrib/vec_pack/ 2>/dev/null || true
@@ -453,10 +453,10 @@ update-vec:
 		echo "Usage: make update-vec WHEELS_DIR=/path/to/wheels"; \
 		exit 1; \
 	fi
-	$(PYTHON) scripts/update_vec_contrib.py "$(WHEELS_DIR)"
+	"$(PYTHON)" scripts/update_vec_contrib.py "$(WHEELS_DIR)"
 
 update-vec-fetch:
-	$(PYTHON) scripts/update_vec_contrib.py --fetch
+	"$(PYTHON)" scripts/update_vec_contrib.py --fetch
 
 # Convenience target to build with Cython accelerator
 build-native: native build
@@ -468,7 +468,7 @@ clean-native:
 	$(RM_RF) native/writeragent_vec/src/writeragent_vec/*.c
 
 proxy-stubs:
-	$(PYTHON) scripts/generate_tool_proxies.py > plugin/scripting/writeragent_api.py
+	"$(PYTHON)" scripts/generate_tool_proxies.py > plugin/scripting/writeragent_api.py
 
 xcu: manifest
 
@@ -566,9 +566,9 @@ nuke-cache-force:
 # ── Translation ──────────────────────────────────────────────────────────────
 extract-strings:
 	@if command -v xgettext >/dev/null 2>&1; then \
-		$(PYTHON) scripts/extract_xdl_strings.py; \
+		"$(PYTHON)" scripts/extract_xdl_strings.py; \
 		xgettext --add-location=file -d writeragent -o locales/writeragent.pot $$(find plugin -name "*.py"); \
-		$(PYTHON) scripts/merge_module_yaml_into_pot.py locales/writeragent.pot; \
+		"$(PYTHON)" scripts/merge_module_yaml_into_pot.py locales/writeragent.pot; \
 		rm -f plugin/xdl_strings.py; \
 		$(MAKE) merge-translations; \
 	else \
@@ -596,7 +596,7 @@ reset-lang: refresh-pot
 	$(MAKE) add-language LANG=$(LANG)
 
 translate-missing:
-	$(PYTHON) scripts/translate_missing.py --execute
+	"$(PYTHON)" scripts/translate_missing.py --execute
 
 compile-translations:
 	@if command -v msgfmt >/dev/null 2>&1; then \
@@ -606,7 +606,7 @@ compile-translations:
 	fi
 
 compile-translations-core:
-	$(PYTHON) $(SCRIPTS)/build_librepy_locales.py
+	"$(PYTHON)" $(SCRIPTS)/build_librepy_locales.py
 
 
 # ── Shortcuts ───────────────────────────────────────────────────────────────
@@ -645,7 +645,7 @@ check-setup:
 check-ext:
 	@$(UNOPKG) list 2>&1 | head -10
 	@echo "---"
-	@$(PYTHON) -c "from plugin._manifest import MODULES; print('Manifest OK: %d modules, %d with config' % (len(MODULES), len([m for m in MODULES if m.get('config')])))"
+	@"$(PYTHON)" -c "from plugin._manifest import MODULES; print('Manifest OK: %d modules, %d with config' % (len(MODULES), len([m for m in MODULES if m.get('config')])))"
 
 # For LO tests: use Python that has uno/officehelper (LibreOffice's Python on Windows;
 # otherwise same as "python -m plugin.testing_runner").
@@ -659,19 +659,19 @@ typecheck: manifest ruff-for-build
 	@$(MAKE) pyspector
 
 test-run:
-	$(PYTHON) -m pytest tests -m "not slow and not integration"
+	"$(PYTHON)" -m pytest tests -m "not slow and not integration"
 	@$(MAKE) lo-kill
 	$(LO_PYTHON) -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 
 test-durations:
-	$(PYTHON) -m pytest tests -m "not slow and not integration" --durations=40
+	"$(PYTHON)" -m pytest tests -m "not slow and not integration" --durations=40
 
 # Deep Hypothesis for make vhs / slowtests (serialization env kept as alias).
 _VHS_EXTENSIVE = WRITERAGENT_VHS_EXTENSIVE=1 WRITERAGENT_SERIALIZATION_EXTENSIVE=1
 
 slowtests:
 	@echo "=== [1/2] Serialization contracts + extensive A/B fixtures ==="
-	$(_VHS_EXTENSIVE) $(PYTHON) -m pytest \
+	$(_VHS_EXTENSIVE) "$(PYTHON)" -m pytest \
 		tests/scripting/test_serialization_verification.py \
 		tests/scripting/test_serialization_ab.py -k "not hypothesis" -q
 	@echo "=== [2/2] Hypothesis fuzz (vhs: serialization + FSM/MCP) ==="
@@ -679,7 +679,7 @@ slowtests:
 
 vhs:
 	@echo "Running deep Hypothesis fuzz (serialization + FSM + Phase 8 + security/normalize)..."
-	$(_VHS_EXTENSIVE) $(PYTHON) -m pytest \
+	$(_VHS_EXTENSIVE) "$(PYTHON)" -m pytest \
 		tests/scripting/test_serialization_ab.py \
 		tests/chatbot/test_fsm_verification.py \
 		tests/mcp/test_mcp_state_verification.py \
@@ -710,8 +710,8 @@ opengrep-lint:
 	$(OPENGREP_ENV) "$(OPENGREP)" scan $(OPENGREP_SCAN_FLAGS) $(foreach c,$(OPENGREP_CONFIGS),-c $(c)) plugin
 
 thread-safety-lint:
-	$(PYTHON) scripts/lint_thread_safety.py plugin/calc/python plugin/scripting
-	$(PYTHON) scripts/analyze_thread_deadlocks.py plugin
+	"$(PYTHON)" scripts/lint_thread_safety.py plugin/calc/python plugin/scripting
+	"$(PYTHON)" scripts/analyze_thread_deadlocks.py plugin
 
 uno-thread-lint: opengrep-lint thread-safety-lint
 
@@ -742,7 +742,7 @@ excel-py-roundtrip:
 	@if ! ls PythonExcelSamples/*.xlsx >/dev/null 2>&1; then \
 		echo "excel-py-roundtrip: no PythonExcelSamples/*.xlsx — skipped"; \
 	else \
-		$(PYTHON) scripts/roundtrip_excel_py_samples.py --samples PythonExcelSamples --out build/excel_py_roundtrip; \
+		"$(PYTHON)" scripts/roundtrip_excel_py_samples.py --samples PythonExcelSamples --out build/excel_py_roundtrip; \
 	fi
 
 test:
@@ -757,10 +757,10 @@ CROSSHAIR_MODULE = plugin/scripting/payload_codec.py
 
 verify:
 	@echo "=== Running All Formal Verification Unit Tests ==="
-	$(PYTHON) -m pytest tests/ -k "verification" -q
+	"$(PYTHON)" -m pytest tests/ -k "verification" -q
 
 install-fizzbee:
-	$(PYTHON) scripts/install_fizzbee.py --install
+	"$(PYTHON)" scripts/install_fizzbee.py --install
 
 check-fizzbee:
 	@if command -v fizzbee >/dev/null 2>&1 || [ -x .venv/bin/fizzbee ]; then \
@@ -771,32 +771,32 @@ check-fizzbee:
 		$$FB tests/mcp/fizzbee/calc_tools_model.fizz; \
 	else \
 		echo "FizzBee is not installed. Run 'make install-fizzbee' or check docs/mcp-fizzbee-testing.md."; \
-		$(PYTHON) scripts/install_fizzbee.py --check; \
+		"$(PYTHON)" scripts/install_fizzbee.py --check; \
 	fi
 
 # CrossHair on entire module files (correctness over speed; see docs/framework-formal-verification.md)
 # Use stream.py `run` (not a shell pipe) so engine crashes and exit codes are classified + summarized.
 crosshair-check:
-	$(PYTHON) scripts/crosshair_stream.py run check -- -v --report_all $(CROSSHAIR_MODULE)
+	"$(PYTHON)" scripts/crosshair_stream.py run check -- -v --report_all $(CROSSHAIR_MODULE)
 
 crosshair-cover:
-	$(PYTHON) scripts/crosshair_stream.py run cover -- -v $(CROSSHAIR_MODULE)
+	"$(PYTHON)" scripts/crosshair_stream.py run cover -- -v $(CROSSHAIR_MODULE)
 
 # Every plugin file with @deal. (deal contracts only). Not part of make test.
 # Regular: 25 uninteresting iters + 5s per condition + 120s module wall. Deep: 200 iters, no timeout/wall.
 # Regular payload_codec only: 5 / 5s (module_check_bounds / module_cover_bounds).
 crosshair-check-all:
-	$(PYTHON) scripts/crosshair_check_all.py
+	"$(PYTHON)" scripts/crosshair_check_all.py
 
 crosshair-check-all-deep:
-	$(PYTHON) scripts/crosshair_check_all.py --deep
+	"$(PYTHON)" scripts/crosshair_check_all.py --deep
 
 # Cover (example synthesis) on the same @deal. set / skip list. Not part of make test.
 crosshair-cover-all:
-	$(PYTHON) scripts/crosshair_cover_all.py
+	"$(PYTHON)" scripts/crosshair_cover_all.py
 
 crosshair-cover-all-deep:
-	$(PYTHON) scripts/crosshair_cover_all.py --deep
+	"$(PYTHON)" scripts/crosshair_cover_all.py --deep
 
 # ── Benchmarks (scripts/prompt_optimization) ─────────────────────────────────
 
@@ -807,7 +807,7 @@ eval-deps:
 	uv pip install -r $(PO_EVAL_REQ)
 
 run_eval:
-	$(PYTHON) scripts/benchmark.py $(EVAL_ARGS)
+	"$(PYTHON)" scripts/benchmark.py $(EVAL_ARGS)
 
 run_eval-smoke:
 	$(MAKE) run_eval EVAL_ARGS="--models qwen/qwen3-coder-next -n 1 -j 1"
@@ -818,7 +818,7 @@ set-config:
 	@echo "Usage: make deploy WRITERAGENT_SET_CONFIG=\"mcp.port=9000,mcp.host=0.0.0.0\""
 	@echo ""
 	@echo "Available config keys (module.key = default):"
-	@$(PYTHON) -c "from plugin._manifest import MODULES; \
+	@"$(PYTHON)" -c "from plugin._manifest import MODULES; \
 	[print('  %s.%s = %s' % (m['name'], k, v.get('default',''))) \
 	 for m in MODULES for k,v in m.get('config',{}).items()]"
 
@@ -859,47 +859,47 @@ basedpyright: manifest basedpyright-run
 pyrefly: manifest pyrefly-run
 
 ty-run: ensure-uno
-	$(PYTHON) -m ty check --exclude plugin/contrib/ --exclude plugin/lib/
+	"$(PYTHON)" -m ty check --exclude plugin/contrib/ --exclude plugin/lib/
 
 mypy-run: ensure-uno
-	$(PYTHON) -m mypy
+	"$(PYTHON)" -m mypy
 
 # Future task: try enabling `reportMissingTypeArgument = true` in pyproject.toml to enforce generic type parameters (dict[str, Any], list[str])
 basedpyright-run: ensure-uno
-	$(PYTHON) -m basedpyright
+	"$(PYTHON)" -m basedpyright
 
 pyrefly-run: ensure-uno
-	$(PYTHON) -m pyrefly check
+	"$(PYTHON)" -m pyrefly check
 
 bandit:
-	$(PYTHON) -m bandit -r plugin -c pyproject.toml --severity-level medium
+	"$(PYTHON)" -m bandit -r plugin -c pyproject.toml --severity-level medium
 
 # Cross-file / AI-agent SAST (part of make typecheck / make test; not build/release).
 # Wrapper disables reviewed FP rules; see scripts/run_pyspector.py.
 pyspector:
-	@$(PYTHON) -c "import pyspector" 2>/dev/null || (echo "pyspector not found — run: uv sync" && exit 1)
-	$(PYTHON) $(SCRIPTS)/run_pyspector.py scan plugin --ai -c pyspector.toml --msg=False
+	@"$(PYTHON)" -c "import pyspector" 2>/dev/null || (echo "pyspector not found — run: uv sync" && exit 1)
+	"$(PYTHON)" $(SCRIPTS)/run_pyspector.py scan plugin --ai -c pyspector.toml --msg=False
 
 pyspector-report:
-	@$(PYTHON) -c "import pyspector" 2>/dev/null || (echo "pyspector not found — run: uv sync" && exit 1)
+	@"$(PYTHON)" -c "import pyspector" 2>/dev/null || (echo "pyspector not found — run: uv sync" && exit 1)
 	@$(MKDIR) build
-	$(PYTHON) $(SCRIPTS)/run_pyspector.py scan plugin --ai -c pyspector.toml --msg=False -f json -o build/pyspector-report.json
+	"$(PYTHON)" $(SCRIPTS)/run_pyspector.py scan plugin --ai -c pyspector.toml --msg=False -f json -o build/pyspector-report.json
 
 # demos/ is never in the ruff gate (local packs only).
 RUFF_PATHS := plugin tests scripts
 
 ruff:
-	$(PYTHON) -m ruff check $(RUFF_PATHS)
+	"$(PYTHON)" -m ruff check $(RUFF_PATHS)
 
 ruff-fix:
-	$(PYTHON) -m ruff check $(RUFF_PATHS) --fix
+	"$(PYTHON)" -m ruff check $(RUFF_PATHS) --fix
 
 # Build gate: auto-fix then verify (standalone `make ruff` remains check-only).
 ruff-for-build: ruff-fix ruff
 
 ruff-format-check:
-	$(PYTHON) -m ruff format --check plugin
+	"$(PYTHON)" -m ruff format --check plugin
 
 # Grammar proofreader: formatting this file only is faster than `ruff format plugin`.
 ruff-format-grammar:
-	$(PYTHON) -m ruff format plugin/writer/locale/ai_grammar_proofreader.py
+	"$(PYTHON)" -m ruff format plugin/writer/locale/ai_grammar_proofreader.py
