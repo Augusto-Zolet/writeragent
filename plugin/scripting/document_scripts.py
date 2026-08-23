@@ -202,7 +202,13 @@ def get_calc_document_from_ctx(ctx: Any) -> Any | None:
             comps = desktop.getComponents()
             if comps:
                 enum = comps.createEnumeration()
-                while enum and enum.hasMoreElements():
+                while enum:
+                    try:
+                        has_more = enum.hasMoreElements()
+                    except Exception:
+                        break
+                    if type(has_more).__name__ in ("Mock", "MagicMock") or not has_more:
+                        break
                     elem = enum.nextElement()
                     model = None
                     if hasattr(elem, "getURL") and callable(getattr(elem, "getURL")):

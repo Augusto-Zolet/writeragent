@@ -517,7 +517,7 @@ def check_disposed(model, context_name="Object"):
 
 
 def safe_uno_call(default=None):
-    """Decorator to safely call UNO methods with automatic error handling."""
+    """Decorator to safely call UNO methods with automatic error handling, returning default on failure (disposal exceptions re-raised)."""
 
     def decorator(func):
         from functools import wraps
@@ -527,12 +527,20 @@ def safe_uno_call(default=None):
             try:
                 return func(*args, **kwargs)
             except Exception as e:
-                # Catch potential DisposedException and RuntimeException from UNO bridge
                 e_name = type(e).__name__
-                if "DisposedException" in e_name or "RuntimeException" in e_name:
-                    raise DocumentDisposedError(f"UNO object disposed during {func.__name__}", object_type=func.__name__, details={"args": str(args), "kwargs": str(kwargs), "original_error": str(e)}) from e
-                else:
-                    raise UnoObjectError(f"UNO call {func.__name__} failed", details={"error": str(e), "type": e_name}) from e
+                if "DisposedException" in e_name or isinstance(e, DocumentDisposedError):
+                    raise DocumentDisposedError(
+                        f"UNO object disposed during {func.__name__}",
+                        object_type=func.__name__,
+                        details={"args": str(args), "kwargs": str(kwargs), "original_error": str(e)},
+                    ) from e
+                logging.getLogger("writeragent.errors").debug(
+                    "safe_uno_call: %s failed (%s), returning default %r",
+                    func.__name__,
+                    e,
+                    default,
+                )
+                return default
 
         return wrapper
 

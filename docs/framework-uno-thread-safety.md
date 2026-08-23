@@ -262,6 +262,15 @@ All UNO objects must be wrapped at birth using `guard_uno(obj)` or obtained via 
 - **The Bug**: `_process_events()` in `plugin/calc/charts.py` called `toolkit.processEventsToIdle()` on a path that could run without an active frame or on background worker threads.
 - **The Fix**: Direct VCL event pumps are restricted to approved UI drain chokepoints (`pump_ui_idle` / `process_events_to_idle`) and verified by Semgrep rule `raw-process-events-to-idle`.
 
+### Case Study 3: Shared-Kernel =PY() Recalc on Yellow Context & UI-Thread Cached Sessions (Issue #411)
+- **The Bug**: During Calc formula recalculations on background/bridge threads (`sync_host_dispatch()`), `=PY()` formulas in shared mode evaluated without an explicit `doc` argument (`PythonFunction(ctx)` default constructor). Attempting to resolve the active document via `_calc_document(ctx)` / `desktop.getCurrentComponent()` / `desktop.getComponents()` off-main tripped the Layer A thread guard in dev builds (`UNO call wrapper failed`), and risked first-matching the wrong workbook in release builds. Furthermore, after Resetting the Python Session, custom helper functions defined in the init script threw sandbox `Forbidden function evaluation` if helper tools were not re-seeded into the worker executor.
+- **The Fix Applied**:
+  - **Yellow context desktop query prohibition**: Formula execution under `sync_host_dispatch()` is strictly forbidden from querying `desktop.getCurrentComponent()` or `desktop.getComponents()`.
+  - **UI-Thread-Cached Session String & Init Kwargs**: The active Calc session ID and init kwargs are recorded on the UI thread (`record_active_calc_session`) during workbook load, focus, and reset. Off-main formula recalculations retrieve the cached session string and init kwargs (`get_cached_calc_session_id`, `get_cached_calc_init_kwargs`) without touching UNO.
+  - **Proxy Unwrapping & Fallback Resilience**: `_workbook_session_key()` unwraps `_UnoThreadGuardProxy` (`_unwrap_uno(doc)`) before accessing `getURL()` / custom document properties, avoiding nested proxy failures.
+  - **Immediate Init Script & Helper Re-Seed**: `reset_workbook_python_session()` clears both the base `calc:…` and `:init` companion session in the worker sandbox, and immediately re-evaluates the init script to restore custom tools (`custom_tools`) and bindings across both shared and isolated sessions.
+  - **`safe_uno_call` Distinction**: `safe_uno_call` re-raises `DocumentDisposedError` / `DisposedException` while returning `default` for non-disposal bridge failures.
+
 ---
 
 ## 9. Specialized Sub-Agents & Tools Threading

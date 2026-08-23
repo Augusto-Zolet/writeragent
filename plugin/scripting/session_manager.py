@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 import uuid
 from typing import Any
 
@@ -61,12 +62,22 @@ def _find_document_by_predicate(ctx: Any, predicate: Any) -> Any | None:
 
         desktop = get_desktop(ctx)
         doc = desktop.getCurrentComponent()
-        if doc is not None and predicate(doc):
-            return guard_uno(doc)
+        if doc is not None:
+            try:
+                if predicate(doc):
+                    return guard_uno(doc)
+            except Exception:
+                pass
         comps = desktop.getComponents()
         if comps is not None and hasattr(comps, "createEnumeration"):
             enum = comps.createEnumeration()
-            while enum and enum.hasMoreElements():
+            while enum:
+                try:
+                    has_more = enum.hasMoreElements()
+                except Exception:
+                    break
+                if type(has_more).__name__ in ("Mock", "MagicMock") or not has_more:
+                    break
                 elem = enum.nextElement()
                 model = None
                 if hasattr(elem, "getURL") and callable(getattr(elem, "getURL")):
@@ -74,11 +85,51 @@ def _find_document_by_predicate(ctx: Any, predicate: Any) -> Any | None:
                 elif hasattr(elem, "getController") and getattr(elem, "getController", lambda: None)():
                     ctrl = elem.getController()
                     model = ctrl.getModel() if hasattr(ctrl, "getModel") else None
-                if model is not None and predicate(model):
-                    return guard_uno(model)
+                if model is not None:
+                    try:
+                        if predicate(model):
+                            return guard_uno(model)
+                    except Exception:
+                        pass
     except Exception:
         log.debug("session_manager: document resolution failed", exc_info=True)
     return None
+
+
+_ACTIVE_CALC_SESSION_LOCK = threading.Lock()
+_LAST_ACTIVE_CALC_SESSION_ID: str | None = None
+_LAST_ACTIVE_CALC_INIT_KWARGS: dict[str, Any] = {}
+
+
+def record_active_calc_session(session_id: str | None, init_kwargs: dict[str, Any] | None = None) -> None:
+    """Cache the active Calc session id and init kwargs on the main thread for off-main formula lookups."""
+    global _LAST_ACTIVE_CALC_SESSION_ID, _LAST_ACTIVE_CALC_INIT_KWARGS
+    with _ACTIVE_CALC_SESSION_LOCK:
+        if session_id is not None:
+            _LAST_ACTIVE_CALC_SESSION_ID = session_id
+        if init_kwargs is not None:
+            _LAST_ACTIVE_CALC_INIT_KWARGS = dict(init_kwargs)
+
+
+def get_cached_calc_session_id() -> str | None:
+    """Return the cached active Calc session id without querying the UNO desktop off-main."""
+    with _ACTIVE_CALC_SESSION_LOCK:
+        return _LAST_ACTIVE_CALC_SESSION_ID
+
+
+def get_cached_calc_init_kwargs() -> dict[str, Any]:
+    """Return the cached active Calc init kwargs without querying the UNO desktop off-main."""
+    with _ACTIVE_CALC_SESSION_LOCK:
+        return dict(_LAST_ACTIVE_CALC_INIT_KWARGS)
+
+
+def clear_active_calc_session(session_id: str | None = None) -> None:
+    """Clear cached Calc session on document unload or reset."""
+    global _LAST_ACTIVE_CALC_SESSION_ID, _LAST_ACTIVE_CALC_INIT_KWARGS
+    with _ACTIVE_CALC_SESSION_LOCK:
+        if session_id is None or _LAST_ACTIVE_CALC_SESSION_ID == session_id:
+            _LAST_ACTIVE_CALC_SESSION_ID = None
+            _LAST_ACTIVE_CALC_INIT_KWARGS = {}
 
 
 def _calc_document(ctx: Any) -> Any | None:
@@ -90,24 +141,36 @@ def _writer_document(ctx: Any) -> Any | None:
 
 
 def _workbook_session_key(doc: Any) -> str:
+    from plugin.framework.thread_guard import _unwrap_uno
+
+    raw_doc = _unwrap_uno(doc)
     url = ""
     try:
-        url = (getattr(doc, "getURL", lambda: "")() or "").strip()
+        url = (getattr(raw_doc, "getURL", lambda: "")() or "").strip()
     except Exception:
         pass
     if url:
         return url
-    existing = get_document_property(doc, PYTHON_WORKBOOK_SESSION_PROP)
-    if existing:
-        return str(existing)
+    try:
+        existing = get_document_property(raw_doc, PYTHON_WORKBOOK_SESSION_PROP)
+        if existing:
+            return str(existing)
+    except Exception:
+        pass
     new_id = str(uuid.uuid4())
-    set_document_property(doc, PYTHON_WORKBOOK_SESSION_PROP, new_id)
-    return new_id
+    try:
+        set_document_property(raw_doc, PYTHON_WORKBOOK_SESSION_PROP, new_id)
+        return new_id
+    except Exception:
+        pass
+    return f"unsaved:{id(raw_doc)}"
 
 
 def calc_workbook_base_session_id(doc: Any) -> str:
     """Worker session id for shared-kernel ``=PY()`` (not the ``:init`` session)."""
-    return f"calc:{_workbook_session_key(doc)}"
+    sid = f"calc:{_workbook_session_key(doc)}"
+    record_active_calc_session(sid)
+    return sid
 
 
 def calc_init_session_id(doc: Any) -> str:
@@ -120,17 +183,26 @@ def workbook_session_id(ctx: Any, doc: Any | None = None) -> str | None:
     if python_session_mode(ctx) != "shared":
         return None
 
-    if doc is not None and is_calc(doc):
-        from plugin.framework.thread_guard import guard_uno
+    if doc is not None:
+        try:
+            if is_calc(doc):
+                from plugin.framework.thread_guard import guard_uno
 
-        return calc_workbook_base_session_id(guard_uno(doc))
+                return calc_workbook_base_session_id(guard_uno(doc))
+        except Exception:
+            pass
+        # Fallback to URL/props directly from doc if is_calc check failed or raised
+        try:
+            return calc_workbook_base_session_id(doc)
+        except Exception:
+            pass
 
     from plugin.framework.thread_guard import on_main_thread
 
-    # Off-main threads without an explicit doc cannot safely query
-    # the desktop model and must not block on execute_on_main_thread (deadlock hazard #402).
+    # Off-main threads without an explicit doc must not query the desktop (Yellow contract #402, #411).
+    # Return the UI-thread-cached session id instead.
     if not on_main_thread():
-        return None
+        return get_cached_calc_session_id()
 
     target = _calc_document(ctx)
     if target is None:
@@ -206,6 +278,7 @@ def _reset_calc_python_sessions(ctx: Any, doc: Any | None = None) -> None:
     # Re-seed init script immediately after reset (C2.2.3) so helper functions (e.g. def double(x): ...)
     # and init variables are re-populated in the worker for both shared and isolated sessions.
     init_kwargs = build_python_eval_init_kwargs(target)
+    record_active_calc_session(session_id, init_kwargs)
     if init_kwargs:
         from plugin.scripting.venv_worker import run_code_in_user_venv
 

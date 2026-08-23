@@ -623,6 +623,25 @@ class TestSuppressDisposed(unittest.TestCase):
             mock_logger.debug.assert_not_called()
         self.assertIs(ignore_disposed, suppress_disposed)
 
+    def test_safe_uno_call_returns_default_on_runtime_error(self):
+        from plugin.framework.errors import safe_uno_call
+
+        @safe_uno_call(default="default_value")
+        def _failing_fn():
+            raise RuntimeError("bridge error")
+
+        self.assertEqual(_failing_fn(), "default_value")
+
+    def test_safe_uno_call_re_raises_disposed_exception(self):
+        from plugin.framework.errors import DocumentDisposedError, safe_uno_call
+
+        @safe_uno_call(default="default_value")
+        def _disposed_fn():
+            raise DocumentDisposedError("Object was disposed")
+
+        with self.assertRaises(DocumentDisposedError):
+            _disposed_fn()
+
 
 if (__name__ == '__main__'):
     unittest.main()

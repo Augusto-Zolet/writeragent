@@ -102,3 +102,39 @@ def test_reset_workbook_python_session_prefers_calc() -> None:
         mock_reset_calc.assert_called_once_with(ctx, mock_calc)
 
 
+def test_workbook_session_id_uses_cached_session_off_main() -> None:
+    """Off the main thread without explicit doc, workbook_session_id returns UI-cached session id."""
+    from unittest.mock import MagicMock, patch
+
+    ctx = MagicMock()
+    session_manager.record_active_calc_session("calc:file:///cached_sheet.ods")
+
+    try:
+        with (
+            patch("plugin.scripting.session_manager.python_session_mode", return_value="shared"),
+            patch("plugin.framework.thread_guard.on_main_thread", return_value=False),
+        ):
+            sid = session_manager.workbook_session_id(ctx, doc=None)
+            assert sid == "calc:file:///cached_sheet.ods"
+    finally:
+        session_manager.clear_active_calc_session()
+
+
+def test_workbook_session_id_resilient_when_is_calc_fails() -> None:
+    """If is_calc throws, workbook_session_id falls back to doc URL directly."""
+    from unittest.mock import MagicMock, patch
+
+    ctx = MagicMock()
+    mock_doc = MagicMock()
+    mock_doc.getURL.return_value = "file:///fallback_sheet.ods"
+
+    with (
+        patch("plugin.scripting.session_manager.python_session_mode", return_value="shared"),
+        patch("plugin.scripting.session_manager.is_calc", side_effect=RuntimeError("UNO thread error")),
+    ):
+        sid = session_manager.workbook_session_id(ctx, doc=mock_doc)
+        assert sid == "calc:file:///fallback_sheet.ods"
+
+
+
+

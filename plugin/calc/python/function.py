@@ -968,12 +968,15 @@ def get_python_init_kwargs(ctx: Any, doc: Any | None = None) -> dict[str, Any]:
     try:
         from plugin.framework.thread_guard import on_main_thread
         from plugin.scripting.document_scripts import build_python_eval_init_kwargs, get_calc_document_from_ctx
+        from plugin.scripting.session_manager import get_cached_calc_init_kwargs, record_active_calc_session
 
         # Nested ternary hid on_main_thread() from the AST thread-safety linter.
         target = doc
         if target is None:
             if on_main_thread():
                 target = get_calc_document_from_ctx(ctx)
+            else:
+                return get_cached_calc_init_kwargs()
         if target is not None:
             # Close/reopen used to reuse the warm-worker calc:…:init cache because
             # nothing listened for OnUnload. Register once per workbook so init
@@ -986,7 +989,10 @@ def get_python_init_kwargs(ctx: Any, doc: Any | None = None) -> dict[str, Any]:
                 ensure_calc_workbook_unload_resets_python(ctx, target)
             except Exception:
                 log.debug("python workbook unload listener install failed", exc_info=True)
-            return build_python_eval_init_kwargs(target)
+            kwargs = build_python_eval_init_kwargs(target)
+            if on_main_thread():
+                record_active_calc_session(None, kwargs)
+            return kwargs
     except Exception:
         log.debug("get_python_init_kwargs failed", exc_info=True)
     return {}
@@ -1134,6 +1140,16 @@ def _execute_python_addin_impl(
         else:
             session_id = workbook_session_id(ctx, doc=target_doc)
             init_kwargs = get_python_init_kwargs(ctx, doc=target_doc)
+            from plugin.framework.thread_guard import in_sync_host_dispatch, on_main_thread
+
+            log.debug(
+                "PYTHON eval: target_doc=%r, session_id=%r, has_init=%s, on_main=%s, in_sync_host=%s",
+                target_doc,
+                session_id,
+                bool(init_kwargs),
+                on_main_thread(),
+                in_sync_host_dispatch(),
+            )
             t_ipc = time.perf_counter() if timings else 0.0
             res = run_code_in_user_venv(
                 ctx,

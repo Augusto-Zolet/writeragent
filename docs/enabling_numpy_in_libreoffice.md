@@ -402,7 +402,8 @@ Excel’s *saved* static bridges already put ranges on `_xlws.PY` trailing args 
 | **Any cell can clobber any name**    | True shared mutable globals — cell B1 can overwrite a name from A1.                                                                                                                                                                                        |
 | **Order via** `data`**, not layout** | `result = x + 1` with **no** second arg has **no** ordering guarantee. Pass upstream cells/ranges as `data`. Init script always runs before any cell.                                                                                                      |
 | **Runs any time**                    | Partial recalc, matrix spill, manual F9 — treat every cell as **restartable**.                                                                                                                                                                             |
-| **Escape hatch**                     | **Reset Python Session** clears workbook namespace and init cache.                                                                                                                                                                                         |
+| **Escape hatch**                     | **Reset Python Session** clears workbook namespace, wipes worker executors, and re-seeds helper functions.                                                                                                                                                 |
+| **Yellow recalc contract**           | `=PY()` formula recalculations run in a synchronous host dispatch context (`sync_host_dispatch`). Off-main recalc worker threads never query UNO desktop or document components; session IDs and init kwargs are resolved from UI-thread cached state.          |
 
 
 
@@ -425,9 +426,14 @@ Excel’s *saved* static bridges already put ranges on `_xlws.PY` trailing args 
 
 
 
-#### Initialization scripts {#initialization-scripts}
+#### Initialization scripts and helper re-seeding {#initialization-scripts}
 
 Workbook initialization scripts can be defined via **Edit Initialization Script…** (Calc only). This stores a workbook startup script in document properties (`calc:…:init`). It runs once per workbook session even when the session mode is **Isolated**, making its imports and helper functions available to all `=PY()` cells.
+
+In the worker sandbox:
+- Functions and variables defined in the init script are executed in the companion `calc:…:init` session and snapshot into cell executors.
+- Custom functions (`def double(x): ...`) are registered into the executor's `custom_tools` dictionary so that safe sandbox evaluation permits them without raising `Forbidden function evaluation`.
+- When **Reset Python Session** is invoked, both the base session (`calc:…`) and the companion `:init` session are dropped in the worker process, and the initialization script is immediately re-executed and re-seeded so helpers remain available.
 
 Example helpers (no special `excel` module needed; use auto-imported `np`/`pd`/`st`/`plt`/`dt`/`xl` or explicit imports):
 
