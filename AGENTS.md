@@ -37,7 +37,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 - **Chat:** Sidebar + menu chat (Writer/Calc deck; Draw per code paths)—multi-turn, tools, history (SQLite when available, else JSON under `writeragent_history.db.d/`).
 - **Extend / Edit selection:** Writer uses `get_string_without_tracked_deletions()` in `text_helpers` for prompts; undo/session details in `document_helpers`.
 - **Settings:** `writeragent.json` under the LibreOffice user profile—see `config` module doc.
-- **Memory (experimental):** `memory` + `MEMORY_GUIDANCE` in `prompts` — [docs/hermes-agent-patterns.md](docs/hermes-agent-patterns.md).
+- **Memory (experimental):** `memory` + `MEMORY_GUIDANCE` in `prompts` — [docs/archive/hermes-agent-patterns.md](docs/archive/hermes-agent-patterns.md).
 - **Calc:** `=PROMPT()` and `=PYTHON()` add-ins (see Key files).
 - **Eval / benchmarks:** `make run_eval` / `scripts/benchmark.py` → `scripts/prompt_optimization/` — [scripts/prompt_optimization/README.md](scripts/prompt_optimization/README.md), [docs/eval-dev-plan.md](docs/eval-dev-plan.md).
 
@@ -51,7 +51,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 
 | Command | When to use |
 |---------|-------------|
-| `make typecheck` | After edits (required with targeted tests). Checker details: [docs/type-checking.md](docs/type-checking.md) |
+| `make typecheck` | After edits (required with targeted tests). Checker details: [docs/framework-type-checking.md](docs/framework-type-checking.md) |
 | `make deploy` | WriterAgent OXT: build + install/cache sync; **restart LibreOffice** (or `make deploy writer/calc/draw/impress` to launch) |
 | `make deploy-core` | LibrePy OXT only (`build/LibrePy.oxt`); **removes WriterAgent**. Install one OXT at a time. |
 | `make test` | Large or cross-cutting changes only (includes typecheck, SAST, pytest, LO tests) |
@@ -67,7 +67,7 @@ Usual targets generate `plugin/_manifest.py` when needed. Other Makefile targets
 
 Chat and tool calls go through `llm_client` (see its module doc). Persistent connections live in `ai/service`; auth headers in `auth`.
 
-The librarian / smolagents path must use `WriterAgentSmolModel` in `smol_agent`—do not add a second HTTP client. Details: [docs/smol-main-chat-tool-architecture.md](docs/smol-main-chat-tool-architecture.md), [docs/llm-hacks.md](docs/llm-hacks.md).
+The librarian / smolagents path must use `WriterAgentSmolModel` in `smol_agent`—do not add a second HTTP client. Details: [docs/chat-smol-tool-architecture.md](docs/chat-smol-tool-architecture.md), [docs/chat-llm-hacks.md](docs/chat-llm-hacks.md).
 
 ---
 
@@ -79,17 +79,17 @@ Rules that apply in many places. Breaking them causes wrong-document bugs, froze
 
 - **Keep the chat FSM pure.** In `service`, `next_state` only computes the next state—no UNO calls and no I/O. Side effects (UI updates, MCP, document work) belong in the panel or MCP layers.
 
-- **Stream on a worker; drain on the UI thread.** Background work pushes tuples onto a `queue.Queue`. The first element must be a `StreamQueueKind` **enum member**, not a bare string. Drain with `run_async_worker_with_drain` / `get_toolkit(ctx)` so the UI processes events via `toolkit.processEventsToIdle()`. Do not use UNO `XTimerListener` for sidebar streaming. More: [docs/streaming-and-threading.md](docs/streaming-and-threading.md).
+- **Stream on a worker; drain on the UI thread.** Background work pushes tuples onto a `queue.Queue`. The first element must be a `StreamQueueKind` **enum member**, not a bare string. Drain with `run_async_worker_with_drain` / `get_toolkit(ctx)` so the UI processes events via `toolkit.processEventsToIdle()`. Do not use UNO `XTimerListener` for sidebar streaming. More: [docs/framework-streaming-and-threading.md](docs/framework-streaming-and-threading.md).
 
 - **Refresh document context each chat send.** Each user send replaces the `[DOCUMENT CONTENT]` system message so the model sees the current document, not a stale snapshot.
 
 - **Register tools so schemas and execution agree.** Matching uses `uno_services` first, then `doc_types`. Anything advertised by `get_schemas` must be runnable via `execute`. Default main-chat tools are `tier="core"`; nested specialized sets use `specialized` / `specialized_control` and are omitted from default lists. Gateway tools must list **every** UNO service they support (e.g. Draw **and** Impress). Writer `charts` / `shapes` share tool **names** with Calc/Draw—the Writer class must declare the **union** of those services or execution rejects the document.
 
-- **Do not start raw threads for background work.** Use `run_in_background`. Short fire-and-forget jobs share a bounded daemon pool; pass `dedicated=True` (or `daemon=False`) for servers, pipe drains, infinite loops, and any job another thread will `join()`. Long subprocesses use `AsyncProcess`; if stderr is piped, drain it continuously or redirect it, or the process can deadlock ([docs/threading_architecture.md](docs/threading_architecture.md)). Dev builds enable a UNO thread guard by default (`thread_guard`; set `WRITERAGENT_UNO_THREAD_GUARD=0` to opt out; release OXTs stub it off). Wrap document-model access at boundaries with `guard_uno` (e.g. `get_active_document`, frame `_get_document_model`, `resolve_document_by_url`, `open_document_for_read`). For `ToolContext`, use `get_ctx()`—not the raw bootstrap `self.ctx`. Details: [docs/uno-thread-safety-enforcement.md](docs/uno-thread-safety-enforcement.md).
+- **Do not start raw threads for background work.** Use `run_in_background`. Short fire-and-forget jobs share a bounded daemon pool; pass `dedicated=True` (or `daemon=False`) for servers, pipe drains, infinite loops, and any job another thread will `join()`. Long subprocesses use `AsyncProcess`; if stderr is piped, drain it continuously or redirect it, or the process can deadlock ([docs/framework-threading.md](docs/framework-threading.md)). Dev builds enable a UNO thread guard by default (`thread_guard`; set `WRITERAGENT_UNO_THREAD_GUARD=0` to opt out; release OXTs stub it off). Wrap document-model access at boundaries with `guard_uno` (e.g. `get_active_document`, frame `_get_document_model`, `resolve_document_by_url`, `open_document_for_read`). For `ToolContext`, use `get_ctx()`—not the raw bootstrap `self.ctx`. Details: [docs/framework-uno-thread-safety.md](docs/framework-uno-thread-safety.md).
 
 - **Surface errors through the shared helpers.** Prefer `WriterAgentException` and `format_error_payload` (`errors`). Tools should fail via `_tool_error`. There is no active `DocumentCache`—do not assume one.
 
-- **Two products, one OXT at a time.** WriterAgent (`make deploy`, `plugin/main.py`) vs LibrePy (`make build-core` / `deploy-core`, `plugin/main_core.py`, `extension-core/`). `deploy-core` removes WriterAgent. Dual-install overlay is **not shipped**. File list: [`scripts/librepy_bundle_paths.py`](scripts/librepy_bundle_paths.py). Packaging: [docs/libreoffice-core-python-extension-split.md](docs/libreoffice-core-python-extension-split.md).
+- **Two products, one OXT at a time.** WriterAgent (`make deploy`, `plugin/main.py`) vs LibrePy (`make build-core` / `deploy-core`, `plugin/main_core.py`, `extension-core/`). `deploy-core` removes WriterAgent. Dual-install overlay is **not shipped**. File list: [`scripts/librepy_bundle_paths.py`](scripts/librepy_bundle_paths.py). Packaging: [docs/scripting-librepy-split.md](docs/scripting-librepy-split.md).
 
 - **LibrePy-safe document helpers.** Linebreaks, tracked-deletion reads, heading trees, path, and Writer selection range / char count: `plugin/doc/text_helpers.py`. Type guards: `doc_type.py`. Document properties: `udprops.py`. Do **not** import `document_helpers` from LibrePy paths (it pulls Calc analyzer / chat context). Do **not** re-export the light helpers from `document_helpers`.
 
@@ -103,17 +103,17 @@ UNO helpers are intentionally split (`uno_context`, `text_helpers` / `doc_type` 
 
 Area-specific rules live in module docstrings and topic docs—open those when you edit that area. Entry points: [Key files](#key-files-entry-points). Topic docs: [Deep dives](#deep-dives-link-index).
 
-- **Sidebar / chat:** Resolve the document from the **frame only** (`frame.getController().getModel()` in `panel`). For Stop / cancel, use **`resolve_stop_checker()`**—not a panel boolean alone. Modes and routing: [docs/chat-sidebar-implementation.md](docs/chat-sidebar-implementation.md). Streaming details: [docs/streaming-and-threading.md](docs/streaming-and-threading.md).
+- **Sidebar / chat:** Resolve the document from the **frame only** (`frame.getController().getModel()` in `panel`). For Stop / cancel, use **`resolve_stop_checker()`**—not a panel boolean alone. Modes and routing: [docs/chat-sidebar-implementation.md](docs/chat-sidebar-implementation.md). Streaming details: [docs/framework-streaming-and-threading.md](docs/framework-streaming-and-threading.md).
 
 - **Dialogs (XDL):** Load with `DialogProvider` and the extension `base_url` (see `dialogs` module doc). Settings UI is in `dialog_views`.
 
-- **Tools / Writer / Calc:** In tests, resolve tools with `plugin.main.get_tools().get("tool_name")`. Deeper topics: [docs/math-tex.md](docs/math-tex.md), [docs/realtime-grammar-checker-plan.md](docs/realtime-grammar-checker-plan.md), [docs/calc-specialized-toolsets.md](docs/calc-specialized-toolsets.md), [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md), [docs/calc-py-data-shapes.md](docs/calc-py-data-shapes.md), [docs/numpy-domains.md](docs/numpy-domains.md).
+- **Tools / Writer / Calc:** In tests, resolve tools with `plugin.main.get_tools().get("tool_name")`. Deeper topics: [docs/writer-math-tex.md](docs/writer-math-tex.md), [docs/writer-grammar-checker-plan.md](docs/writer-grammar-checker-plan.md), [docs/calc-specialized-toolsets.md](docs/calc-specialized-toolsets.md), [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md), [docs/calc-py-data-shapes.md](docs/calc-py-data-shapes.md), [docs/scripting-numpy-domains.md](docs/scripting-numpy-domains.md).
 
 - **Config:** Call `init_config(ctx)` once at bootstrap. Later config I/O does not take `ctx`—see the `config` module doc.
 
 - **Logging / MCP:** Logs go to `writeragent_debug.log` next to `writeragent.json`. Shipped LibrePy (`make deploy-core`) defaults to **`log_level` WARN**; a checkout that still has `plugin/tests/` defaults to **DEBUG**. Override in `writeragent.json` and restart LibreOffice. `enable_agent_log` is separate (structured agent traces only). In unexpected `except` blocks, use **`log.exception("Context")`**. MCP work drains on the main thread ([docs/mcp-protocol.md](docs/mcp-protocol.md)). Image generation: [docs/image-generation.md](docs/image-generation.md). Do not read API keys from the environment in production; do not use **`tempfile.mktemp()`**. For scratch debug files under `/tmp`, prefer `flush=True`.
 
-- **Tests / packaging:** UNO tests go through `testing_runner`; debug-menu suites run on the UI thread ([docs/test_architecture_analysis.md](docs/test_architecture_analysis.md)). New extension components must be registered in `extension/META-INF/manifest.xml`.
+- **Tests / packaging:** UNO tests go through `testing_runner`; debug-menu suites run on the UI thread ([docs/archive/test_architecture_analysis.md](docs/archive/test_architecture_analysis.md)). New extension components must be registered in `extension/META-INF/manifest.xml`.
 
 ### Global Python
 
@@ -122,9 +122,9 @@ Do not reuse the names **`logging`**, module **`log`**, or gettext **`_`** for u
 ### Do not redo (already shipped)
 
 - Do **not** invent `python_config.py` or rename `writeragent.json` for LibrePy.
-- Do **not** split `payload_codec.py` flatten/unpack without serialization A/B tests ([docs/numpy-serialization.md](docs/numpy-serialization.md)).
-- Envelope-detector `@deal` + Hypothesis oracles on `payload_codec` (`is_split_grid`, `is_multi_data`, image / dataframe / calc_range) are **shipped**. Source of truth: [docs/serialization-verification-plan.md](docs/serialization-verification-plan.md).
-- Scripting domain registries (Phases 1–6) are shipped — do not add a fourth ad-hoc registry ([docs/scripting-domain-debt-dev-plan.md](docs/scripting-domain-debt-dev-plan.md)).
+- Do **not** split `payload_codec.py` flatten/unpack without serialization A/B tests ([docs/scripting-numpy-serialization.md](docs/scripting-numpy-serialization.md)).
+- Envelope-detector `@deal` + Hypothesis oracles on `payload_codec` (`is_split_grid`, `is_multi_data`, image / dataframe / calc_range) are **shipped**. Source of truth: [docs/scripting-serialization-verification.md](docs/scripting-serialization-verification.md).
+- Scripting domain registries (Phases 1–6) are shipped — do not add a fourth ad-hoc registry ([docs/archive/scripting-domain-debt-dev-plan.md](docs/archive/scripting-domain-debt-dev-plan.md)).
 - `calc_functions_*.py` alphabet splits are intentional; do not merge them.
 - Do **not** drop `plugin/calc/analyzer.py` from the LibrePy bundle (reserved for later use).
 - Do **not** slim `trusted_action_registry.py` / `venv_diagnostics.py` for LibrePy while those modules still work.
@@ -143,7 +143,7 @@ Start here by task. Topic docs: [Deep dives](#deep-dives-link-index).
 | LibrePy bootstrap | Core OXT: `=PY()`, Python menus, Settings → Python; no chat/MCP | [`plugin/main_core.py`](plugin/main_core.py), [`plugin/librepy/`](plugin/librepy/), [`plugin/calc/python/addin_librepy.py`](plugin/calc/python/addin_librepy.py) |
 | Sidebar / send | Sidebar factory, panel, document resolution | [`plugin/chatbot/panel_factory.py`](plugin/chatbot/panel_factory.py), [`plugin/chatbot/panel.py`](plugin/chatbot/panel.py) |
 | Tool loop / chat FSM | Main chat tool loop and state machine | [`plugin/chatbot/tool_loop.py`](plugin/chatbot/tool_loop.py), [`plugin/chatbot/tool_loop_state.py`](plugin/chatbot/tool_loop_state.py) |
-| Smol / librarian ReAct | Separate ReAct runtime (shares `LlmClient`); do **not** merge with the main chat FSM | [`plugin/chatbot/smol_agent.py`](plugin/chatbot/smol_agent.py) — [docs/smol-main-chat-tool-architecture.md](docs/smol-main-chat-tool-architecture.md) |
+| Smol / librarian ReAct | Separate ReAct runtime (shares `LlmClient`); do **not** merge with the main chat FSM | [`plugin/chatbot/smol_agent.py`](plugin/chatbot/smol_agent.py) — [docs/chat-smol-tool-architecture.md](docs/chat-smol-tool-architecture.md) |
 | Agent backends | Optional external backends (`agent_backend.backend_id` when not `builtin`) | [`plugin/agent_backend/`](plugin/agent_backend/) |
 | HTTP / LLM | Chat requests, tools, token stripping, pacing | [`plugin/framework/client/llm_client.py`](plugin/framework/client/llm_client.py) (`make_chat_request`, `request_with_tools`, …), [`plugin/ai/service.py`](plugin/ai/service.py), [`plugin/framework/client/auth.py`](plugin/framework/client/auth.py) |
 | Tools registry | Tool registration and schemas | [`plugin/framework/tool.py`](plugin/framework/tool.py) |
@@ -164,7 +164,7 @@ Start here by task. Topic docs: [Deep dives](#deep-dives-link-index).
 | Scripting / venv | Public script API, sandbox policy, venv worker (not for user imports) | [`plugin/scripting/`](plugin/scripting/), [`plugin/scripting/venv/`](plugin/scripting/venv/), [`plugin/scripting/import_policy.py`](plugin/scripting/import_policy.py), [`plugin/scripting/sandbox.py`](plugin/scripting/sandbox.py), [`plugin/scripting/venv_worker.py`](plugin/scripting/venv_worker.py), [`plugin/scripting/venv_diagnostics.py`](plugin/scripting/venv_diagnostics.py) |
 | Embeddings / folder FTS | Host indexers + venv worker + RPC | [`plugin/embeddings/`](plugin/embeddings/), [`plugin/embeddings/venv/`](plugin/embeddings/venv/), [`plugin/framework/client/embeddings_service.py`](plugin/framework/client/embeddings_service.py), [`plugin/framework/client/embedding_client.py`](plugin/framework/client/embedding_client.py), [`plugin/framework/client/folder_fts_service.py`](plugin/framework/client/folder_fts_service.py) — [docs/embeddings.md](docs/embeddings.md) |
 | Vision / OCR | Host runner + venv worker + `run_vision` | [`plugin/vision/`](plugin/vision/), [`plugin/vision/venv/`](plugin/vision/venv/), [`plugin/scripting/client.py`](plugin/scripting/client.py), [`plugin/vision/vision_availability.py`](plugin/vision/vision_availability.py) — [docs/image-recognition.md](docs/image-recognition.md) |
-| PPT-Master | Impress/Draw adapters and session | [`plugin/contrib/ppt_master/`](plugin/contrib/ppt_master/) ([README](plugin/contrib/ppt_master/README.md)), [`plugin/ppt_master/`](plugin/ppt_master/), [`plugin/chatbot/ppt_master.py`](plugin/chatbot/ppt_master.py) — [integration plan](docs/ppt-master-integration-plan.md#roadmap) |
+| PPT-Master | Impress/Draw adapters and session | [`plugin/contrib/ppt_master/`](plugin/contrib/ppt_master/) ([README](plugin/contrib/ppt_master/README.md)), [`plugin/ppt_master/`](plugin/ppt_master/), [`plugin/chatbot/ppt_master.py`](plugin/chatbot/ppt_master.py) — [integration plan](docs/archive/ppt-master-integration-plan.md#roadmap) |
 | Tests (UNO runner) | Native UNO tests (`@native_test`, `ctx`) | [`plugin/testing_runner.py`](plugin/testing_runner.py) |
 | Eval / benchmarks | CLI eval harness and prompt optimization | [`scripts/benchmark.py`](scripts/benchmark.py), [`scripts/prompt_optimization/`](scripts/prompt_optimization/) |
 | Extension packaging | OXT resources; register new components in manifest | [`extension/`](extension/) (`Dialogs/`, `idl/`, `metadata/`), [`extension/META-INF/manifest.xml`](extension/META-INF/manifest.xml) |
@@ -177,41 +177,41 @@ Start here by task. Topic docs: [Deep dives](#deep-dives-link-index).
 | Topic | Doc |
 |-------|-----|
 | Chat sidebar implementation | [docs/chat-sidebar-implementation.md](docs/chat-sidebar-implementation.md) |
-| Rich text control sidebar | [docs/rich-text-control-sidebar.md](docs/rich-text-control-sidebar.md) |
-| Streaming / threading | [docs/streaming-and-threading.md](docs/streaming-and-threading.md) |
-| Threading architecture (pool, marshal, MCP) | [docs/threading_architecture.md](docs/threading_architecture.md) |
-| UNO thread-safety enforcement | [docs/uno-thread-safety-enforcement.md](docs/uno-thread-safety-enforcement.md) |
-| Smol vs main chat HTTP | [docs/smol-main-chat-tool-architecture.md](docs/smol-main-chat-tool-architecture.md) |
+| Rich text control sidebar | [docs/chat-rich-text-control-sidebar.md](docs/chat-rich-text-control-sidebar.md) |
+| Streaming / threading | [docs/framework-streaming-and-threading.md](docs/framework-streaming-and-threading.md) |
+| Threading architecture (pool, marshal, MCP) | [docs/framework-threading.md](docs/framework-threading.md) |
+| UNO thread-safety enforcement | [docs/framework-uno-thread-safety.md](docs/framework-uno-thread-safety.md) |
+| Smol vs main chat HTTP | [docs/chat-smol-tool-architecture.md](docs/chat-smol-tool-architecture.md) |
 | Writer specialized tool tiers | [docs/writer-specialized-toolsets.md](docs/writer-specialized-toolsets.md) |
-| Styles / LLM styling | [docs/llm-styles.md](docs/llm-styles.md) |
-| Writer API references | [docs/bookmarks-api-reference.md](docs/bookmarks-api-reference.md), [docs/footnotes-api-reference.md](docs/footnotes-api-reference.md), [docs/page-api-reference.md](docs/page-api-reference.md), [docs/writer-tracking-api-reference.md](docs/writer-tracking-api-reference.md) |
-| Reviewable agent edits (surgical redlines, toolbar) | [docs/reviewable-agent-edits.md](docs/reviewable-agent-edits.md) |
-| LO-DOM & Semantic Tree | [docs/lo-dom-semantic-tree.md](docs/lo-dom-semantic-tree.md) |
-| Draw/Impress specialized | [docs/draw-impress-specialized-toolsets.md](docs/draw-impress-specialized-toolsets.md), [docs/shape_support.md](docs/shape_support.md) |
+| Styles / LLM styling | [docs/writer-llm-styles.md](docs/writer-llm-styles.md) |
+| Writer API references | [docs/writer-bookmarks-api-reference.md](docs/writer-bookmarks-api-reference.md), [docs/writer-footnotes-api-reference.md](docs/writer-footnotes-api-reference.md), [docs/writer-page-api-reference.md](docs/writer-page-api-reference.md), [docs/writer-tracking-api-reference.md](docs/writer-tracking-api-reference.md) |
+| Reviewable agent edits (surgical redlines, toolbar) | [docs/writer-reviewable-agent-edits.md](docs/writer-reviewable-agent-edits.md) |
+| LO-DOM & Semantic Tree | [docs/writer-lo-dom-semantic-tree.md](docs/writer-lo-dom-semantic-tree.md) |
+| Draw/Impress specialized | [docs/draw-impress-specialized-toolsets.md](docs/draw-impress-specialized-toolsets.md), [docs/draw-shape-support.md](docs/draw-shape-support.md) |
 | Calc specialized | [docs/calc-specialized-toolsets.md](docs/calc-specialized-toolsets.md) |
 | Calc filters / formatting | [docs/calc-conditional-formatting.md](docs/calc-conditional-formatting.md), [docs/calc-sheet-filter.md](docs/calc-sheet-filter.md) |
 | Calc date / time lifecycle | [docs/calc-date-time-handling.md](docs/calc-date-time-handling.md) |
 | Embeddings / folder FTS | [docs/embeddings.md](docs/embeddings.md) |
-| LibrePy / WriterAgent packaging split | [docs/libreoffice-core-python-extension-split.md](docs/libreoffice-core-python-extension-split.md) |
-| NumPy / Python venv bridge | [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md), [docs/calc-py-data-shapes.md](docs/calc-py-data-shapes.md), [docs/numpy-serialization.md](docs/numpy-serialization.md) |
-| Scripting domain registries (shipped) | [docs/scripting-domain-debt-dev-plan.md](docs/scripting-domain-debt-dev-plan.md) |
-| NumPy domain helpers (Viz, Symbolic, Units, Text, …) | [docs/numpy-domains.md](docs/numpy-domains.md) |
-| Excel / Calc `=PY` design stance | [docs/ms-py-libreoffice-compatibility.md](docs/ms-py-libreoffice-compatibility.md) |
+| LibrePy / WriterAgent packaging split | [docs/scripting-librepy-split.md](docs/scripting-librepy-split.md) |
+| NumPy / Python venv bridge | [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md), [docs/calc-py-data-shapes.md](docs/calc-py-data-shapes.md), [docs/scripting-numpy-serialization.md](docs/scripting-numpy-serialization.md) |
+| Scripting domain registries (shipped) | [docs/archive/scripting-domain-debt-dev-plan.md](docs/archive/scripting-domain-debt-dev-plan.md) |
+| NumPy domain helpers (Viz, Symbolic, Units, Text, …) | [docs/scripting-numpy-domains.md](docs/scripting-numpy-domains.md) |
+| Excel / Calc `=PY` design stance | [docs/scripting-ms-py-compatibility.md](docs/scripting-ms-py-compatibility.md) |
 | Agent Search / Web | [docs/agent-search.md](docs/agent-search.md) |
 | MCP protocol | [docs/mcp-protocol.md](docs/mcp-protocol.md) |
 | Localization / translations | [docs/localization.md](docs/localization.md), [locales/README.md](locales/README.md) |
 | Audio Architecture | [docs/audio-architecture.md](docs/audio-architecture.md) |
 | Image generation | [docs/image-generation.md](docs/image-generation.md) |
 | Image recognition (local OCR / detection) | [docs/image-recognition.md](docs/image-recognition.md) |
-| PPT-Master (Impress/Draw) | [docs/ppt-master-integration-plan.md](docs/ppt-master-integration-plan.md) (architecture + [roadmap](docs/ppt-master-integration-plan.md#roadmap)) |
-| Math / HTML import design | [docs/math-tex.md](docs/math-tex.md) |
-| Grammar pipeline (cache, queue) | [docs/realtime-grammar-checker-plan.md](docs/realtime-grammar-checker-plan.md) |
-| Test Architecture | [docs/test_architecture_analysis.md](docs/test_architecture_analysis.md) |
-| Type checking | [docs/type-checking.md](docs/type-checking.md) |
-| UNO Dialogs & Wizards | [docs/uno-dialog-and-wizard-reference.md](docs/uno-dialog-and-wizard-reference.md) |
-| LLM Hacks & Workarounds | [docs/llm-hacks.md](docs/llm-hacks.md) |
-| Experimental memory / roadmap | [docs/hermes-agent-patterns.md](docs/hermes-agent-patterns.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/robustness-roadmap.md](docs/robustness-roadmap.md) |
-| LLM evals / benchmarks | [docs/benchmarks.md](docs/benchmarks.md), [scripts/prompt_optimization/README.md](scripts/prompt_optimization/README.md) |
+| PPT-Master (Impress/Draw) | [docs/archive/ppt-master-integration-plan.md](docs/archive/ppt-master-integration-plan.md) (architecture + [roadmap](docs/archive/ppt-master-integration-plan.md#roadmap)) |
+| Math / HTML import design | [docs/writer-math-tex.md](docs/writer-math-tex.md) |
+| Grammar pipeline (cache, queue) | [docs/writer-grammar-checker-plan.md](docs/writer-grammar-checker-plan.md) |
+| Test Architecture | [docs/archive/test_architecture_analysis.md](docs/archive/test_architecture_analysis.md) |
+| Type checking | [docs/framework-type-checking.md](docs/framework-type-checking.md) |
+| UNO Dialogs & Wizards | [docs/framework-uno-dialogs.md](docs/framework-uno-dialogs.md) |
+| LLM Hacks & Workarounds | [docs/chat-llm-hacks.md](docs/chat-llm-hacks.md) |
+| Experimental memory / roadmap | [docs/archive/hermes-agent-patterns.md](docs/archive/hermes-agent-patterns.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/framework-robustness-roadmap.md](docs/framework-robustness-roadmap.md) |
+| LLM evals / benchmarks | [docs/eval-benchmarks.md](docs/eval-benchmarks.md), [scripts/prompt_optimization/README.md](scripts/prompt_optimization/README.md) |
 
 ---
 

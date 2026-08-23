@@ -530,7 +530,7 @@ Add corresponding light case and fallback test.
 - `plugin/contrib/scripting/assets/editor/editor.js`
 - `plugin/contrib/scripting/assets/editor/style.css`
 - `tests/framework/test_appearance.py` (new) + updates to `test_editor_host.py` (historical plan text)
-- `docs/python-monaco-editor-dev-plan.md` (this)
+- `docs/scripting-monaco-editor-dev-plan.md` (this)
 - `docs/enabling_numpy_in_libreoffice.md` (status line)
 
 Keep changes small. Reuse the poll / queue path — no new threads.
@@ -563,7 +563,7 @@ Port spawn helpers from LibrePythonista (see analysis doc): detect sandbox, wrap
 | **Excel-style accelerators** | **Ctrl+Alt+Shift+F9** → **Reset Python Session**; **Ctrl+Alt+Shift+P** → **Edit Python in Cell…** per [enabling_numpy §6 shortcuts](enabling_numpy_in_libreoffice.md#keyboard-shortcuts-and-recalc). WriterAgent [`extension/Accelerators.xcu`](../extension/Accelerators.xcu); LibrePy [`extension-core/Accelerators.xcu`](../extension-core/Accelerators.xcu). | **Done** |
 | **Tier-2 document store** | [`enabling_numpy_in_libreoffice.md`](enabling_numpy_in_libreoffice.md) Tier 2 (formula key + side store) is a **separate** product decision — do not mix with Monaco until formula-in-cell workflow is stable. | |
 | **Core extension split** | Keep all editor code in `plugin/scripting/` + thin `plugin/calc/python/editor.py` per [`ROADMAP.md`](../docs/ROADMAP.md) Phase 3–4 so a future core OXT can ship `=PY()` + editor without the LLM stack. | |
-| **Viz plot polish** | Plot anchor/z-order, replace-existing-chart, UNO e2e for `=PYTHON()` image insert — [Visualization](numpy-domains.md#visualization). | |
+| **Viz plot polish** | Plot anchor/z-order, replace-existing-chart, UNO e2e for `=PYTHON()` image insert — [Visualization](scripting-numpy-domains.md#visualization). | |
 
 #### Historical: Sample scratchpad (removed in 0.8.64)
 

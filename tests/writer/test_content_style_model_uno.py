@@ -11,7 +11,7 @@
 # inlined as style="..." (no synthetic classes leak), and synthetic autostyle paragraphs are
 # omitted (write treats a missing token as the default body style). Read path = XHTML Writer
 # File filter + pure string post-process; write path resolves compact tokens -> UNO names.
-# See docs/html_style_model_plan.md.
+# See docs/writer-html-style-model-plan.md.
 import uno  # noqa: F401
 
 from plugin.testing_runner import native_test

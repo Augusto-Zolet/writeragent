@@ -4,7 +4,7 @@
 **Config:** Settings → **Rich Text Control Sidebar**. Uncheck for plain-text chat only.  
 **Code:** [`plugin/chatbot/rich_text_control.py`](../plugin/chatbot/rich_text_control.py), [`plugin/chatbot/rich_text_paste.py`](../plugin/chatbot/rich_text_paste.py), [`plugin/chatbot/rich_text.py`](../plugin/chatbot/rich_text.py), wired from [`plugin/chatbot/panel_wiring.py`](../plugin/chatbot/panel_wiring.py).  
 **Tests:** [`tests/chatbot/test_rich_text_control.py`](../tests/chatbot/test_rich_text_control.py), [`tests/chatbot/test_rich_text_paste.py`](../tests/chatbot/test_rich_text_paste.py), [`tests/chatbot/test_rich_text_control_uno.py`](../tests/chatbot/test_rich_text_control_uno.py).  
-**Related:** [chat-sidebar-implementation.md](chat-sidebar-implementation.md), [streaming-and-threading.md](streaming-and-threading.md), [AGENTS.md](../AGENTS.md)
+**Related:** [chat-sidebar-implementation.md](chat-sidebar-implementation.md), [framework-streaming-and-threading.md](framework-streaming-and-threading.md), [AGENTS.md](../AGENTS.md)
 
 **Audience:** Product and engineering — product behavior up front, implementation detail below.
 
@@ -37,7 +37,7 @@ During an assistant stream, text is appended as **plain** characters on the Rich
 
 After **`STREAM_DONE`** / **`FINAL_DONE`**, if the final assistant message contains HTML tags (detected by `_HTML_TAG_RE`), the sidebar **re-renders only the tail** of that message: it truncates from `_assistant_stream_start_len`, then pastes formatted content via the hidden-Writer bridge. Earlier messages in the control keep their formatting.
 
-Producer-side **250 ms batching** of stream chunks reduces UI stutter; see [streaming-and-threading.md](streaming-and-threading.md).
+Producer-side **250 ms batching** of stream chunks reduces UI stutter; see [framework-streaming-and-threading.md](framework-streaming-and-threading.md).
 
 ### Why RichTextControl instead of embedded Writer in the sidebar
 

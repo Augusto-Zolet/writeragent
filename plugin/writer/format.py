@@ -180,14 +180,14 @@ def _strip_html_boilerplate(html_string):  # pyright: ignore[reportUnusedFunctio
 # Pure string/CSS pipeline: xhtml_style_postprocess (no UNO). This module owns UNO export
 # (XHTML + optional flat ODF for Pn->parent autostyle recovery). v1 cost: two storeToURL per
 # full read; v1 gaps (partial-edit style apply, table cells, whole-para overrides): see
-# docs/html_style_model_plan.md#v1-limitations-shipped.
+# docs/writer-html-style-model-plan.md#v1-limitations-shipped.
 # ---------------------------------------------------------------------------
 
 
 # ---------------------------------------------------------------------------
 # Semantic style model (write path): honor data-lo-style on incoming HTML.
 # Named styles applied only on replace_full_document (apply_styles=True). Partial inserts
-# strip the attribute but do not apply — see docs/html_style_model_plan.md#v1-limitations-shipped.
+# strip the attribute but do not apply — see docs/writer-html-style-model-plan.md#v1-limitations-shipped.
 # ---------------------------------------------------------------------------
 
 

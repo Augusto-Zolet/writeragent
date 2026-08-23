@@ -970,7 +970,7 @@ Through the production `CellInspector.read_range(include_format_info=True)`:
 - [MCP Protocol & Invariants](mcp-protocol.md) — Model Context Protocol instructions and clock context formatting (`instructions` may be ignored by hosts).
 - [NumPy & Python Venv Bridge](enabling_numpy_in_libreoffice.md) — Raw numeric serialization for analytical pipelines.
 - [Calc `=PY` Data Shapes](calc-py-data-shapes.md) — Intentional non-coercion at the Python bridge.
-- [NumPy Serialization](numpy-serialization.md) — Separate datetime/string wire semantics that must not be conflated with Calc serials.
+- [NumPy Serialization](scripting-numpy-serialization.md) — Separate datetime/string wire semantics that must not be conflated with Calc serials.
 - [Discussion #374](https://github.com/KeithCu/writeragent/discussions/374) — Field report that drove clock piggyback, MCP array widen, `format_code`, P1 inheritance, and LLM `number_format` quarantine (outcomes are documented above).
 
 ## 10. Authoritative References

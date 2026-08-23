@@ -61,7 +61,7 @@ flowchart TB
   FSM -->|SpawnToolWorkerEffect| TOOL
 ```
 
-Rough size: ~860 lines (`tool_loop.py`) + ~430 lines (`tool_loop_state.py`) + ~900 lines of tests (`tests/chatbot/test_tool_loop.py`). See also [streaming-and-threading.md](streaming-and-threading.md) and [smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md).
+Rough size: ~860 lines (`tool_loop.py`) + ~430 lines (`tool_loop_state.py`) + ~900 lines of tests (`tests/chatbot/test_tool_loop.py`). See also [framework-streaming-and-threading.md](framework-streaming-and-threading.md) and [chat-smol-tool-architecture.md](chat-smol-tool-architecture.md).
 
 ### Behaviors LangChain agent executors do not provide out of the box
 
@@ -113,7 +113,7 @@ Net effect: **~2,200 lines of tested loop code** replaced by **LangChain + a com
 
 ### Two agent stacks already exist
 
-WriterAgent deliberately runs **two orchestration idioms** sharing one HTTP client ([smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md)):
+WriterAgent deliberately runs **two orchestration idioms** sharing one HTTP client ([chat-smol-tool-architecture.md](chat-smol-tool-architecture.md)):
 
 | Stack | Role | Runtime |
 |-------|------|---------|
@@ -295,7 +295,7 @@ While we don't need these immediately for the core LibreOffice integration, the 
 
 **Agent orchestration:** Main chat = `tool_loop` FSM. Multi-step = smol `ToolCallingAgent`. LangChain `AgentExecutor` / `create_agent` = **not planned**.
 
-Related docs: [smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md), [chat-sidebar-implementation.md](chat-sidebar-implementation.md), [streaming-and-threading.md](streaming-and-threading.md).
+Related docs: [chat-smol-tool-architecture.md](chat-smol-tool-architecture.md), [chat-sidebar-implementation.md](chat-sidebar-implementation.md), [framework-streaming-and-threading.md](framework-streaming-and-threading.md).
 
 ---
 

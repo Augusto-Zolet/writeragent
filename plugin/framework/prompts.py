@@ -243,7 +243,7 @@ TOOL_USAGE_PATTERNS = """TOOL USAGE PATTERNS:
 - Review/feedback/suggestions: add_comment on specific passages (positive and negative).
 - If the user says "fix this" (or a synonym or equivalent in another language with the same intent), correct spelling and grammar in the current sentence only, unless the context points at another specific error."""
 
-# apply_document_content only — design notes in docs/chat-sidebar-implementation.md § Chat prompt constants and docs/math-tex.md.
+# apply_document_content only — design notes in docs/chat-sidebar-implementation.md § Chat prompt constants and docs/writer-math-tex.md.
 WRITER_APPLY_DOCUMENT_HTML_RULES = f"""APPLY_DOCUMENT_CONTENT AND HTML (CRITICAL):
 - Required: `content` and `target`.
   Targets: 'beginning', 'end', 'selection', 'full_document' (preferred for rewrites/translations), 'search' (substring find/replace; also `old_content` as a **substring** — HTML in old_content is matched as plain text).

@@ -166,7 +166,7 @@ flowchart TB
 
 Stored in **`writeragent.json`** today ([`plugin/framework/config.py`](../plugin/framework/config.py)). A core extension would choose whether to reuse that file, use a dedicated JSON name, or bind LO Tools → Options.
 
-IPC detail: [numpy-serialization.md](numpy-serialization.md).
+IPC detail: [scripting-numpy-serialization.md](scripting-numpy-serialization.md).
 
 ---
 
@@ -486,7 +486,7 @@ Additional files: `plugin/calc/base.py`, `plugin/calc/inspector.py`, `plugin/fra
 | Spreadsheet import | `calc.convert_spreadsheet_to_python` |
 | Grammar | `languagetool`, `vale`, `harper` venv modules |
 | MCP / grammar UI | `plugin/mcp/`, `plugin/writer/locale/` |
-| Analysis Sub-Agent | [analysis-sub-agent.md](analysis-sub-agent.md) |
+| Analysis Sub-Agent | [calc-analysis-sub-agent.md](calc-analysis-sub-agent.md) |
 | Sidebar audio mic | [`plugin/chatbot/audio_recorder.py`](../plugin/chatbot/audio_recorder.py) — Settings may probe `sounddevice`; capture UI is chat |
 
 ```mermaid
@@ -868,7 +868,7 @@ Omit `vision_tools.py` for menu-only core (chat `extract_text_from_image`).
 | Vision | docling, rapidocr-paddle, pillow, css-inline |
 | Monaco | pywebview, rocher, PyQt6, PyQt6-WebEngine, qtpy |
 
-See [numpy-domains.md](numpy-domains.md) and [image-recognition.md](image-recognition.md) for authoritative lists.
+See [scripting-numpy-domains.md](scripting-numpy-domains.md) and [image-recognition.md](image-recognition.md) for authoritative lists.
 
 ### Do not ship in core
 
@@ -880,14 +880,14 @@ See [numpy-domains.md](numpy-domains.md) and [image-recognition.md](image-recogn
 
 - [Enabling NumPy & Python in LibreOffice](enabling_numpy_in_libreoffice.md) — user guide, architecture, `=PY()` behavior
 - [Calc `=PY()` data shapes](calc-py-data-shapes.md) — `CalcRange`, blanks/NaN, multi-range
-- [NumPy domain helpers](numpy-domains.md) — Analysis, Viz, Symbolic, Units, Forecast, Optimize, Quant, Text
-- [Venv subprocess IPC & serialization](numpy-serialization.md) — warm worker, protocol, wire formats
-- [Monaco editor dev plan](python-monaco-editor-dev-plan.md) — IPC, phases 2B–2F
+- [NumPy domain helpers](scripting-numpy-domains.md) — Analysis, Viz, Symbolic, Units, Forecast, Optimize, Quant, Text
+- [Venv subprocess IPC & serialization](scripting-numpy-serialization.md) — warm worker, protocol, wire formats
+- [Monaco editor dev plan](scripting-monaco-editor-dev-plan.md) — IPC, phases 2B–2F
 - [Image Recognition](image-recognition.md) — Vision/OCR design
-- [Math / TeX import](math-tex.md) — LaTeX, MathML, StarMath pipeline
+- [Math / TeX import](writer-math-tex.md) — LaTeX, MathML, StarMath pipeline
 - [Calc integration](calc-integration.md) — broader Calc chat/tools (WriterAgent scope)
 
-**Out of scope for core** (separate PM/dev docs): [embeddings.md](embeddings.md), [duckdb-calc-dev-plan.md](duckdb-calc-dev-plan.md), [jupyter-notebook-import.md](jupyter-notebook-import.md), [calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md)
+**Out of scope for core** (separate PM/dev docs): [embeddings.md](embeddings.md), [calc-duckdb-dev-plan.md](calc-duckdb-dev-plan.md), [calc-jupyter-notebook-import.md](calc-jupyter-notebook-import.md), [calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md)
 
 ---
 
@@ -939,13 +939,13 @@ flowchart LR
 | `plugin/draw/math_insert.py` | Draw/Impress chat tool (WriterAgent) |
 | Venv worker / smolagents | Menu path does not use subprocess |
 
-Deeper design: [math-tex.md](math-tex.md).
+Deeper design: [writer-math-tex.md](writer-math-tex.md).
 
 ---
 
 ## Appendix E — NumPy domain trusted helpers
 
-Shipped domains per [numpy-domains.md](numpy-domains.md): **Analysis**, **Visualization**, **Symbolic Math**, **Units**, **Forecasting**, **Optimization**, **Quant**, **Text Analytics**.
+Shipped domains per [scripting-numpy-domains.md](scripting-numpy-domains.md): **Analysis**, **Visualization**, **Symbolic Math**, **Units**, **Forecasting**, **Optimization**, **Quant**, **Text Analytics**.
 
 ### Integration surfaces (core)
 
@@ -1023,7 +1023,7 @@ Requires [Layer 1](#layer-1--trusted-rpc) + [`domain_registry.py`](../plugin/scr
 
 ## Appendix F — Monaco editor
 
-Monaco-based code editor (pywebview child in the user venv) for Calc formulas and ad-hoc scripts. Detail: [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md).
+Monaco-based code editor (pywebview child in the user venv) for Calc formulas and ad-hoc scripts. Detail: [scripting-monaco-editor-dev-plan.md](scripting-monaco-editor-dev-plan.md).
 
 | Feature | Entry |
 |---------|--------|

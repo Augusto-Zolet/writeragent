@@ -161,7 +161,7 @@ Never `join()` a **pooled** job from another **pooled** job (pool-join deadlock)
 
 #### Startup marshal
 
-`_get_async_callback` must getattr the **unwrapped** UNO context. Creating `AsyncCallback` from a worker is the marshal bootstrap: if Layer A fires while `_init_lock` is held, the UI thread deadlocks in `set_context()`. Violation popups are skipped until the executor is initialized. `_update_menu_icons` uses `post_to_main_thread` so startup does not block a pool worker on a marshal the UI thread cannot run yet. Details: [uno-thread-safety-enforcement.md](uno-thread-safety-enforcement.md).
+`_get_async_callback` must getattr the **unwrapped** UNO context. Creating `AsyncCallback` from a worker is the marshal bootstrap: if Layer A fires while `_init_lock` is held, the UI thread deadlocks in `set_context()`. Violation popups are skipped until the executor is initialized. `_update_menu_icons` uses `post_to_main_thread` so startup does not block a pool worker on a marshal the UI thread cannot run yet. Details: [framework-uno-thread-safety.md](framework-uno-thread-safety.md).
 
 ### 4. Streaming Execution Wrappers
 Streaming wrappers such as `_start_tool_calling_async` in tool loop handlers, process reading threads, and asynchronous pipeline streams in `async_stream` have been updated to utilize `run_in_background` to improve event reliability and debug logging.
@@ -259,6 +259,6 @@ The following reliability features are tracked for future implementation as conc
 
 ## Cross-references
 
-- [streaming-and-threading.md](streaming-and-threading.md) — Main chat streaming drain loop, UI events, and Stop/cancellation handling.
-- [uno-thread-safety-enforcement.md](uno-thread-safety-enforcement.md) — Multi-layer off-main-thread UNO access enforcement (Layers A, B, C).
+- [framework-streaming-and-threading.md](framework-streaming-and-threading.md) — Main chat streaming drain loop, UI events, and Stop/cancellation handling.
+- [framework-uno-thread-safety.md](framework-uno-thread-safety.md) — Multi-layer off-main-thread UNO access enforcement (Layers A, B, C).
 - [mcp-protocol.md](mcp-protocol.md) — MCP HTTP server, concurrency, and per-document mutation gating.

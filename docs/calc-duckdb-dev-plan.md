@@ -202,7 +202,7 @@ duckdb.sql("SELECT dept, AVG(revenue) FROM sheet1 GROUP BY 1").df()
 | **Unsaved active workbook** | Wire path only | No on-disk file |
 | **PDF** | Out of scope | Separate document pipeline (not this plan) |
 
-Folder discovery aligns with [document research](multi-document-dev-plan.md) (`get_document_directory`, same parent as active saved doc). **CSV/XLSX in folder are not today indexed for embeddings text search** ([embeddings.md](embeddings.md)); DuckDB addresses the **numeric/tabular** side of the same folder.
+Folder discovery aligns with [document research](chat-multi-document-dev-plan.md) (`get_document_directory`, same parent as active saved doc). **CSV/XLSX in folder are not today indexed for embeddings text search** ([embeddings.md](embeddings.md)); DuckDB addresses the **numeric/tabular** side of the same folder.
 
 ---
 
@@ -389,9 +389,9 @@ No cloud telemetry required. Suggested signals:
 | Topic | Doc |
 |-------|-----|
 | Venv worker, `=PY()`, sandbox | [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) |
-| Analysis helpers (pattern to mirror) | [calc-analysis-tools.md](calc-analysis-tools.md), [analysis-sub-agent.md](analysis-sub-agent.md) |
-| Wire format | [numpy-serialization.md](numpy-serialization.md) |
-| Folder / sibling files | [multi-document-dev-plan.md](multi-document-dev-plan.md) |
+| Analysis helpers (pattern to mirror) | [calc-analysis-tools.md](calc-analysis-tools.md), [calc-analysis-sub-agent.md](calc-analysis-sub-agent.md) |
+| Wire format | [scripting-numpy-serialization.md](scripting-numpy-serialization.md) |
+| Folder / sibling files | [chat-multi-document-dev-plan.md](chat-multi-document-dev-plan.md) |
 | Blank vs NaN (ingress quality for SQL inputs) | [calc-py-data-shapes.md](calc-py-data-shapes.md#empty-cells-vs-nan) |
 | Python-in-Calc UX backlog | [enabling_numpy §7 Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog) |
 

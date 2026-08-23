@@ -16,7 +16,7 @@ from plugin.writer.xhtml_style_postprocess import (
     xhtml_to_semantic_html,
 )
 
-# Faithful slice of real LO XHTML export (see docs/html_style_model_plan.md, Phase 0).
+# Faithful slice of real LO XHTML export (see docs/writer-html-style-model-plan.md, Phase 0).
 # P1 = Standard + a bold child span; P2 = Standard + whole-paragraph center+red overrides.
 REFERENCE_XHTML = """<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en-US">

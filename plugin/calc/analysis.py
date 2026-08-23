@@ -361,7 +361,7 @@ class AnalyzeDataTool(ToolBaseDummy):
         reason in terms of ranges/addresses; the host performs the read on the
         main thread and delivers the shaped data (split_grid / payload_codec)
         to the trusted helper or venv. This enforces out-of-band data handoff
-        for the analysis sub-agent (see docs/analysis-sub-agent.md).
+        for the analysis sub-agent (see docs/calc-analysis-sub-agent.md).
         """
         import copy
         from typing import cast
@@ -390,7 +390,7 @@ class AnalyzeDataTool(ToolBaseDummy):
         data = kwargs.get("data")
 
         # Strict enforcement for the analysis domain (see get_parameters above and
-        # docs/analysis-sub-agent.md "Data Handoff").
+        # docs/calc-analysis-sub-agent.md "Data Handoff").
         if getattr(ctx, "active_domain", None) == "analysis" and data is not None:
             return self._tool_error(
                 "analysis domain requires data_range (A1 address string) only. "

@@ -5,7 +5,7 @@
 
 **Recommendation up front:** Keep **`=PY(code, data?)`** (explicit range arguments + Calc’s dependency DAG) as the native, first-class design. Do **not** make Microsoft’s `xl()` + co-volatility model the default Calc API. Excel workbook interchange is a **file conversion** problem: WriterAgent already ships a bidirectional OOXML rewriter ([§5.8](#58-ooxml--xlfnpy-import)) that maps formula-static `xl(%Pn%)` / `_xlws.PY` onto native `=PY(…; ranges)`. That is not “run Excel’s calc model inside Calc.”
 
-Related: [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped design), [Collabora Online / jail-safe compute](numpy-jailsafe.md) (thin C++ Add-In + remote service), [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog).
+Related: [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped design), [Collabora Online / jail-safe compute](scripting-numpy-jailsafe.md) (thin C++ Add-In + remote service), [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog).
 
 ---
 
@@ -75,7 +75,7 @@ Relevant facts from the current Calc engine (no PY opcode exists):
 
 ### 3.3 Collabora Online path (already the right split)
 
-[numpy-jailsafe.md](numpy-jailsafe.md): kit cannot spawn user venvs; Step C is a **dumb** core Add-In (`getPy` / ranges → JSON → compute service → matrix / `#BUSY!`). That path assumes **explicit data in the request**, not Python-side `xl()` round-trips into the kit for every range touch. Copying Microsoft’s bridge would push **many more** kit↔wsd↔service round-trips or force a giant “send whole used range” policy—both hostile to Online.
+[scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md): kit cannot spawn user venvs; Step C is a **dumb** core Add-In (`getPy` / ranges → JSON → compute service → matrix / `#BUSY!`). That path assumes **explicit data in the request**, not Python-side `xl()` round-trips into the kit for every range touch. Copying Microsoft’s bridge would push **many more** kit↔wsd↔service round-trips or force a giant “send whole used range” policy—both hostile to Online.
 
 ---
 
@@ -304,7 +304,7 @@ Excel’s `return_type` and object cards keep a live Python object (e.g. DataFra
 
 ### 5.7 Cloud runtime vs local / service
 
-Microsoft’s security story assumes **data egress to Azure** and a curated Anaconda image. LibreOffice’s desktop story is **local venv**; Online’s story is **admin-curated compute service** beside coolwsd ([numpy-jailsafe.md](numpy-jailsafe.md)).
+Microsoft’s security story assumes **data egress to Azure** and a curated Anaconda image. LibreOffice’s desktop story is **local venv**; Online’s story is **admin-curated compute service** beside coolwsd ([scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md)).
 
 Copying “the MS design” including cloud:
 
@@ -473,7 +473,7 @@ Registering a name is the easy 5%. Co-volatility, spill, and object cards are th
 
 ## 9. Recommended stance for Collabora / LibreOffice
 
-1. **Standardize on** `=PY(code, data…)` **(and `PYTHON` alias)** as the Calc-native API—desktop extension today, core/Online Add-In as in [numpy-jailsafe.md](numpy-jailsafe.md).
+1. **Standardize on** `=PY(code, data…)` **(and `PYTHON` alias)** as the Calc-native API—desktop extension today, core/Online Add-In as in [scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md).
 2. **Invest core effort** in: volatile busy results, robust matrix return, eventually **real dynamic spill for all of Calc**, and (when scheduled) formula-string limits for long `=PY("…")` — see [Future LibreOffice formula-string work](enabling_numpy_in_libreoffice.md#future-libreoffice-formula-string-work). Do **not** make `xl()` + co-volatility the default dependency model.
 3. **Treat Microsoft’s formula shape as file migration, not the Calc default:** the extension already ships XLSX import/export rewrite ([§5.8](#58-ooxml--xlfnpy-import)). Keep runtime `PY_XL` / co-volatility deferred unless there is measured demand beyond formula-static interchange.
 4. **Do not** make co-volatility the default in LibreOffice; if ever offered, gate it behind a compatibility mode and expect to document Partial-calc analogues.
@@ -494,7 +494,7 @@ Registering a name is the easy 5%. Co-volatility, spill, and object cards are th
 ### WriterAgent / LibrePy
 
 - [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) — shipped `=PY`, session modes, MS comparison table
-- [numpy-jailsafe.md](numpy-jailsafe.md) — Online compute service + core Add-In
+- [scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md) — Online compute service + core Add-In
 - [enabling_numpy §7 Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog) — object cards and related UX; explicitly out-of-scope: cloud / `xl()` as default
 - Implementation: `plugin/calc/python/function.py` (spill registry), `plugin/scripting/venv_worker.py`, [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) (OOXML Excel ↔ DAG rewriter)
 - Sample fidelity: [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) over [`PythonExcelSamples/`](../PythonExcelSamples/)

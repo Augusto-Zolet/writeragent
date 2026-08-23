@@ -15,12 +15,12 @@ This is the focused evolution of the high-level analysis ideas previously sketch
 **Cross-document note (MVP):** Analysis execution always runs in a **Calc context**. A Writer-side main agent can be made aware of an open Calc document's analysis capabilities (via prompt descriptions or delegation) and can surface the Calc file (via `document_research`), but the actual data extraction + numpy work happens against the Calc model. Users can copy/paste compact results into Writer, or in supported cases the system can perform "cleanup" (nicely formatting and inserting results into the active Writer doc). See the dedicated Cross-Document Workflows section below.
 
 **Related / prior art to draw from:**
-- [multi-document-dev-plan.md](multi-document-dev-plan.md): two-tier (outer discovery + inner per-file) delegation for `document_research`.
+- [chat-multi-document-dev-plan.md](chat-multi-document-dev-plan.md): two-tier (outer discovery + inner per-file) delegation for `document_research`.
 - [embeddings.md](embeddings.md): primary per-directory semantic index for cross-sibling discovery (outer router only; locators → precise inner reads). No other search indexes.
 - [writer-specialized-toolsets.md](writer-specialized-toolsets.md), [calc-specialized-toolsets.md](calc-specialized-toolsets.md), [draw-impress-specialized-toolsets.md](draw-impress-specialized-toolsets.md): nested delegation via `delegate_to_specialized_*_toolset(domain=...)`, tier filtering, ephemeral sub-agents.
 - [calc-analysis-tools.md](calc-analysis-tools.md): existing narrow `"analysis"` / `"solvers"` domain (Goal Seek + Solver). This plan generalizes it to data-driven numpy work.
 - [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md): trusted extension code pattern (e.g. `embeddings_index.py`), payload_codec / split-grid for efficient numeric handoff, full venv stack without AST sandbox for shipped modules.
-- [smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md): sub-agents (librarian, specialized) often run via smol/ ReAct for focused tasks.
+- [chat-smol-tool-architecture.md](chat-smol-tool-architecture.md): sub-agents (librarian, specialized) often run via smol/ ReAct for focused tasks.
 - Chat / tool loop for main agent coordination.
 - [enabling_numpy_in_libreoffice.md — Microsoft Python in Excel vs WriterAgent](enabling_numpy_in_libreoffice.md#microsoft-python-in-excel-vs-writeragent) and [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog): Mapping of Microsoft Python-in-Excel features (we copy useful *features* such as curated init-script helpers, rich object previews, strong data handoff for tables/named ranges/headers, AI-assisted workflows, etc., while keeping our local venv + explicit `data`/`result` architecture).
 - **TaskWeaver** (`taskweaver/`, [microsoft/TaskWeaver](https://github.com/microsoft/TaskWeaver)): agent orchestration reference (plugin-only mode, eval harness, plugin selection)—**not** analysis math; shipped plugins are weak demos. See [External code sources §7](#7-agent-orchestration--microsoft-taskweaver-taskweaver).
@@ -331,7 +331,7 @@ Useful FOSS to pull grouping/KPI/pipeline patterns into future helpers.
 | **Code verification** (`code_verification.py`) | [`venv_sandbox.py`](../plugin/scripting/venv_sandbox.py) | Configurable AST allow/block lists—compare if python-domain sandbox tightens |
 | **Round compression / experience** (`memory/compression.py`, `memory/experience.py`) | Experimental chat memory | Long analysis sessions—patterns only |
 
-**Do not port wholesale:** full Planner/CodeInterpreter FSM (we have tool loop + smol sub-agents), container/kernel execution (we use warm user venv + IPC—see [numpy-serialization.md](numpy-serialization.md)), Chainlit UI, or `document_retriever` (FAISS + LangChain—we have [embeddings.md](embeddings.md)).
+**Do not port wholesale:** full Planner/CodeInterpreter FSM (we have tool loop + smol sub-agents), container/kernel execution (we use warm user venv + IPC—see [scripting-numpy-serialization.md](scripting-numpy-serialization.md)), Chainlit UI, or `document_retriever` (FAISS + LangChain—we have [embeddings.md](embeddings.md)).
 
 #### 8. Libraries evaluated but excluded
 
@@ -427,7 +427,7 @@ Previously planned helpers (not yet separate tools):
 - Discovery helpers (or reuse via document_research).
 - `extract_data(source, format="pandas"|"numpy"|"records")`
 - `run_analysis(spec, data_ref, ...)` → results (the gateway to trusted).
-- `plot_data` for charts; `analyze_data` with `auto_plot=true` (or chart keywords in `task_hint`) chains regression/cluster/Monte Carlo/correlation helpers to viz — see [Visualization Phase C](numpy-domains.md#visualization). `forecast_data` supports the same `auto_plot` pattern for confidence-band forecast charts — see [Forecasting Phase 1](numpy-domains.md#forecasting-phase-1).
+- `plot_data` for charts; `analyze_data` with `auto_plot=true` (or chart keywords in `task_hint`) chains regression/cluster/Monte Carlo/correlation helpers to viz — see [Visualization Phase C](scripting-numpy-domains.md#visualization). `forecast_data` supports the same `auto_plot` pattern for confidence-band forecast charts — see [Forecasting Phase 1](scripting-numpy-domains.md#forecasting-phase-1).
 - `apply_analysis_results` (suggestions only; actual writes via main's tools after review).
 
 **Phasing (MVP-first, heavily reusing existing code)**
@@ -442,7 +442,7 @@ Previously planned helpers (not yet separate tools):
 
 2. **Phase 1 (sub-agent surface + discovery)**:
    - ~~Make "analysis" a proper delegable domain with its own focused toolset.~~ **Done** — `domain="analysis"` includes `analyze_data`, `calc_goal_seek`, and `calc_solver`.
-   - Add discovery-oriented tools inside it (compose with existing `get_sheet_summary`, range tools, and document_research when needed). Support the Excel-like feature of rich data awareness (we implement via embeddings + our explicit data handoff rather than Excel-style formula-static `%Pn%` bridges / co-volatility; see [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)).
+   - Add discovery-oriented tools inside it (compose with existing `get_sheet_summary`, range tools, and document_research when needed). Support the Excel-like feature of rich data awareness (we implement via embeddings + our explicit data handoff rather than Excel-style formula-static `%Pn%` bridges / co-volatility; see [ms-py §5.8](scripting-ms-py-compatibility.md#58-ooxml--xlfnpy-import)).
    - ~~Full sub-agent support (smol with limited toolset for the analysis task).~~ **Done** via existing delegation path.
    - Define a standard compact result schema (metrics + data_tables + suggested_writes + writer_cleanup_hints) — this helps both Calc application and Writer "cleanup".
 
@@ -451,7 +451,7 @@ Previously planned helpers (not yet separate tools):
    - Add thin Writer-side "cleanup" helpers (or just document how to use existing `apply_document_content` + rich text on the compact results). This is our version of turning analysis into nice presentation (Excel has spill + object cards; we have explicit cleanup + future rich table egress).
    - Result contract as above.
    - Start adopting more Excel data handoff ergonomics (named ranges, structured table awareness, headers) in `calc_addin_data.py` so both raw Python and the high-level helpers feel more like `xl(..., headers=True)`.
-   - Update `docs/analysis-sub-agent.md` (this file) and cross-reference from writer-specialized-toolsets.md and [enabling_numpy Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog).
+   - Update `docs/calc-analysis-sub-agent.md` (this file) and cross-reference from writer-specialized-toolsets.md and [enabling_numpy Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog).
 
 4. **Phase 3+ (deeper parity + advanced)**:
    - Caches, dedicated worker pool for long jobs, vision digitization of charts found in Writer (feed numbers into Calc analysis — copying the image + data analysis workflow).
@@ -471,7 +471,7 @@ Previously planned helpers (not yet separate tools):
 
 This plan reuses almost everything that already exists (delegation, smol sub-agents, python venv execution + data injection, calc_addin_data shaping, SheetAnalyzer, document_research cross-doc, trusted module pattern, init scripts). The new surface area is mainly the trusted analysis helper module (the "standard functions" layer) + a few high-level spec-driven tools, plus the "analysis" domain wiring, Writer cleanup awareness, and targeted adoption of useful Excel Python features (curated helpers, better data ergonomics, rich previews, cross-workbook agentic analysis) while preserving our architectural advantages (local/offline, explicit `data` for native DAG, no cloud lock-in, deterministic `result` assignment).
 
-We will copy *features* from Microsoft Python-in-Excel (initialization-script helpers and classes, rich object/data handling, strong support for tables/named ranges/headers, agentic data workflows across files, etc.) but implement them on top of WriterAgent's local venv + explicit signature model rather than copying their formula-static `%Pn%` / `_xlws.PY` package shape or row-major co-volatility ([ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)).
+We will copy *features* from Microsoft Python-in-Excel (initialization-script helpers and classes, rich object/data handling, strong support for tables/named ranges/headers, agentic data workflows across files, etc.) but implement them on top of WriterAgent's local venv + explicit signature model rather than copying their formula-static `%Pn%` / `_xlws.PY` package shape or row-major co-volatility ([ms-py §5.8](scripting-ms-py-compatibility.md#58-ooxml--xlfnpy-import)).
 
 ---
 
@@ -517,7 +517,7 @@ A critical architectural issue is how to pass large datasets to the analysis sub
 - Cleanup fidelity: how smart should the Writer-side "nice formatting + insert" step be? (tables, headings, cross-references back to the source Calc ranges, etc.)
 - Composition with web_research, librarian, or other specialists (e.g. "research the assumptions and then run sensitivity analysis on them in the attached budget").
 - Future expansion beyond Calc: if users start keeping serious data in Writer tables, how (if ever) to bring them into the analysis flow without making extraction too fragile.
-- **Visualization / forecasting extensions:** trusted `plot_data`, [`forecast_data`](../plugin/calc/forecast.py) time-series helpers (Phase 1 shipped: anomalies + `auto_plot` bands — [Forecasting Phase 1](numpy-domains.md#forecasting-phase-1)), and Run Python Script **[Viz]** / **[Forecast]** sections — [numpy-domains.md § Scientific domain roadmap](numpy-domains.md#scientific-domain-roadmap-trusted-helpers).
+- **Visualization / forecasting extensions:** trusted `plot_data`, [`forecast_data`](../plugin/calc/forecast.py) time-series helpers (Phase 1 shipped: anomalies + `auto_plot` bands — [Forecasting Phase 1](scripting-numpy-domains.md#forecasting-phase-1)), and Run Python Script **[Viz]** / **[Forecast]** sections — [scripting-numpy-domains.md § Scientific domain roadmap](scripting-numpy-domains.md#scientific-domain-roadmap-trusted-helpers).
 
 This keeps the implementation small by maximal reuse of delegation, embeddings for discovery, trusted execution (Calc context), data handoff patterns, and the existing document_research cross-doc machinery.
 

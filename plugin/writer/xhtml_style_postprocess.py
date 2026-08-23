@@ -7,13 +7,13 @@
 # (at your option) any later version.
 #
 # Pure string/CSS post-processing of LibreOffice "XHTML Writer File" output into the
-# agent-facing semantic HTML described in docs/html_style_model_plan.md (read path):
+# agent-facing semantic HTML described in docs/writer-html-style-model-plan.md (read path):
 #   - named paragraph styles  -> data-lo-style="<compact token>" (no spaces: "Heading1")
 #   - direct character overrides (text-* synthetic classes) -> inline style="..."
 #   - synthetic paragraph-* autostyle classes (P1, P2, ...) -> name from FODT Pn->parent map
 #     (when supplied), else CSS fingerprint, else omitted
 #
-# v1 limitations (see docs/html_style_model_plan.md#v1-limitations-shipped):
+# v1 limitations (see docs/writer-html-style-model-plan.md#v1-limitations-shipped):
 #   - Whole-paragraph Para* overrides (center, para colour, margins) are dropped on read;
 #     FODT recovers the base style NAME only. Char-level overrides via text-* spans survive.
 #   - Inside <table>: paragraph-* classes stripped; no data-lo-style (cell styles out of scope).

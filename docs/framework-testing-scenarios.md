@@ -2,7 +2,7 @@
 
 ### Draft: WriterAgent Testing Scenarios Checklist
 
-**File goal**: `docs/testing-scenarios.md` (or `TESTING_CHECKLIST.md`)
+**File goal**: `docs/framework-testing-scenarios.md` (or `TESTING_CHECKLIST.md`)
 
 #### 1. Core Tier Sanity (Run these first — everything else depends on this)
 

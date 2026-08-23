@@ -9,7 +9,7 @@ When Python code running in the WriterAgent extension touches a PyUNO object fro
 - **Visual Glitches**: Concurrent UI operations cause the VCL rendering pipeline to draw black menus, blank sidebars, or freeze desktop windows.
 - **Deadlocks (Lock Inversion)**: A background worker thread making a blocking UNO call can take an internal C++ solar mutex or dispatch lock while LibreOffice's main thread is waiting on the worker, deadlocking the entire office suite without a Python traceback.
 
-See [`docs/threading_architecture.md`](threading_architecture.md) and [`docs/streaming-and-threading.md`](streaming-and-threading.md) for the core architectural model: **worker threads perform network I/O, heavy LLM processing, and subprocess IPC; all PyUNO interactions are marshalled back to the main UI thread via [`execute_on_main_thread`](../plugin/framework/queue_executor.py) or [`post_to_main_thread`](../plugin/framework/queue_executor.py).**
+See [`docs/framework-threading.md`](framework-threading.md) and [`docs/framework-streaming-and-threading.md`](framework-streaming-and-threading.md) for the core architectural model: **worker threads perform network I/O, heavy LLM processing, and subprocess IPC; all PyUNO interactions are marshalled back to the main UI thread via [`execute_on_main_thread`](../plugin/framework/queue_executor.py) or [`post_to_main_thread`](../plugin/framework/queue_executor.py).**
 
 ### Why Concurrency Bugs Are "Whack-a-Mole"
 Historically, threading bugs in this codebase were uncovered only after mysterious production hangs:
@@ -23,7 +23,7 @@ Historically, threading bugs in this codebase were uncovered only after mysterio
 
 ## 2. Why Formal Verification (CrossHair / deal) Does Not Help Here
 
-It is critical to understand why our formal verification toolchain ([`docs/formal_verification.md`](formal_verification.md)) cannot solve this problem:
+It is critical to understand why our formal verification toolchain ([`docs/framework-formal-verification.md`](framework-formal-verification.md)) cannot solve this problem:
 
 - `deal` and CrossHair prove **value-level properties of pure, single-threaded functions** (e.g. "for all integer inputs $x > 0$, $f(x)$ returns a non-empty string").
 - CrossHair executes functions under symbolic execution **in a single thread**. It models neither operating system threads, the Python GIL, nor UNO's C++ thread-affinity constraints. There is no `@deal.pre` contract that can express "this PyUNO object pointer may only be dereferenced from `threading.main_thread()`."
@@ -300,6 +300,6 @@ The following items are tracked for future enhancement:
 
 ## Cross-References
 
-- [`docs/threading_architecture.md`](threading_architecture.md) — Pool architecture, drain ownership, and subprocess IPC pipe safety.
-- [`docs/streaming-and-threading.md`](streaming-and-threading.md) — Drain loop, cancellation, and `execute_on_main_thread` checklist.
-- [`docs/formal_verification.md`](formal_verification.md) — Why value-level formal verification (CrossHair/deal) does not apply to thread affinity effect typing.
+- [`docs/framework-threading.md`](framework-threading.md) — Pool architecture, drain ownership, and subprocess IPC pipe safety.
+- [`docs/framework-streaming-and-threading.md`](framework-streaming-and-threading.md) — Drain loop, cancellation, and `execute_on_main_thread` checklist.
+- [`docs/framework-formal-verification.md`](framework-formal-verification.md) — Why value-level formal verification (CrossHair/deal) does not apply to thread affinity effect typing.

@@ -49,7 +49,7 @@ There is **no** `/api/config` endpoint (removed — config is Settings / `writer
 
 **Document targeting:** `X-Document-URL` header on MCP requests (see below).
 
-**Concurrency:** Multiple MCP clients may call `tools/call` in parallel. See [Concurrency and parallel `tools/call`](#concurrency-and-parallel-toolscall) and [Threading architecture — MCP](threading_architecture.md#2-http-server-and-mcp-protocol-pluginmcp).
+**Concurrency:** Multiple MCP clients may call `tools/call` in parallel. See [Concurrency and parallel `tools/call`](#concurrency-and-parallel-toolscall) and [Threading architecture — MCP](framework-threading.md#2-http-server-and-mcp-protocol-pluginmcp).
 
 ### Live smoke test (running LibreOffice)
 
@@ -346,7 +346,7 @@ Tools with `long_running = True` (e.g. `delegate_to_specialized_*`, `image_gener
 
 **Tests:** [`tests/mcp/test_long_running_concurrency.py`](../tests/mcp/test_long_running_concurrency.py), [`tests/mcp/test_mcp_qol_extras.py`](../tests/mcp/test_mcp_qol_extras.py).
 
-**Full design:** [Threading architecture — MCP](threading_architecture.md#2-http-server-and-mcp-protocol-pluginmcp) (paths, diagram, known limits: sidebar chat, gate dict lifetime, save-as key changes).
+**Full design:** [Threading architecture — MCP](framework-threading.md#2-http-server-and-mcp-protocol-pluginmcp) (paths, diagram, known limits: sidebar chat, gate dict lifetime, save-as key changes).
 
 ### Per-connection vs global configuration (multiple servers)
 
@@ -387,7 +387,7 @@ An outer MCP model that **alternates** between unrelated tool groups in one long
 
 **Low priority for now:** MCP could be extended to expose additional tools on `tools/list` (specialized-tier tools or other surfaces). That could work for some hosts, especially if they **clear or compact context** so earlier tool-call history does not accumulate. It has not been a development focus because delegation matches the main use cases today.
 
-**Still required internally:** Even with a larger MCP surface, the internal agent stack remains necessary for features that are **not** orchestrated by an MCP client— notably the **background grammar checker** ([`docs/realtime-grammar-checker-plan.md`](realtime-grammar-checker-plan.md)) and similar automatic pipelines we may add later. Those run on their own schedules inside LibreOffice; an outer model cannot replace them by calling MCP tools in a chat session.
+**Still required internally:** Even with a larger MCP surface, the internal agent stack remains necessary for features that are **not** orchestrated by an MCP client— notably the **background grammar checker** ([`docs/writer-grammar-checker-plan.md`](writer-grammar-checker-plan.md)) and similar automatic pipelines we may add later. Those run on their own schedules inside LibreOffice; an outer model cannot replace them by calling MCP tools in a chat session.
 
 ### Exposing specialized tools directly: `mcp.tool_exposure_mode` (experimental)
 
@@ -430,7 +430,7 @@ The MCP server is **implemented and opt-in** (default off). Live summary (paths 
 - **Stdio bridge (optional):** [`scripts/mcp_bridge.py`](../scripts/mcp_bridge.py) for clients that speak stdio MCP.
 - **Prompts / guidance:** specialized-delegation and review rules live in [`plugin/framework/prompts.py`](../plugin/framework/prompts.py); MCP `get_guidance` maps the same pieces via [`plugin/framework/agent_manual.py`](../plugin/framework/agent_manual.py). `USE_SUB_AGENT` remains in [`plugin/framework/constants.py`](../plugin/framework/constants.py).
 
-Orientation for AI assistants: [`AGENTS.md`](../AGENTS.md). Deep threading notes: [threading architecture — MCP](threading_architecture.md#2-http-server-and-mcp-protocol-pluginmcp).
+Orientation for AI assistants: [`AGENTS.md`](../AGENTS.md). Deep threading notes: [threading architecture — MCP](framework-threading.md#2-http-server-and-mcp-protocol-pluginmcp).
 
 ---
 

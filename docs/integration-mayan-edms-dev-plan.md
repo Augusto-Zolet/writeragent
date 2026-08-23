@@ -2,11 +2,11 @@
 
 > **Status (2026-06):** **Planned / not shipped** — no `mayan_*` code in tree yet. This doc describes the intended design.
 
-> **Scope note:** Standalone plan for remote **Electronic Document Management Systems (DMS)**, using **Mayan EDMS** as the first integration target. Kept separate from [multi-document-dev-plan.md](multi-document-dev-plan.md) (local filesystem `document_research`) and [embeddings.md](embeddings.md) (local folder hybrid index). Do not conflate tracks when scheduling or implementing.
+> **Scope note:** Standalone plan for remote **Electronic Document Management Systems (DMS)**, using **Mayan EDMS** as the first integration target. Kept separate from [chat-multi-document-dev-plan.md](chat-multi-document-dev-plan.md) (local filesystem `document_research`) and [embeddings.md](embeddings.md) (local folder hybrid index). Do not conflate tracks when scheduling or implementing.
 
 > **Living document:** Update as phases ship, decisions are made, or scope changes. Link PRs and related topic docs.
 
-**Related:** [embeddings.md](embeddings.md) · [multi-document-dev-plan.md](multi-document-dev-plan.md) · [mcp-protocol.md](mcp-protocol.md)
+**Related:** [embeddings.md](embeddings.md) · [chat-multi-document-dev-plan.md](chat-multi-document-dev-plan.md) · [mcp-protocol.md](mcp-protocol.md)
 
 ---
 
@@ -139,7 +139,7 @@ Same client as the dialog and agent tools, mirroring [search_embeddings_folder.p
 
 ## Agent workflows
 
-Cross-file and cross-DMS research use the same **two-tier** model as local work ([multi-document-dev-plan.md](multi-document-dev-plan.md)). Sub-agents are ephemeral; they are not part of the user's main chat history.
+Cross-file and cross-DMS research use the same **two-tier** model as local work ([chat-multi-document-dev-plan.md](chat-multi-document-dev-plan.md)). Sub-agents are ephemeral; they are not part of the user's main chat history.
 
 ### Two-tier design
 
@@ -524,11 +524,11 @@ Always: `make test` before calling a phase done. Naming: `test_<module>.py`, `te
 | Topic | Doc |
 |-------|-----|
 | Local folder hybrid search + Search Nearby Files (shipped) | [embeddings.md](embeddings.md) |
-| Local two-tier document_research (shipped) | [multi-document-dev-plan.md](multi-document-dev-plan.md) |
-| Delegation / MCP | [mcp-protocol.md](mcp-protocol.md), [smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md) |
+| Local two-tier document_research (shipped) | [chat-multi-document-dev-plan.md](chat-multi-document-dev-plan.md) |
+| Delegation / MCP | [mcp-protocol.md](mcp-protocol.md), [chat-smol-tool-architecture.md](chat-smol-tool-architecture.md) |
 | Web vs DMS research | [agent-search.md](agent-search.md) |
-| HTTP search patterns | [search-engine-integration.md](search-engine-integration.md) |
-| Threading | [streaming-and-threading.md](streaming-and-threading.md) |
+| HTTP search patterns | [agent-search-engine-integration.md](agent-search-engine-integration.md) |
+| Threading | [framework-streaming-and-threading.md](framework-streaming-and-threading.md) |
 | Specialized tool tiers | writer/calc/draw specialized toolset docs |
 | Project invariants | [AGENTS.md](../AGENTS.md) |
 

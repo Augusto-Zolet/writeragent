@@ -154,7 +154,7 @@ Reasoning chunks often **precede** content chunks; the model “thinks” then �
 
 Some APIs use a single string field in the delta, e.g. `delta.reasoning_content`. Same idea: if present, append it to the thinking buffer and show it in the UI.
 
-WriterAgent also reads `reasoning`, `thought`, `thinking`, and `reasoning_details` on the delta ([`stream_normalizer.py`](../plugin/framework/client/stream_normalizer.py)). Provider-specific quirks (Ollama vs LM Studio, `` tags in `content`) are documented in [llm-hacks.md](llm-hacks.md) §7—this section is about **reasoning + tools together**.
+WriterAgent also reads `reasoning`, `thought`, `thinking`, and `reasoning_details` on the delta ([`stream_normalizer.py`](../plugin/framework/client/stream_normalizer.py)). Provider-specific quirks (Ollama vs LM Studio, `` tags in `content`) are documented in [chat-llm-hacks.md](chat-llm-hacks.md) §7—this section is about **reasoning + tools together**.
 
 ### 3.3 WriterAgent: one stream, three channels
 
@@ -178,7 +178,7 @@ Items below are **not bugs** in the current split; they are design tradeoffs to 
    [`stream_normalizer.py`](../plugin/framework/client/stream_normalizer.py) globals `PRESERVE_REASONING_IN_SESSION` (default true) and `PRESERVE_REASONING_MAX_CHARS` consolidate streaming thinking into **one block** per assistant turn on `session.messages` for the next API request — not per-SSE-chunk arrays. OpenRouter-style replay uses a merged `reasoning.text` entry plus any `reasoning.encrypted` blobs (merged by `index`; opaque `data` echoed as-is). Provider-specific filtering (e.g. drop stale Gemini encrypted on upstream switch) is **not** implemented yet — see `new_streaming_thinking_meta()` docstring in `stream_normalizer.py`. SQLite history remains text-only. Toggle or cap via those module globals (not Settings yet).
 
 2. **Think tags inside `content`**  
-   Some local providers stream `` only in `delta.content`, not in `reasoning_*`. Those tokens appear as normal reply text, not `[Thinking]`. A stateful splitter in `stream_normalizer` is listed as an optional follow-up in [llm-hacks.md](llm-hacks.md) §7.
+   Some local providers stream `` only in `delta.content`, not in `reasoning_*`. Those tokens appear as normal reply text, not `[Thinking]`. A stateful splitter in `stream_normalizer` is listed as an optional follow-up in [chat-llm-hacks.md](chat-llm-hacks.md) §7.
 
 3. **Interleaved thinking between tool calls**  
    Newer APIs describe “think → tool → think → tool” inside one assistant turn. Our FSM already supports multiple tool rounds; gap (1) matters if the model expects prior reasoning blocks when continuing after `tool` results.
@@ -272,7 +272,7 @@ LibreOffice’s UI (VCL) is single-threaded. To keep the UI responsive during lo
 This flat architecture avoids nested callbacks and makes state transitions explicit.
 
 > [!NOTE]
-> **Drain ownership vs listener no-ops:** Chat Send starts the drain from a UNO action listener and **must** keep calling `pump_ui_idle` so the UI repaints and Stop stays actionable. Harmful reentry is a *second* nested drain / raw secondary pump — not “any pump while a listener is on the stack.” Ownership guards and IPC stderr drains are detailed in [threading_architecture.md](threading_architecture.md). Off-main-thread UNO is covered separately by [uno-thread-safety-enforcement.md](uno-thread-safety-enforcement.md).
+> **Drain ownership vs listener no-ops:** Chat Send starts the drain from a UNO action listener and **must** keep calling `pump_ui_idle` so the UI repaints and Stop stays actionable. Harmful reentry is a *second* nested drain / raw secondary pump — not “any pump while a listener is on the stack.” Ownership guards and IPC stderr drains are detailed in [framework-threading.md](framework-threading.md). Off-main-thread UNO is covered separately by [framework-uno-thread-safety.md](framework-uno-thread-safety.md).
 
 ### Tool-loop command boundary
 
@@ -378,7 +378,7 @@ The net visual effect for the user was **micro-stutter** during long assistant a
 - Do **not** touch the consumer-side drain loop timeout (still `0.1 s`).
 - Move batching to the **producer** (network reader thread) with a *hard 250 ms deadline from the first fragment of each burst* (i.e. "send data every 250 ms max, or when done").
   Downstream code receives one larger joined string no later than 250 ms after the first tiny delta of a burst, while still coalescing rapid fragments. A boundary item (STREAM_DONE etc.) forces immediate emission even if the 250 ms window has not yet elapsed.
-- This is a pure smoothing / UX win orthogonal to caret-follow on the RichTextControl transcript (`reveal_rich_control_caret`); see [rich-text-control-sidebar.md](rich-text-control-sidebar.md).
+- This is a pure smoothing / UX win orthogonal to caret-follow on the RichTextControl transcript (`reveal_rich_control_caret`); see [chat-rich-text-control-sidebar.md](chat-rich-text-control-sidebar.md).
 
 ### The `BatchingStreamQueue` contract (the single source of truth)
 
@@ -413,7 +413,7 @@ The **primary user-visible chat streaming path** was updated:
 - `tests/framework/test_async_stream.py`:
   - Four new unit tests covering join-on-flush, auto-flush on boundary, the callback helpers, and simulated timer expiry.
 - Documentation:
-  - See [rich-text-control-sidebar.md](rich-text-control-sidebar.md) for formatted sidebar behavior; producer batching is described in this section.
+  - See [chat-rich-text-control-sidebar.md](chat-rich-text-control-sidebar.md) for formatted sidebar behavior; producer batching is described in this section.
   - This section (here) is the detailed permanent record.
 
 All of the above passed a full `make test` gate (ty + mypy + pyright + ruff + bandit + pytest + native UNO tests) with zero failures and zero unrelated changes.
@@ -477,7 +477,7 @@ Per the implementation plan and the final status after the May 2025-25 change, t
 - Implementation: `plugin/framework/async_stream.py` (`BatchingStreamQueue`, the defensive bits in `run_async_worker_with_drain`)
 - Primary wiring: `plugin/chatbot/tool_loop.py` (`_active_batched_q`, `_spawn_llm_worker`, `_spawn_final_stream`)
 - Tests: `tests/framework/test_async_stream.py` (the four new batcher tests)
-- UX context & scroll work: [rich-text-control-sidebar.md](rich-text-control-sidebar.md) (`reveal_rich_control_caret`)
+- UX context & scroll work: [chat-rich-text-control-sidebar.md](chat-rich-text-control-sidebar.md) (`reveal_rich_control_caret`)
 - Original plan / todo items: the conversation transcript and the todo list that existed at the moment the change landed (items such as `boundary-flush-audit`, `wire-acp-and-other-backends`, `flush-for-rerender-clear`, etc. were deliberately cancelled / marked "deferred to global audit" rather than completed).
 
 ### Status summary (as of the change that added this section)

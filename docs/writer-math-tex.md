@@ -760,7 +760,7 @@ Default recommendation: **do not** block Phase 1–2 on provenance; add if a con
 
 ## KaTeX / MathJax annotations (fast path when present)
 
-When future HTML import accepts MathML with `<annotation encoding="application/x-tex">`, **prefer extracting annotation text** when round-tripping that fragment (see dev-plan backlog in [math-tex.md](math-tex.md)). This avoids inventing TeX from Presentation MathML. **Orthogonal** to UNO StarMath read but should be **one code path** in the eventual “serialize math for prompt” function.
+When future HTML import accepts MathML with `<annotation encoding="application/x-tex">`, **prefer extracting annotation text** when round-tripping that fragment (see dev-plan backlog in [writer-math-tex.md](writer-math-tex.md)). This avoids inventing TeX from Presentation MathML. **Orthogonal** to UNO StarMath read but should be **one code path** in the eventual “serialize math for prompt” function.
 
 ---
 
@@ -916,4 +916,4 @@ See also: [Math extraction and edit loops](#math-extraction-and-edit-loops-roadm
 |------|--------|
 | 2026-04-29 | Extraction roadmap drafted (former `math-extraction-editing-dev-plan.md`). |
 | 2026-04 | HTML math Phases 0–2 shipped (former proposal + dev plan). |
-| 2026-05-20 | Consolidated into `math-tex.md`; source docs removed. |
+| 2026-05-20 | Consolidated into `writer-math-tex.md`; source docs removed. |

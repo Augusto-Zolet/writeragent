@@ -1,6 +1,6 @@
 # Building Host Native Extensions (Cython)
 
-Back to [NumPy Serialization](numpy-serialization.md).
+Back to [NumPy Serialization](scripting-numpy-serialization.md).
 
 This document serves as a reference for compiling and packaging custom host-side native C/Cython extensions for WriterAgent (e.g. `writeragent_vec` pack accelerator, or a future **`writeragent_vec_search`** module for embeddings top-k over binary float32 sidecars — see [embeddings.md](embeddings.md#cython-surface-area)).
 

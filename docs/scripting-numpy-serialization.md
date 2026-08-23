@@ -249,7 +249,7 @@ This section keeps **codec / wire** invariants only.
 
 #### Formal verification
 
-The split-grid codec is the project's reference Tier-0 verification target: `deal` contracts on pack/unpack functions, optional CrossHair concolic checking, and pytest round-trip oracles. The A/B suite ([`tests/scripting/test_serialization_ab.py`](../tests/scripting/test_serialization_ab.py) + Hypothesis + venv worker harness) compares `force="always"` (split_grid) vs `force="never"` (nested list) on small varied grids. See [`docs/serialization-verification-plan.md`](serialization-verification-plan.md); background in [`docs/formal_verification.md`](formal_verification.md).
+The split-grid codec is the project's reference Tier-0 verification target: `deal` contracts on pack/unpack functions, optional CrossHair concolic checking, and pytest round-trip oracles. The A/B suite ([`tests/scripting/test_serialization_ab.py`](../tests/scripting/test_serialization_ab.py) + Hypothesis + venv worker harness) compares `force="always"` (split_grid) vs `force="never"` (nested list) on small varied grids. See [`docs/scripting-serialization-verification.md`](scripting-serialization-verification.md); background in [`docs/framework-formal-verification.md`](framework-formal-verification.md).
 
 **Wire fidelity:** split_grid + Pickle5 must behave like nested Python lists + standard pickle — no extra type coercion in [`payload_codec.py`](../plugin/scripting/payload_codec.py). Optimized `frombuffer` paths are a performance implementation of that contract.
 
@@ -470,7 +470,7 @@ User-facing varargs examples: [core §9 — Multi-Range Support](enabling_numpy_
 ### Building host native extensions (Cython)
 
 **Status: not shipped / deferred**.
-With the highly optimized pure-Python/NumPy vectorized object-masking strategy implemented in May 2026, compiling and packaging native Cython modules is currently deferred. For future compiler reference and architectural guidelines on cibuildwheel/ABI matrixes, see the standalone [Cython Extension Guide](cython-extension.md).
+With the highly optimized pure-Python/NumPy vectorized object-masking strategy implemented in May 2026, compiling and packaging native Cython modules is currently deferred. For future compiler reference and architectural guidelines on cibuildwheel/ABI matrixes, see the standalone [Cython Extension Guide](scripting-cython-extension.md).
 
 ### Benchmark checklist (regression / future optimizations)
 
@@ -535,7 +535,7 @@ A high-performance Cython implementation of the flattening loop has been develop
     - **Cython v1 (`x86-64`)**: host_pack ~3.0 ms, total ~3.1 ms
     - **Cython v3 (`x86-64-v3`)**: host_pack ~3.0 ms, total ~3.0 ms
 - **Architecture comparison**: v1 vs v3 delta is **~1%** — flattening is **memory-bound**, not SIMD-bound. User CPUs are effectively all v3-capable; **v2 would be a fine ISA floor**, but bumping CI/Makefile wheels to v2/v3 buys almost nothing.
-- **Build policy**: release wheels stay on generic **x86-64** — not because users need v1 compatibility, but because changing release build defaults is not worth maintainer time for ~1% gain. **Rebenchmarking is fine**; flipping release defaults is not, unless the pack loop changes materially. Full rationale: [cython-extension.md](cython-extension.md#why-we-still-build-generic-x86-64-june-2026).
+- **Build policy**: release wheels stay on generic **x86-64** — not because users need v1 compatibility, but because changing release build defaults is not worth maintainer time for ~1% gain. **Rebenchmarking is fine**; flipping release defaults is not, unless the pack loop changes materially. Full rationale: [scripting-cython-extension.md](scripting-cython-extension.md#why-we-still-build-generic-x86-64-june-2026).
 - **Dynamic Loading**: The system dynamically detects the binary and falls back to the optimized Pure Python implementation on other platforms.
 
 #### Priority 1 — Profile inside LibreOffice (gate for everything else)

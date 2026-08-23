@@ -12,11 +12,11 @@ Previously, tools lived under the **`analysis`** specialized domain (`delegate_t
 | Single-variable what-if on live formulas | `calc_goal_seek` |
 | Constrained optimization on formula cells | `calc_solver` |
 
-See [calc-specialized-toolsets.md](calc-specialized-toolsets.md) for delegation mechanics and [Analysis Sub-Agent](analysis-sub-agent.md) for the broader plan. DuckDB SQL support (up to Phase C): 
+See [calc-specialized-toolsets.md](calc-specialized-toolsets.md) for delegation mechanics and [Analysis Sub-Agent](calc-analysis-sub-agent.md) for the broader plan. DuckDB SQL support (up to Phase C): 
 - `query_folder_sql` for folder files (CSV/Parquet/JSON direct + .xlsx/.ods via LO import) and/or live ranges.
 - Use `tables` (named ranges), `files` (list or named dict), `data_range` (single range → 'data' table).
 - Available in analysis domain chat or Run Python Script → SQL Helpers.
-Full plan and status: [duckdb-calc-dev-plan.md](duckdb-calc-dev-plan.md).
+Full plan and status: [calc-duckdb-dev-plan.md](calc-duckdb-dev-plan.md).
 
 **Threading:** The analysis sub-agent runs on a background worker. Tools marked `is_async` (including `analyze_data`) marshal every Calc UNO touch through `execute_on_main_thread` inside the tool body — primary analysis reads, optional sheet writes, **`auto_plot` viz data reads**, and chart insert — while only the venv IPC runs on the worker.
 
@@ -38,7 +38,7 @@ Runs curated numpy/pandas/scipy helpers in the user venv via a fixed RPC stub (n
 * `headers`: First row is column names (default `true`)
 * `task_hint`: Optional string echoed in result context
 
-**Returns:** Compact JSON with `status`, `helper`, `metrics`, `tables`, `flags`, etc. See [analysis-sub-agent.md](analysis-sub-agent.md) for the full result contract.
+**Returns:** Compact JSON with `status`, `helper`, `metrics`, `tables`, `flags`, etc. See [calc-analysis-sub-agent.md](calc-analysis-sub-agent.md) for the full result contract.
 
 **Example:** "Describe the sales table in A1:C50."
 

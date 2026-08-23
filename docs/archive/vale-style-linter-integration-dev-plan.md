@@ -166,4 +166,4 @@ If a sentence contains embedded `\n` (soft line breaks), Vale sees multiple line
 
 - Vale: https://vale.sh
 - PyPI wrapper: https://pypi.org/project/vale/
-- Related: [Harper integration plan](harper-grammar-linter-dev-plan.md), [realtime grammar checker plan](realtime-grammar-checker-plan.md)
+- Related: [Harper integration plan](harper-grammar-linter-dev-plan.md), [realtime grammar checker plan](writer-grammar-checker-plan.md)

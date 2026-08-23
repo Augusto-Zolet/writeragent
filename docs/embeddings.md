@@ -2,7 +2,7 @@
 
 > **Status (2026-06):** **Shipped** — unified **`corpus.db`** + sqlite-vec (schema v3) with **hybrid FTS + semantic search** (RRF fusion). Default embedding model: **`paraphrase-multilingual-MiniLM-L12-v2`**. Cross-file search is **off by default**; enable **Embeddings + FTS** in **Settings → Vector Search**.
 
-**Related:** [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) · [numpy-domains.md](numpy-domains.md) · [multi-document-dev-plan.md](multi-document-dev-plan.md) · [cython-extension.md](cython-extension.md)
+**Related:** [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) · [scripting-numpy-domains.md](scripting-numpy-domains.md) · [chat-multi-document-dev-plan.md](chat-multi-document-dev-plan.md) · [scripting-cython-extension.md](scripting-cython-extension.md)
 
 ---
 
@@ -682,7 +682,7 @@ Live edit hooks for embeddings are **not planned** — periodic mtime/hash refre
 
 ### Host Cython `top_k_dot` {#cython-surface-area}
 
-Optional in-process top-k over normalized float32 vectors — mirror [`writeragent_vec`](../native/writeragent_vec/). Defer until profiling on multi-file corpora shows need. See [cython-extension.md](cython-extension.md).
+Optional in-process top-k over normalized float32 vectors — mirror [`writeragent_vec`](../native/writeragent_vec/). Defer until profiling on multi-file corpora shows need. See [scripting-cython-extension.md](scripting-cython-extension.md).
 
 ### Implementation status {#development-plan}
 
@@ -695,9 +695,9 @@ Cross-file hybrid search is **shipped** (schema v3 `corpus.db`, `search_nearby_f
 | Topic | Doc |
 |-------|-----|
 | Venv / NumPy boundary | [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) |
-| Multi-file discovery plan | [multi-document-dev-plan.md](multi-document-dev-plan.md) |
-| Cython build matrix | [cython-extension.md](cython-extension.md) |
-| Realtime grammar / hash patterns | [realtime-grammar-checker-plan.md](realtime-grammar-checker-plan.md) |
+| Multi-file discovery plan | [chat-multi-document-dev-plan.md](chat-multi-document-dev-plan.md) |
+| Cython build matrix | [scripting-cython-extension.md](scripting-cython-extension.md) |
+| Realtime grammar / hash patterns | [writer-grammar-checker-plan.md](writer-grammar-checker-plan.md) |
 | Chat memory (unrelated) | [langchain-plan.md](langchain-plan.md) |
 
 ---

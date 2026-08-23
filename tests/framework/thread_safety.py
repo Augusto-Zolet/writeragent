@@ -5,7 +5,7 @@
 """Layer B test helpers: thread-affine UNO mocks + synthetic main-thread pump.
 
 Opt-in via the ``uno_thread_safety`` fixture in tests/framework/conftest.py.
-See docs/uno-thread-safety-enforcement.md (Layer B).
+See docs/framework-uno-thread-safety.md (Layer B).
 """
 
 from __future__ import annotations

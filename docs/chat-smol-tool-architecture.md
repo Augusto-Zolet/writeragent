@@ -185,4 +185,4 @@ Shipped behavior: **`WriterAgentSmolModel`** passes **`completion_kwargs.get("to
 
 - [`AGENTS.md`](../AGENTS.md)
 - [`docs/chat-sidebar-implementation.md`](chat-sidebar-implementation.md)
-- [`docs/streaming-and-threading.md`](streaming-and-threading.md)
+- [`docs/framework-streaming-and-threading.md`](framework-streaming-and-threading.md)

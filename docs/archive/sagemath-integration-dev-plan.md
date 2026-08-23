@@ -4,7 +4,7 @@
 > **Product note (2026-06):** SymPy trusted helpers (`symbolic_math`, Run Python Script **[Math]**) ship first; Sage integration below remains optional future work.  
 > **Last updated:** 2026-06-07  
 > **Owner:** WriterAgent core  
-> **Related:** [Scientific Python bridge](enabling_numpy_in_libreoffice.md) · [Symbolic Math roadmap](numpy-domains.md#symbolic-math) · [Analysis sub-agent](analysis-sub-agent.md) · [Jupyter notebook import](jupyter-notebook-import.md) · [Math / TeX design](math-tex.md) · [Community integration strategy](../community_integration_strategy.md)
+> **Related:** [Scientific Python bridge](enabling_numpy_in_libreoffice.md) · [Symbolic Math roadmap](scripting-numpy-domains.md#symbolic-math) · [Analysis sub-agent](calc-analysis-sub-agent.md) · [Jupyter notebook import](calc-jupyter-notebook-import.md) · [Math / TeX design](writer-math-tex.md) · [Community integration strategy](../community_integration_strategy.md)
 
 ---
 
@@ -43,7 +43,7 @@ They want:
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Zero Calc power-user feedback loop today** | Sage/math is a **differentiated wedge** — a concrete persona (math grad student, engineering TA, small-university LO deploy) even if small in absolute numbers          |
 | **Scientific Python bridge already shipped** | `=PYTHON()`, `run_venv_python_script`, shared Calc kernel, Jupyter import — Sage plugs into **existing** plumbing                                                       |
-| **Symbolic Math helpers already on roadmap** | [numpy-domains.md §3](numpy-domains.md#symbolic-math) lists `solve_equation`, `latex_to_math_object` — **Sage extends that plan**, not a parallel product |
+| **Symbolic Math helpers already on roadmap** | [scripting-numpy-domains.md §3](scripting-numpy-domains.md#symbolic-math) lists `solve_equation`, `latex_to_math_object` — **Sage extends that plan**, not a parallel product |
 | **SymPy already in venv**                    | Default path works without Sage; Sage is **optional depth**, not a hard dependency                                                                                      |
 | **GPL + FOSS alignment**                     | Natural conversation with SageMath / Passagemath community (local tools, no proprietary CAS lock-in)                                                                    |
 
@@ -101,11 +101,11 @@ flowchart LR
 | Venv subprocess worker  | `[plugin/scripting/venv_worker.py](../plugin/scripting/venv_worker.py)`, `[worker_harness.py](../plugin/scripting/worker_harness.py)`     | Warm process; Pickle5 IPC                                              |
 | AST sandbox + whitelist | `[plugin/scripting/venv_sandbox.py](../plugin/scripting/venv_sandbox.py)`, `[sandbox.py](../plugin/scripting/sandbox.py)` | `**sympy` whitelisted; `sage` not**                                    |
 | Auto-imports            | `[AUTO_IMPORTS](../plugin/framework/constants.py)`                                                                                        | `np`, `pd`, `sp`, `st`, `plt`, `math`, `dt`, … — **do not auto-import Sage** (slow, clashes) |
-| Writer Math insert      | `[math_formula_insert.py](../plugin/writer/math/math_formula_insert.py)`, [math-tex.md](math-tex.md)                                      | LaTeX → StarMath → OLE                                                 |
+| Writer Math insert      | `[math_formula_insert.py](../plugin/writer/math/math_formula_insert.py)`, [writer-math-tex.md](writer-math-tex.md)                                      | LaTeX → StarMath → OLE                                                 |
 | Trusted helper RPC      | `[analysis_client.py](../plugin/framework/client/analysis_client.py)` → `[analysis.py](../plugin/scripting/analysis.py)`                  | **Template for `symbolic_client.py`**                                  |
 | Jupyter import + kernel | `[plugin/notebook/](../plugin/notebook/)`                                                                                                 | Cells run in WriterAgent venv, not Sage kernel                         |
 | Settings Test           | `[run_venv_self_check](../plugin/scripting/venv_worker.py)`                                                                               | Scientific / EDA / Vision groups — **no Sage probe yet**               |
-| Symbolic roadmap        | [numpy-domains.md §3](numpy-domains.md#symbolic-math)                                                                       | Helpers **not shipped**                                                |
+| Symbolic roadmap        | [scripting-numpy-domains.md §3](scripting-numpy-domains.md#symbolic-math)                                                                       | Helpers **not shipped**                                                |
 
 
 ### Architecture (target state)
@@ -267,7 +267,7 @@ Phases are **ordered by risk reduction**, not by marketing flash. Sage is niche 
 
 **Goal:** Reliable CAS for LLM + Run Python Script — **implements existing Symbolic Math roadmap** with optional Sage backend.
 
-Aligns with [numpy-domains.md §3 Symbolic Math](numpy-domains.md#symbolic-math).
+Aligns with [scripting-numpy-domains.md §3 Symbolic Math](scripting-numpy-domains.md#symbolic-math).
 
 
 | Component                                                                   | Pattern                                                                                        |
@@ -310,7 +310,7 @@ Aligns with [numpy-domains.md §3 Symbolic Math](numpy-domains.md#symbolic-math)
 
 | Step           | Scope                                                                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **4a (docs)**  | Import `.ipynb` via [jupyter-notebook-import](jupyter-notebook-import.md); cells use WriterAgent venv — document Sage syntax requirements |
+| **4a (docs)**  | Import `.ipynb` via [jupyter-notebook-import](calc-jupyter-notebook-import.md); cells use WriterAgent venv — document Sage syntax requirements |
 | **4b**         | Detect `kernelspec.name == "sage"` → actionable Settings message                                                                          |
 | **4c (defer)** | External Sage Jupyter kernel subprocess — only if 4a–4b insufficient                                                                      |
 

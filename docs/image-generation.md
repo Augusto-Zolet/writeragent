@@ -75,4 +75,4 @@ Tool usage: pass `source_image='selection'` with an image selected in the docume
 
 - Endpoint HTTP details: [`plugin/framework/client/llm_client.py`](../plugin/framework/client/llm_client.py)
 - Sidebar / direct-image mode: [`docs/chat-sidebar-implementation.md`](chat-sidebar-implementation.md)
-- **Planned local backends:** [diffusers-comfyui-image-backend-dev-plan.md](diffusers-comfyui-image-backend-dev-plan.md) — **ComfyUI** (new backend); local images via **Ollama/endpoint** already supported
+- **Planned local backends:** [image-diffusers-comfyui-dev-plan.md](image-diffusers-comfyui-dev-plan.md) — **ComfyUI** (new backend); local images via **Ollama/endpoint** already supported

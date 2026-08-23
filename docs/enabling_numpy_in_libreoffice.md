@@ -4,7 +4,7 @@ WriterAgent can run scientific Python — **NumPy**, **pandas**, **scipy**, and 
 
 **Glossary:** `=PY()` and `=PYTHON()` are the same Calc add-in (`XPythonFunction`). **User-facing examples in this file use `=PY()`.** The registered alias `PYTHON` works the same (some ODS fixtures use `=PYTHON()` because XLSX import lowercases custom add-in names).
 
-These Python / NumPy features also now ship in **LibrePy.oxt**. The WriterAgent extension covers the same Python surfaces plus a prototype Calc to =PY() spreadsheet conversion, chat and related tools — install **one** OXT at a time (see [extension packaging](libreoffice-core-python-extension-split.md)).
+These Python / NumPy features also now ship in **LibrePy.oxt**. The WriterAgent extension covers the same Python surfaces plus a prototype Calc to =PY() spreadsheet conversion, chat and related tools — install **one** OXT at a time (see [extension packaging](scripting-librepy-split.md)).
 
 ## Table of contents
 
@@ -20,7 +20,7 @@ These Python / NumPy features also now ship in **LibrePy.oxt**. The WriterAgent 
   - [Data shapes (`data` / blanks / varargs)](calc-py-data-shapes.md)
 7. [Deferred roadmap](#7-deferred-roadmap)
   - [Calc UX backlog](#calc-ux-backlog)
-8. [Collabora Online and jail-safe execution](numpy-jailsafe.md)
+8. [Collabora Online and jail-safe execution](scripting-numpy-jailsafe.md)
 9. [Implementation status](#9-implementation-status)
 
 ### Related Documents
@@ -28,15 +28,15 @@ These Python / NumPy features also now ship in **LibrePy.oxt**. The WriterAgent 
 | Document | Description / Notes |
 | :--- | :--- |
 | [Calc `=PY()` data shapes](calc-py-data-shapes.md) | `CalcRange`, ingress/egress, blanks vs NaN, dates, multi-range |
-| [Venv subprocess IPC & NumPy serialization](numpy-serialization.md) | Warm worker, protocol, wire formats, benchmarks |
-| [Why not copy Microsoft’s `=PY()`](ms-py-libreoffice-compatibility.md) | `xl()` + co-volatility costs vs native `=PY(code, data?)` |
-| [NumPy domain helpers](numpy-domains.md) | Analysis, Viz, Symbolic, Units, Text, Forecasting |
-| [Extension packaging](libreoffice-core-python-extension-split.md) | LibrePy vs WriterAgent packaging |
+| [Venv subprocess IPC & NumPy serialization](scripting-numpy-serialization.md) | Warm worker, protocol, wire formats, benchmarks |
+| [Why not copy Microsoft’s `=PY()`](scripting-ms-py-compatibility.md) | `xl()` + co-volatility costs vs native `=PY(code, data?)` |
+| [NumPy domain helpers](scripting-numpy-domains.md) | Analysis, Viz, Symbolic, Units, Text, Forecasting |
+| [Extension packaging](scripting-librepy-split.md) | LibrePy vs WriterAgent packaging |
 | [LibrePy-surface live QA plan](librepy-manual-qa-plan.md) | Real-scenario Calc/RPS/domain checks (`=PY("1 + 1")` upward). Either OXT; do not test chat/`=PROMPT()`. |
-| [Monaco editor dev plan](python-monaco-editor-dev-plan.md) | IPC, phases 2B–2F |
-| [Collabora Online / jail-safe](numpy-jailsafe.md) | Thin C++ Add-In + compute service |
+| [Monaco editor dev plan](scripting-monaco-editor-dev-plan.md) | IPC, phases 2B–2F |
+| [Collabora Online / jail-safe](scripting-numpy-jailsafe.md) | Thin C++ Add-In + compute service |
 | [Calc spreadsheet → Python import](calc-spreadsheet-to-python-import.md) | Convert formulas to `=PY()` |
-| [Jupyter notebook import](jupyter-notebook-import.md) | Writer `.ipynb` import (not venv compute) |
+| [Jupyter notebook import](calc-jupyter-notebook-import.md) | Writer `.ipynb` import (not venv compute) |
 
 ---
 
@@ -70,7 +70,7 @@ All design choices below follow from that constraint.
 
 1. **Persistent worker:** `[PythonWorkerManager](plugin/scripting/venv_worker.py)` spawns the venv’s `python` once per executable path and keeps it alive.
 2. **Namespace per request (configurable):** `[worker_harness.py](plugin/scripting/venv/worker_harness.py)` → `[venv_sandbox.py](plugin/scripting/venv/venv_sandbox.py)` uses a `[LocalPythonExecutor](plugin/contrib/smolagents/local_python_executor.py)`. Default **Isolated** mode gives each `=PY()` cell a fresh namespace (init script still seeds once). **Shared kernel** mode (`[session_manager.py](plugin/scripting/session_manager.py)`) keeps one workbook namespace across cells — see [§6 Session modes](#session-modes-and-recalc-semantics).
-3. **Length-prefixed Pickle5 IPC:** `[PythonWorkerManager](plugin/scripting/venv_worker.py)` ↔ `[worker_harness.py](plugin/scripting/venv/worker_harness.py)` exchange framed request/response dicts; `data` / `result` use `[split_grid](numpy-serialization.md#strategy-3-split-grid-serialization-detail)` when dense. Protocol detail: [Venv subprocess IPC](numpy-serialization.md#worker-protocol). Bidirectional **tool RPC** is **not** wired yet ([§7](#7-deferred-roadmap)).
+3. **Length-prefixed Pickle5 IPC:** `[PythonWorkerManager](plugin/scripting/venv_worker.py)` ↔ `[worker_harness.py](plugin/scripting/venv/worker_harness.py)` exchange framed request/response dicts; `data` / `result` use `[split_grid](scripting-numpy-serialization.md#strategy-3-split-grid-serialization-detail)` when dense. Protocol detail: [Venv subprocess IPC](scripting-numpy-serialization.md#worker-protocol). Bidirectional **tool RPC** is **not** wired yet ([§7](#7-deferred-roadmap)).
 
 **Pros:** Sidesteps ABI issues; any Python version in the venv; avoids spawn overhead on every call; optional shared-kernel mode for multi-cell pipelines.  
 **Cons:** User must create and maintain a venv; in **Isolated** mode, re-pass data via `data` / `data_range` or cell references unless Shared kernel is enabled.
@@ -108,7 +108,7 @@ No terminal is required after the venv is set up. An optional [chat assistant](#
 - **No automatic venv creation** — you bring your own environment.
 - **Path paste:** Paste the path **without** surrounding quotes (Windows Explorer “Copy as path” adds them — strip them). Spaces, parentheses, and non-ASCII home dirs are fine; spawn uses argv lists, not a shell.
 - **Layouts:** uv / Poetry / stdlib `venv` → `bin/python` or `Scripts\python.exe`. Windows conda / pyenv-win → env folder or `python.exe` at the env root also works.
-- **Test button:** Checks that the path resolves to a `python` executable and reports which package groups are Present/Missing (**Scientific**, **Data Analysis / EDA**, **UI / Monaco**, **Vision**, **Embeddings**, **Audio Recording**). After Test finishes, if packages are still Missing, the message ends with copy-paste **`uv pip install …`** then **`pip install …`** for those packages (not shown during progressive refresh). Vision marks paddle/ultralytics/skimage as optional when OCR is already ready. Cold Vision/Embeddings imports can take ~30s on first Test. Domain package lists: [numpy-domains.md](numpy-domains.md), [Image Recognition](image-recognition.md), [Embeddings](embeddings.md#embeddings-venv-packages). Microphone capture uses the same venv (`uv pip install sounddevice`) — see [audio-architecture.md](audio-architecture.md).
+- **Test button:** Checks that the path resolves to a `python` executable and reports which package groups are Present/Missing (**Scientific**, **Data Analysis / EDA**, **UI / Monaco**, **Vision**, **Embeddings**, **Audio Recording**). After Test finishes, if packages are still Missing, the message ends with copy-paste **`uv pip install …`** then **`pip install …`** for those packages (not shown during progressive refresh). Vision marks paddle/ultralytics/skimage as optional when OCR is already ready. Cold Vision/Embeddings imports can take ~30s on first Test. Domain package lists: [scripting-numpy-domains.md](scripting-numpy-domains.md), [Image Recognition](image-recognition.md), [Embeddings](embeddings.md#embeddings-venv-packages). Microphone capture uses the same venv (`uv pip install sounddevice`) — see [audio-architecture.md](audio-architecture.md).
 
 **Creating the venv (uv recommended in 2026):**
 
@@ -144,7 +144,7 @@ There is **no UNO API inside the child process** today — scripts compute and r
 
 ### Run Python Script & Monaco {#run-python-script--monaco}
 
-The extension ships a **Monaco-based code editor** (pywebview child in the configured venv) for Calc formulas and ad-hoc scripts. Theme sync with LibreOffice light/dark is shipped. IPC and remaining editor backlog: [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md).
+The extension ships a **Monaco-based code editor** (pywebview child in the configured venv) for Calc formulas and ad-hoc scripts. Theme sync with LibreOffice light/dark is shipped. IPC and remaining editor backlog: [scripting-monaco-editor-dev-plan.md](scripting-monaco-editor-dev-plan.md).
 
 
 | Feature                                                     | Status      | Notes                                                                                            |
@@ -154,7 +154,7 @@ The extension ships a **Monaco-based code editor** (pywebview child in the confi
 | **Document-attached scripts**                               | **Shipped** | **This Document** vs **My Scripts** in the picker — scripts can travel with `.odt`/`.ods`/`.odg` |
 | **Edit Initialization Script…** (Calc)                      | **Shipped** | Workbook startup script in document properties; LibrePy sidebar button + Monaco                  |
 | **LibrePy Python sidebar** (Calc deck)                      | **Shipped** | Cell list, filtered diagnostics, session/actions — not an embedded Monaco editor                 |
-| Syntax squiggles, range picker, full Jedi                   | **Backlog** | [Monaco dev plan §8](python-monaco-editor-dev-plan.md#8-next-development-plan-detailed)          |
+| Syntax squiggles, range picker, full Jedi                   | **Backlog** | [Monaco dev plan §8](scripting-monaco-editor-dev-plan.md#8-next-development-plan-detailed)          |
 
 
 **Requirements:** Settings → Python → venv path with `pywebview` installed (Linux also needs `PyQt6 PyQt6-WebEngine qtpy`) for the Monaco UI. **Edit Python in Cell…** and **Run Python Script…** both fall back to native LibreOffice dialogs when pywebview is missing or `scripting.force_internal_script_editor` is true. Native cell edit does not need a venv.
@@ -170,7 +170,7 @@ Prefer `result = …` for the value that should appear in the sheet or script UI
 
 ### Using the chat assistant (optional) {#using-the-chat-assistant-optional}
 
-> **WriterAgent only** — not part of the core Python/NumPy extension; see [extension split](libreoffice-core-python-extension-split.md).
+> **WriterAgent only** — not part of the core Python/NumPy extension; see [extension split](scripting-librepy-split.md).
 
 You can also ask the sidebar chat to run the same venv Python. The model uses the specialized tool `run_venv_python_script` (domain `python`) — same warm worker as the menus and `=PY()`. Chat runs are always **isolated** (they do not share the Calc workbook kernel).
 
@@ -228,7 +228,7 @@ Wall-clock limit is still **Settings → Python** (`scripting.python_exec_timeou
 
 LibreOffice’s embedded Python and the user’s venv are **different interpreters** ([§1](#1-the-problem-abi-and-embedded-python)). Venv execution uses the venv’s `ast` and packages; the subprocess boundary is the hard safety line for C extensions.
 
-Subprocess lifecycle, worker protocol, Linux pipe performance, and serialization wire formats: **[Venv subprocess IPC & NumPy serialization](numpy-serialization.md)**.
+Subprocess lifecycle, worker protocol, Linux pipe performance, and serialization wire formats: **[Venv subprocess IPC & NumPy serialization](scripting-numpy-serialization.md)**.
 
 ---
 
@@ -236,7 +236,7 @@ Subprocess lifecycle, worker protocol, Linux pipe performance, and serialization
 
 ## 5. Developer reference
 
-Host↔venv plumbing (module map, worker protocol, `python_max_data_cells`, benchmarks): **[numpy-serialization.md](numpy-serialization.md)**.
+Host↔venv plumbing (module map, worker protocol, `python_max_data_cells`, benchmarks): **[scripting-numpy-serialization.md](scripting-numpy-serialization.md)**.
 
 ### `=PY()` recalc timings (`py_timing`)
 
@@ -391,7 +391,7 @@ Excel's shared globals depend on **sheet position** and co-volatility. Here the 
 
 Calc tracks that `B1` depends on `A1` and runs `A1` **before** `B1` — no Python string parsing, no co-volatility tax. Chain pipelines (load → clean → aggregate → plot) by passing each stage as `data`, even when cells are not adjacent or not in row-major order.
 
-Excel’s *saved* static bridges already put ranges on `_xlws.PY` trailing args (Excel→PY dirtying works); co-volatility is still how Excel orders **PY↔PY** / shared globals, not a substitute for DAG partial recalc among PY cells. Prefer `=PY(code, data)` over a naive UI-shaped `xl()`-inside-string Calc port ([§7 comparison](#microsoft-python-in-excel-vs-writeragent); package details in [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)).
+Excel’s *saved* static bridges already put ranges on `_xlws.PY` trailing args (Excel→PY dirtying works); co-volatility is still how Excel orders **PY↔PY** / shared globals, not a substitute for DAG partial recalc among PY cells. Prefer `=PY(code, data)` over a naive UI-shaped `xl()`-inside-string Calc port ([§7 comparison](#microsoft-python-in-excel-vs-writeragent); package details in [ms-py §5.8](scripting-ms-py-compatibility.md#58-ooxml--xlfnpy-import)).
 
 #### Rules of the shared namespace
 
@@ -509,8 +509,8 @@ Parity targets for Calc `=PY()` UX (Microsoft Python in Excel product docs).
 | **Ctrl+Alt+Shift+C**           | Toggle plot float vs embedded   | Plots insert as sheet images only                                                                            | Floating plot layer → backlog                                                                                                                               |
 | **Ctrl+Alt+Shift+M**           | Toggle Value vs Object return   | Always value egress today; object cards → [Calc UX backlog](#calc-ux-backlog) |                                                                                                                                                             |
 | **Ctrl+Shift+F5**              | Open object card preview        | Not shipped                                                                                                  | [Object cards](#calc-ux-backlog)                                                                                                                                                     |
-| **Ctrl+Shift+U**               | Expand formula bar              | Calc native (multi-line formula bar)                                                                         | Formula-bar Jedi → [Monaco 2D](python-monaco-editor-dev-plan.md#phase-2d--jedi-autocompletion-child-only-performance-sensitive)                                                                                                                                  |
-| **F2**                         | Edit vs point mode (range pick) | Calc native cell edit                                                                                        | Monaco **range picker** should use same Enter/Point idea ([Monaco 2C](python-monaco-editor-dev-plan.md#phase-2c--calc-range-picker-medium-risk-high-value)) |
+| **Ctrl+Shift+U**               | Expand formula bar              | Calc native (multi-line formula bar)                                                                         | Formula-bar Jedi → [Monaco 2D](scripting-monaco-editor-dev-plan.md#phase-2d--jedi-autocompletion-child-only-performance-sensitive)                                                                                                                                  |
+| **F2**                         | Edit vs point mode (range pick) | Calc native cell edit                                                                                        | Monaco **range picker** should use same Enter/Point idea ([Monaco 2C](scripting-monaco-editor-dev-plan.md#phase-2c--calc-range-picker-medium-risk-high-value)) |
 | **Ctrl+F2**                    | Focus formula bar ↔ grid        | Calc native                                                                                                  | —                                                                                                                                                           |
 
 
@@ -578,7 +578,7 @@ Calc's legacy add-in bridge only accepts **one scalar** (number, text, or boolea
 
 #### Matrix Formula Optimization (Fast-Path)
 
-Calc evaluates matrix formulas once per cell; without optimization that means many IPC crossings. The host caches the **Worker Result Session** so the first cell runs the worker and later cells read by index — use `ROW()-n` as the 2nd argument. Details: [numpy-serialization.md — Matrix formula result session](numpy-serialization.md#matrix-formula-result-session-ipc-reduction).
+Calc evaluates matrix formulas once per cell; without optimization that means many IPC crossings. The host caches the **Worker Result Session** so the first cell runs the worker and later cells read by index — use `ROW()-n` as the 2nd argument. Details: [scripting-numpy-serialization.md — Matrix formula result session](scripting-numpy-serialization.md#matrix-formula-result-session-ipc-reduction).
 
 Without the index argument, repeated evaluations in the same recalc pass return successive list elements (best-effort; prefer the `ROW()` form for reliability).
 
@@ -673,7 +673,7 @@ Do not wrap returns in `float()` / `int()` / `str()` for Calc’s sake — [`to_
 | **ASCII quotes only** | Always when pasting / generating formulas | Normalize curly `“”` → `"` (WriterAgent does this on parse) |
 | **Comma vs semicolon** | Match file/locale | XLSX OOXML → commas; Calc UI often `;` |
 | **XLSX test sheets** | Manual serialization regression | See [`scripts/generate_serialization_spreadsheet.py`](../scripts/generate_serialization_spreadsheet.py) |
-| **Excel Python-in-Excel `.xlsx`** | Open in Calc with the Python/`=PY` extension | Auto-rewrites to DAG `=PY` on load; scripts **>1000 chars** parked on visible `py_code_<Sheet>` at the same A1, shorter stay inline ([`script_bank.py`](../plugin/calc/excel_py_convert/script_bank.py)) — see [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import) |
+| **Excel Python-in-Excel `.xlsx`** | Open in Calc with the Python/`=PY` extension | Auto-rewrites to DAG `=PY` on load; scripts **>1000 chars** parked on visible `py_code_<Sheet>` at the same A1, shorter stay inline ([`script_bank.py`](../plugin/calc/excel_py_convert/script_bank.py)) — see [ms-py §5.8](scripting-ms-py-compatibility.md#58-ooxml--xlfnpy-import) |
 
 **XLSX input cells must be numeric, not text:** if the sheet stores values as strings (e.g. `"1.0"` from `str()` in a generator), Calc passes them as text, `split_grid` lands them in the `strings` map, and `np.sum(data)` fails with a Unicode dtype `TypeError`. Regenerate [`serialization_tests.xlsx`](../tests/fixtures/serialization_tests.xlsx) after fixing the generator so ints/floats are written as native cell types.
 
@@ -743,7 +743,7 @@ flowchart LR
 | Where users edit   | Formula bar, **Edit Python in Cell…** (Monaco), or code-in-cell ref | LibrePythonista menu / Edit Code; cell shows short `=PY.C(...)` |
 | Where source lives | In the `.ods` formula (or a referenced cell)                        | Document-side store (`PySourceManager`, etc.)                   |
 
-**Design stance:** treat each `=PY` cell as a **pure function** (`data` in → `result` out). Monaco / code-in-cell helps for long scripts ([Calc UX backlog](#calc-ux-backlog); [Monaco plan](python-monaco-editor-dev-plan.md)). Flatpak/Snap spawn patterns for the Monaco child remain tracked in [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md) (phase 2F).
+**Design stance:** treat each `=PY` cell as a **pure function** (`data` in → `result` out). Monaco / code-in-cell helps for long scripts ([Calc UX backlog](#calc-ux-backlog); [Monaco plan](scripting-monaco-editor-dev-plan.md)). Flatpak/Snap spawn patterns for the Monaco child remain tracked in [scripting-monaco-editor-dev-plan.md](scripting-monaco-editor-dev-plan.md) (phase 2F).
 
 ### Data shapes (`data` / blanks / varargs)
 
@@ -776,13 +776,13 @@ Microsoft runs Python in **cloud containers**. Authors type `xl("…")` literals
 | --- | --- | --- |
 | **Data ingress** | UI `xl("A1:B10")` → package `%Pn%` + trailing `_xlws.PY` deps | Range as formula arg → `data` / `ranges` |
 | **Output egress** | Last expression | Prefer `result = …`; last expression if unset |
-| **Dependency tracking** | **Excel→PY:** trailing formula deps (literals rewritten at edit/save; no Python parse at recalc). **PY↔PY:** co-volatility ([ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import), [jailsafe](numpy-jailsafe.md)) | Native Calc DAG on `data` args |
+| **Dependency tracking** | **Excel→PY:** trailing formula deps (literals rewritten at edit/save; no Python parse at recalc). **PY↔PY:** co-volatility ([ms-py §5.8](scripting-ms-py-compatibility.md#58-ooxml--xlfnpy-import), [jailsafe](scripting-numpy-jailsafe.md)) | Native Calc DAG on `data` args |
 | **Multi-range** | Multiple `%Pn%` / trailing deps | Varargs → `ranges` ([data shapes](calc-py-data-shapes.md#multi-range-support-varargs)) |
 | **Shared state** | Globals + row-major co-volatility | Opt-in shared kernel + `data` refs ([§6](#session-modes-and-recalc-semantics)) |
 | **Runtime** | Cloud sandbox | User venv (offline, any pip packages) |
 | **Editor** | Monaco task pane | Monaco via pywebview ([§3](#run-python-script--monaco)) |
 
-**Design stance:** keep explicit `data` + `result`. Deep dive for Collabora/LibreOffice (why not copy co-volatility as the default; file rewrite for Excel packages): **[ms-py-libreoffice-compatibility.md](ms-py-libreoffice-compatibility.md)**.
+**Design stance:** keep explicit `data` + `result`. Deep dive for Collabora/LibreOffice (why not copy co-volatility as the default; file rewrite for Excel packages): **[scripting-ms-py-compatibility.md](scripting-ms-py-compatibility.md)**.
 
 **Excel parity (summary):** dynamic spill, plots, Monaco cell editor, shared kernel + init scripts, and LibrePy sidebar diagnostics are **shipped**. Object cards, rich DataFrame tables, names/tables labels → [Calc UX backlog](#calc-ux-backlog).
 
@@ -800,7 +800,7 @@ Apps Script’s sheet object model remains a useful **API design reference** for
 
 ### Calc UX backlog {#calc-ux-backlog}
 
-Not shipped unless noted. Monaco editor gaps live in [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md) (2B–2F, Phase 3 formula-bar polish).
+Not shipped unless noted. Monaco editor gaps live in [scripting-monaco-editor-dev-plan.md](scripting-monaco-editor-dev-plan.md) (2B–2F, Phase 3 formula-bar polish).
 
 #### Object cards
 
@@ -825,7 +825,7 @@ Complex returns (DataFrame, dict, class) should show a compact cell label (e.g. 
 | **DataFrame → rich Calc table** | Headers, formats, filters — distinct from object cards |
 | **JSON `result` envelope** | Multi-cell agent updates via `__wa_payload__`; `payload_codec` + host apply |
 | **Inline result preview** | Stdout/thumbnail under cell |
-| **Formula-bar Jedi** | [Monaco 2D](python-monaco-editor-dev-plan.md#phase-2d--jedi-autocompletion-child-only-performance-sensitive) |
+| **Formula-bar Jedi** | [Monaco 2D](scripting-monaco-editor-dev-plan.md#phase-2d--jedi-autocompletion-child-only-performance-sensitive) |
 | **Named ranges / structured tables / `headers` in `data`** | [`calc_addin_data.py`](../plugin/calc/calc_addin_data.py) |
 | **Label preservation** | First row/column as pandas Index when requested |
 | **Spreadsheet → Python import** | [calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md) |
@@ -841,16 +841,16 @@ Complex returns (DataFrame, dict, class) should show a compact cell label (e.g. 
 
 ### Other deferred pointers
 
-- Serialization performance: [numpy-serialization.md — Future work](numpy-serialization.md#future-work--serialization-performance)
-- Jupyter `.ipynb` import (Writer only, not venv compute): [jupyter-notebook-import.md](jupyter-notebook-import.md)
-- Monaco remaining phases: [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md)
-- Domain roadmaps: [numpy-domains.md](numpy-domains.md)
+- Serialization performance: [scripting-numpy-serialization.md — Future work](scripting-numpy-serialization.md#future-work--serialization-performance)
+- Jupyter `.ipynb` import (Writer only, not venv compute): [calc-jupyter-notebook-import.md](calc-jupyter-notebook-import.md)
+- Monaco remaining phases: [scripting-monaco-editor-dev-plan.md](scripting-monaco-editor-dev-plan.md)
+- Domain roadmaps: [scripting-numpy-domains.md](scripting-numpy-domains.md)
 
 ---
 
 ## 8. Collabora Online and jail-safe execution
 
-See [numpy-jailsafe.md](numpy-jailsafe.md) for details on Collabora Online and jail-safe execution of NumPy.
+See [scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md) for details on Collabora Online and jail-safe execution of NumPy.
 
 ---
 
@@ -863,10 +863,10 @@ Remaining work lives in the child doc (or [§7 backlog](#calc-ux-backlog)). Do *
 | Area | Where to look |
 | --- | --- |
 | Calc UX (object cards, named ranges, soft timeout, edit-dialog tiers, …) | [§7 backlog](#calc-ux-backlog) |
-| Domain helpers (Geospatial / Audio remaining; Analysis, Viz, SymPy, Units, Forecast, Text, Optimize, Quant shipped or partial) | [numpy-domains.md](numpy-domains.md); SageMath: [sagemath-integration-dev-plan.md](sagemath-integration-dev-plan.md) |
-| Serialization / Cython `vec_pack` download | [numpy-serialization.md](numpy-serialization.md#future-work--serialization-performance) |
+| Domain helpers (Geospatial / Audio remaining; Analysis, Viz, SymPy, Units, Forecast, Text, Optimize, Quant shipped or partial) | [scripting-numpy-domains.md](scripting-numpy-domains.md); SageMath: [sagemath-integration-dev-plan.md](sagemath-integration-dev-plan.md) |
+| Serialization / Cython `vec_pack` download | [scripting-numpy-serialization.md](scripting-numpy-serialization.md#future-work--serialization-performance) |
 | Venv ↔ LO tool RPC | [§7](#venv--libreoffice-tool-rpc) |
-| Collabora Online (Steps A–C landed; plot / Monaco remain) | [numpy-jailsafe.md](numpy-jailsafe.md), [online#16010](https://github.com/CollaboraOnline/online/issues/16010) |
-| Monaco editor remaining phases | [python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md) |
-| Jupyter Writer import (execution loop deferred) | [jupyter-notebook-import.md](jupyter-notebook-import.md) |
+| Collabora Online (Steps A–C landed; plot / Monaco remain) | [scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md), [online#16010](https://github.com/CollaboraOnline/online/issues/16010) |
+| Monaco editor remaining phases | [scripting-monaco-editor-dev-plan.md](scripting-monaco-editor-dev-plan.md) |
+| Jupyter Writer import (execution loop deferred) | [calc-jupyter-notebook-import.md](calc-jupyter-notebook-import.md) |
 

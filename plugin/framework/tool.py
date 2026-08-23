@@ -386,7 +386,7 @@ class ToolBase(ABC):
 
         Defaults to :meth:`detects_mutation`. Override when a tool is sometimes read-only
         depending on ``arguments`` (e.g. delegate gateway domains). See
-        docs/threading_architecture.md § MCP tool execution paths.
+        docs/framework-threading.md § MCP tool execution paths.
         """
         return self.detects_mutation()
 

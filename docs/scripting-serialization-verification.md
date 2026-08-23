@@ -1,6 +1,6 @@
 # Serialization Formal Verification
 
-**Goal:** Apply the formal verification approach from [`docs/formal_verification.md`](formal_verification.md) to the split_grid serialization code in [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py).
+**Goal:** Apply the formal verification approach from [`docs/framework-formal-verification.md`](framework-formal-verification.md) to the split_grid serialization code in [`plugin/scripting/payload_codec.py`](../plugin/scripting/payload_codec.py).
 
 This is the reference implementation for Tier-0 (pure Python) contract + CrossHair verification in WriterAgent.
 
@@ -162,11 +162,11 @@ crosshair check -v --report_all plugin/scripting/payload_codec.py 2>&1 \
 | `payload_codec child_unpack ... failed` | `cover` | **Exploration noise** — bad input hit your log/except path; normal during fuzzing |
 | Traceback at end | `cover` | **Fatal** — CrossHair crashed (often type-hint limits); not a contract failure |
 
-Full **`cover`** semantics (examples vs noise vs fatals, pytest workflow): [`docs/formal_verification.md`](formal_verification.md) § CrossHair `cover`.
+Full **`cover`** semantics (examples vs noise vs fatals, pytest workflow): [`docs/framework-formal-verification.md`](framework-formal-verification.md) § CrossHair `cover`.
 
 The pytest CrossHair hook fails only on `: error:` lines (counterexamples), not on `Not confirmed`.
 
-**Live dashboard:** pipe ``crosshair -v`` through the formatter (see [`docs/formal_verification.md`](formal_verification.md)):
+**Live dashboard:** pipe ``crosshair -v`` through the formatter (see [`docs/framework-formal-verification.md`](framework-formal-verification.md)):
 
 ```bash
 crosshair check -v --report_all plugin/scripting/payload_codec.py 2>&1 \
@@ -198,7 +198,7 @@ make crosshair-check
 ## Next steps
 
 1. Optional CI job running `make verify` (or the two serialization verification files) on a schedule or PR label.
-2. Broader Tier-0 / FSM coverage: remaining **partial** entries in [`verification_status.json`](../verification_status.json) — see [`docs/formal_verification.md`](formal_verification.md) Phase 6/7.
+2. Broader Tier-0 / FSM coverage: remaining **partial** entries in [`verification_status.json`](../verification_status.json) — see [`docs/framework-formal-verification.md`](framework-formal-verification.md) Phase 6/7.
 3. Optional: `make crosshair-cover` harvest → pytest oracles for new edge inputs.
 4. Consider `scripts/update_verification_status.py` to refresh [`verification_status.json`](../verification_status.json) after CrossHair runs.
 

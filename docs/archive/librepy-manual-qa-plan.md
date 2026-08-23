@@ -13,10 +13,10 @@
 - Syntax/runtime junk (`=PY("1 + E")`, empty code, nested quotes).
 - WriterAgent-only features even if the WriterAgent OXT is installed: chat, `=PROMPT()`, `analyze_data` / `run_venv_python_script` / MCP, embeddings, DuckDB, Jupyter import, spreadsheet → Python converter.
 - `calc.*` parity helpers (not in the LibrePy *feature* set; ignore if they happen to work under WriterAgent).
-- Collabora Online / jail-safe C++ path ([numpy-jailsafe.md](numpy-jailsafe.md)).
+- Collabora Online / jail-safe C++ path ([scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md)).
 - Geospatial, Audio analysis, SageMath, Prophet.
 
-Related docs: [extension split](libreoffice-core-python-extension-split.md), [user guide](enabling_numpy_in_libreoffice.md), [data shapes](calc-py-data-shapes.md), [domains](numpy-domains.md), [showcase](python-in-calc-showcase.md).
+Related docs: [extension split](scripting-librepy-split.md), [user guide](enabling_numpy_in_libreoffice.md), [data shapes](calc-py-data-shapes.md), [domains](scripting-numpy-domains.md), [showcase](python-in-calc-showcase.md).
 
 ---
 
@@ -565,7 +565,7 @@ Agents 4–7 can share one running LO if they use **separate workbooks** and do 
 - Lexer/quoting, `#SPILL!` geometry, jagged ranges, NaN vs blank tables ([calc-py-data-shapes.md](calc-py-data-shapes.md)).
 - Matrix `ROW()-1` fast path UNO tests (`test_prompt_function_matrix_uno.py`).
 - Excel `.xlsx` round-trip (`PythonExcelSamples/`) — WriterAgent converter, not LibrePy.
-- Jail-safe Online (`compute_service/`, [numpy-jailsafe.md](numpy-jailsafe.md)).
+- Jail-safe Online (`compute_service/`, [scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md)).
 - Turn passing live cases into UNO `@native_test` only where mocks already lie.
 
 ---

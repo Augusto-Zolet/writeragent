@@ -770,11 +770,11 @@ check-fizzbee:
 		$$FB tests/mcp/fizzbee/writer_tools_model.fizz; \
 		$$FB tests/mcp/fizzbee/calc_tools_model.fizz; \
 	else \
-		echo "FizzBee is not installed. Run 'make install-fizzbee' or check docs/fizzbee-mcp-testing.md."; \
+		echo "FizzBee is not installed. Run 'make install-fizzbee' or check docs/mcp-fizzbee-testing.md."; \
 		$(PYTHON) scripts/install_fizzbee.py --check; \
 	fi
 
-# CrossHair on entire module files (correctness over speed; see docs/formal_verification.md)
+# CrossHair on entire module files (correctness over speed; see docs/framework-formal-verification.md)
 # Use stream.py `run` (not a shell pipe) so engine crashes and exit codes are classified + summarized.
 crosshair-check:
 	$(PYTHON) scripts/crosshair_stream.py run check -- -v --report_all $(CROSSHAIR_MODULE)

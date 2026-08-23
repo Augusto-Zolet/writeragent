@@ -4,7 +4,7 @@ Back to [Enabling NumPy & Python in LibreOffice](enabling_numpy_in_libreoffice.m
 
 WriterAgent builds **domain-specific trusted helpers** on top of the warm venv subprocess: fixed host stubs call reviewed modules under `plugin/scripting/` (and related packages) with the full scientific stack — no AST sandbox inside those modules. This document covers Analysis, Visualization, Symbolic Math, Units, Text Analytics, Forecasting, Optimization, Quant, and planned domains (Geospatial, Audio).
 
-**Related:** [Analysis Sub-Agent](analysis-sub-agent.md) · [Image Recognition](image-recognition.md) (Vision) · [Embeddings](embeddings.md) · [DuckDB Calc](duckdb-calc-dev-plan.md) · [SageMath (deferred)](sagemath-integration-dev-plan.md) · [Venv IPC & serialization](numpy-serialization.md)
+**Related:** [Analysis Sub-Agent](calc-analysis-sub-agent.md) · [Image Recognition](image-recognition.md) (Vision) · [Embeddings](embeddings.md) · [DuckDB Calc](calc-duckdb-dev-plan.md) · [SageMath (deferred)](sagemath-integration-dev-plan.md) · [Venv IPC & serialization](scripting-numpy-serialization.md)
 
 ---
 
@@ -50,7 +50,7 @@ uv pip install numpy pandas scipy scikit-learn statsmodels fg-data-profiling pan
 | `statsmodels` | `run_regression`, [`forecast_time_series` / `decompose_time_series`](../plugin/scripting/forecast.py) |
 | [pandas-montecarlo](https://github.com/ranaroussi/pandas-montecarlo) | `monte_carlo` |
 
-Helpers that need a missing package return `MISSING_PACKAGE` with the install line above — there is no in-code fallback to alternate libraries. See [Analysis Sub-Agent](analysis-sub-agent.md).
+Helpers that need a missing package return `MISSING_PACKAGE` with the install line above — there is no in-code fallback to alternate libraries. See [Analysis Sub-Agent](calc-analysis-sub-agent.md).
 
 ### Demo workbook (all NumPy domains)
 
@@ -80,7 +80,7 @@ SageMath remains a future optional extension — [sagemath-integration-dev-plan.
 
 ## Scientific domain roadmap (trusted helpers) {#scientific-domain-roadmap-trusted-helpers}
 
-The sections below are **roadmaps and reference** for scientific capabilities. **Shipped domains:** **Analysis** ([analysis-sub-agent.md](analysis-sub-agent.md)), **Vision** ([image-recognition.md](image-recognition.md)), **Visualization** ([§1](#visualization)), **Symbolic Math (SymPy)** ([§3](#symbolic-math)), **Units (Pint)** ([§3b](#data-engineering-units)), **Forecasting** ([§2](#forecasting)), **Text Analytics** ([§4](#text-analytics)), **Optimization** (partial — [§5](#optimization)), and **Quant** (Run Python Script). DuckDB SQL helpers (up to Phase C: multi-table catalog with named ranges + folder files) are implemented under the same trusted + Run Python Script + analysis-domain pattern; see [duckdb-calc-dev-plan.md](duckdb-calc-dev-plan.md). Remaining domains (Geospatial, Audio) follow the same pattern: trusted modules under `plugin/scripting/`, fixed venv stubs, host extract → IPC → compact results → document egress, plus optional Run Python Script templates and specialized sub-agent exposure.
+The sections below are **roadmaps and reference** for scientific capabilities. **Shipped domains:** **Analysis** ([calc-analysis-sub-agent.md](calc-analysis-sub-agent.md)), **Vision** ([image-recognition.md](image-recognition.md)), **Visualization** ([§1](#visualization)), **Symbolic Math (SymPy)** ([§3](#symbolic-math)), **Units (Pint)** ([§3b](#data-engineering-units)), **Forecasting** ([§2](#forecasting)), **Text Analytics** ([§4](#text-analytics)), **Optimization** (partial — [§5](#optimization)), and **Quant** (Run Python Script). DuckDB SQL helpers (up to Phase C: multi-table catalog with named ranges + folder files) are implemented under the same trusted + Run Python Script + analysis-domain pattern; see [calc-duckdb-dev-plan.md](calc-duckdb-dev-plan.md). Remaining domains (Geospatial, Audio) follow the same pattern: trusted modules under `plugin/scripting/`, fixed venv stubs, host extract → IPC → compact results → document egress, plus optional Run Python Script templates and specialized sub-agent exposure.
 
 ### Domain helper pattern (Analysis + Vision canonical)
 
@@ -111,7 +111,7 @@ flowchart TD
 
 **Dual access model:** Prefer high-level `run_*({helper, params}, data, context)` (or domain-specific inputs like vision's `image`). Keep `run_venv_python_script` / `=PYTHON()` as the escape hatch for novel work. Return `MISSING_PACKAGE` when required venv packages are absent; optional pure-Python or ASCII fallbacks per domain.
 
-**Data handoff:** Reuse [`calc_addin_data.py`](../plugin/calc/calc_addin_data.py) and [`payload_codec`](../plugin/scripting/payload_codec.py) split-grid. For LLM/sub-agent paths, pass **`data_range`** (late binding) rather than full grids in chat context — see [Analysis Sub-Agent — Data Handoff](analysis-sub-agent.md#data-handoff--context-limits-out-of-band-data).
+**Data handoff:** Reuse [`calc_addin_data.py`](../plugin/calc/calc_addin_data.py) and [`payload_codec`](../plugin/scripting/payload_codec.py) split-grid. For LLM/sub-agent paths, pass **`data_range`** (late binding) rather than full grids in chat context — see [Analysis Sub-Agent — Data Handoff](calc-analysis-sub-agent.md#data-handoff--context-limits-out-of-band-data).
 
 **Visualization note:** Phase A uses the venv worker and `__wa_payload__: "image"` envelope for raw matplotlib (no trusted module required). **Phases B–C shipped:** Run Python Script image egress and trusted Viz helpers (`viz.py`, `[Viz]` templates, `plot_data`, analysis auto-plot).
 
@@ -131,7 +131,7 @@ The implementation should follow the [Domain helper pattern](#domain-helper-patt
 
 | Priority | Domain | Status today | First target |
 |----------|--------|--------------|--------------|
-| 0 | **Analysis** (numeric EDA, regression, clustering, …) | **Shipped** — [analysis-sub-agent.md](analysis-sub-agent.md); Viz auto-plot via [`viz_auto_plot.py`](../plugin/calc/viz_auto_plot.py) | Maintenance |
+| 0 | **Analysis** (numeric EDA, regression, clustering, …) | **Shipped** — [calc-analysis-sub-agent.md](calc-analysis-sub-agent.md); Viz auto-plot via [`viz_auto_plot.py`](../plugin/calc/viz_auto_plot.py) | Maintenance |
 | 1 | **Visualization & Plotting** | **Shipped** (Phase A–C) | `plot_data`, `[Viz] quick_plot` |
 | 2 | **Time Series & Forecasting** | **Shipped (Phase 1)** — anomalies, viz bands, `auto_plot`; Prophet deferred | Optional `prophet` model (Phase 2) |
 | 3 | **Symbolic Mathematics** | **Shipped** (SymPy only; Sage deferred) | `symbolic_math`, `[Math] solve_equation` |
@@ -187,7 +187,7 @@ run_venv_python_script(code="… plt.plot(…) …")
 
 **Native LO charts** ([`charts.py`](../plugin/calc/charts.py) — `UpsertChart`, `ListCharts`, …) are a **separate** UNO chart path, not matplotlib. The LLM can already create native Calc/Writer charts from structured data; Viz helpers complement that with statistical plotting (seaborn, heatmaps, distribution plots).
 
-**Known limitations:** No UNO e2e test for full `=PYTHON()` plot insertion (geometry unit-tested with mocks). Multiple open figures are merged into one vertical stack (PNG). Optional polish (anchor/z-order, replace-existing-chart, UNO e2e): [Monaco Phase 3](python-monaco-editor-dev-plan.md#phase-3--broader-surfaces).
+**Known limitations:** No UNO e2e test for full `=PYTHON()` plot insertion (geometry unit-tested with mocks). Multiple open figures are merged into one vertical stack (PNG). Optional polish (anchor/z-order, replace-existing-chart, UNO e2e): [Monaco Phase 3](scripting-monaco-editor-dev-plan.md#phase-3--broader-surfaces).
 
 #### Phase B — Run Python Script + Writer image egress (shipped)
 
@@ -416,7 +416,7 @@ Optional second table `all_scores` (truncated) for debugging — keep behind `pa
 | Edit | `plugin/scripting/venv/viz.py` (+ maybe `viz.py` templates) |
 | Edit | `plugin/scripting/writeragent_api.py` | Regenerate via `python scripts/generate_tool_proxies.py` after tool schema change |
 | Tests | `test_forecast.py`, `test_viz.py`, `test_forecast_auto_plot.py`, `test_forecast_data.py`, demo cases |
-| Docs | This section → mark Phase 1 shipped; update prioritization row; [`analysis-sub-agent.md`](analysis-sub-agent.md) one line on `auto_plot` for forecasts |
+| Docs | This section → mark Phase 1 shipped; update prioritization row; [`calc-analysis-sub-agent.md`](calc-analysis-sub-agent.md) one line on `auto_plot` for forecasts |
 | Diagnostics | Only if Prophet shipped |
 
 ##### Implementation order
@@ -675,7 +675,7 @@ Results are inserted as compact tables and usable from scripts.
 
 Keep each domain lean: reuse `payload_codec`, split-grid, document-attached scripts + Monaco, and Settings Test reporting—the same surfaces that make Analysis and Vision usable without an LLM.
 
-Shared-kernel **Calc semantics** (reset, recalc, idempotent cells): [enabling_numpy_in_libreoffice.md §6 — Session modes](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics). Worker lifecycle and code hot cache: [numpy-serialization.md — Warm worker](numpy-serialization.md#warm-worker-lifecycle). Trusted-code pattern (generic): [enabling_numpy_in_libreoffice.md §5](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv).
+Shared-kernel **Calc semantics** (reset, recalc, idempotent cells): [enabling_numpy_in_libreoffice.md §6 — Session modes](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics). Worker lifecycle and code hot cache: [scripting-numpy-serialization.md — Warm worker](scripting-numpy-serialization.md#warm-worker-lifecycle). Trusted-code pattern (generic): [enabling_numpy_in_libreoffice.md §5](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv).
 
 ---
 

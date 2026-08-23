@@ -1,6 +1,6 @@
 # Python-first checker → LanguageTool-class quality (phased plan)
 
-**Status**: Research note (architecture and roadmap; no WriterAgent wiring described here). For **WriterAgent**, this direction is **low-priority for now**: the shipped linguistic grammar path is **LLM-backed over HTTP** (see [docs/realtime-grammar-checker-plan.md](realtime-grammar-checker-plan.md)), and that design already covers many goals people once associated with “local only” stacks.
+**Status**: Research note (architecture and roadmap; no WriterAgent wiring described here). For **WriterAgent**, this direction is **low-priority for now**: the shipped linguistic grammar path is **LLM-backed over HTTP** (see [docs/writer-grammar-checker-plan.md](writer-grammar-checker-plan.md)), and that design already covers many goals people once associated with “local only” stacks.
 
 **Audience**: Builders who want a **checker implemented and extended in Python** that **converges over time toward the depth and usefulness of LanguageTool’s rule set**, runs **without invoking an LLM at proofread time**, and deliberately **does not depend on embedding or invoking the JVM**. (If you are happy with an LLM at proofread time—even self-hosted—see **WriterAgent / LLM grammar** below.)
 
@@ -452,7 +452,7 @@ The outcome is **a checker as good over time as you measure** against corpora yo
 
 ## 11. References (upstream documentation and portable resources)
 
-- [Real-time / AI grammar checker — shipped WriterAgent design](realtime-grammar-checker-plan.md) (LLM over HTTP; local model servers use the same mechanism)
+- [Real-time / AI grammar checker — shipped WriterAgent design](writer-grammar-checker-plan.md) (LLM over HTTP; local model servers use the same mechanism)
 - [LanguageTool development overview](https://dev.languagetool.org/development-overview.html)
 - [Supported languages & rule-count matrix](https://languagetool.org/languages/) (regenerated each release—use when pinning locales)
 - [English `grammar.xml` (inspect patterns; large file)](https://raw.githubusercontent.com/languagetool-org/languagetool/master/languagetool-language-modules/en/src/main/resources/org/languagetool/rules/en/grammar.xml)

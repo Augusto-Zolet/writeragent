@@ -9,8 +9,8 @@ Related:
 | Doc | Owns |
 | --- | --- |
 | [Enabling NumPy & Python](enabling_numpy_in_libreoffice.md) | User guide, session modes, spill/matrix UX, architecture overview |
-| [Venv IPC & serialization](numpy-serialization.md) | Pickle5 wire, `split_grid`, benchmarks, codec invariants |
-| [Microsoft `=PY` design stance](ms-py-libreoffice-compatibility.md) | Why Calc keeps explicit `data` args; Excel packages already bind ranges as trailing `_xlws.PY` args that the rewriter maps onto `data` / `ranges` ([§5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)) |
+| [Venv IPC & serialization](scripting-numpy-serialization.md) | Pickle5 wire, `split_grid`, benchmarks, codec invariants |
+| [Microsoft `=PY` design stance](scripting-ms-py-compatibility.md) | Why Calc keeps explicit `data` args; Excel packages already bind ranges as trailing `_xlws.PY` args that the rewriter maps onto `data` / `ranges` ([§5.8](scripting-ms-py-compatibility.md#58-ooxml--xlfnpy-import)) |
 
 Code: [`plugin/scripting/calc_range.py`](../plugin/scripting/calc_range.py), [`plugin/calc/calc_addin_data.py`](../plugin/calc/calc_addin_data.py), [`plugin/calc/python/function.py`](../plugin/calc/python/function.py) (`to_calc_compatible`).
 
@@ -34,7 +34,7 @@ Code: [`plugin/scripting/calc_range.py`](../plugin/scripting/calc_range.py), [`p
 When you write `=PY(code; range)`, the add-in:
 
 1. Resolves the range in Calc and reads cell values as a **rectangular 2D grid** (orientation preserved).
-2. Packs the grid in a `calc_range` wire envelope (`split_grid` is a private transport optimization — see [serialization](numpy-serialization.md#strategy-3-split-grid-serialization-detail)).
+2. Packs the grid in a `calc_range` wire envelope (`split_grid` is a private transport optimization — see [serialization](scripting-numpy-serialization.md#strategy-3-split-grid-serialization-detail)).
 3. Materializes [`CalcRange`](../plugin/scripting/calc_range.py) values and injects **`ranges`** (always a `list`) plus polymorphic **`data`** (one arg → that `CalcRange`; two or more → the same list as `ranges`).
 4. Runs your script with `data` / `ranges` already bound.
 
@@ -62,7 +62,7 @@ Returning a **pandas DataFrame** spills/writes with its **column header row** in
 
 **Vectorized lightweight helpers:** Trusted elementwise helpers (e.g. `convert_quantity`, `format_currency`, `format_percent`) accept `data` directly and preserve orientation ($N \times 1$ column in $\to$ $N \times 1$ list out; $1 \times N$ row in $\to$ $1 \times N$ list out; $1 \times 1$ single cell $\to$ scalar).
 
-Payload size cap: `scripting.python_max_data_cells` ([serialization config](numpy-serialization.md#subprocess-module-map-and-config)). Host↔venv pipeline: [Current pipeline](numpy-serialization.md#current-pipeline-and-costs).
+Payload size cap: `scripting.python_max_data_cells` ([serialization config](scripting-numpy-serialization.md#subprocess-module-map-and-config)). Host↔venv pipeline: [Current pipeline](scripting-numpy-serialization.md#current-pipeline-and-costs).
 
 **Gaps vs LibrePythonista (workarounds):** chat tool still single `data_range` (use multiple `=PY` cells or formula varargs); no `collapse` (tighter range or strip `None` in Python); DataFrame conversion is explicit via `data.to_pandas()` (not automatic).
 
@@ -70,7 +70,7 @@ Payload size cap: `scripting.python_max_data_cells` ([serialization config](nump
 
 ## Multi-range support (varargs) {#multi-range-support-varargs}
 
-**Status:** Shipped. `ranges` is always a `list[CalcRange]`. `data` is **polymorphic**: one formula arg → that `CalcRange`; two or more → the same list object as `ranges` (`data is ranges`). Wire envelope: [Multi-range wire format](numpy-serialization.md#multi-range-wire-format). Chat-tool multi `data_range` remains future work.
+**Status:** Shipped. `ranges` is always a `list[CalcRange]`. `data` is **polymorphic**: one formula arg → that `CalcRange`; two or more → the same list object as `ranges` (`data is ranges`). Wire envelope: [Multi-range wire format](scripting-numpy-serialization.md#multi-range-wire-format). Chat-tool multi `data_range` remains future work.
 
 `=PY()` accepts **one or more** optional data arguments after `code`. Calc packs trailing arguments into a single `sequence<any>` (UNO varargs).
 
@@ -159,7 +159,7 @@ result = [[1.0, np.nan, 3.0]]     # 1, error, 3
 - `None` is the way to produce a true empty cell on egress.
 - Shared helper: `is_missing_value` in [`plugin/scripting/venv/coerce.py`](../plugin/scripting/venv/coerce.py) (None, `""`, LO error tokens, float/NumPy NaN) — used by dataframe coercion and Excel-parity formula helpers.
 
-Codec details: [numpy-serialization — Split-Grid encoding](numpy-serialization.md#strategy-3-split-grid-serialization-detail).
+Codec details: [numpy-serialization — Split-Grid encoding](scripting-numpy-serialization.md#strategy-3-split-grid-serialization-detail).
 
 ---
 
@@ -217,7 +217,7 @@ LLM/MCP sheet reads are a **different, always-on** path: `read_cell_range` enric
 
 **Deferred spill formatting:** When `=PY()` returns a DataFrame or grid with temporal values that spills via `perform_deferred_spill`, the spilled cells are written as numeric day-serial floats and formatted with date/time `NumberFormat` keys across coalesced rectangular blocks, enabling native Calc sorting, filtering, and date math.
 
-**Do not implement** a `split_grid` datetime mask, Calc-serial conversion on the float64 buffer, or Unix-epoch day counts as the `=PY()` date representation. The numeric fast path stays `i`/`u`/`f`/`b` only. Rationale: [Dates on the wire](numpy-serialization.md#dates-on-the-wire).
+**Do not implement** a `split_grid` datetime mask, Calc-serial conversion on the float64 buffer, or Unix-epoch day counts as the `=PY()` date representation. The numeric fast path stays `i`/`u`/`f`/`b` only. Rationale: [Dates on the wire](scripting-numpy-serialization.md#dates-on-the-wire).
 
 Wire note (large mixed grids): above the `split_grid` threshold, stdlib `datetime` values become ISO strings in the sparse `strings` map.
 

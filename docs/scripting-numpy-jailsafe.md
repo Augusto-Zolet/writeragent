@@ -2,7 +2,7 @@
 
 > **Status: Step A (compute service) + Step B (kit/wsd wire) + Step C (Core Calc AddIn) landed.** Correctness/lifecycle/platform blockers from the 2026-07 review are addressed in tree. **G6a (active pending timeout)** and **G6c (weak AddIn.idl identity cache)** are done. The uncommitted 2026-07-23 C++ cleanup in the current working tree adds emitter re-entrancy/ABI fixes, corrupt-frame replies, Unicode-surrogate and rectangular-grid hardening, reviewer hygiene, and **F1 UnitWSD enable/disable + POST/result CI**. Core CppUnit, UnitWSD, `coolwsd`, and both forkit variants pass locally. Still open before Gerrit: request/in-flight caps, the remaining service-isolation work, and commit-series preparation — see [Still open before Gerrit](#still-open-before-gerrit). Product follow-ups (not coded): **visible short Python errors ([F6](#f6--visible-short-python-errors))** and **single-cell auto-spill ([F7](#f7--single-cell-auto-spill))**. Classic remains the warm-venv path. ER: [CollaboraOnline/online#16010](https://github.com/CollaboraOnline/online/issues/16010).
 
-Related architecture comparison (AI chat / kit protocol, not Python compute): [collabora-online-ai-comparison.md](collabora-online-ai-comparison.md).
+Related architecture comparison (AI chat / kit protocol, not Python compute): [chat-collabora-online-ai.md](chat-collabora-online-ai.md).
 
 ## Product picture
 
@@ -20,7 +20,7 @@ Macros online were further constrained after [CVE-2025-24796](https://www.cve.or
 
 The NumPy strategy ([§1](enabling_numpy_in_libreoffice.md#1-the-problem-abi-and-embedded-python), [§2](enabling_numpy_in_libreoffice.md#2-strategy-decision)) is deliberately a **separate interpreter**:
 
-1. `subprocess.Popen` **of a user venv** — `[PythonWorkerManager](../plugin/scripting/venv_worker.py)` keeps a warm child talking Pickle5 over pipes ([IPC](numpy-serialization.md#worker-protocol)).
+1. `subprocess.Popen` **of a user venv** — `[PythonWorkerManager](../plugin/scripting/venv_worker.py)` keeps a warm child talking Pickle5 over pipes ([IPC](scripting-numpy-serialization.md#worker-protocol)).
 2. **Host filesystem** — resolve `scripting.python_venv_path`, put the extension tree on the child’s `sys.path`, and let trusted helpers open DBs/models.
 3. **Flatpak escape** — `[wrap_command_for_sandbox](../plugin/scripting/sandbox.py)` can use `flatpak-spawn --host` so the venv runs on the real host. That is the opposite of kit isolation.
 4. **Desktop editor** — Monaco via **pywebview/Qt** needs a display and a child window; Online renders in a browser canvas.
@@ -46,17 +46,17 @@ Collabora Online’s document work runs in a **jailed** `coolkit` **/ LOKit** ch
 
 ## Proposed solution: native `=PY()` via thin C++ hooks → Python compute service
 
-Track with Collabora: [online#16010](https://github.com/CollaboraOnline/online/issues/16010). Related AI/kit split (orchestration vs document mutation): [collabora-online-ai-comparison.md](collabora-online-ai-comparison.md).
+Track with Collabora: [online#16010](https://github.com/CollaboraOnline/online/issues/16010). Related AI/kit split (orchestration vs document mutation): [chat-collabora-online-ai.md](chat-collabora-online-ai.md).
 
 **Goal:** real Calc **`=PY()`** on Online / new desktop (same formula surface as Classic — [§6](enabling_numpy_in_libreoffice.md#6-the-py-calc-function)):
 
 - **Small C++ hooks** in coolkit + coolwsd that call out to a Python compute service (same outbound-HTTP *shape* as AI chat’s `http::Session`).
-- **All NumPy / packing / sandbox** stay in **Python** — C++ never implements [`split_grid`](numpy-serialization.md#strategy-3-split-grid-serialization-detail) or Pickle5.
+- **All NumPy / packing / sandbox** stay in **Python** — C++ never implements [`split_grid`](scripting-numpy-serialization.md#strategy-3-split-grid-serialization-detail) or Pickle5.
 - **Lightweight service** — **stdlib `http.server`** (or equivalent minimal HTTP) so coolwsd can POST JSON.
 
 ### Excel `xl()` compatibility is handled before execution
 
-The Online bridge deliberately accepts the native, explicit-data surface `=PY(code, data…)`; it does not implement Microsoft's runtime `xl()` callback. Excel Python workbooks instead pass through the bidirectional rewriter in [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) (CLI, **auto-convert on open**, **ZipFile native export on save**; scripts **>1000 chars** use visible `py_code_<Sheet>` banks, shorter stay inline — full detail in [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)):
+The Online bridge deliberately accepts the native, explicit-data surface `=PY(code, data…)`; it does not implement Microsoft's runtime `xl()` callback. Excel Python workbooks instead pass through the bidirectional rewriter in [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) (CLI, **auto-convert on open**, **ZipFile native export on save**; scripts **>1000 chars** use visible `py_code_<Sheet>` banks, shorter stay inline — full detail in [ms-py §5.8](scripting-ms-py-compatibility.md#58-ooxml--xlfnpy-import)):
 
 ```text
 pythonScripts.xml:  df = xl(%P2%,headers=True)
@@ -79,7 +79,7 @@ This is important for both correctness and the jail boundary:
 2. coolkit extracts that already-declared range once and includes it in the request; Python `xl("%P2%")` only indexes that payload — no synchronous call back through service → wsd → kit.
 3. The compute service remains document-blind: it receives code and plain values, not a capability for arbitrary live worksheet reads.
 
-Excel scripts that share globals across multiple PY cells need a **shared** compute session so prior-stage Python names persist. The OOXML rewriter maps formula-static `xl()` ranges onto real `=PY` data precedents only; it does **not** inject synthetic prior-PY order edges (every trailing arg is a real binding). Enabling shared-kernel mode and managing run order is the operator’s responsibility (same advisory as LibrePy [§6](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)). A shared namespace without Calc precedents on real data ranges still will not refresh when those ranges change. `returnType` is preserved via conversion meta (`ExcelPyDagMeta` udprop on auto-open; CLI via `--from-report`). Table/`ANCHORARRAY` tokens are **A1 snapshots for Calc** and restored on Excel export for file fidelity only — not live Calc Table/spill support ([ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import); code note in [`models.py`](../plugin/calc/excel_py_convert/models.py)).
+Excel scripts that share globals across multiple PY cells need a **shared** compute session so prior-stage Python names persist. The OOXML rewriter maps formula-static `xl()` ranges onto real `=PY` data precedents only; it does **not** inject synthetic prior-PY order edges (every trailing arg is a real binding). Enabling shared-kernel mode and managing run order is the operator’s responsibility (same advisory as LibrePy [§6](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics)). A shared namespace without Calc precedents on real data ranges still will not refresh when those ranges change. `returnType` is preserved via conversion meta (`ExcelPyDagMeta` udprop on auto-open; CLI via `--from-report`). Table/`ANCHORARRAY` tokens are **A1 snapshots for Calc** and restored on Excel export for file fidelity only — not live Calc Table/spill support ([ms-py §5.8](scripting-ms-py-compatibility.md#58-ooxml--xlfnpy-import); code note in [`models.py`](../plugin/calc/excel_py_convert/models.py)).
 
 The rewriter handles formula-static references: fixed ranges, scalar cells, sheet-qualified table `[#All]` references, and `ANCHORARRAY`/spill anchors (the latter two become fixed A1 snapshots from workbook metadata). Microsoft does **not** productize true dynamic `xl(variable)` / `xl(f"A{n}")` (they fail in Excel). WriterAgent **fails closed** on those shapes if they appear (defense + not DAG-safe), and on missing table/anchor snapshots, rather than emitting shifted `data[i]` formulas. Sample fidelity: [`scripts/roundtrip_excel_py_samples.py`](../scripts/roundtrip_excel_py_samples.py) over [`PythonExcelSamples/`](../PythonExcelSamples/).
 

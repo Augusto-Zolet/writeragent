@@ -16,7 +16,7 @@ Future work (keep improving without a second hand table):
   - If a real bug needs one extra token, add a tiny vetted exception in the
     generator output path — never spaCy/NLTK/LLM per-locale dumps.
   See also ``grammar_proofread_locale.py`` (abbrev Future work) and
-  ``docs/realtime-grammar-checker-plan.md``.
+  ``docs/writer-grammar-checker-plan.md``.
 
 Usage:
     python scripts/generate_locale_abbreviations.py
@@ -187,7 +187,7 @@ def generate_module(by_lang: dict[str, set[str]]) -> str:
         "Future work: when CLDR adds suppressions for more languages, bump CLDR_TAG and",
         "regenerate. Do not append LLM-invented locale dumps here; see the Future work",
         "block above ``_COMMON_ABBREVIATIONS`` in grammar_proofread_locale.py and",
-        "docs/realtime-grammar-checker-plan.md (Abbreviation detection / Future work).",
+        "docs/writer-grammar-checker-plan.md (Abbreviation detection / Future work).",
         '"""',
         "",
         "from __future__ import annotations",

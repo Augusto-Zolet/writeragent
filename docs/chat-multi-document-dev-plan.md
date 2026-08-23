@@ -195,7 +195,7 @@ Cross-file reads use **two** ephemeral sub-agent runs (outer, then one or more i
 
 **6. Anti-pattern: read tools on main** — Pollutes the schema for everyone.
 
-**Implementation note:** Same **gateway** pattern as `delegate_*(domain="shapes")`, but document_research adds a **nested** inner smol run via `delegate_read_document` (not a single-level domain like `python`’s tools). Infrastructure: [`DelegateToSpecializedBase`](../plugin/doc/specialized_base.py), [`build_toolcalling_agent`](../plugin/chatbot/smol_agent.py) — see [writer-specialized-toolsets.md](writer-specialized-toolsets.md) and [smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md).
+**Implementation note:** Same **gateway** pattern as `delegate_*(domain="shapes")`, but document_research adds a **nested** inner smol run via `delegate_read_document` (not a single-level domain like `python`’s tools). Infrastructure: [`DelegateToSpecializedBase`](../plugin/doc/specialized_base.py), [`build_toolcalling_agent`](../plugin/chatbot/smol_agent.py) — see [writer-specialized-toolsets.md](writer-specialized-toolsets.md) and [chat-smol-tool-architecture.md](chat-smol-tool-architecture.md).
 
 ### Handoff mechanism (implemented)
 
@@ -244,7 +244,7 @@ Schema omission alone is insufficient; Phase 0 enforces at execution time:
 - [`test_nearby_uno.py`](../tests/doc/test_nearby_uno.py): hidden+read-only open; list excludes active file; inner path reads sibling via `read_cell_range` on opened model.
 - `stop_checker` is copied from parent to inner `ToolContext` in `run_inner_read_agent`.
 
-See [streaming-and-threading.md](streaming-and-threading.md).
+See [framework-streaming-and-threading.md](framework-streaming-and-threading.md).
 
 ---
 
@@ -583,9 +583,9 @@ Per [AGENTS.md](../AGENTS.md): matching `test_*.py` names; run `make test` befor
 ## Related docs
 
 - [chat-sidebar-implementation.md](chat-sidebar-implementation.md) — frame-bound doc, send pipeline
-- [smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md) — sub-agents, tool loop
+- [chat-smol-tool-architecture.md](chat-smol-tool-architecture.md) — sub-agents, tool loop
 - [writer-specialized-toolsets.md](writer-specialized-toolsets.md) — nested delegation, gateway pattern
-- [streaming-and-threading.md](streaming-and-threading.md) — main-thread UNO, queue drain
+- [framework-streaming-and-threading.md](framework-streaming-and-threading.md) — main-thread UNO, queue drain
 - [calc-specialized-toolsets.md](calc-specialized-toolsets.md) — Calc tool surface
 - [mcp-protocol.md](mcp-protocol.md) — `X-Document-URL`, MCP tool policy
 - [agent-search.md](agent-search.md) — external fetch (contrast with nearby files)

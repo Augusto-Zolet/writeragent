@@ -407,7 +407,7 @@ No code paths in this document are required to exist yet.
 | [docs/embeddings.md](embeddings.md) | Personal embeddings/FTS (stays free; team RAG is additive) |
 | [docs/mcp-protocol.md](mcp-protocol.md) | MCP (DIY free; managed catalog is freemium) |
 | [docs/ppt-master-integration-plan.md](ppt-master-integration-plan.md) | Deck generation primitives for Sales packs |
-| [docs/reviewable-agent-edits.md](reviewable-agent-edits.md) | Free single-user review; co-review is future paid collab |
+| [docs/writer-reviewable-agent-edits.md](writer-reviewable-agent-edits.md) | Free single-user review; co-review is future paid collab |
 | [docs/ROADMAP.md](ROADMAP.md) | Engineering roadmap (this doc is commercial/product) |
 
 ---

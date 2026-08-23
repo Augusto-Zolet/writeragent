@@ -104,7 +104,7 @@ If Ollama has `reasoning` and LM Studio has `reasoning_content`, the one-line fi
 
 **Debugging a provider:** Reproduce with `python scripts/run_streaming_test.py` and inspect `writeragent_debug.log` for `stream thinking: no extractable text`.
 
-See also: [`streaming-and-threading.md`](streaming-and-threading.md) §3 (reasoning in streams).
+See also: [`framework-streaming-and-threading.md`](framework-streaming-and-threading.md) §3 (reasoning in streams).
 
 ## 8. Smolagents tool-call echo mistaken for final_answer
 

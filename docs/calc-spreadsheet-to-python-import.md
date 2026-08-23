@@ -43,7 +43,7 @@ Back to [Enabling NumPy & Python in LibreOffice](enabling_numpy_in_libreoffice.m
 
 This plan is **in-workbook** conversion (formulas stay in Calc as `=PY()`). It does **not** replace the two-phase chat workflow ([compute in venv → write back with tools](enabling_numpy_in_libreoffice.md#two-phase-llm-workflow)); it automates that rewrite for existing sheets.
 
-**Related:** [Jupyter notebook import](jupyter-notebook-import.md) (external `.ipynb` → Writer) · [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped `=PY()` infrastructure) · [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog) · [Analysis sub-agent](analysis-sub-agent.md) (xlcalculator / excel_in_python references) · [Microsoft `xl()` vs WriterAgent `calc.*`](#microsoft-xl-vs-writeragent-calc) (formula-parity helpers vs Excel data bridge)
+**Related:** [Jupyter notebook import](calc-jupyter-notebook-import.md) (external `.ipynb` → Writer) · [Enabling NumPy in LibreOffice](enabling_numpy_in_libreoffice.md) (shipped `=PY()` infrastructure) · [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog) · [Analysis sub-agent](calc-analysis-sub-agent.md) (xlcalculator / excel_in_python references) · [Microsoft `xl()` vs WriterAgent `calc.*`](#microsoft-xl-vs-writeragent-calc) (formula-parity helpers vs Excel data bridge)
 
 ---
 
@@ -303,7 +303,7 @@ Tier-1 **code cell** (long scripts):
 ' Cell B2: =PY(A1; C1:D100)
 ```
 
-Uses existing Monaco dual-save pattern ([python-monaco-editor-dev-plan.md](python-monaco-editor-dev-plan.md)).
+Uses existing Monaco dual-save pattern ([scripting-monaco-editor-dev-plan.md](scripting-monaco-editor-dev-plan.md)).
 
 ### `calc` Calc-parity helpers (spreadsheet import)
 
@@ -322,7 +322,7 @@ Workbooks converted before this change may still contain inline pasted helpers o
 
 #### Microsoft `xl()` vs WriterAgent `calc.*` (different APIs) {#microsoft-xl-vs-writeragent-calc}
 
-Microsoft’s `xl("A1:B10")` is a **data bridge** (UI literals rewritten at edit/save to `xl(%Pn%)` in `pythonScripts.xml` plus trailing deps on `_xlws.PY` — [ms-py §5.8](ms-py-libreoffice-compatibility.md#58-ooxml--xlfnpy-import)). WriterAgent’s `calc.sumif(...)` is a **Calc formula emulator**. There is no Microsoft-shipped `calc.sumif` / `xl.sumif` formula-parity library.
+Microsoft’s `xl("A1:B10")` is a **data bridge** (UI literals rewritten at edit/save to `xl(%Pn%)` in `pythonScripts.xml` plus trailing deps on `_xlws.PY` — [ms-py §5.8](scripting-ms-py-compatibility.md#58-ooxml--xlfnpy-import)). WriterAgent’s `calc.sumif(...)` is a **Calc formula emulator**. There is no Microsoft-shipped `calc.sumif` / `xl.sumif` formula-parity library.
 
 | | Microsoft `xl()` | WriterAgent `calc.*` |
 |--|------------------|-------------------|
@@ -364,7 +364,7 @@ flowchart TB
 
 **Coverage:** WriterAgent ships **259** helpers in [`HELPER_NAMES`](../plugin/scripting/calc_functions_common.py); the translator maps **~157** Calc builtins today (see [§8.12](#812-master-function-inventory-goal)); gaps become TODO cells, inline `np`/`math`, or native Calc. Microsoft has no equivalent library.
 
-**Packaging:** The `calc.*` stack is **WriterAgent-only** for now ([LibrePy exclusion](libreoffice-core-python-extension-split.md)); LibrePy keeps explicit `data` args but not formula-parity helpers until spreadsheet conversion ships in core.
+**Packaging:** The `calc.*` stack is **WriterAgent-only** for now ([LibrePy exclusion](scripting-librepy-split.md)); LibrePy keeps explicit `data` args but not formula-parity helpers until spreadsheet conversion ships in core.
 
 **See also:** [Enabling NumPy — Microsoft Python in Excel vs WriterAgent](enabling_numpy_in_libreoffice.md#microsoft-python-in-excel-vs-writeragent) for `=PY` architecture, dependency tracking, and runtime comparison (canonical doc for data ingress — this section covers the **`calc.*` formula-parity** angle only).
 
@@ -1154,7 +1154,7 @@ Run with `make test`. New tests follow module naming in [AGENTS.md](../AGENTS.md
 | [formulas](https://github.com/vinci1it2000/formulas) ODS compile | Candidate AST backend; JSON round-trip for regression |
 | [xlcalculator](https://github.com/bradbase/xlcalculator) | Function coverage checklist; Excel-centric |
 | [Sheet2Code](https://sheet2code.com/) | Chevrotain AST + dependency graph codegen |
-| [analysis-sub-agent.md](analysis-sub-agent.md) | xlcalculator / excel_in_python as eval references |
+| [calc-analysis-sub-agent.md](calc-analysis-sub-agent.md) | xlcalculator / excel_in_python as eval references |
 | [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) | Explicit `data` &gt; `xl()` for LO |
 | [LibrePythonista comparison](enabling_numpy_in_libreoffice.md) | `lp()` collapse / DataFrame — not auto-imported |
 

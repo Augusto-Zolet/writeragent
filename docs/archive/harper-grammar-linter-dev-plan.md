@@ -79,7 +79,7 @@ Sentence-at-a-time scheduling removes cross-sentence / cross-paragraph offset wo
 
 ## 5. Queue Dispatcher Integration (`grammar_work_queue.py`)
 
-Harper runs on **one sentence per `run_harper_check` call**. Upstream, [`ai_grammar_proofreader.py`](../plugin/writer/locale/ai_grammar_proofreader.py) splits each paragraph Writer hands in via [`split_into_sentences()`](../plugin/writer/locale/grammar_proofread_text.py) and enqueues each uncached sentence as its own `GrammarWorkItem` (see [realtime grammar checker plan](realtime-grammar-checker-plan.md) — sentence-sized scheduling). Unlike the LLM provider, Harper does not batch multiple sentences into one request.
+Harper runs on **one sentence per `run_harper_check` call**. Upstream, [`ai_grammar_proofreader.py`](../plugin/writer/locale/ai_grammar_proofreader.py) splits each paragraph Writer hands in via [`split_into_sentences()`](../plugin/writer/locale/grammar_proofread_text.py) and enqueues each uncached sentence as its own `GrammarWorkItem` (see [realtime grammar checker plan](writer-grammar-checker-plan.md) — sentence-sized scheduling). Unlike the LLM provider, Harper does not batch multiple sentences into one request.
 
 Integrate Harper directly into the linter work queue:
 ```python
@@ -219,7 +219,7 @@ WriterAgent does **not** need Hermes's full multi-language LSP stack (`pyright`,
 
 ## 9. LibreHarper standalone OXT (`libreharper.oxt`)
 
-Ship a **small Linguistic2-only** extension for people who want offline Harper grammar and nothing else (no chat, no `=PY()`, no LLM / LanguageTool / Vale). Packaging follows the same filtered-bundle pattern as LibrePy ([libreoffice-core-python-extension-split.md](libreoffice-core-python-extension-split.md)).
+Ship a **small Linguistic2-only** extension for people who want offline Harper grammar and nothing else (no chat, no `=PY()`, no LLM / LanguageTool / Vale). Packaging follows the same filtered-bundle pattern as LibrePy ([scripting-librepy-split.md](scripting-librepy-split.md)).
 
 **Build:** `make build-harper` → `build/LibreHarper.oxt`; `make deploy-harper` registers `org.extension.libreharper` without removing WriterAgent.
 

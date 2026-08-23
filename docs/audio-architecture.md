@@ -53,7 +53,7 @@ Host spawns `{venv_python} audio_record_main.py --output /tmp/….wav` with stdi
 
 The JSON-line framing uses [`plugin/scripting/ipc.py`](../plugin/scripting/ipc.py), which also enforces the host-side ready/stop read timeouts so a hung recorder cannot block forever waiting on `readline()`.
 
-Capture uses `sounddevice.RawInputStream` with `dtype='int16'` and Python's built-in `wave` module — no NumPy required for recording. Future **analysis** helpers (librosa, spectrograms) stay in the venv per [numpy-domains.md § Audio / Signal](numpy-domains.md#audio-signal).
+Capture uses `sounddevice.RawInputStream` with `dtype='int16'` and Python's built-in `wave` module — no NumPy required for recording. Future **analysis** helpers (librosa, spectrograms) stay in the venv per [scripting-numpy-domains.md § Audio / Signal](scripting-numpy-domains.md#audio-signal).
 
 ### Silence auto-stop (end-of-speech)
 
@@ -135,4 +135,4 @@ Release builds may pass `--no-recording` to [`scripts/build_oxt.py`](../scripts/
 ## Related docs
 
 - [Enabling NumPy & Python in LibreOffice](enabling_numpy_in_libreoffice.md) — venv settings, Test diagnostics, trusted worker pattern
-- [NumPy domains — Audio / Signal (future analysis)](numpy-domains.md#audio-signal)
+- [NumPy domains — Audio / Signal (future analysis)](scripting-numpy-domains.md#audio-signal)

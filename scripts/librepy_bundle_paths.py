@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 # Spreadsheet-import xl parity helpers — WriterAgent only for now; see
-# docs/libreoffice-core-python-extension-split.md (Explicit exclusions).
+# docs/scripting-librepy-split.md (Explicit exclusions).
 LIBREPY_CALC_FUNCTIONS_EXCLUDES: tuple[str, ...] = (
     "calc_functions.py",
     "venv/calc_functions.py",

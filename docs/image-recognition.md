@@ -8,7 +8,7 @@ WriterAgent documents (Writer, Calc, Draw/Impress) embed raster images: scans, s
 
 **Phase 1 scope (Writer):** insert OCR **`html`** at the text cursor via [`insert_content_at_position`](../plugin/writer/format.py) (StarWriter HTML filter). **Phase 1b (Calc):** same HTML via [`insert_cell_html_rich`](../plugin/calc/rich_html.py) into the cell below the graphic anchor ([`plugin/calc/vision_egress.py`](../plugin/calc/vision_egress.py)). Draw/Impress → **Phase 1b.2**.
 
-**Related:** [Scientific Python / venv bridge](enabling_numpy_in_libreoffice.md) · [NumPy domain helpers](numpy-domains.md) · [Analysis helpers UX (template)](calc-analysis-tools.md) · [Analysis sub-agent (dev-plan style)](analysis-sub-agent.md) · [Image generation (remote)](image-generation.md) · [LO-DOM for vector Draw content](lo-dom-semantic-tree.md) · [Embeddings index (text, not vision)](embeddings.md)
+**Related:** [Scientific Python / venv bridge](enabling_numpy_in_libreoffice.md) · [NumPy domain helpers](scripting-numpy-domains.md) · [Analysis helpers UX (template)](calc-analysis-tools.md) · [Analysis sub-agent (dev-plan style)](calc-analysis-sub-agent.md) · [Image generation (remote)](image-generation.md) · [LO-DOM for vector Draw content](writer-lo-dom-semantic-tree.md) · [Embeddings index (text, not vision)](embeddings.md)
 
 ---
 
@@ -178,7 +178,7 @@ The agent must not become the only way to run OCR.
 
 ## 3. Current code state (grounded)
 
-Mirror [analysis-sub-agent.md § Current Code State](analysis-sub-agent.md). **Read these files before implementing Phase 1.**
+Mirror [calc-analysis-sub-agent.md § Current Code State](calc-analysis-sub-agent.md). **Read these files before implementing Phase 1.**
 
 ### Shipped (patterns to copy)
 
@@ -367,7 +367,7 @@ Extended [`test_vision.py`](../tests/scripting/test_vision.py), [`test_vision_ru
 | Alt text from visible text | `extract_text` → description (**later**) | optional |
 | Find logos / UI elements | `detect_objects` (Phase 4) | same |
 | “What does this diagram *mean*?” | — | LLM vision ([§18](#18-llm-access-deferred)) |
-| Draw/Impress **vector** slides | LO-DOM [`get_draw_tree`](lo-dom-semantic-tree.md) | not raster CV |
+| Draw/Impress **vector** slides | LO-DOM [`get_draw_tree`](writer-lo-dom-semantic-tree.md) | not raster CV |
 
 ---
 
@@ -531,7 +531,7 @@ flowchart TB
   LLM -.-> Export
 ```
 
-Trust model matches [embeddings](embeddings.md) and [analysis](analysis-sub-agent.md): host UNO on main thread → fixed stub → `run_vision` → JSON → host applies to document.
+Trust model matches [embeddings](embeddings.md) and [analysis](calc-analysis-sub-agent.md): host UNO on main thread → fixed stub → `run_vision` → JSON → host applies to document.
 
 ---
 
@@ -725,7 +725,7 @@ User-visible strings (gettext-ready). Host may raise [`ToolExecutionError`](../p
 
 ## 13. Install, models, and self-check
 
-Venv package requirements for Vision Helpers are also summarized in the [domain package groups table](numpy-domains.md#planned-domain-package-groups). Trusted-code pattern (host stub → venv module): [enabling_numpy_in_libreoffice.md §5](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv).
+Venv package requirements for Vision Helpers are also summarized in the [domain package groups table](scripting-numpy-domains.md#planned-domain-package-groups). Trusted-code pattern (host stub → venv module): [enabling_numpy_in_libreoffice.md §5](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv).
 
 ```bash
 pip install docling rapidocr-paddle numpy pillow

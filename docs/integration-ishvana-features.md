@@ -18,9 +18,9 @@
 | Folder / hybrid search | `document_research` + hybrid `corpus.db` ([embeddings.md](embeddings.md)) | Low–medium |
 | Outline / structure | `get_document_tree`, headings, bookmarks ([outline.py](../plugin/writer/outline.py)) | Medium — no seven-level narrative model |
 | World database (Legendry) | `USER.md` / `MEMORY.md` ([memory.py](../plugin/chatbot/memory.py)) | **Large** — flat files, not typed lore |
-| Deterministic style rules (ProseGuard) | AI grammar proofreader ([realtime-grammar-checker-plan.md](realtime-grammar-checker-plan.md)) | Medium — LLM-based, not rule engine |
+| Deterministic style rules (ProseGuard) | AI grammar proofreader ([writer-grammar-checker-plan.md](writer-grammar-checker-plan.md)) | Medium — LLM-based, not rule engine |
 | Read-only analysis (Hawken) | Sidebar can edit; no dedicated analysis-only agent | Medium |
-| Multi-agent chat (Councils / Writers' Room) | Sub-agent delegation via smol ([smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md)) | Medium — orchestration pattern exists |
+| Multi-agent chat (Councils / Writers' Room) | Sub-agent delegation via smol ([chat-smol-tool-architecture.md](chat-smol-tool-architecture.md)) | Medium — orchestration pattern exists |
 | Publishing pipeline | LO export filters | Low–medium |
 | Maps / visuals / timelines | Draw tools, image tools | Medium — not lore-linked |
 
@@ -79,10 +79,10 @@ flowchart TB
 
 **WriterAgent today:**
 
-- **Editor:** Full Writer — styles, tracked changes, native find/replace, print layout, comments. See [llm-styles.md](llm-styles.md) for agent HTML ↔ LO styles.
+- **Editor:** Full Writer — styles, tracked changes, native find/replace, print layout, comments. See [writer-llm-styles.md](writer-llm-styles.md) for agent HTML ↔ LO styles.
 - **Stats:** `get_document_tree` returns `stats` (words, chars, pages, headings) via [outline.py](../plugin/writer/outline.py).
 - **Auto-save / crash recovery:** LibreOffice native.
-- **Inline assistance:** Sidebar chat, Extend/Edit selection, grammar underlines ([realtime-grammar-checker-plan.md](realtime-grammar-checker-plan.md)).
+- **Inline assistance:** Sidebar chat, Extend/Edit selection, grammar underlines ([writer-grammar-checker-plan.md](writer-grammar-checker-plan.md)).
 - **Review UI:** `review_click_popup.py` registers contextual popups on proofreading marks.
 
 **Implementation path (smallest diff):**
@@ -105,7 +105,7 @@ flowchart TB
 
 **WriterAgent today:**
 
-- **Same-folder discovery:** `list_nearby_files`, `delegate_read_document` ([multi-document-dev-plan.md](multi-document-dev-plan.md)) — shipped Phase 0.
+- **Same-folder discovery:** `list_nearby_files`, `delegate_read_document` ([chat-multi-document-dev-plan.md](chat-multi-document-dev-plan.md)) — shipped Phase 0.
 - **Hybrid search:** `search_nearby_files` when Vector Search enabled ([embeddings.md](embeddings.md)).
 - **Cross-app:** Writer main agent can pull Calc/Draw siblings via `document_research`.
 
@@ -130,7 +130,7 @@ flowchart TB
 
 - Heading tree + bookmarks: `get_document_tree`, `nav_heading_children`.
 - **Writing Plan** sidebar mode: multi-turn planning sub-agent ([send_handlers.py](../plugin/chatbot/send_handlers.py)).
-- **Brainstorming** mode: approved HTML design specs into the doc ([brainstorming-mode.md](brainstorming-mode.md)).
+- **Brainstorming** mode: approved HTML design specs into the doc ([chat-brainstorming-mode.md](chat-brainstorming-mode.md)).
 
 **Gap:** Writer headings are **one manuscript**; Ishvana’s outline is a **parallel project graph** spanning many files.
 
@@ -151,7 +151,7 @@ flowchart TB
 
 4. **Reading mode:** `get_document_content` concatenation following outline order — no new editor.
 
-**Leverage:** [lo-dom-semantic-tree.md](lo-dom-semantic-tree.md) for stable addressing; bookmark tools for deep links.
+**Leverage:** [writer-lo-dom-semantic-tree.md](writer-lo-dom-semantic-tree.md) for stable addressing; bookmark tools for deep links.
 
 ---
 
@@ -186,7 +186,7 @@ Store `edit_phase` on document user-defined property; gate which tools run in si
 **WriterAgent today:**
 
 - `USER.md` / `MEMORY.md` — unstructured ([memory.py](../plugin/chatbot/memory.py)).
-- Librarian onboarding seeds preferences ([librarian-agentic-onboarding.md](librarian-agentic-onboarding.md)).
+- Librarian onboarding seeds preferences ([chat-librarian-onboarding.md](chat-librarian-onboarding.md)).
 - Hybrid search over **files**, not lore records.
 
 **Proposed: `legendry.db` (or `lore/` folder of typed JSON + SQLite index)**
@@ -303,7 +303,7 @@ Keep complexity low by mirroring embeddings storage layout:
 
 4. **Manuscript theme detection (later):** Reuse embeddings clustering in venv (`sklearn` already in sandbox policy) — optional Phase 2.
 
-5. **Sidebar mode:** Dropdown entry **Manuscript Review** alongside Brainstorming / Writing Plan — routes Send to analysis handler ([brainstorming-mode.md](brainstorming-mode.md) pattern).
+5. **Sidebar mode:** Dropdown entry **Manuscript Review** alongside Brainstorming / Writing Plan — routes Send to analysis handler ([chat-brainstorming-mode.md](chat-brainstorming-mode.md) pattern).
 
 **Invariant:** Sub-agent system prompt: *“Never call apply_document_content or editing tools; output reports only.”*
 
@@ -316,7 +316,7 @@ Keep complexity low by mirroring embeddings storage layout:
 | **Chat** with @-mentions | Main sidebar + lore tools; inject mentioned entries into turn context |
 | **Hawken** | §3.8 `prose_analysis` domain |
 | **Councils** (World / Character / Creative) | Parallel smol runs: `run_council(session, roster=[...])` → merge reports; use [worker_pool.py](../plugin/framework/worker_pool.py) |
-| **Writers' Room** (parallel agents) | Three `run_in_background` sub-agents + drain on main thread ([streaming-and-threading.md](streaming-and-threading.md)) |
+| **Writers' Room** (parallel agents) | Three `run_in_background` sub-agents + drain on main thread ([framework-streaming-and-threading.md](framework-streaming-and-threading.md)) |
 | **Etherforce** (local dispatch) | User’s local endpoint in Settings; optional offline model via Ollama/LM Studio — already supported by [llm_client.py](../plugin/framework/client/llm_client.py) |
 
 **Council implementation sketch:**
@@ -457,12 +457,12 @@ Link from [ROADMAP.md](ROADMAP.md) when a phase ships.
 ## 9. Related docs
 
 - [embeddings.md](embeddings.md) — hybrid search (Ishvana Chroma analogue)
-- [multi-document-dev-plan.md](multi-document-dev-plan.md) — sibling file workflows
+- [chat-multi-document-dev-plan.md](chat-multi-document-dev-plan.md) — sibling file workflows
 - [hermes-agent-patterns.md](hermes-agent-patterns.md) — memory/skills (Legendry precursor)
-- [librarian-agentic-onboarding.md](librarian-agentic-onboarding.md) — conversational lore ingest pattern
-- [brainstorming-mode.md](brainstorming-mode.md) — sidebar-only sub-agent modes
-- [realtime-grammar-checker-plan.md](realtime-grammar-checker-plan.md) — native grammar surface
-- [smol-main-chat-tool-architecture.md](smol-main-chat-tool-architecture.md) — sub-agent delegation
+- [chat-librarian-onboarding.md](chat-librarian-onboarding.md) — conversational lore ingest pattern
+- [chat-brainstorming-mode.md](chat-brainstorming-mode.md) — sidebar-only sub-agent modes
+- [writer-grammar-checker-plan.md](writer-grammar-checker-plan.md) — native grammar surface
+- [chat-smol-tool-architecture.md](chat-smol-tool-architecture.md) — sub-agent delegation
 - [onlyofficeai_analysis.md](onlyofficeai_analysis.md) — similar competitive analysis format
 
 ---

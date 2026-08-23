@@ -30,7 +30,7 @@ isProject: false
 
 ## Purpose
 
-WriterAgent **imports** `.ipynb` files into Writer ([`jupyter-notebook-import.md`](jupyter-notebook-import.md)): markdown, editable code **TextFields** (`nb_cell_{i}_code`), frozen outputs, and (since Phase 1) **▶ Run** per code cell against a **shared `notebook:…` venv kernel**.
+WriterAgent **imports** `.ipynb` files into Writer ([`calc-jupyter-notebook-import.md`](calc-jupyter-notebook-import.md)): markdown, editable code **TextFields** (`nb_cell_{i}_code`), frozen outputs, and (since Phase 1) **▶ Run** per code cell against a **shared `notebook:…` venv kernel**.
 
 Still to build: Run All / Stop, cell CRUD, sidebar, `.ipynb` export, and (later) in-kernel UNO via host proxy.
 
@@ -283,7 +283,7 @@ Add keys in [`plugin/notebook/module.yaml`](../plugin/notebook/module.yaml) when
 
 ## Performance backlog (parallel / lower priority)
 
-From [`jupyter-notebook-import.md`](jupyter-notebook-import.md):
+From [`calc-jupyter-notebook-import.md`](calc-jupyter-notebook-import.md):
 
 - Background import: decode images off-thread, UNO insert on main thread every *k* images
 - nbformat **v3** upgrade path
@@ -293,11 +293,11 @@ From [`jupyter-notebook-import.md`](jupyter-notebook-import.md):
 
 ## Suggested implementation order for a fresh agent
 
-1. Read [`jupyter-notebook-import.md`](jupyter-notebook-import.md) and this file’s **Current status** section.
+1. Read [`calc-jupyter-notebook-import.md`](calc-jupyter-notebook-import.md) and this file’s **Current status** section.
 2. **Fix Phase 1 polish** — `clear_cell_output` API; confirm output replace in Writer.
 3. **Phase 2** — Run All + Stop + menubar entries.
 4. **Phase 3** — cell CRUD + re-import merge dialog.
-5. Update shipped/deferred tables in `jupyter-notebook-import.md` after each phase.
+5. Update shipped/deferred tables in `calc-jupyter-notebook-import.md` after each phase.
 6. `make test` + manual Writer smoke.
 
 **Manual smoke (Phase 1 — current):**
@@ -330,7 +330,7 @@ From [`jupyter-notebook-import.md`](jupyter-notebook-import.md):
 
 ## References
 
-- [Jupyter notebook import (user-facing)](jupyter-notebook-import.md)
+- [Jupyter notebook import (user-facing)](calc-jupyter-notebook-import.md)
 - [Shared kernel semantics (§6)](enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics) · [Calc UX backlog](enabling_numpy_in_libreoffice.md#calc-ux-backlog)
 - [NumPy / venv bridge](enabling_numpy_in_libreoffice.md)
 - [Writer forms / in-flow controls](../plugin/writer/specialized/forms.py)

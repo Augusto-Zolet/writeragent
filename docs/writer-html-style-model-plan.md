@@ -77,7 +77,7 @@ LibreOffice has **no filter** for “styles only.” Any `storeToURL` path (XHTM
 
 1. **Cached UNO paragraph style index** — one `text.createEnumeration()` pass per document revision: top-level block index → compact token via `ParaStyleName` + `compact_lo_style_name()`. Cache invalidated on `document:cache_invalidated` (same pattern as [`TreeService`](../plugin/writer/tree.py)). Cost: O(paragraphs) RPC, **no filter pipeline**.
 2. **Scoped HTML export** — agent uses `get_document_content(scope=range)` (existing [`_range_to_content_via_temp_doc`](../plugin/writer/format.py) already copies `ParaStyleName` into temp docs). Merge styles from the index for that para range only.
-3. **Navigation first** — `get_document_tree`, `search_in_document`, `nav_heading_children` before full reads ([`docs/lo-dom-semantic-tree.md`](lo-dom-semantic-tree.md), [`docs/multi-document-dev-plan.md`](multi-document-dev-plan.md)).
+3. **Navigation first** — `get_document_tree`, `search_in_document`, `nav_heading_children` before full reads ([`docs/writer-lo-dom-semantic-tree.md`](writer-lo-dom-semantic-tree.md), [`docs/chat-multi-document-dev-plan.md`](chat-multi-document-dev-plan.md)).
 
 **Why UNO index is better than FODT sidecar for scale:** Probe B proved UNO `ParaStyleName` stays correct when XHTML export lies. The sidecar fixes the same gap via export strings (v1 purity bet); UNO is lighter and more authoritative for **paragraph names only**.
 
@@ -252,7 +252,7 @@ These are intentional trade-offs in v1. Tests document the behavior ([`test_xhtm
 1. **Unit tests (pytest):** [`tests/writer/test_xhtml_style_postprocess.py`](../tests/writer/test_xhtml_style_postprocess.py) — decode/compact, CSS map, char inline, autostyle fingerprint, FODT parent recovery, collision, whole-para override limitation.
 2. **UNO tests:** [`tests/writer/test_content_style_model_uno.py`](../tests/writer/test_content_style_model_uno.py) — read tokens, write resolution, round-trip, FODT write→read, partial-edit non-corruption, math+style.
 3. **Prompts:** `WRITER_APPLY_DOCUMENT_HTML_RULES` in [`plugin/framework/prompts.py`](../plugin/framework/prompts.py) — agent reads/writes compact `data-lo-style` tokens (no spaces: `Heading1`, `Textbody`); inline `style` for overrides only.
-4. **Docs:** [`docs/llm-styles.md`](llm-styles.md) — `data-lo-style` is the agent-facing convention; legacy `class="Style Name"` via StarWriter remains for non-agent HTML.
+4. **Docs:** [`docs/writer-llm-styles.md`](writer-llm-styles.md) — `data-lo-style` is the agent-facing convention; legacy `class="Style Name"` via StarWriter remains for non-agent HTML.
 5. **`get_paragraph_metadata`:** Keep as optional `specialized` tier only if needed for debugging; not required for core read/write.
 
 ---
@@ -288,7 +288,7 @@ If `apply_document_content` cannot resolve a compact `data-lo-style` token to a 
 
 **v1:** Two `storeToURL` exports on full read (XHTML + Flat ODF sidecar) + in-memory string/CSS/XML parsing; UNO `setPropertyValue` / `apply_paragraph_style_preserving_direct_char` on the write path.
 
-**Long-term:** One XHTML export per read **slice** + cached UNO style index (one enumeration per doc revision). Prefer `scope=range` and navigation tools over `scope=full` on large documents. Chat sidebar uses plain-text excerpts ([`get_document_context_for_chat`](../plugin/doc/document_helpers.py)), not styled HTML export. Why we did **not** put `document_to_content` in every send (start/end 4k, tracked deletions, cost), and how to revisit it: [math-tex.md — Chat DOCUMENT CONTENT](math-tex.md#chat-document-content-does-not-inline-math-ole-on-purpose).
+**Long-term:** One XHTML export per read **slice** + cached UNO style index (one enumeration per doc revision). Prefer `scope=range` and navigation tools over `scope=full` on large documents. Chat sidebar uses plain-text excerpts ([`get_document_context_for_chat`](../plugin/doc/document_helpers.py)), not styled HTML export. Why we did **not** put `document_to_content` in every send (start/end 4k, tracked deletions, cost), and how to revisit it: [writer-math-tex.md — Chat DOCUMENT CONTENT](writer-math-tex.md#chat-document-content-does-not-inline-math-ole-on-purpose).
 
 | Source | Paragraph styles | Char overrides | Body HTML | Scales with doc size |
 |--------|------------------|----------------|-------------|----------------------|

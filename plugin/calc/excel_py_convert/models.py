@@ -11,7 +11,7 @@ original Excel tokens in ``ConvertedCell.excel_deps`` (and package/udprop meta)
 This is an interchange hack, not Calc Table/spill support. LibreOffice/Calc
 should grow real structured references and dynamic-array spill later; until
 then, growing tables / live spill parents will not update the snapped A1 args.
-See docs/ms-py-libreoffice-compatibility.md §5.8.
+See docs/scripting-ms-py-compatibility.md §5.8.
 """
 
 from __future__ import annotations

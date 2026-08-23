@@ -28,7 +28,7 @@ Prompt text lives in [`plugin/framework/prompts.py`](../plugin/framework/prompts
 
 During a **tool-loop** send, the sidebar can show provider reasoning under `[Thinking]` while tools still run from native `tool_calls` (or content fallback parsers)—reasoning text is never parsed as a tool invocation. Reasoning is **display-only** for that turn: it is not written into session messages for the next API round (only `content` + `tool_calls` are). That matches common OpenAI-compat streaming behavior; provider docs often ask clients to echo reasoning back on later tool-loop turns for quality on reasoning models—a possible future change, not current behavior.
 
-See [streaming-and-threading.md](streaming-and-threading.md) §§3.3–3.4 for implementation paths and notes to revisit.
+See [framework-streaming-and-threading.md](framework-streaming-and-threading.md) §§3.3–3.4 for implementation paths and notes to revisit.
 
 ## Chat prompt constants
 
@@ -67,7 +67,7 @@ Recommend `\(...\)` inline delimiters only. The import path still parses `$`, `$
 
 `display_block` in `insert_writer_math_formula` only wraps the formula in paragraph breaks; the OLE stays `AS_CHARACTER`, so display math is not centered and looks like inline on its own line — no visual win, extra delimiter choice confuses LLMs.
 
-If we implement true block/centered math (e.g. paragraph anchor + alignment), revisit split inline vs display rules here and in [math-tex.md](math-tex.md).
+If we implement true block/centered math (e.g. paragraph anchor + alignment), revisit split inline vs display rules here and in [writer-math-tex.md](writer-math-tex.md).
 
 ### Sidebar HTML examples (`CHAT_SIDEBAR_HTML_EXAMPLES`)
 
@@ -89,7 +89,7 @@ Brainstorming and writing-plan sub-agents (`get_brainstorming_sub_agent_instruct
 2. `WRITER_APPLY_DOCUMENT_HTML_RULES` (for `save_design_spec` / `write_document_section` array content)
 3. `get_chat_response_format_instructions` (sidebar HTML or plain text)
 
-See also [math-tex.md](math-tex.md) (TeX/MathML import) and [brainstorming-mode.md](brainstorming-mode.md) (sub-agent HTML surfaces).
+See also [writer-math-tex.md](writer-math-tex.md) (TeX/MathML import) and [chat-brainstorming-mode.md](chat-brainstorming-mode.md) (sub-agent HTML surfaces).
 
 ---
 

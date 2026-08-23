@@ -51,7 +51,7 @@ Use the tokens exactly as returned by `get_document_content` (no spaces). This k
 
 ### v1 limitations and workarounds
 
-Full design notes: [docs/html_style_model_plan.md](html_style_model_plan.md#v1-limitations-shipped).
+Full design notes: [docs/writer-html-style-model-plan.md](writer-html-style-model-plan.md#v1-limitations-shipped).
 
 | Situation | What v1 does | What to do instead |
 |-----------|--------------|-------------------|

@@ -4,7 +4,7 @@ Back to the [core NumPy and Python guide](enabling_numpy_in_libreoffice.md).
 
 WriterAgent can **read** Jupyter notebooks (nbformat v4) and **import** them into an open LibreOffice Writer document. Imported code cells are editable **form TextFields**; you can **run** them with the in-document **▶** button against a **shared Python kernel** per document (`notebook:…` session — same venv worker as WriterAgent scripting, not a Jupyter server).
 
-For the full interactive roadmap (Run All, Stop, export, …), see [notebook-interactive-dev-plan.md](notebook-interactive-dev-plan.md).
+For the full interactive roadmap (Run All, Stop, export, …), see [calc-notebook-interactive-dev-plan.md](calc-notebook-interactive-dev-plan.md).
 
 ## Table of contents
 
@@ -30,7 +30,7 @@ For the full interactive roadmap (Run All, Stop, export, …), see [notebook-int
 |-------------------|----------|
 | Vendored **nbformat v4** read — [`plugin/contrib/nbformat/`](../plugin/contrib/nbformat/): `read_ipynb(path)`, `reads(json_string)` → `NotebookNode` with `rejoin_lines` | **nbformat v3** upgrade |
 | Menu: **Tools → Import Jupyter Notebook…** — [`import_dialog.py`](../plugin/notebook/import_dialog.py) | Full CommonMark/HTML for all markdown (HTML-tagged cells only today) |
-| Import engine — [`writer_importer.py`](../plugin/notebook/writer_importer.py): headings, body text, in-flow code fields, images; **`zxx` locale** at import start (spellcheck off for imported body) | Run All / Stop ([dev plan](notebook-interactive-dev-plan.md) Phase 2) |
+| Import engine — [`writer_importer.py`](../plugin/notebook/writer_importer.py): headings, body text, in-flow code fields, images; **`zxx` locale** at import start (spellcheck off for imported body) | Run All / Stop ([dev plan](calc-notebook-interactive-dev-plan.md) Phase 2) |
 | **Notebook registry (Phase 0)** — [`cell_registry.py`](../plugin/notebook/cell_registry.py): `WriterAgentNotebookJson`, stable `cell_id`, output bookmarks `nb_out_*`, `WriterAgentNotebookSourcePath` | Export back to `.ipynb` (Phase 5) |
 | **Run code cell (Phase 1)** — in-flow ▶ **push** button + [`notebook_controls.py`](../plugin/notebook/notebook_controls.py) + [`notebook_runner.py`](../plugin/notebook/notebook_runner.py); shared `notebook:…` kernel; UI drain on every run | Cell CRUD, sidebar (Phases 3–4) |
 | Control lookup — [`form_lookup.py`](../plugin/notebook/form_lookup.py) indexes `ControlShape` models on the document draw page (required for wiring ▶ buttons) | Batched background image decode |
@@ -69,7 +69,7 @@ After `make deploy`, **restart LibreOffice** so the extension and menu handlers 
 
 **Not supported yet:** Run All, Stop mid-batch, export to `.ipynb`, add/delete cells in the UI.
 
-**Known limitation:** Re-running a cell may **not fully clear** the previous output paragraph until `clear_cell_output` is fixed in [`notebook_runner.py`](../plugin/notebook/notebook_runner.py) (`deleteContents` is not a valid Writer API — see [dev plan](notebook-interactive-dev-plan.md)).
+**Known limitation:** Re-running a cell may **not fully clear** the previous output paragraph until `clear_cell_output` is fixed in [`notebook_runner.py`](../plugin/notebook/notebook_runner.py) (`deleteContents` is not a valid Writer API — see [dev plan](calc-notebook-interactive-dev-plan.md)).
 
 **How ▶ wiring works (developers):** Form **URL** buttons do **not** reach the extension protocol handler. The importer creates **PUSH** `CommandButton` controls; after import, [`notebook_controls.py`](../plugin/notebook/notebook_controls.py) attaches `XActionListener` on the control **view** via `XControlAccess` (PyUNO must use `uno.getTypeByName`). Protocol dispatch `notebook.run_cell.{hex}` in [`main.py`](../plugin/main.py) remains available for future menu/URL entry points.
 
@@ -176,7 +176,7 @@ Vendored nbformat: [`plugin/contrib/nbformat/README.md`](../plugin/contrib/nbfor
 
 ## Deferred roadmap
 
-**Phased plan:** [notebook-interactive-dev-plan.md](notebook-interactive-dev-plan.md).
+**Phased plan:** [calc-notebook-interactive-dev-plan.md](calc-notebook-interactive-dev-plan.md).
 
 | Item | Phase |
 |------|--------|

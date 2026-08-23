@@ -89,7 +89,7 @@ Split **who you are** from **what we edit** using **different tool sets**, not n
 - **Librarian surface** — Reduced tools (memory/skills/chat only). Same sidebar session and history; onboarding chat seeds `USER.md`.
 - **Writer surface** — Full Writer tool list (or nested Writer delegation per [`writer-specialized-toolsets.md`](writer-specialized-toolsets.md)).
 
-**Precedent:** Web research already branches on a checkbox in [`panel.py`](../plugin/chatbot/panel.py) / [`web_research.py`](../plugin/chatbot/web_research.py). Librarian mode is implemented in [`librarian.py`](../plugin/chatbot/librarian.py). See [`librarian-agentic-onboarding.md`](librarian-agentic-onboarding.md) for onboarding details.
+**Precedent:** Web research already branches on a checkbox in [`panel.py`](../plugin/chatbot/panel.py) / [`web_research.py`](../plugin/chatbot/web_research.py). Librarian mode is implemented in [`librarian.py`](../plugin/chatbot/librarian.py). See [`chat-librarian-onboarding.md`](chat-librarian-onboarding.md) for onboarding details.
 
 ---
 
@@ -327,9 +327,9 @@ Hermes-agent ships ~73 built-in `SKILL.md` files (plus `optional-skills/` and us
 
 **Related docs:**
 
-- [`librarian-agentic-onboarding.md`](librarian-agentic-onboarding.md)
+- [`chat-librarian-onboarding.md`](chat-librarian-onboarding.md)
 - [`external/memento-skills.md`](external/memento-skills.md)
-- [`smol-main-chat-tool-architecture.md`](smol-main-chat-tool-architecture.md)
+- [`chat-smol-tool-architecture.md`](chat-smol-tool-architecture.md)
 - [`mcp-protocol.md`](mcp-protocol.md)
 - [`enabling_numpy_in_libreoffice.md`](enabling_numpy_in_libreoffice.md)
 
