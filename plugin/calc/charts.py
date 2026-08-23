@@ -24,7 +24,6 @@ Enhanced to support Writer and Draw documents, 3D, stacking, and rich properties
 import logging
 
 from plugin.doc.visual_helpers import parse_color_to_uno_int as _parse_color
-from plugin.framework.errors import ToolExecutionError
 from plugin.framework.tool import ToolBaseDummy
 from plugin.calc.address_utils import split_sheet_prefix
 from plugin.calc.base import ToolCalcChartBase
@@ -718,7 +717,7 @@ class UpsertChart(ToolBaseDummy):
             except Exception as e:
                 msg = _format_chart_exception_msg(e)
                 log.exception("Chart creation failed")
-                raise ToolExecutionError(f"Tool execution failed: {msg}") from e
+                return self._tool_error(f"Failed to create chart: {msg}", code="CHART_CREATE_ERROR")
 
         elif action == "edit":
             chart_name = kwargs["name"]
@@ -743,7 +742,7 @@ class UpsertChart(ToolBaseDummy):
             except Exception as e:
                 msg = _format_chart_exception_msg(e)
                 log.exception("Chart edit failed")
-                raise ToolExecutionError(f"Tool execution failed: {msg}") from e
+                return self._tool_error(f"Failed to edit chart: {msg}", code="CHART_EDIT_ERROR")
 
             return {"status": "ok", "name": chart_name, "message": "Chart updated."}
 
@@ -1206,7 +1205,7 @@ class ManageCharts(ToolCalcChartBase):
     def execute(self, ctx, **kwargs) -> dict[str, Any]:
         action = kwargs.get("action")
         if not action:
-            raise ToolExecutionError("Action parameter is required.")
+            return self._tool_error("Action parameter is required.", code="MISSING_PARAMETER")
 
         if action == "list":
             return ListCharts().execute(ctx, **kwargs)

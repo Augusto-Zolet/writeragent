@@ -22,7 +22,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from plugin.framework.errors import ToolExecutionError, UnoObjectError
+from plugin.framework.errors import UnoObjectError
 from plugin.calc.base import ToolCalcConditionalBase
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.calc_utils import query_interface as _query_interface
@@ -136,7 +136,7 @@ class ListConditionalFormats(ToolCalcConditionalBase):
             return {"status": "ok", "range": range_str or "(used area)", "rules": rules, "count": len(rules)}
         except Exception as e:
             log.exception("List conditional formats failed")
-            raise ToolExecutionError(str(e)) from e
+            return self._tool_error(f"Failed to list conditional formats: {str(e)}", code="CONDITIONAL_FORMAT_ERROR")
 
 
 class AddConditionalFormat(ToolCalcConditionalBase):
@@ -175,52 +175,98 @@ class AddConditionalFormat(ToolCalcConditionalBase):
         formula2 = kwargs.get("formula2") or ""
 
         try:
-            from com.sun.star.beans import PropertyValue
-            from com.sun.star.sheet.ConditionOperator import BETWEEN, EQUAL, FORMULA, GREATER, GREATER_EQUAL, LESS, LESS_EQUAL, NONE, NOT_BETWEEN, NOT_EQUAL
+            try:
+                from com.sun.star.sheet.ConditionOperator import BETWEEN, EQUAL, FORMULA, GREATER, GREATER_EQUAL, LESS, LESS_EQUAL, NONE, NOT_BETWEEN, NOT_EQUAL
+
+                op_map: dict[str, Any] = {
+                    "NONE": NONE,
+                    "EQUAL": EQUAL,
+                    "NOT_EQUAL": NOT_EQUAL,
+                    "GREATER": GREATER,
+                    "GREATER_EQUAL": GREATER_EQUAL,
+                    "LESS": LESS,
+                    "LESS_EQUAL": LESS_EQUAL,
+                    "BETWEEN": BETWEEN,
+                    "NOT_BETWEEN": NOT_BETWEEN,
+                    "FORMULA": FORMULA,
+                }
+            except (ImportError, AttributeError):
+                try:
+                    import uno
+
+                    op_map = {
+                        "NONE": uno.Enum("com.sun.star.sheet.ConditionOperator", "NONE"),
+                        "EQUAL": uno.Enum("com.sun.star.sheet.ConditionOperator", "EQUAL"),
+                        "NOT_EQUAL": uno.Enum("com.sun.star.sheet.ConditionOperator", "NOT_EQUAL"),
+                        "GREATER": uno.Enum("com.sun.star.sheet.ConditionOperator", "GREATER"),
+                        "GREATER_EQUAL": uno.Enum("com.sun.star.sheet.ConditionOperator", "GREATER_EQUAL"),
+                        "LESS": uno.Enum("com.sun.star.sheet.ConditionOperator", "LESS"),
+                        "LESS_EQUAL": uno.Enum("com.sun.star.sheet.ConditionOperator", "LESS_EQUAL"),
+                        "BETWEEN": uno.Enum("com.sun.star.sheet.ConditionOperator", "BETWEEN"),
+                        "NOT_BETWEEN": uno.Enum("com.sun.star.sheet.ConditionOperator", "NOT_BETWEEN"),
+                        "FORMULA": uno.Enum("com.sun.star.sheet.ConditionOperator", "FORMULA"),
+                    }
+                except Exception:
+                    op_map = {
+                        "NONE": 0,
+                        "EQUAL": 1,
+                        "NOT_EQUAL": 2,
+                        "GREATER": 3,
+                        "GREATER_EQUAL": 4,
+                        "LESS": 5,
+                        "LESS_EQUAL": 6,
+                        "BETWEEN": 7,
+                        "NOT_BETWEEN": 8,
+                        "FORMULA": 9,
+                    }
 
             try:
                 from com.sun.star.sheet import ConditionOperator2 as CO2
 
-                dup_a = int(CO2.DUPLICATE)
-                dup_b = int(CO2.NOT_DUPLICATE)
+                op_map["DUPLICATE"] = int(CO2.DUPLICATE)
+                op_map["NOT_DUPLICATE"] = int(CO2.NOT_DUPLICATE)
             except Exception:
-                dup_a, dup_b = 10, 11
+                op_map["DUPLICATE"] = 10
+                op_map["NOT_DUPLICATE"] = 11
 
             op_upper = operator.upper()
-            op_map = {"NONE": NONE, "EQUAL": EQUAL, "NOT_EQUAL": NOT_EQUAL, "GREATER": GREATER, "GREATER_EQUAL": GREATER_EQUAL, "LESS": LESS, "LESS_EQUAL": LESS_EQUAL, "BETWEEN": BETWEEN, "NOT_BETWEEN": NOT_BETWEEN, "FORMULA": FORMULA, "DUPLICATE": dup_a, "NOT_DUPLICATE": dup_b}
-
             op_val = op_map.get(op_upper)
             if op_val is None:
-                raise UnoObjectError(f"Unknown condition operator: {operator}")
+                return self._tool_error(f"Unknown condition operator: {operator}", code="INVALID_OPERATOR")
 
             if op_upper in ("BETWEEN", "NOT_BETWEEN") and not formula2.strip():
-                raise UnoObjectError("formula2 is required for BETWEEN and NOT_BETWEEN.")
+                return self._tool_error("formula2 is required for BETWEEN and NOT_BETWEEN.", code="MISSING_FORMULA")
             if op_upper not in ("DUPLICATE", "NOT_DUPLICATE") and not formula1.strip():
-                raise UnoObjectError("formula1 is required for this operator.")
+                return self._tool_error("formula1 is required for this operator.", code="MISSING_FORMULA")
 
             cell_range = bridge.resolve_range_or_address(range_str)
 
-            props = []
-            pv = PropertyValue()
-            pv.Name = "Operator"
-            pv.Value = op_val
-            props.append(pv)
+            def _create_pv(name: str, val: Any) -> Any:
+                try:
+                    from com.sun.star.beans import PropertyValue
 
-            pv = PropertyValue()
-            pv.Name = "Formula1"
-            pv.Value = formula1
-            props.append(pv)
+                    pv = PropertyValue()
+                    pv.Name = name
+                    pv.Value = val
+                    return pv
+                except (ImportError, AttributeError):
+                    pass
+                import uno
 
+                try:
+                    return uno.createUnoStruct("com.sun.star.beans.PropertyValue", Name=name, Value=val)
+                except Exception:
+                    from types import SimpleNamespace
+
+                    return SimpleNamespace(Name=name, Value=val)
+
+            props = [
+                _create_pv("Operator", op_val),
+                _create_pv("Formula1", formula1),
+            ]
             if formula2:
-                pv = PropertyValue()
-                pv.Name = "Formula2"
-                pv.Value = formula2
-                props.append(pv)
-
-            pv = PropertyValue()
-            pv.Name = "StyleName"
-            pv.Value = style_name
-            props.append(pv)
+                props.append(_create_pv("Formula2", formula2))
+            props.append(_create_pv("StyleName", style_name))
 
             formats = _ensure_table_conditional_format(ctx, cell_range)
             formats.addNew(tuple(props))
@@ -232,7 +278,7 @@ class AddConditionalFormat(ToolCalcConditionalBase):
             return {"status": "ok", "range": range_str, "rule_count": count}
         except Exception as e:
             log.exception("Add conditional format failed")
-            raise ToolExecutionError(str(e)) from e
+            return self._tool_error(f"Failed to add conditional format: {str(e)}", code="CONDITIONAL_FORMAT_ERROR")
 
 
 class RemoveConditionalFormats(ToolCalcConditionalBase):
@@ -268,4 +314,4 @@ class RemoveConditionalFormats(ToolCalcConditionalBase):
 
         except Exception as e:
             log.exception("Remove conditional formats failed")
-            raise ToolExecutionError(str(e)) from e
+            return self._tool_error(f"Failed to remove conditional formats: {str(e)}", code="CONDITIONAL_FORMAT_ERROR")

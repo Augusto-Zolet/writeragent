@@ -27,7 +27,7 @@ from plugin.calc.address_utils import (
 )
 from plugin.calc.base import ToolCalcRangeBase
 from plugin.calc.bridge import CalcBridge
-from plugin.framework.errors import ToolExecutionError, UnoObjectError
+from plugin.framework.errors import UnoObjectError
 
 log = logging.getLogger("writeragent.calc")
 
@@ -249,7 +249,7 @@ class NamedRangeList(ToolCalcRangeBase):
             return {"status": "ok", "result": result}
         except Exception as e:
             log.exception("List named ranges failed")
-            raise ToolExecutionError(str(e)) from e
+            return self._tool_error(f"Failed to list named ranges: {str(e)}", code="NAMED_RANGE_ERROR")
 
 
 class NamedRangeGetInfo(ToolCalcRangeBase):
@@ -282,7 +282,7 @@ class NamedRangeGetInfo(ToolCalcRangeBase):
             if scope_arg is not None and str(scope_arg).strip():
                 container, effective_scope, _ = _resolve_container(doc, str(scope_arg).strip())
                 if not container.hasByName(name):
-                    raise UnoObjectError(f"No named range found with name '{name}' in scope '{effective_scope}'.")
+                    return self._tool_error(f"No named range found with name '{name}' in scope '{effective_scope}'.", code="NAMED_RANGE_NOT_FOUND")
                 nr = container.getByName(name)
                 info = _extract_range_info(nr, effective_scope, doc)
                 return {"status": "ok", "result": info}
@@ -310,10 +310,10 @@ class NamedRangeGetInfo(ToolCalcRangeBase):
                         nr = sheet.NamedRanges.getByName(name)
                         return {"status": "ok", "result": _extract_range_info(nr, sheet.getName(), doc)}
 
-            raise UnoObjectError(f"No named range found with name '{name}'.")
+            return self._tool_error(f"No named range found with name '{name}'.", code="NAMED_RANGE_NOT_FOUND")
         except Exception as e:
             log.exception("Get named range info failed for %s", name)
-            raise ToolExecutionError(str(e)) from e
+            return self._tool_error(f"Failed to get named range info: {str(e)}", code="NAMED_RANGE_ERROR")
 
 
 class NamedRangeAdd(ToolCalcRangeBase):
@@ -369,7 +369,7 @@ class NamedRangeAdd(ToolCalcRangeBase):
             doc = bridge.get_active_document()
             container, effective_scope, sheet_obj = _resolve_container(doc, scope)
             if container.hasByName(name):
-                raise UnoObjectError(f"A named range with the name '{name}' already exists in scope '{effective_scope}'.")
+                return self._tool_error(f"A named range with the name '{name}' already exists in scope '{effective_scope}'.", code="NAMED_RANGE_EXISTS")
 
             sheet_idx = 0
             if sheet_obj is not None and hasattr(doc, "getSheets"):
@@ -390,7 +390,7 @@ class NamedRangeAdd(ToolCalcRangeBase):
             }
         except Exception as e:
             log.exception("Add named range failed for %s", name)
-            raise ToolExecutionError(str(e)) from e
+            return self._tool_error(f"Failed to add named range: {str(e)}", code="NAMED_RANGE_ERROR")
 
 
 class NamedRangeEdit(ToolCalcRangeBase):
@@ -439,7 +439,7 @@ class NamedRangeEdit(ToolCalcRangeBase):
             container, effective_scope, sheet_obj = _resolve_container(doc, scope)
 
             if not container.hasByName(name):
-                raise UnoObjectError(f"No named range found with name '{name}' in scope '{effective_scope}'.")
+                return self._tool_error(f"No named range found with name '{name}' in scope '{effective_scope}'.", code="NAMED_RANGE_NOT_FOUND")
 
             nr = container.getByName(name)
 
@@ -464,7 +464,7 @@ class NamedRangeEdit(ToolCalcRangeBase):
             if new_name is not None and new_name.strip() and new_name.strip() != name:
                 new_clean = new_name.strip()
                 if container.hasByName(new_clean):
-                    raise UnoObjectError(f"Cannot rename to '{new_clean}': a named range with that name already exists in scope '{effective_scope}'.")
+                    return self._tool_error(f"Cannot rename to '{new_clean}': a named range with that name already exists in scope '{effective_scope}'.", code="NAMED_RANGE_EXISTS")
                 nr.setName(new_clean)
                 final_name = new_clean
             else:
@@ -477,7 +477,7 @@ class NamedRangeEdit(ToolCalcRangeBase):
             }
         except Exception as e:
             log.exception("Edit named range failed for %s", name)
-            raise ToolExecutionError(str(e)) from e
+            return self._tool_error(f"Failed to edit named range: {str(e)}", code="NAMED_RANGE_ERROR")
 
 
 class NamedRangeDelete(ToolCalcRangeBase):
@@ -509,14 +509,14 @@ class NamedRangeDelete(ToolCalcRangeBase):
             container, effective_scope, _ = _resolve_container(doc, scope)
 
             if not container.hasByName(name):
-                raise UnoObjectError(f"No named range found with the name '{name}' in scope '{effective_scope}'.")
+                return self._tool_error(f"No named range found with the name '{name}' in scope '{effective_scope}'.", code="NAMED_RANGE_NOT_FOUND")
 
             container.removeByName(name)
             log.info("Named range deleted: [%s] %s", effective_scope, name)
             return {"status": "ok", "message": f"Named range '{name}' deleted successfully from scope '{effective_scope}'."}
         except Exception as e:
             log.exception("Delete named range failed for %s", name)
-            raise ToolExecutionError(str(e)) from e
+            return self._tool_error(f"Failed to delete named range: {str(e)}", code="NAMED_RANGE_ERROR")
 
 
 class NamedRangeCreateFromTitles(ToolCalcRangeBase):
@@ -588,7 +588,7 @@ class NamedRangeCreateFromTitles(ToolCalcRangeBase):
                 }
 
         if border_clean not in border_map:
-            raise ToolExecutionError(f"Invalid border '{border_str}'. Supported borders: 'top', 'bottom', 'left', 'right'.")
+            return self._tool_error(f"Invalid border '{border_str}'. Supported borders: 'top', 'bottom', 'left', 'right'.", code="INVALID_BORDER")
 
         try:
             doc = bridge.get_active_document()
@@ -606,4 +606,4 @@ class NamedRangeCreateFromTitles(ToolCalcRangeBase):
             }
         except Exception as e:
             log.exception("Create named ranges from titles failed for %s", range_str)
-            raise ToolExecutionError(str(e)) from e
+            return self._tool_error(f"Failed to create named ranges from titles: {str(e)}", code="NAMED_RANGE_ERROR")

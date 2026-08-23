@@ -8,7 +8,7 @@
 #
 """Unit tests for Calc multi-sheet chart helpers and non-empty exception formatting (no UNO required)."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 from plugin.calc.charts import (
     _format_chart_exception_msg,
     _get_all_calc_chart_names,
@@ -115,4 +115,29 @@ def test_create_calc_chart_has_header_false():
     args = charts.addNewByName.call_args[0]
     assert args[3] is False
     assert args[4] is False
+
+
+def test_manage_charts_error_handling():
+    from plugin.calc.charts import ManageCharts, UpsertChart
+
+    ctx = MagicMock()
+    ctx.doc = MagicMock()
+
+    # 1. ManageCharts missing action
+    mc = ManageCharts()
+    res_no_action = mc.execute(ctx)
+    assert res_no_action["status"] == "error"
+    assert res_no_action["code"] == "MISSING_PARAMETER"
+
+    # 2. ManageCharts unsupported action
+    res_bad_action = mc.execute(ctx, action="invalid_action")
+    assert res_bad_action["status"] == "error"
+
+    # 3. UpsertChart edit not found
+    uc = UpsertChart()
+    with patch("plugin.calc.charts.supportsService", return_value=True), patch("plugin.calc.charts._resolve_chart", return_value=None):
+        res_edit_nf = uc.execute(ctx, action="edit", name="NonExistentChart")
+        assert res_edit_nf["status"] == "error"
+        assert "not found" in res_edit_nf["message"]
+
 

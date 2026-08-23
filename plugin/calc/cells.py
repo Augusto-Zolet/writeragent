@@ -234,6 +234,8 @@ class WriteCellRange(ToolBase):
             for r in rn:
                 manipulator.write_formula_range(r, fov)
             return {"status": "ok", "message": f"Wrote to {len(rn)} ranges"}
+        except Exception as e:
+            return self._tool_error(str(e))
         finally:
             undo.close()
 
@@ -411,12 +413,15 @@ class SetCellStyle(ToolBase):
 
         if len(rn) == 0:
             return self._tool_error("range is required")
-        if len(rn) == 1:
-            manipulator.set_cell_style(rn[0], **style_kwargs)
-            return {"status": "ok", "message": f"Style applied to {rn[0]}"}
-        for r in rn:
-            manipulator.set_cell_style(r, **style_kwargs)
-        return {"status": "ok", "message": f"Style applied to {len(rn)} ranges"}
+        try:
+            if len(rn) == 1:
+                manipulator.set_cell_style(rn[0], **style_kwargs)
+                return {"status": "ok", "message": f"Style applied to {rn[0]}"}
+            for r in rn:
+                manipulator.set_cell_style(r, **style_kwargs)
+            return {"status": "ok", "message": f"Style applied to {len(rn)} ranges"}
+        except Exception as e:
+            return self._tool_error(str(e))
 
 
 class MergeCells(ToolBase):
@@ -438,12 +443,15 @@ class MergeCells(ToolBase):
 
         if len(rn) == 0:
             return self._tool_error("range is required")
-        if len(rn) == 1:
-            manipulator.merge_cells(rn[0], center=center)
-            return {"status": "ok", "message": f"Merged cells {rn[0]}"}
-        for r in rn:
-            manipulator.merge_cells(r, center=center)
-        return {"status": "ok", "message": f"Merged cells in {len(rn)} ranges"}
+        try:
+            if len(rn) == 1:
+                manipulator.merge_cells(rn[0], center=center)
+                return {"status": "ok", "message": f"Merged cells {rn[0]}"}
+            for r in rn:
+                manipulator.merge_cells(r, center=center)
+            return {"status": "ok", "message": f"Merged cells in {len(rn)} ranges"}
+        except Exception as e:
+            return self._tool_error(str(e))
 
 
 class SortRange(ToolCalcRangeBase):
@@ -476,12 +484,15 @@ class SortRange(ToolCalcRangeBase):
 
         if len(rn) == 0:
             return self._tool_error("range is required")
-        if len(rn) == 1:
-            result = manipulator.sort_range(rn[0], sort_column=sort_column, ascending=ascending, has_header=has_header)
-            return {"status": "ok", "message": result}
-        for r in rn:
-            manipulator.sort_range(r, sort_column=sort_column, ascending=ascending, has_header=has_header)
-        return {"status": "ok", "message": f"Sorted {len(rn)} ranges"}
+        try:
+            if len(rn) == 1:
+                result = manipulator.sort_range(rn[0], sort_column=sort_column, ascending=ascending, has_header=has_header)
+                return {"status": "ok", "message": result}
+            for r in rn:
+                manipulator.sort_range(r, sort_column=sort_column, ascending=ascending, has_header=has_header)
+            return {"status": "ok", "message": f"Sorted {len(rn)} ranges"}
+        except Exception as e:
+            return self._tool_error(str(e))
 
 
 class DeleteStructure(ToolBase):
@@ -511,5 +522,8 @@ class DeleteStructure(ToolBase):
         # Normalize: rows accept integer or string; columns accept letter(s).
         start = int(start_raw) if structure_type == "rows" and str(start_raw).isdigit() else start_raw
 
-        result = manipulator.delete_structure(structure_type, start, count=count)
-        return {"status": "ok", "message": result}
+        try:
+            result = manipulator.delete_structure(structure_type, start, count=count)
+            return {"status": "ok", "message": result}
+        except Exception as e:
+            return self._tool_error(str(e))

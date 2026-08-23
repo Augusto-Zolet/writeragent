@@ -557,9 +557,9 @@ def test_make_number_formatter_unwraps_guarded_doc():
 
 
 def test_write_formula_range_empty_uno_error_uses_type_name():
-    """Blank UNO str(e) must not surface as an empty ToolExecutionError."""
+    """Blank UNO str(e) must not surface as an empty CalcError."""
     from plugin.calc.manipulator import CellManipulator
-    from plugin.framework.errors import ToolExecutionError
+    from plugin.calc import CalcError
 
     class _BlankUno(Exception):
         def __str__(self):
@@ -570,6 +570,28 @@ def test_write_formula_range_empty_uno_error_uses_type_name():
     manip = CellManipulator(bridge)
     try:
         manip.write_formula_range("A1", "2026-08-08")
-        raise AssertionError("expected ToolExecutionError")
-    except ToolExecutionError as e:
+        raise AssertionError("expected CalcError")
+    except CalcError as e:
         assert str(e) == "_BlankUno"
+
+
+def test_write_cell_range_tool_error_return():
+    """WriteCellRange.execute returns _tool_error when manipulator fails."""
+    from plugin.calc.cells import WriteCellRange
+
+    class _BlankUno(Exception):
+        def __str__(self):
+            return "UNO write failure"
+
+    doc = MagicMock()
+    ctx = MagicMock()
+    ctx.doc = doc
+
+    bridge = MagicMock()
+    bridge.resolve_range_or_address.side_effect = _BlankUno()
+
+    tool = WriteCellRange()
+    with patch("plugin.calc.cells.CalcBridge", return_value=bridge):
+        res = tool.execute(ctx, range=["A1"], values="123")
+    assert res["status"] == "error"
+    assert "UNO write failure" in res["message"]

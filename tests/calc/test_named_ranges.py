@@ -200,3 +200,58 @@ def test_named_range_tools_execution_with_mock():
     res_titles = tool_titles.execute(ctx, range=["A1:B5"], border="top")
     assert res_titles["status"] == "ok"
     named_ranges.addNewFromTitles.assert_called_once()
+
+
+def test_named_range_tools_error_handling():
+    """Verify that all named range tools return _tool_error on failures."""
+    doc = MagicMock()
+    named_ranges = MagicMock()
+    doc.NamedRanges = named_ranges
+    named_ranges.hasByName.return_value = False
+    doc.getSheets.return_value.hasByName.return_value = False
+    doc.getSheets.return_value.getCount.return_value = 0
+    doc.getCurrentController.return_value.getActiveSheet.return_value.NamedRanges.hasByName.return_value = False
+
+    ctx = MagicMock()
+    ctx.doc = doc
+
+    # 1. GetInfo not found
+    tool_info = NamedRangeGetInfo()
+    res_info = tool_info.execute(ctx, name="NonExistent")
+    assert res_info["status"] == "error"
+    assert res_info["code"] == "NAMED_RANGE_NOT_FOUND"
+
+    # 2. Add duplicate
+    named_ranges.hasByName.return_value = True
+    tool_add = NamedRangeAdd()
+    res_add = tool_add.execute(ctx, name="ExistingRange", content="A1")
+    assert res_add["status"] == "error"
+    assert res_add["code"] == "NAMED_RANGE_EXISTS"
+
+    # 3. Edit not found
+    named_ranges.hasByName.return_value = False
+    tool_edit = NamedRangeEdit()
+    res_edit = tool_edit.execute(ctx, name="NonExistent", content="B1")
+    assert res_edit["status"] == "error"
+    assert res_edit["code"] == "NAMED_RANGE_NOT_FOUND"
+
+    # 4. Edit rename collision
+    named_ranges.hasByName.side_effect = lambda name: name in ("RangeA", "RangeB")
+    res_edit_coll = tool_edit.execute(ctx, name="RangeA", new_name="RangeB")
+    assert res_edit_coll["status"] == "error"
+    assert res_edit_coll["code"] == "NAMED_RANGE_EXISTS"
+
+    # 5. Delete not found
+    named_ranges.hasByName.side_effect = None
+    named_ranges.hasByName.return_value = False
+    tool_del = NamedRangeDelete()
+    res_del = tool_del.execute(ctx, name="NonExistent")
+    assert res_del["status"] == "error"
+    assert res_del["code"] == "NAMED_RANGE_NOT_FOUND"
+
+    # 6. CreateFromTitles invalid border
+    tool_titles = NamedRangeCreateFromTitles()
+    res_titles = tool_titles.execute(ctx, range=["A1:B5"], border="invalid_border")
+    assert res_titles["status"] == "error"
+    assert res_titles["code"] == "INVALID_BORDER"
+

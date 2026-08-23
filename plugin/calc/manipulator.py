@@ -56,7 +56,7 @@ from plugin.calc.datetime_wire import (
 )
 from plugin.calc.error_detector import get_calc_error_name
 from plugin.calc.inspector import _format_category_from_type
-from plugin.framework.errors import ToolExecutionError, UnoObjectError, safe_json_loads
+from plugin.framework.errors import safe_json_loads
 from plugin.framework.uno_context import get_ctx
 
 
@@ -362,7 +362,7 @@ class CellManipulator:
                 log.info("Cell %s style updated.", address_or_range.upper())
         except Exception as e:
             log.exception("Style application failed for %s", address_or_range)
-            raise ToolExecutionError(str(e)) from e
+            raise CalcError(str(e)) from e
 
     def _set_range_style(self, range_str, bold=None, italic=None, bg_color=None, font_color=None, font_size=None, h_align=None, v_align=None, wrap_text=None, border_color=None):
         cell_range = self.bridge.resolve_range_or_address(range_str)
@@ -422,7 +422,7 @@ class CellManipulator:
             log.info("Range %s cleared.", range_str.upper())
         except Exception as e:
             log.exception("Range clear failed for %s", range_str)
-            raise ToolExecutionError(str(e)) from e
+            raise CalcError(str(e)) from e
 
     def merge_cells(self, range_str: str, center: bool = True):
         """Merge a cell range.
@@ -441,7 +441,7 @@ class CellManipulator:
                 cell_range.setPropertyValue("VertJustify", V_CENTER)
         except Exception as e:
             log.exception("Cell merge failed for %s", range_str)
-            raise ToolExecutionError(str(e)) from e
+            raise CalcError(str(e)) from e
 
     def sort_range(self, range_str: str, sort_column: int = 0, ascending: bool = True, has_header: bool = True):
         """Sort a range.
@@ -480,7 +480,7 @@ class CellManipulator:
             return f"Range {range_str} sorted {direction} by column {sort_column}."
         except Exception as e:
             log.exception("Sort failed for %s", range_str)
-            raise ToolExecutionError(str(e)) from e
+            raise CalcError(str(e)) from e
 
     def _make_number_formatter(self, doc):
         """Attach a NumberFormatter to *doc* once per write invocation.
@@ -720,7 +720,7 @@ class CellManipulator:
                     formula_or_values = flat_vals
 
                 if len(formula_or_values) != total_cells:
-                    raise UnoObjectError(f"Array has {len(formula_or_values)} values but range has {total_cells} cells. Use a single string to fill the whole range, or an array with exactly that many values for cell-by-cell control.")
+                    raise CalcError(f"Array has {len(formula_or_values)} values but range has {total_cells} cells. Use a single string to fill the whole range, or an array with exactly that many values for cell-by-cell control.")
                 values = formula_or_values
             else:
                 values = [formula_or_values] * total_cells
@@ -878,7 +878,7 @@ class CellManipulator:
             # UNO often yields str(e) == ""; keep a usable message for the agent.
             msg = str(e) or getattr(e, "Message", None) or type(e).__name__
             log.exception("Range formula write failed for %s", range_str)
-            raise ToolExecutionError(msg) from e
+            raise CalcError(msg) from e
 
     # ── Chart ──────────────────────────────────────────────────────────
 
@@ -894,7 +894,7 @@ class CellManipulator:
             return f"{count} row(s) deleted starting from row {row_num}."
         except Exception as e:
             log.exception("Row deletion failed")
-            raise ToolExecutionError(str(e)) from e
+            raise CalcError(str(e)) from e
 
     def delete_columns(self, col_letter: str, count: int = 1):
         """Delete columns starting at *col_letter*."""
@@ -907,7 +907,7 @@ class CellManipulator:
             return f"{count} column(s) deleted starting from column {col_letter.upper()}."
         except Exception as e:
             log.exception("Column deletion failed")
-            raise ToolExecutionError(str(e)) from e
+            raise CalcError(str(e)) from e
 
     def delete_structure(self, structure_type: str, start, count: int = 1):
         """Delete rows or columns.
@@ -922,4 +922,4 @@ class CellManipulator:
         elif structure_type == "columns":
             return self.delete_columns(start, count)
         else:
-            raise UnoObjectError(f"Invalid structure_type: {structure_type}. Must be 'rows' or 'columns'.")
+            raise CalcError(f"Invalid structure_type: {structure_type}. Must be 'rows' or 'columns'.")
