@@ -6,6 +6,8 @@ WriterAgent adopts substantial design from [Nous Hermes Agent](https://github.co
 
 **Status (2026-06):** `upsert_memory` + `USER.md` injection are active. The first skill (`humanizer`) ships with ambient prompt injection only (Settings checkbox). General skills list/view/manage tools remain aspirational.
 
+**Skills catalog (refreshed 2026-08):** Still only humanizer shipped — no further skills were added. The table below replaces the older “plan / OCR / arxiv / llm-wiki” shortlist after a pass over current Hermes bundled + optional skills. Not scheduled work; parked so the next seeds are not rediscovered from scratch.
+
 ---
 
 ## Concepts
@@ -234,21 +236,39 @@ WriterAgent already mirrors several Hermes concepts:
 
 ## Skills catalog and priorities
 
-Hermes-agent ships ~73 built-in `SKILL.md` files (plus `optional-skills/` and user-installed). Many are service-specific glue (Notion, email, etc.) — low priority for WriterAgent defaults.
+Hermes now ships a large bundled library plus `optional-skills/` and hub installs (hundreds of `SKILL.md` files). Most are service glue (Notion, email, GitHub, calendar) or coding-agent workflow. WriterAgent already covers file open/import (LibreOffice), vision/OCR, web research, librarian, grammar, and HTML-in-Writer — so **do not port file parsers**.
 
-### Strong candidates for default / seeded inclusion
+Port the same way as humanizer: trim to a short office-tuned guidance block, ambient injection + Settings checkbox, user `SKILL.md` wins. Do not copy Hermes `terminal` / helper-script machinery unless a later skill truly needs it (`youtube-content`).
+
+### Seed next (same shape as humanizer)
 
 | Skill | Priority | Notes |
 |-------|----------|-------|
 | `creative/humanizer` | **Shipped** | AI-slop removal + human voice. See § WriterAgent implementation. |
-| `software-development/plan` | High | Plan-only mode, bite-sized tasks, TDD discipline. Pairs with todo infra and sub-agent delegation. Save plans under `writeragent_plans/` or next to the document. |
-| `productivity/ocr-and-documents` | Medium | Map decision logic to existing vision stack (Paddle + Docling), not new OCR engines. |
-| `research/arxiv` | Low–medium | Zero-dep search; complements web research sub-agent. |
-| `research/llm-wiki` | Low–medium | Persistent interlinked markdown KB; fits per-folder embeddings work. |
+| `productivity/document-to-action-items` + `productivity/meeting-action-items` | **Next (merge into one)** | One WriterAgent skill. Split decisions / proposals / commitments / risks; keep may–should–must; never invent owner or due date (`unresolved`); every item cites a heading/paragraph; draft only — no tracker writes unless asked. LibreOffice does not do this. Output: Writer table or Calc sheet. Fits the legal/professional pitch in [`business-freemium.md`](business-freemium.md). |
+| `research/grounded-citations` | **Next** | Procedure only — not `scripts/sources.py` and not a bibliography UNO module (still a gap in [`writer-specialized-toolsets.md`](../writer-specialized-toolsets.md)). Cite-while-drafting; never invent `[n]` or URLs; model-knowledge claims get `[unverified]`; keep conflicting sources; append a mechanical Sources list. Web research already collects URLs; this is the missing craft layer. |
+| `optional-skills/communication/one-three-one-rule` | Cheap third | Tiny. “Give me options” → 1 problem, 3 distinct options, 1 recommendation + definition of done. Zero deps. Good for memos / strategy docs. |
 
-**Skip for defaults:** full `research-paper-writing` pipeline (niche, heavy deps), service glue, heavy creative/desktop-automation skills without LO mapping.
+### Later / optional (not defaults)
 
-**Recommendation:** Seed a small curated set in the user profile next to `memories/` — humanizer (done), then plan, document-ingestion, light research helpers.
+| Skill | Why keep on the shelf |
+|-------|------------------------|
+| `media/youtube-content` | Transcript → chapters / summary / blog in Writer. Real request. Needs `youtube-transcript-api` in the venv — not prompt-only. |
+| `creative/architecture-diagram` | Self-contained HTML+SVG; maps to existing HTML import. Heavy template, not ambient. |
+| `creative/baoyu-infographic` | Layout × style catalog on top of existing image gen. Lots of reference files. |
+| `research/arxiv` | Still the lightest research helper (stdlib / curl). Niche unless people write papers in Writer. |
+
+### Dropped from the old shortlist
+
+| Former candidate | Why it left the seed list |
+|------------------|---------------------------|
+| `software-development/plan` | Coding-agent TDD/plan-mode, not an office skill. Contributor plan+todo discipline stays under **Other patterns** below — do not seed it for end users. |
+| `productivity/ocr-and-documents` | Overlaps LibreOffice file open + the existing vision/OCR stack. Do not add another engine. |
+| `research/llm-wiki` | Project already has `wiki/` + embeddings/FTS. Do not seed a second KB for users. |
+
+**Skip for defaults:** `pdf` / `docx` / `xlsx` / `powerpoint` / `nano-pdf`, `session-librarian` (we have librarian), `weekly-review-planning` / `email-inbox-triage` / Google Workspace (need connectors we do not have), full `research-paper-writing`, `popular-web-designs` / `claude-design` (huge; local pretty-HTML skills already cover taste), service glue, desktop-automation with no LO mapping.
+
+**Recommendation when someone next picks this up:** seed **action-items** and **grounded-citations** next to `memories/` (humanizer is done). Add **one-three-one** only if a third cheap checkbox is wanted. Trim Hermes files the way humanizer was trimmed — office language, no `read_file`/`terminal`, no tracker writes.
 
 ---
 
@@ -265,40 +285,41 @@ Hermes-agent ships ~73 built-in `SKILL.md` files (plus `optional-skills/` and us
 
 - **Reuse first** — Prompt injection points, smol sub-agents, trusted venv modules (`plugin/scripting/`).
 - **Shared layout** — `SKILL.md` + directory convention for cross-agent portability (Hermes, WriterAgent, Memento — see [`external/memento-skills.md`](external/memento-skills.md)).
-- **Vendoring / adaptation** — Small focused pieces (humanizer patterns, plan contract, threat scanner) rather than whole subsystems.
+- **Vendoring / adaptation** — Small focused pieces (humanizer patterns, action-item / citation procedures, threat scanner) rather than whole subsystems.
 - **Injection vs. tools** — Ambient injection for memory and key skills; tools primarily for mutation.
 - **Defaults vs. optional** — Tiny high-signal default set; hub/discovery for the rest.
 - **Testing & docs** — Matching `tests/chatbot/test_*.py`; update this doc when behavior changes; `make test` before release.
 
 ### Prioritized summary
 
-**Pursue soon (low complexity, high value):**
+**Skills to seed (when picked up — not scheduled):**
 
 - humanizer (**done**)
-- Plan-mode discipline
+- Merged action-items skill (`document-to-action-items` + `meeting-action-items`)
+- Grounded-citations procedure (no ledger script)
+- Optional cheap third: `one-three-one-rule`
+
+**Infra patterns still worth evaluating (unrelated to the seed list):**
+
 - Memory snapshot + threat scan + drift detection
 - ACP provenance consumption
 - Background reviewer
-- Light research synthesis (arxiv, llm-wiki)
-- Bidirectional skill/MCP bridging (already working)
-
-**Medium (prototype, evaluate cost):**
-
-- Adapted ocr-and-documents workflow
 - Deeper skills index injection in system prompts
-- Experiment-logging patterns from paper-writing skill (generic “analysis journal”)
+- Bidirectional skill/MCP bridging (already working)
+- Plan + todo discipline for *contributor* / coding-agent sessions (not an end-user default)
 
 **Probably skip:**
 
-- Full research-paper-writing pipeline
-- Most service-specific skills
+- File parsers and a second OCR stack
+- Full research-paper-writing pipeline; seeding `llm-wiki` for users
+- Most service-specific skills; weekly-review / inbox triage without connectors
 - Re-implementing Hermes hub/health/watchdog machinery
 
 ---
 
 ## Open questions
 
-- Which 2–3 skills to seed next after humanizer?
+- Which 2–3 skills to seed next after humanizer? **Answered 2026-08:** action-items (merged) + grounded-citations; optional 1-3-1. See § Skills catalog.
 - Prototype memory snapshot + scanner — measure prompt size / UX impact?
 - Dedicated “use this skill” tool surface vs. prompt-injected procedures only?
 - Skill versioning when users have local `SKILL.md` customizations?
@@ -320,8 +341,11 @@ Hermes-agent ships ~73 built-in `SKILL.md` files (plus `optional-skills/` and us
 - `~/.hermes/hermes-agent/tools/todo_tool.py`
 - `~/.hermes/hermes-agent/acp_adapter/{provenance.py, entry.py, server.py}`
 - `~/.hermes/hermes-agent/skills/creative/humanizer/SKILL.md`
-- `~/.hermes/hermes-agent/skills/software-development/plan/SKILL.md`
-- `~/.hermes/hermes-agent/skills/productivity/ocr-and-documents/SKILL.md`
+- `~/.hermes/hermes-agent/skills/productivity/document-to-action-items/SKILL.md`
+- `~/.hermes/hermes-agent/skills/productivity/meeting-action-items/SKILL.md`
+- `~/.hermes/hermes-agent/skills/research/grounded-citations/SKILL.md`
+- `~/.hermes/hermes-agent/skills/optional-skills/communication/one-three-one-rule/SKILL.md`
+- Later shelf: `…/media/youtube-content/SKILL.md`, `…/creative/architecture-diagram/SKILL.md`, `…/creative/baoyu-infographic/SKILL.md`, `…/research/arxiv/SKILL.md`
 - `~/.hermes/hermes-agent/optional-skills/DESCRIPTION.md`
 - User skills: `~/.hermes/skills/writeragent*`, `writeragent-extension-layers`
 

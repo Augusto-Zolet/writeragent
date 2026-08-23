@@ -1,6 +1,6 @@
 # AGENTS.md — Context for AI Assistants
 
-**Assume the reader knows nothing about this project.** This file lists **invariants**, **entry points**, and **easy mistakes**. Everything else is in the linked modules and docs—open those when you change behavior. Entry points (area, role, paths) are in [Key files](#key-files-entry-points) at the bottom.
+**Assume the reader knows nothing about this project.** This file lists **invariants** and **easy mistakes**. Everything else is in the linked modules and docs—open those when you change behavior. Entry points and topic hubs: [`docs/repo-map.md`](docs/repo-map.md).
 
 > [!IMPORTANT]
 > **Docs:** After any nontrivial change, update documentation. Prefer the **topic doc** under `docs/`; touch **`AGENTS.md`** only when the change affects **many areas** or **global rules**.
@@ -24,7 +24,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 > See `tests/chatbot/test_hamburger_menu_uno.py` as an example: write a quick `@native_test` function (takes `ctx`), instantiate the UNO service, and inspect `dir(obj)` or test the exact call directly. In seconds you get the real runtime methods, argument counts, and types.
 
 > [!IMPORTANT]
-> **Comments:** Write why this code is there for the reader who would otherwise be **lost**. **Good comments are the bridge** from opaque to understandable and maintainable code. Some files have no comments: inserting footnotes is standard, little different from other UNO objects. Meanwhile some comments are critical to understanding why the code is there. Write clear, short comments.
+> **Comments:** Write why this code is there for the reader who would otherwise be **lost**. **Good comments are the bridge** from opaque to understandable and maintainable code. Some files have no comments: inserting footnotes is standard, little different from other UNO objects. Meanwhile some comments are critical to understanding why this code is there. Write clear, short comments.
 > - **Bugfixes (required):** at the fix, **what was wrong**, **how it happened**, and **why this change** fixes it.
 > - **LibreOffice / UNO / Etc.:** quirks. When matching upstream behavior, cite **source** (file + line or function), not a vague “like Lightproof.”
 
@@ -38,7 +38,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 - **Extend / Edit selection:** Writer uses `get_string_without_tracked_deletions()` in `text_helpers` for prompts; undo/session details in `document_helpers`.
 - **Settings:** `writeragent.json` under the LibreOffice user profile—see `config` module doc.
 - **Memory (experimental):** `memory` + `MEMORY_GUIDANCE` in `prompts` — [docs/archive/hermes-agent-patterns.md](docs/archive/hermes-agent-patterns.md).
-- **Calc:** `=PROMPT()` and `=PYTHON()` add-ins (see Key files).
+- **Calc:** `=PROMPT()` and `=PYTHON()` add-ins (see [`docs/repo-map.md`](docs/repo-map.md)).
 - **Eval / benchmarks:** `make run_eval` / `scripts/benchmark.py` → `scripts/prompt_optimization/` — [scripts/prompt_optimization/README.md](scripts/prompt_optimization/README.md), [docs/eval-dev-plan.md](docs/eval-dev-plan.md).
 
 **Python:** Dev/tooling **3.11–3.13** (`pyproject.toml`); dev `.venv` is pinned to **3.13** via `.python-version` (3.14 lacks wheels for some dev deps such as spaCy). **Extension runtime** is whatever LibreOffice bundles (often older). **Shipped code under `plugin/` must not rely on stdlib newer than that runtime.**
@@ -65,7 +65,7 @@ Usual targets generate `plugin/_manifest.py` when needed. Other Makefile targets
 
 ## HTTP / LLM (summary)
 
-Chat and tool calls go through `llm_client` (see its module doc). Persistent connections live in `ai/service`; auth headers in `auth`.
+Chat and tool calls go through `llm_client` (see its module doc). Persistent connections live in the HTTP client; auth headers in `auth`.
 
 The librarian / smolagents path must use `WriterAgentSmolModel` in `smol_agent`—do not add a second HTTP client. Details: [docs/chat-smol-tool-architecture.md](docs/chat-smol-tool-architecture.md), [docs/chat-llm-hacks.md](docs/chat-llm-hacks.md).
 
@@ -73,7 +73,7 @@ The librarian / smolagents path must use `WriterAgentSmolModel` in `smol_agent`�
 
 ## Cross-cutting invariants
 
-Rules that apply in many places. Breaking them causes wrong-document bugs, frozen UI, or tools that never run. Paths are in [Key files](#key-files-entry-points).
+Rules that apply in many places. Breaking them causes wrong-document bugs, frozen UI, or tools that never run. Paths: [`docs/repo-map.md`](docs/repo-map.md).
 
 - **Use the extension’s `self.ctx`, not a fresh UNO context.** Lookups for package info, dialogs, and similar must use the component context the extension was given. Calling `uno.getComponentContext()` can return a different context and quietly break those lookups. Same idea for Calc chat context: `get_calc_context_for_chat` needs `ctx` from the panel / MainJob, not a bootstrap call.
 
@@ -101,19 +101,20 @@ UNO helpers are intentionally split (`uno_context`, `text_helpers` / `doc_type` 
 
 ## Tips and sharp edges
 
-Area-specific rules live in module docstrings and topic docs—open those when you edit that area. Entry points: [Key files](#key-files-entry-points). Topic docs: [Deep dives](#deep-dives-link-index).
+Area-specific rules live in module docstrings, topic docs, and the
+area `AGENTS.md` next to the code. Hermes injects those area files
+when you open that tree; other agents should open them explicitly.
 
-- **Sidebar / chat:** Resolve the document from the **frame only** (`frame.getController().getModel()` in `panel`). For Stop / cancel, use **`resolve_stop_checker()`**—not a panel boolean alone. Modes and routing: [docs/chat-sidebar-implementation.md](docs/chat-sidebar-implementation.md). Streaming details: [docs/framework-streaming-and-threading.md](docs/framework-streaming-and-threading.md).
+- **When editing `plugin/chatbot/`:** read [`plugin/chatbot/AGENTS.md`](plugin/chatbot/AGENTS.md)
+- **When editing `plugin/writer/`:** read [`plugin/writer/AGENTS.md`](plugin/writer/AGENTS.md)
+- **When editing `plugin/calc/`:** read [`plugin/calc/AGENTS.md`](plugin/calc/AGENTS.md)
+- **When editing `plugin/scripting/` or LibrePy:** read [`plugin/scripting/AGENTS.md`](plugin/scripting/AGENTS.md)
 
-- **Dialogs (XDL):** Load with `DialogProvider` and the extension `base_url` (see `dialogs` module doc). Settings UI is in `dialog_views`.
+**Config:** Call `init_config(ctx)` once at bootstrap. Later config I/O does not take `ctx` — see the `config` module doc.
 
-- **Tools / Writer / Calc:** In tests, resolve tools with `plugin.main.get_tools().get("tool_name")`. Deeper topics: [docs/writer-math-tex.md](docs/writer-math-tex.md), [docs/writer-grammar-checker-plan.md](docs/writer-grammar-checker-plan.md), [docs/calc-specialized-toolsets.md](docs/calc-specialized-toolsets.md), [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md), [docs/calc-py-data-shapes.md](docs/calc-py-data-shapes.md), [docs/scripting-numpy-domains.md](docs/scripting-numpy-domains.md).
+**Logging / MCP:** Logs go to `writeragent_debug.log` next to `writeragent.json`. `enable_agent_log` is separate (structured agent traces only). In unexpected `except` blocks, use **`log.exception("Context")`**. MCP work drains on the main thread ([docs/mcp-protocol.md](docs/mcp-protocol.md)). Do not read API keys from the environment in production; do not use **`tempfile.mktemp()`**. For scratch debug files under `/tmp`, prefer `flush=True`.
 
-- **Config:** Call `init_config(ctx)` once at bootstrap. Later config I/O does not take `ctx`—see the `config` module doc.
-
-- **Logging / MCP:** Logs go to `writeragent_debug.log` next to `writeragent.json`. Shipped LibrePy (`make deploy-core`) defaults to **`log_level` WARN**; a checkout that still has `plugin/tests/` defaults to **DEBUG**. Override in `writeragent.json` and restart LibreOffice. `enable_agent_log` is separate (structured agent traces only). In unexpected `except` blocks, use **`log.exception("Context")`**. MCP work drains on the main thread ([docs/mcp-protocol.md](docs/mcp-protocol.md)). Image generation: [docs/image-generation.md](docs/image-generation.md). Do not read API keys from the environment in production; do not use **`tempfile.mktemp()`**. For scratch debug files under `/tmp`, prefer `flush=True`.
-
-- **Tests / packaging:** UNO tests go through `testing_runner`; debug-menu suites run on the UI thread ([docs/archive/test_architecture_analysis.md](docs/archive/test_architecture_analysis.md)). New extension components must be registered in `extension/META-INF/manifest.xml`.
+**Tests / packaging:** UNO tests go through `testing_runner`; debug-menu suites run on the UI thread ([docs/archive/test_architecture_analysis.md](docs/archive/test_architecture_analysis.md)). New extension components must be registered in `extension/META-INF/manifest.xml`.
 
 ### Global Python
 
@@ -131,89 +132,28 @@ Do not reuse the names **`logging`**, module **`log`**, or gettext **`_`** for u
 
 ---
 
-## Key files (entry points)
-
-Start here by task. Topic docs: [Deep dives](#deep-dives-link-index).
+## Where to look
 
 **Layout:** `plugin/` (framework, chatbot, writer, calc, draw, scripting, librepy, …), `extension/` (WriterAgent OXT), `extension-core/` (LibrePy OXT), `scripts/`, `Makefile`, `pyproject.toml`.
 
-| Area | Role | Paths |
-|------|------|-------|
-| Bootstrap / MCP | WriterAgent bootstrap, settings apply, MCP startup | [`plugin/main.py`](plugin/main.py) |
-| LibrePy bootstrap | Core OXT: `=PY()`, Python menus, Settings → Python; no chat/MCP | [`plugin/main_core.py`](plugin/main_core.py), [`plugin/librepy/`](plugin/librepy/), [`plugin/calc/python/addin_librepy.py`](plugin/calc/python/addin_librepy.py) |
-| Sidebar / send | Sidebar factory, panel, document resolution | [`plugin/chatbot/panel_factory.py`](plugin/chatbot/panel_factory.py), [`plugin/chatbot/panel.py`](plugin/chatbot/panel.py) |
-| Tool loop / chat FSM | Main chat tool loop and state machine | [`plugin/chatbot/tool_loop.py`](plugin/chatbot/tool_loop.py), [`plugin/chatbot/tool_loop_state.py`](plugin/chatbot/tool_loop_state.py) |
-| Smol / librarian ReAct | Separate ReAct runtime (shares `LlmClient`); do **not** merge with the main chat FSM | [`plugin/chatbot/smol_agent.py`](plugin/chatbot/smol_agent.py) — [docs/chat-smol-tool-architecture.md](docs/chat-smol-tool-architecture.md) |
-| Agent backends | Optional external backends (`agent_backend.backend_id` when not `builtin`) | [`plugin/agent_backend/`](plugin/agent_backend/) |
-| HTTP / LLM | Chat requests, tools, token stripping, pacing | [`plugin/framework/client/llm_client.py`](plugin/framework/client/llm_client.py) (`make_chat_request`, `request_with_tools`, …), [`plugin/ai/service.py`](plugin/ai/service.py), [`plugin/framework/client/auth.py`](plugin/framework/client/auth.py) |
-| Tools registry | Tool registration and schemas | [`plugin/framework/tool.py`](plugin/framework/tool.py) |
-| UNO document helpers | Chat context, undo/stream, URL/frame resolve (WriterAgent) | [`plugin/doc/document_helpers.py`](plugin/doc/document_helpers.py) |
-| Light document helpers | Linebreaks, tracked-deletion reads, heading tree, path; type guards; UD props (LibrePy-safe) | [`plugin/doc/text_helpers.py`](plugin/doc/text_helpers.py), [`plugin/doc/doc_type.py`](plugin/doc/doc_type.py), [`plugin/doc/udprops.py`](plugin/doc/udprops.py) |
-| Config / keys / LRU | `writeragent.json`, keys, LRU | [`plugin/framework/config.py`](plugin/framework/config.py) |
-| Dialogs / XDL | Dialog load helpers and settings UI | [`plugin/chatbot/dialogs.py`](plugin/chatbot/dialogs.py), [`plugin/chatbot/dialog_views.py`](plugin/chatbot/dialog_views.py), [`plugin/chatbot/settings_dialog.py`](plugin/chatbot/settings_dialog.py) |
-| Async UI drain | Stream queue drain on the UI thread (`get_toolkit`, `get_ctx`) | [`plugin/framework/async_stream.py`](plugin/framework/async_stream.py), [`plugin/framework/uno_context.py`](plugin/framework/uno_context.py) |
-| Writer HTML / apply | HTML import and apply-content paths (callers `import format as format_support`) | [`plugin/writer/format.py`](plugin/writer/format.py) |
-| Writer charts / shapes | Shared tool names with Calc/Draw; declare union of `uno_services` | [`plugin/writer/charts.py`](plugin/writer/charts.py), [`plugin/writer/shapes.py`](plugin/writer/shapes.py) |
-| Errors | `WriterAgentException`, `safe_json_loads`, tool errors | [`plugin/framework/errors.py`](plugin/framework/errors.py) |
-| FSM / service | Pure `next_state` only; no UNO/I/O in transitions | [`plugin/framework/service.py`](plugin/framework/service.py) |
-| Threading / UNO guard | `run_in_background`, `AsyncProcess`, Layer A `guard_uno` | [`plugin/framework/worker_pool.py`](plugin/framework/worker_pool.py), [`plugin/framework/thread_guard.py`](plugin/framework/thread_guard.py) |
-| UNO listeners / i18n | UNO listeners; gettext `_` for UI | [`plugin/framework/uno_listeners.py`](plugin/framework/uno_listeners.py), [`plugin/framework/i18n.py`](plugin/framework/i18n.py) |
-| Memory / prompts | Experimental memory + `MEMORY_GUIDANCE` | [`plugin/chatbot/memory.py`](plugin/chatbot/memory.py), [`plugin/framework/prompts.py`](plugin/framework/prompts.py) |
-| Extension update check | Weekly WriterAgent / LibrePy / LibreHarper update check | [`plugin/chatbot/extension_update_check.py`](plugin/chatbot/extension_update_check.py) |
-| Calc `=PROMPT()` / `=PYTHON()` | Calc spreadsheet function add-ins (LibrePy uses `addin_librepy.py` instead of `addin.py`) | [`plugin/calc/prompt_addin.py`](plugin/calc/prompt_addin.py), [`plugin/calc/prompt_function.py`](plugin/calc/prompt_function.py), [`plugin/calc/python/addin.py`](plugin/calc/python/addin.py), [`plugin/calc/python/addin_librepy.py`](plugin/calc/python/addin_librepy.py), [`plugin/calc/python/function.py`](plugin/calc/python/function.py) |
-| Scripting / venv | Public script API, sandbox policy, venv worker (not for user imports) | [`plugin/scripting/`](plugin/scripting/), [`plugin/scripting/venv/`](plugin/scripting/venv/), [`plugin/scripting/import_policy.py`](plugin/scripting/import_policy.py), [`plugin/scripting/sandbox.py`](plugin/scripting/sandbox.py), [`plugin/scripting/venv_worker.py`](plugin/scripting/venv_worker.py), [`plugin/scripting/venv_diagnostics.py`](plugin/scripting/venv_diagnostics.py) |
-| Embeddings / folder FTS | Host indexers + venv worker + RPC | [`plugin/embeddings/`](plugin/embeddings/), [`plugin/embeddings/venv/`](plugin/embeddings/venv/), [`plugin/framework/client/embeddings_service.py`](plugin/framework/client/embeddings_service.py), [`plugin/framework/client/embedding_client.py`](plugin/framework/client/embedding_client.py), [`plugin/framework/client/folder_fts_service.py`](plugin/framework/client/folder_fts_service.py) — [docs/embeddings.md](docs/embeddings.md) |
-| Vision / OCR | Host runner + venv worker + `run_vision` | [`plugin/vision/`](plugin/vision/), [`plugin/vision/venv/`](plugin/vision/venv/), [`plugin/scripting/client.py`](plugin/scripting/client.py), [`plugin/vision/vision_availability.py`](plugin/vision/vision_availability.py) — [docs/image-recognition.md](docs/image-recognition.md) |
-| PPT-Master | Impress/Draw adapters and session | [`plugin/contrib/ppt_master/`](plugin/contrib/ppt_master/) ([README](plugin/contrib/ppt_master/README.md)), [`plugin/ppt_master/`](plugin/ppt_master/), [`plugin/chatbot/ppt_master.py`](plugin/chatbot/ppt_master.py) — [integration plan](docs/archive/ppt-master-integration-plan.md#roadmap) |
-| Tests (UNO runner) | Native UNO tests (`@native_test`, `ctx`) | [`plugin/testing_runner.py`](plugin/testing_runner.py) |
-| Eval / benchmarks | CLI eval harness and prompt optimization | [`scripts/benchmark.py`](scripts/benchmark.py), [`scripts/prompt_optimization/`](scripts/prompt_optimization/) |
-| Extension packaging | OXT resources; register new components in manifest | [`extension/`](extension/) (`Dialogs/`, `idl/`, `metadata/`), [`extension/META-INF/manifest.xml`](extension/META-INF/manifest.xml) |
-| Build / tooling | Make targets, package metadata, Python pin, LibrePy file list | [`Makefile`](Makefile), [`pyproject.toml`](pyproject.toml), [`.python-version`](.python-version), [`scripts/librepy_bundle_paths.py`](scripts/librepy_bundle_paths.py) |
+Full entry-point table and topic-hub catalog: [`docs/repo-map.md`](docs/repo-map.md).
 
----
+Hubs (open the topic doc; do not grow this list here):
 
-## Deep dives (link index)
+| Need | Start |
+|------|--------|
+| Bootstrap / MCP | `plugin/main.py` |
+| LibrePy bootstrap | `plugin/main_core.py` |
+| Sidebar / send | `plugin/chatbot/panel.py` |
+| Tool loop / FSM | `plugin/chatbot/tool_loop.py` |
+| HTTP / LLM | `plugin/framework/client/llm_client.py` |
+| UNO thread guard | `plugin/framework/thread_guard.py` |
+| Light vs chat document helpers | `plugin/doc/text_helpers.py` / `document_helpers.py` |
+| Native UNO tests | `plugin/testing_runner.py` |
 
-| Topic | Doc |
-|-------|-----|
-| Chat sidebar implementation | [docs/chat-sidebar-implementation.md](docs/chat-sidebar-implementation.md) |
-| Rich text control sidebar | [docs/chat-rich-text-control-sidebar.md](docs/chat-rich-text-control-sidebar.md) |
-| Streaming / threading | [docs/framework-streaming-and-threading.md](docs/framework-streaming-and-threading.md) |
-| Threading architecture (pool, marshal, MCP) | [docs/framework-threading.md](docs/framework-threading.md) |
-| UNO thread-safety enforcement | [docs/framework-uno-thread-safety.md](docs/framework-uno-thread-safety.md) |
-| Smol vs main chat HTTP | [docs/chat-smol-tool-architecture.md](docs/chat-smol-tool-architecture.md) |
-| Writer specialized tool tiers | [docs/writer-specialized-toolsets.md](docs/writer-specialized-toolsets.md) |
-| Styles / LLM styling | [docs/writer-llm-styles.md](docs/writer-llm-styles.md) |
-| Writer API references | [docs/writer-bookmarks-api-reference.md](docs/writer-bookmarks-api-reference.md), [docs/writer-footnotes-api-reference.md](docs/writer-footnotes-api-reference.md), [docs/writer-page-api-reference.md](docs/writer-page-api-reference.md), [docs/writer-tracking-api-reference.md](docs/writer-tracking-api-reference.md) |
-| Reviewable agent edits (surgical redlines, toolbar) | [docs/writer-reviewable-agent-edits.md](docs/writer-reviewable-agent-edits.md) |
-| LO-DOM & Semantic Tree | [docs/writer-lo-dom-semantic-tree.md](docs/writer-lo-dom-semantic-tree.md) |
-| Draw/Impress specialized | [docs/draw-impress-specialized-toolsets.md](docs/draw-impress-specialized-toolsets.md), [docs/draw-shape-support.md](docs/draw-shape-support.md) |
-| Calc specialized | [docs/calc-specialized-toolsets.md](docs/calc-specialized-toolsets.md) |
-| Calc filters / formatting | [docs/calc-conditional-formatting.md](docs/calc-conditional-formatting.md), [docs/calc-sheet-filter.md](docs/calc-sheet-filter.md) |
-| Calc date / time lifecycle | [docs/calc-date-time-handling.md](docs/calc-date-time-handling.md) |
-| Embeddings / folder FTS | [docs/embeddings.md](docs/embeddings.md) |
-| LibrePy / WriterAgent packaging split | [docs/scripting-librepy-split.md](docs/scripting-librepy-split.md) |
-| NumPy / Python venv bridge | [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md), [docs/calc-py-data-shapes.md](docs/calc-py-data-shapes.md), [docs/scripting-numpy-serialization.md](docs/scripting-numpy-serialization.md) |
-| Scripting domain registries (shipped) | [docs/archive/scripting-domain-debt-dev-plan.md](docs/archive/scripting-domain-debt-dev-plan.md) |
-| NumPy domain helpers (Viz, Symbolic, Units, Text, …) | [docs/scripting-numpy-domains.md](docs/scripting-numpy-domains.md) |
-| Excel / Calc `=PY` design stance | [docs/scripting-ms-py-compatibility.md](docs/scripting-ms-py-compatibility.md) |
-| Agent Search / Web | [docs/agent-search.md](docs/agent-search.md) |
-| MCP protocol | [docs/mcp-protocol.md](docs/mcp-protocol.md) |
-| Localization / translations | [docs/localization.md](docs/localization.md), [locales/README.md](locales/README.md) |
-| Audio Architecture | [docs/audio-architecture.md](docs/audio-architecture.md) |
-| Image generation | [docs/image-generation.md](docs/image-generation.md) |
-| Image recognition (local OCR / detection) | [docs/image-recognition.md](docs/image-recognition.md) |
-| PPT-Master (Impress/Draw) | [docs/archive/ppt-master-integration-plan.md](docs/archive/ppt-master-integration-plan.md) (architecture + [roadmap](docs/archive/ppt-master-integration-plan.md#roadmap)) |
-| Math / HTML import design | [docs/writer-math-tex.md](docs/writer-math-tex.md) |
-| Grammar pipeline (cache, queue) | [docs/writer-grammar-checker-plan.md](docs/writer-grammar-checker-plan.md) |
-| Test Architecture | [docs/archive/test_architecture_analysis.md](docs/archive/test_architecture_analysis.md) |
-| Type checking | [docs/framework-type-checking.md](docs/framework-type-checking.md) |
-| UNO Dialogs & Wizards | [docs/framework-uno-dialogs.md](docs/framework-uno-dialogs.md) |
-| LLM Hacks & Workarounds | [docs/chat-llm-hacks.md](docs/chat-llm-hacks.md) |
-| Experimental memory / roadmap | [docs/archive/hermes-agent-patterns.md](docs/archive/hermes-agent-patterns.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/framework-robustness-roadmap.md](docs/framework-robustness-roadmap.md) |
-| LLM evals / benchmarks | [docs/eval-benchmarks.md](docs/eval-benchmarks.md), [scripts/prompt_optimization/README.md](scripts/prompt_optimization/README.md) |
-
----
+Why this file is short: Hermes truncates each context file at 20,000
+characters (head+tail). Keep **invariants** here; keep **catalogs**
+in `docs/repo-map.md`.
 
 ## References
 

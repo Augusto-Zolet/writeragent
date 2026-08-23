@@ -26,7 +26,7 @@ Backlog for a later pass. Goal: **great living docs**, not a dump directory and 
 - Fold only when two files are the **same topic** and one is leftover after the content already lives in a hub (example: background-thread-pool plan → [framework-threading.md](framework-threading.md)). Then delete the leftover so links do not 404.
 - Keep **large feature hubs** large when the code is large (NumPy: `enabling_numpy_in_libreoffice.md`, `scripting-numpy-serialization.md`, `scripting-numpy-domains.md`). Do not smash everything into one mega-file.
 - **Archive only a few** files that are truly dead: “we looked at X and said no” with no remaining pointer value (`archive/litellm-integration-notworthit.md` is the model). Do not archive a doc that still has an Open/next list.
-- [`AGENTS.md`](../AGENTS.md) Deep dives is the catalog of **hubs**, not every markdown file. Living feature plans can sit beside hubs without being in that table.
+- [`docs/repo-map.md`](repo-map.md) Deep dives is the catalog of **hubs**, not every markdown file. Living feature plans can sit beside hubs without being in that table. Root [`AGENTS.md`](../AGENTS.md) keeps invariants only (Hermes 20k cap).
 
 **Optional later folds (only if they actually duplicate a hub):**
 - Threading: remaining reentrancy-plan invariants into `framework-threading.md` / `framework-uno-thread-safety.md` (keep streaming, architecture, and UNO guard as distinct living docs).

@@ -189,7 +189,7 @@ make build-harper    # Produces build/LibreHarper.oxt
 make deploy-harper   # Installs LibreHarper.oxt
 ```
 
-See [AGENTS.md](AGENTS.md) and [docs/scripting-librepy-split.md](docs/scripting-librepy-split.md) for architecture details.
+See [AGENTS.md](AGENTS.md) (invariants), [docs/repo-map.md](docs/repo-map.md) (entry points), and [docs/scripting-librepy-split.md](docs/scripting-librepy-split.md) for architecture details.
 
 ---
 
