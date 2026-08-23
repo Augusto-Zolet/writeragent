@@ -1,5 +1,4 @@
 import logging
-import traceback
 
 from com.sun.star.lang import DisposedException
 from com.sun.star.uno import RuntimeException, Exception as UnoException

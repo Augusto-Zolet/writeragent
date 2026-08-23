@@ -28,7 +28,6 @@ import hashlib
 import uuid
 import uno
 import unohelper
-import traceback
 
 from com.sun.star.lang import DisposedException, IllegalArgumentException
 from com.sun.star.uno import RuntimeException, Exception as UnoException

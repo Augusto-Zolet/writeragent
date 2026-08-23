@@ -111,8 +111,6 @@ def inprocess_authorized_modules() -> tuple[str, ...]:
 def _join_modules(modules: tuple[str, ...]) -> str:
     return ", ".join(modules)
 
-# LLMs aren't told about the many calc. helpers yet. 
-#         "Use calc.* for Calc-parity helpers (SUMIF, XLOOKUP, FILTER, etc.). "
 
 @deal.post(lambda result: isinstance(result, str) and result.startswith(PYTHON_VENV_SANDBOX_CONTEXT_PREFIX))
 def format_venv_import_policy_for_prompt(*, compact: bool = False) -> str:

@@ -169,7 +169,7 @@ def parse_run_import_call_spec(code: str, *, run_name: str) -> dict[str, Any] | 
             for kw in node.keywords:
                 if kw.arg is not None:
                     params[kw.arg] = _literal_value(kw.value)
-            # 3. Positional args helper(val, from_unit, to_unit)
+            # 3. Positional args helper(val, from, to)
             if node.args:
                 if len(node.args) == 3:
                     # Positional convert_quantity(value, from, to)

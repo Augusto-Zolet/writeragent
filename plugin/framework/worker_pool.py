@@ -28,7 +28,6 @@ import queue
 import subprocess
 import sys
 import threading
-import traceback
 import uuid
 from collections import deque
 from concurrent.futures import Future, TimeoutError as FuturesTimeoutError

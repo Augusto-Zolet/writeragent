@@ -89,13 +89,10 @@ class NativePythonScriptDialog:
         self,
         ctx: Any,
         *,
-        initial_text: str,
-        config_key: str,
         initial_doc: Any | None,
         modeless: bool,
     ) -> None:
         self._ctx = ctx
-        self._config_key = config_key
         self._doc = initial_doc
         self._modeless = modeless
         self._dlg: Any | None = None
@@ -105,22 +102,18 @@ class NativePythonScriptDialog:
         self._closed = False
         self._top_listener: Any | None = None
         self._open_failure_detail: str | None = None
-        self._opened = self._open(initial_text)
+        self._opened = self._open()
 
     @classmethod
     def show(
         cls,
         ctx: Any,
         *,
-        initial_text: str,
-        config_key: str,
         doc: Any | None,
         modeless: bool,
     ) -> tuple[bool, str | None]:
         inst = cls(
             ctx,
-            initial_text=initial_text,
-            config_key=config_key,
             initial_doc=doc,
             modeless=modeless,
         )
@@ -196,7 +189,7 @@ class NativePythonScriptDialog:
                     pass
 
 
-    def _open(self, initial_text: str) -> bool:
+    def _open(self) -> bool:
         ctx = self._ctx
         try:
             dlg, load_detail = load_writeragent_dialog_detail("PythonScriptDialog", ctx)
@@ -529,20 +522,17 @@ class NativePythonScriptDialog:
 
 def show_python_input_dialog(
     ctx: Any,
-    initial_text: str = "",
-    config_key: str = "last_python_script_writer",
     doc: Any | None = None,
 ) -> tuple[bool, str | None]:
     """Show the plain-text Run Python Script dialog (modeless when configured).
 
     Returns (opened, failure_detail). failure_detail is set when opened is False.
+    Selection and editor text come from ``last_python_script_name_*`` and the picker.
     """
     try:
         modeless = native_run_script_modeless_enabled(ctx)
         return NativePythonScriptDialog.show(
             ctx,
-            initial_text=initial_text,
-            config_key=config_key,
             doc=doc,
             modeless=modeless,
         )

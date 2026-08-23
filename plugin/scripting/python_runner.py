@@ -611,7 +611,6 @@ def run_python_dialog(uno_ctx: Any = None) -> None:
 
         from plugin.scripting.document_scripts import get_user_scripts, resolve_run_script_selection
 
-        name_config_key = resolve_run_script_name_config_key(doc)
         last_name, initial_code, _merged_scripts = resolve_run_script_selection(uno_ctx, doc, get_user_scripts())
 
         user_alerted = False
@@ -639,7 +638,7 @@ def run_python_dialog(uno_ctx: Any = None) -> None:
                 # launch_monaco_editor already reported spawn/ready/IPC failures.
                 user_alerted = True
 
-        opened, native_detail = show_python_input_dialog(uno_ctx, initial_text=initial_code, config_key=name_config_key, doc=doc)
+        opened, native_detail = show_python_input_dialog(uno_ctx, doc=doc)
         if opened:
             return
 

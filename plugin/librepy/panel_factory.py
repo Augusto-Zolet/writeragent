@@ -13,7 +13,6 @@ from __future__ import annotations
 import logging
 import os
 import sys
-import traceback
 from typing import TYPE_CHECKING, cast
 
 # Minimal stdlib-only bootstrap before any ``plugin.*`` import — unopkg

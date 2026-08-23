@@ -26,7 +26,7 @@ The editor is a **separate native window** in the user's configured Python venv.
 | Editor diagnostics | [`plugin/scripting/editor_ipc.py`](../plugin/scripting/editor_ipc.py) | Msgbox text: stderr + `traceback.format_exception` |
 | Editor bridge | [`plugin/scripting/editor_host.py`](../plugin/scripting/editor_host.py) | Pipe reader thread; UNO on main thread via [`QueueExecutor`](../plugin/framework/queue_executor.py) |
 | Editor process | [`plugin/scripting/editor_main.py`](../plugin/scripting/editor_main.py) | `pywebview` + Monaco (venv only) |
-| Calc integration | [`plugin/calc/python/editor.py`](../plugin/calc/python/editor.py), [`python_formula_edit.py`](../plugin/calc/python/formula_edit.py), [`editor_context_menu.py`](../plugin/calc/python/editor_context_menu.py) | Active cell `=PY()` load/save; cell context menu |
+| Calc integration | [`plugin/calc/python/editor.py`](../plugin/calc/python/editor.py), [`formula_edit.py`](../plugin/calc/python/formula_edit.py), [`editor_context_menu.py`](../plugin/calc/python/editor_context_menu.py) | Active cell `=PY()` load/save; cell context menu |
 | Protocol | [`plugin/scripting/editor_ipc.py`](../plugin/scripting/editor_ipc.py) | `!I` length + pickle protocol 5 |
 | Frontend (runtime) | `rocher` in configured venv | `index.html`, `editor.js`, `scripts_manager.js`, `style.css`, Monaco `vs/` — served by child WSGI ([`editor_main.py`](../plugin/scripting/venv/editor_main.py)); **not bundled in the OXT** |
 | Frontend (dev source) | [`plugin/contrib/scripting/assets/editor/`](../plugin/contrib/scripting/assets/editor/) | In-repo copies of WriterAgent shell files (edit here; installed/served via venv `rocher`) |
@@ -138,15 +138,16 @@ The Monaco **shell** (toolbar, status line, script picker, `prompt()`/`confirm()
 ```text
 plugin/
 ├── calc/
-│   ├── python_editor.py              # Menu entry, launch bridge
-│   ├── python_editor_context_menu.py # Calc cell right-click entry
-│   └── python_formula_edit.py        # Parse/rebuild =PY() formulas
+│   └── python/
+│       ├── editor.py                 # Menu entry, launch bridge
+│       ├── editor_context_menu.py    # Calc cell right-click entry
+│       └── formula_edit.py           # Parse/rebuild =PY() formulas
 ├── contrib/
 │   └── scripting/
 │       └── assets/editor/          # Dev source only (runtime: venv rocher)
 │           ├── index.html
 │           ├── editor.js
-│           ├── scripts_manager.js  # Run Python Script picker (Sample + My Scripts)
+│           ├── scripts_manager.js  # Run Python Script picker (My Scripts + This Document)
 │           └── style.css
 └── scripting/
     ├── document_scripts.py         # scripts_list IPC, document-attached scripts, Monaco picker handlers
@@ -156,10 +157,11 @@ plugin/
 
 tests/
 ├── calc/
-│   ├── test_python_formula_edit.py
-│   ├── test_python_editor_save_modes.py
-│   ├── test_python_editor_multi_cell.py
-│   └── test_python_editor_context_menu.py
+│   └── python/
+│       ├── test_formula_edit.py
+│       ├── test_editor_save_modes.py
+│       ├── test_editor_multi_cell.py
+│       └── test_editor_context_menu.py
 └── scripting/
     ├── test_editor_host.py
     ├── test_editor_ipc.py
@@ -182,7 +184,7 @@ tests/
 9. Right-click a cell — **Edit Python in Cell…** should appear at the bottom of the cell context menu.
 10. On save error (if reproducible), toolbar shows red error text and the editor stays open.
 11. **Run Python Script…** (Writer/Calc/Draw): with venv + pywebview, opens Monaco with colored Python, **Run** / **Save** / **Close** buttons (no **Data:** / **Save without =PY()** controls). **Run** executes and inserts result; **Save** persists script to config only; **Close** hides the editor. Without pywebview, the plain multiline dialog appears (no error msgbox).
-12. **Run Python Script… script picker:** save scratchpad content via **Save** while **Sample** is selected; switch to a **My Scripts** entry — editor changes; switch back to **Sample** — scratchpad content must reload (not a no-op). **Delete** on Sample clears the scratchpad.
+12. **Run Python Script… script picker:** **New** creates a named script; **Save As** copies to **My Scripts** or **This Document**; switch between named entries — editor shows that script. Document scripts appear after My Scripts.
 13. **Theme follows LO:** Change LibreOffice appearance (Tools ▸ Options ▸ LibreOffice ▸ Appearance or system dark mode with LO on "System"). Re-open editor (cell or Run Python Script). Toolbar must use matching dark/light colors; Monaco must use `vs-dark` vs `vs`; no white-on-white or black-on-black. Switching between cells re-applies current theme. Check both light and dark.
 14. **Status copyable:** After **Run** (Monaco) or **Run** in the native fallback dialog, the status line text must be selectable and copyable (drag-select or Ctrl+A, then Ctrl+C). Paste into another app to confirm.
 
@@ -202,7 +204,7 @@ Session 1 proves the **pipe + subprocess + Monaco** spine. The work below is ord
 |------|--------|--------|
 | **Window lifecycle** | Wire `window.events.closed` (pywebview) to send `closed`; bridge clears session when child exits. | **Done** |
 | **Save feedback** | Green status on `saved`; red status on `error` with message; editor stays open. Status line is always visible (`Status: Ready` initially; last message persists). | **Done** |
-| **Context menu** | Calc cell right-click via [`python_editor_context_menu.py`](../plugin/calc/python/editor_context_menu.py) (`XContextMenuInterceptor`; same dispatch URL as menubar). | **Done** |
+| **Context menu** | Calc cell right-click via [`editor_context_menu.py`](../plugin/calc/python/editor_context_menu.py) (`XContextMenuInterceptor`; same dispatch URL as menubar). | **Done** |
 | **stderr logging** | Continuous stderr drain thread in [`editor_bridge.py`](../plugin/scripting/editor_host.py) (`editor-stderr-drain`); lines logged at debug; tail kept for failure msgboxes. | **Done** |
 | **Multi-cell reload** | Editor open on cell A → Save → select B → menu again sends fresh `load` (callbacks retargeted; **Save without =PY()** / `save_as_plain` reflects whether B is inline `=PY()` vs code-only). | **Done** |
 
@@ -254,7 +256,7 @@ Session 1 proves the **pipe + subprocess + Monaco** spine. The work below is ord
 
 **UX:** While picker is open, Monaco can stay open behind LO modal — document z-order quirk on Wayland.
 
-**Tests:** `@native_test` in `tests/calc/test_python_editor_uno.py` — open Calc, stub or real selector if automatable; at minimum test range formatting helpers.
+**Tests:** `@native_test` in `tests/calc/python/` — open Calc, stub or real selector if automatable; at minimum test range formatting helpers.
 
 ---
 
@@ -302,7 +304,7 @@ on debounced complete (child GUI thread pool or worker thread)
 
 **Goal (original):** The editor (Monaco code area + native toolbar chrome in the pywebview window) automatically adopts the active LibreOffice light/dark appearance (and ideally surface colors) **with no manual toggle, no separate setting, and no hard-coded assumption**. It derives the theme at open time from the running LO instance and can be extended to follow live changes.
 
-Current state: `editor.js:377` hard-codes `theme: "vs"`. `style.css` hard-codes light grays (#ffffff, #f3f3f3, #333). No theme key is sent in any `load` message from `python_editor.py` or `python_runner.py`. Existing heuristic lives only in chat UI.
+Current state: `editor.js:377` hard-codes `theme: "vs"`. `style.css` hard-codes light grays (#ffffff, #f3f3f3, #333). No theme key is sent in any `load` message from `editor.py` or `python_runner.py`. Existing heuristic lives only in chat UI.
 
 **Success criteria**
 - Open editor while LO is Light (or System + light desktop) → toolbar light, Monaco `vs`, readable text.
@@ -555,29 +557,17 @@ Port spawn helpers from LibrePythonista (see analysis doc): detect sandbox, wrap
 
 | Item | Rationale | Status |
 |------|-----------|--------|
-| **Run Python Script… → Monaco** | Reuse bridge with `load` from `last_python_script_*` config keys; **Run** persists config and executes (not formula save). Falls back to native dialog when pywebview unavailable. Shared launcher: [`editor_host.py`](../plugin/scripting/editor_host.py). Script picker UI: [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) + [`document_scripts.py`](../plugin/scripting/document_scripts.py). | **Done** |
-| **Sample scratchpad reload** | **Sample** in the picker is the personal scratchpad (`last_python_script_*`), not a saved script. Initial open loads via `load.code`; switching back to Sample after picking **My Scripts** must reload scratchpad text (native XDL dialog already did this; Monaco initially did not). | **Done** |
-| **Formula bar button** | Needs LO UI extension research (Calc input line customization). High effort; do after context menu. Optional: double-click cell → editor when menu path is insufficient. Touch [`python_editor.py`](../plugin/calc/python/editor.py), [`Addons.xcu`](../extension/Addons.xcu). | |
+| **Run Python Script… → Monaco** | Reuse bridge with `load` from `last_python_script_name_*` config keys; **Run** persists config and executes (not formula save). Falls back to native dialog when pywebview unavailable. Shared launcher: [`editor_host.py`](../plugin/scripting/editor_host.py). Script picker UI: [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) + [`document_scripts.py`](../plugin/scripting/document_scripts.py). | **Done** |
+| **Sample scratchpad** | Removed in 0.8.64. Scripts are named only (**My Scripts**, then **This Document**). | **Removed** |
+| **Formula bar button** | Needs LO UI extension research (Calc input line customization). High effort; do after context menu. Optional: double-click cell → editor when menu path is insufficient. Touch [`editor.py`](../plugin/calc/python/editor.py), [`Addons.xcu`](../extension/Addons.xcu). | |
 | **Excel-style accelerators** | **Ctrl+Alt+Shift+F9** → **Reset Python Session**; **Ctrl+Alt+Shift+P** → **Edit Python in Cell…** per [enabling_numpy §6 shortcuts](enabling_numpy_in_libreoffice.md#keyboard-shortcuts-and-recalc). WriterAgent [`extension/Accelerators.xcu`](../extension/Accelerators.xcu); LibrePy [`extension-core/Accelerators.xcu`](../extension-core/Accelerators.xcu). | **Done** |
 | **Tier-2 document store** | [`enabling_numpy_in_libreoffice.md`](enabling_numpy_in_libreoffice.md) Tier 2 (formula key + side store) is a **separate** product decision — do not mix with Monaco until formula-in-cell workflow is stable. | |
 | **Core extension split** | Keep all editor code in `plugin/scripting/` + thin `plugin/calc/python/editor.py` per [`ROADMAP.md`](../docs/ROADMAP.md) Phase 3–4 so a future core OXT can ship `=PY()` + editor without the LLM stack. | |
 | **Viz plot polish** | Plot anchor/z-order, replace-existing-chart, UNO e2e for `=PYTHON()` image insert — [Visualization](numpy-domains.md#visualization). | |
 
-#### Phase 3 fix: Sample scratchpad in script picker (2026-06)
+#### Historical: Sample scratchpad (removed in 0.8.64)
 
-**Symptom:** In **Run Python Script…** Monaco, the dropdown shows **Sample** at the top (personal scratchpad), then **My Scripts** / helper sections. First open worked; selecting another script and clicking **Sample** again did nothing — the editor kept the other script’s text.
-
-**Root cause:** [`scripts_manager.js`](../plugin/contrib/scripting/assets/editor/scripts_manager.js) builds Sample as `<option value="">Sample</option>`. `onDropdownChange` only called `editor.setValue` when the name matched `scriptIndex` (named scripts). Empty value fell through to a no-op. The native fallback in [`python_runner_ui.py`](../plugin/scripting/python_runner_ui.py) correctly loads `get_config_str(ctx, config_key)` when **Sample** is selected.
-
-**Fix (no new IPC message types):**
-
-| Layer | Change |
-|-------|--------|
-| **LO → child** | [`build_scripts_list_message()`](../plugin/scripting/document_scripts.py) adds `sample_code`: `get_config_str(ctx, resolve_run_script_config_key(doc))`. Sent on every `request_scripts` / `_send_scripts_list` (same path as section refresh). |
-| **Child JS** | Track module-level `sampleCode` from `load.code` (run_script), `scripts_list.sample_code`, and `saved` while `currentOrigin === "sample"`. On Sample select (`value === ""`), `editor.setValue(sampleCode)`. Clear `sampleCode` when user confirms scratchpad delete. |
-| **Tests** | [`test_build_scripts_list_message_includes_sample_code`](../tests/scripting/test_document_scripts.py); [`test_persistent_editor_dispatches_script_actions`](../tests/scripting/test_python_runner_monaco.py) asserts `sample_code` on `scripts_list`. |
-
-**Parity note:** Sample remains a reserved scratchpad label (see [`enabling_numpy_in_libreoffice.md`](enabling_numpy_in_libreoffice.md)). A user script literally named `"Sample"` under **My Scripts** is a separate `<option value="Sample">` — pre-existing ambiguity in the native list too.
+The picker used to have a reserved **Sample** scratchpad (`last_python_script_*` body text, `scripts_list.sample_code`). That entry was removed in 0.8.64; scripts are named only. Use **New** / **Save As**; switching named entries reloads that script.
 
 ---
 
@@ -590,7 +580,7 @@ Phase 2C: + pick_range | range_result
 Phase 2D: + completions (child-internal, optional calc_symbols from LO)
 Phase 2E: load.theme (and optional pushed "theme") field (no new required top-level type)
 Phase 3:  load.mode / save_label / show_plain_text / show_data_binding / status_ok_text / load.ui (no new IPC types)
-         scripts_list.sample_code field (scratchpad text for Sample picker entry)
+         scripts_list.sample_code field (removed in 0.8.64; named scripts only)
          load.selected_script_name + scripts_list.selected_script_name (picker sync)
          select_script (child → LO: persist last_python_script_name_* on dropdown change)
 ```
@@ -603,7 +593,7 @@ Consider a top-level `seq: int` on all messages once 2B is in place so async val
 
 | Layer | What to add |
 |-------|-------------|
-| **Unit** | `validate` compile helper; Jedi completion formatting (no LO); `scripts_list.sample_code` in [`test_document_scripts.py`](../tests/scripting/test_document_scripts.py) |
+| **Unit** | `validate` compile helper; Jedi completion formatting (no LO); named-script picker in [`test_document_scripts.py`](../tests/scripting/test_document_scripts.py) (`scripts_list.sample_code` removed in 0.8.64) |
 | **Integration** | subprocess test: spawn `editor_main.py`, write `ready`/`load`, read responses (headless skip if no display); optional probe test against a fixture venv with pywebview |
 | **UNO** | range picker happy path; optional “edit cell → save → recalc” one-shot |
 | **Manual** | checklist in §7 extended per phase; Flatpak row when 2F ships |
@@ -666,11 +656,11 @@ The architecture challenge (unaddressed pipe, one `on_save`, process-global dirt
 
 | Topic | Behavior |
 |-------|----------|
-| Cell selection | Uses sheet controller selection ([`python_editor.py`](../plugin/calc/python/editor.py)), same idea as Calc extend/edit |
+| Cell selection | Uses sheet controller selection ([`editor.py`](../plugin/calc/python/editor.py)), same idea as Calc extend/edit |
 | Empty / non-PYTHON cells | Editor opens; Save (default) writes `=PY("code")` / `=PY("code")`; with **Save without =PY()** checked, writes raw script via `setString` |
 | **Save without =PY()** | Checkbox (`save_as_plain`): checked → `setString` only, **Data:** disabled; unchecked → rebuild `=PY("…")` formula with optional data suffix. User strings in [`editor_ui_strings.py`](../plugin/scripting/editor_ui_strings.py). |
 | Load source | Inline PYTHON → stripped `code`; code-only cell → `getString()`; Monaco never shows `=PY()` |
-| Data ranges | Editable toolbar textbox (`data_binding` on load/save); written into `=PY("code"; …)` suffix via [`python_formula_edit.py`](../plugin/calc/python/formula_edit.py); single range → `data`, multiple comma/semicolon-separated → `ranges` |
+| Data ranges | Editable toolbar textbox (`data_binding` on load/save); written into `=PY("code"; …)` suffix via [`formula_edit.py`](../plugin/calc/python/formula_edit.py); single range → `data`, multiple comma/semicolon-separated → `ranges` |
 | Formula strings | Reads `getFormula()`, `FormulaLocal`, `Formula`; normalizes leading `=`, array braces, smart quotes |
 | Unparsed PYTHON (e.g. `=PY(A1; B1)`) | Blocked with msgbox — cannot safely preserve data args |
 | Sessions | One **persistent child** process; **N host sessions** keyed by `session_id`. Simple UI: one **focused** view — switching cells sends `load` and ends the previous session (dirty path still `request_save` then load). Same cell/script target reuses `session_id`. WM close hides the window, drops that session, process stays warm. |
@@ -700,9 +690,9 @@ Feasibility analysis for replacing Monaco/pywebview with an embedded Writer docu
 
 ### What stays unchanged (editor-agnostic)
 
-- **Formula parser** ([`python_formula_edit.py`](../plugin/calc/python/formula_edit.py)) — purely string-level `=PY()` decomposition/reconstruction. No changes needed.
-- **Cell resolution** (`python_editor.py`: `_get_active_calc_cell`, `_load_cell_editor_code`) — finding the active cell and extracting initial code.
-- **Save logic** (`python_editor.py`: `_apply_cell_save`, `_apply_formula_save`, `build_editor_formula_save`) — writing code back to the cell.
+- **Formula parser** ([`formula_edit.py`](../plugin/calc/python/formula_edit.py)) — purely string-level `=PY()` decomposition/reconstruction. No changes needed.
+- **Cell resolution** (`editor.py`: `_get_active_calc_cell`, `_load_cell_editor_code`) — finding the active cell and extracting initial code.
+- **Save logic** (`editor.py`: `_apply_cell_save`, `_apply_formula_save`, `build_editor_formula_save`) — writing code back to the cell.
 - **Auto-imports** (`venv_sandbox.py`: `apply_auto_imports`) — reusable with any completion backend.
 
 ### What gets eliminated

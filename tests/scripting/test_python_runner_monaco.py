@@ -148,7 +148,7 @@ def test_show_python_input_dialog_returns_false_when_xdl_missing():
 
     with patch.object(ui, "native_run_script_modeless_enabled", return_value=False):
         with patch.object(ui, "load_writeragent_dialog_detail", return_value=(None, "PythonScriptDialog could not be loaded from the extension.")):
-            assert ui.show_python_input_dialog(ctx, "x = 1", "last_python_script_writer") == (
+            assert ui.show_python_input_dialog(ctx) == (
                 False,
                 "PythonScriptDialog could not be loaded from the extension.",
             )
@@ -389,7 +389,7 @@ def test_show_python_input_dialog_run_button_keeps_dialog_open():
 
                                 dlg.execute.side_effect = fake_execute_dialog
 
-                                ui.show_python_input_dialog(ctx, "result = 1", "last_python_script_writer")
+                                ui.show_python_input_dialog(ctx)
 
                                 dlg.endDialog.assert_not_called()
                                 dlg.setVisible.assert_not_called()
@@ -459,7 +459,7 @@ def test_show_python_input_dialog_save_button():
                                         listener.actionPerformed(MagicMock())
                             dlg.execute.side_effect = fake_execute
 
-                            ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
+                            ui.show_python_input_dialog(ctx)
 
                             mock_save.assert_called_with("Universal Sample", "print('hello world')")
 
@@ -577,7 +577,7 @@ def test_show_python_input_dialog_save_as_button():
                                             listener.actionPerformed(MagicMock())
                                 dlg.execute.side_effect = fake_execute
 
-                                ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
+                                ui.show_python_input_dialog(ctx)
 
                                 mock_input.assert_called_once()
                                 mock_save.assert_called_with("scriptk", "print('hello world')")
@@ -644,7 +644,7 @@ def test_native_dialog_btn_new_action_creates_script():
 
                                 dlg.execute.side_effect = fake_execute
 
-                                ui.show_python_input_dialog(ctx, "print('hello')", "last_python_script_writer")
+                                ui.show_python_input_dialog(ctx)
 
                                 mock_new_dlg.assert_called_once()
                                 mock_save.assert_called_with(
@@ -686,7 +686,7 @@ def test_show_python_input_dialog_modeless_uses_set_visible():
             with patch.object(ui, "get_user_scripts", return_value={}):
                 with patch.object(ui, "get_config_str", return_value=""):
                     with patch.object(ui, "set_config"):
-                        ui.show_python_input_dialog(ctx, "x = 1", "last_python_script_writer")
+                        ui.show_python_input_dialog(ctx)
 
     dlg.execute.assert_not_called()
     dlg.setVisible.assert_called_once_with(True)

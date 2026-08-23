@@ -717,9 +717,3 @@ def _apply_web_search_query_override(step: Any, query_override: str) -> bool:
 def _norm_research_query(q: str) -> str:
     return " ".join(q.lower().split()).rstrip("?").rstrip(".")
 
-
-# Backwards compatibility aliases for specialized base tools
-ToolWriterWebResearchBase = WebResearchTool
-ToolCalcWebResearchBase = WebResearchTool
-ToolDrawWebResearchBase = WebResearchTool
-
