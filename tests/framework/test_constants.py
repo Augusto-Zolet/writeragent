@@ -312,9 +312,7 @@ def test_calc_core_directives_no_math_python_delegation_line():
 def test_calc_core_directives_py_formula_not_domains():
     assert 'domain="python"' not in CALC_CORE_DIRECTIVES
     assert 'domain="analysis"' not in CALC_CORE_DIRECTIVES
-    assert "write =PY" in CALC_CORE_DIRECTIVES
     assert "write_formula_range" in CALC_CORE_DIRECTIVES
-    assert "fills cells down and right" in CALC_CORE_DIRECTIVES
     assert "J1" in CALC_CORE_DIRECTIVES
     assert "new sheet" in CALC_CORE_DIRECTIVES
     assert "circular" in CALC_CORE_DIRECTIVES
@@ -334,10 +332,7 @@ def test_calc_formula_syntax_sheet_dot_not_excel_bang():
     assert "mixed cell types" in CALC_FORMULA_SYNTAX
     assert "always 2D" in CALC_FORMULA_SYNTAX
     assert "not builtin sum" in CALC_FORMULA_SYNTAX
-    assert "data.to_pandas()" in CALC_PYTHON_FORMULA_LLM_HINT
-    assert "mixed cell types" in CALC_PYTHON_FORMULA_LLM_HINT
-    assert "always 2D" in CALC_PYTHON_FORMULA_LLM_HINT
-    assert "not builtin sum" in CALC_PYTHON_FORMULA_LLM_HINT
+    assert CALC_PYTHON_FORMULA_LLM_HINT is CALC_FORMULA_SYNTAX
 
 
 def test_calc_cell_links_use_calc_dot():

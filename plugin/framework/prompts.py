@@ -151,8 +151,7 @@ CALC_CORE_DIRECTIVES: str = f"""When the user wants {DELEGATION_USER_FILE_DATA_H
 - You MUST NOT ask the user where the file is stored, or to upload, paste, or share its contents.
 - You MUST call delegate_to_specialized_calc_toolset(domain="document_research") once with their described file(s) and task in task; nearby files are matched (paths not required).
 When the user wants {DELEGATION_PUBLIC_WEB_HINT}, delegate_to_specialized_calc_toolset(domain="web_research").
-To run Python on sheet data, write =PY("result = …"; DataRange) with write_formula_range into an empty cell outside DataRange (same-sheet empty column, or a new sheet for a large spill).
-A list or table result fills cells down and right from that formula cell (spill) and stays live — the spill area must be empty (e.g. unique rows from A1:H500 go in J1, or A1 on a new sheet).
+To run Python on sheet data, write_formula_range an =PY formula into an empty cell outside DataRange (same-sheet empty column, e.g. unique rows from A1:H500 go in J1, or A1 on a new sheet for a large spill).
 Overwriting the input range in place is circular.
 If the user asks to write back onto that range, put =PY beside it or on a new sheet and say where the output is.
 That formula cell is the result — do not read_cell_range the input or the spill, and do not copy the spill onto DataRange."""
@@ -528,7 +527,7 @@ PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE = ""
 
 PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE = ""
 
-# Used when the LLM should emit =PY formulas (chat / specialized python paths). Not the =PROMPT() default.
+# Alias of CALC_FORMULA_SYNTAX after late init (spreadsheet-import Phase 6). Not the =PROMPT() default.
 CALC_PYTHON_FORMULA_LLM_HINT = ""
 
 # Builtin sum/min/max iterate rows of the 2D CalcRange, not cells (column A1:A3 is [[10],[20],[30]]).
@@ -574,14 +573,8 @@ def _load_venv_import_policy_full() -> str:
     return format_venv_import_policy_for_prompt(compact=False)
 
 
-CALC_FORMULA_SYNTAX = """FORMULA SYNTAX: LibreOffice formulas use semicolon (;) between arguments, not comma.
-Other-sheet refs use a dot (Orders.A1), never Excel bang (Orders!A1 → #NAME?).
-- Correct: =SUM(A1:A10), =IF(A1>0;B1;C1), =PY("result = …"; Orders.A1:H500)
-- =PY("result = …"; DataRange) writes Python into a cell (omit DataRange if unused).
-  A list/table `result` spills down and right into empty cells.
-- Example: =PY("result = np.sum(data)"; Orders.A1:H500).
-- """ + CALC_PYTHON_DATA_SHAPE_LLM_HINT + """
-- Tables (headers, mixed types): =PY("result = data.to_pandas().drop_duplicates()"; Orders.A1:H500). np.unique on mixed rows fails — NumPy object arrays cannot compare/hash mixed cell types."""
+# Built in _init_venv_import_policy_strings() (needs import policy).
+CALC_FORMULA_SYNTAX = ""
 
 # DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE is built in _init_venv_import_policy_strings() (needs import policy).
 DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = ""
@@ -901,32 +894,24 @@ def _init_venv_import_policy_strings() -> None:
     global PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE, PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE
     global CALC_FORMULA_SYNTAX, DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE, CALC_PYTHON_FORMULA_LLM_HINT
 
-    from plugin.scripting.import_policy import format_matplotlib_plot_hint, format_venv_import_policy_for_prompt
+    from plugin.scripting.import_policy import format_venv_import_policy_for_prompt
 
     compact = format_venv_import_policy_for_prompt(compact=True)
     _VENV_IMPORT_POLICY_COMPACT = compact
     _VENV_IMPORT_POLICY_FULL = format_venv_import_policy_for_prompt(compact=False)
     PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE = compact + " "
     PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE = compact
-    calc_plot_hint = format_matplotlib_plot_hint(doc_type="calc")
-    CALC_PYTHON_FORMULA_LLM_HINT = (
-        compact
-        + " When outputting Calc Python formulas: write `=PY(\"result = …\"; A1:A10)`. "
-        "Use semicolon (;) argument separators; code runs in the venv sandbox above. "
-        f"{CALC_PYTHON_DATA_SHAPE_LLM_HINT} "
-        "Mixed tables: `data.to_pandas()` (np.unique cannot hash mixed cell types)."
-        + (f" {calc_plot_hint}" if calc_plot_hint else "")
-    )
     CALC_FORMULA_SYNTAX = f"""FORMULA SYNTAX: LibreOffice formulas use semicolon (;) between arguments, not comma.
 Other-sheet refs use a dot (Orders.A1), never Excel bang (Orders!A1 → #NAME?).
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1), =PY("result = …"; Orders.A1:H500)
 - Wrong: =IF(A1>0,"Yes","No"), Orders!A1
 - =PY("result = …"; DataRange) writes Python into a cell (omit DataRange if unused).
-  A list/table `result` spills down and right into empty cells.
 {compact}
 - Example: =PY("result = np.sum(data)"; Orders.A1:H500).
 - {CALC_PYTHON_DATA_SHAPE_LLM_HINT}
 - Tables (headers, mixed types): =PY("result = data.to_pandas().drop_duplicates()"; Orders.A1:H500). np.unique on mixed rows fails — NumPy object arrays cannot compare/hash mixed cell types."""
+    # Phase 6 spreadsheet-import LLM fallback; not a second prompt.
+    CALC_PYTHON_FORMULA_LLM_HINT = CALC_FORMULA_SYNTAX
     DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = f"""You are a LibreOffice Calc spreadsheet assistant who creates polished, professional, and colorful spreadsheets.
 Do not explain, do the operation directly using tools. Perform as many steps as needed in one turn when possible.
 
