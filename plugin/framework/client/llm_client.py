@@ -72,7 +72,7 @@ from plugin.framework.constants import USER_AGENT
 from plugin.framework.logging import init_logging, redact_sensitive_payload_for_log
 from plugin.framework.client.auth import resolve_auth_for_config, build_auth_headers, AuthError
 from plugin.framework.errors import NetworkError
-from plugin.framework.url_utils import get_api_version_suffix
+from plugin.framework.url_utils import get_api_version_suffix, normalize_endpoint_url
 
 from plugin.framework.errors import format_error_message
 from .errors import _format_http_error_response, append_zai_unknown_model_hint
@@ -169,10 +169,12 @@ class LlmClient:
     def _get_shim(self) -> BaseProviderShim:
         """Get the provider shim for this client."""
         provider = self._get_provider()
-        if provider not in self._shims:
-            shim_cls = get_provider_shim_class(provider)
-            self._shims[provider] = shim_cls(self)
-        return self._shims[provider]
+        endpoint = self._endpoint()
+        shim_key = f"{provider}:{endpoint}"
+        if shim_key not in self._shims:
+            shim_cls = get_provider_shim_class(provider, endpoint=endpoint)
+            self._shims[shim_key] = shim_cls(self)
+        return self._shims[shim_key]
 
     @property
     def _persistent_conn(self):
@@ -195,7 +197,8 @@ class LlmClient:
         self._close_connection()
 
     def _endpoint(self):
-        return self.config.get("endpoint", "http://localhost:11434")
+        raw = self.config.get("endpoint", "http://localhost:11434")
+        return normalize_endpoint_url(raw, is_openwebui=self.config.get("is_openwebui", False))
 
     def _api_path(self):
         return get_api_version_suffix(self._endpoint(), is_openwebui=self.config.get("is_openwebui"))

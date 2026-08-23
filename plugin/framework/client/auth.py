@@ -81,9 +81,9 @@ PROVIDERS: Dict[str, ProviderConfig] = {
     "google": ProviderConfig(
         id="google",
         name="Google Gemini",
-        # Google often uses ?key=KEY in URL, handled in client.py, but we set style=none
-        # for headers to avoid Bearer interference.
-        header_style="none",
+        # Google's official OpenAI-compatible endpoint (/v1beta/openai) requires
+        # standard "Authorization: Bearer <API_KEY>" headers.
+        header_style="bearer",
         host_matches=("generativelanguage.googleapis.com",),
     ),
     "ollama": ProviderConfig(id="ollama", name="Ollama", header_style="none", host_matches=("localhost:11434", "127.0.0.1:11434", "ollama")),

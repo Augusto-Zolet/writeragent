@@ -752,10 +752,9 @@ def test_make_chat_request_coalesces_system_messages(client):
         _, _, json_data, _ = client.make_chat_request(messages, stream=False)
         request_body = json.loads(json_data)
         
-        system_instruction = request_body.get("system_instruction")
-        parts = system_instruction.get("parts", [])
-        assert len(parts) == 1
-        combined_text = parts[0].get("text")
+        api_messages = request_body.get("messages", [])
+        assert api_messages[0]["role"] == "system"
+        combined_text = api_messages[0]["content"]
         assert "Base instructions." in combined_text
         assert "Document context." in combined_text
         assert "Today's date is" in combined_text

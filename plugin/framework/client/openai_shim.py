@@ -102,16 +102,16 @@ def _load_anthropic() -> type[BaseProviderShim]:
     return AnthropicShim
 
 
-def _load_google() -> type[BaseProviderShim]:
-    from .google_shim import GoogleShim
-
-    return GoogleShim
-
-
 def _load_grok() -> type[BaseProviderShim]:
     from .grok_shim import GrokShim
 
     return GrokShim
+
+
+def _load_google() -> type[BaseProviderShim]:
+    from .google_shim import GoogleShim
+
+    return GoogleShim
 
 
 _SHIM_REGISTRY: dict[str, Callable[[], type[BaseProviderShim]]] = {
@@ -124,7 +124,12 @@ _SHIM_REGISTRY: dict[str, Callable[[], type[BaseProviderShim]]] = {
 }
 
 
-def get_provider_shim_class(provider: str) -> type[BaseProviderShim]:
-    """Return the provider shim class matching the provider name, defaulting to OpenAIShim."""
+def get_provider_shim_class(provider: str, endpoint: str | None = None) -> type[BaseProviderShim]:
+    """Return the provider shim class matching the provider name, defaulting to OpenAIShim.
+
+    Standard OpenAI-compatible providers (DeepSeek, Mistral, Cerebras, Groq, NVIDIA NIM, Z.ai)
+    route to OpenAIShim by default. Google routes to GoogleShim (which inherits OpenAIShim for chat/tools
+    and implements native REST for image generation).
+    """
     loader = _SHIM_REGISTRY.get(provider)
     return loader() if loader else OpenAIShim

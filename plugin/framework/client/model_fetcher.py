@@ -328,8 +328,8 @@ def _filter_fetched_models(models: list[str], req_cap: str) -> list[str]:
                 continue
             out.append(m)
     elif req_cap == "image":
-        # Ollama / local only — hosted OpenRouter/Together use fetch_available_image_models metadata path.
-        include = {"flux", "stable-diffusion", "sdxl", "dall-e", "aurora", "imagen", "dreamshaper", "playground", "juggernaut"}
+        # Ollama / local / Google models matching image keywords
+        include = {"flux", "stable-diffusion", "sdxl", "dall-e", "aurora", "imagen", "dreamshaper", "playground", "juggernaut", "-image"}
         for m in models:
             m_lower = m.lower()
             if any(kw in m_lower for kw in include):

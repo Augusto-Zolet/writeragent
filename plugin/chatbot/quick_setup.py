@@ -10,6 +10,7 @@ import urllib.error
 from typing import Any
 
 from plugin.framework.constants import APP_REFERER, APP_TITLE, USER_AGENT
+from plugin.framework.url_utils import get_api_version_suffix, normalize_endpoint_url
 
 
 log = logging.getLogger(__name__)
@@ -204,16 +205,12 @@ def check_endpoint_connection(endpoint: str, api_key: str = "") -> tuple[bool, s
 
     endpoint_clean = endpoint.rstrip("/")
     # Build models probe URL
-    if endpoint_clean.endswith("/v1"):
-        models_url = f"{endpoint_clean}/models"
-    elif "api.deepseek.com" in endpoint_clean or "api.mistral.ai" in endpoint_clean:
-        models_url = f"{endpoint_clean}/v1/models"
-    elif "openrouter.ai" in endpoint_clean:
-        models_url = f"{endpoint_clean}/v1/models" if endpoint_clean.endswith("/api") else f"{endpoint_clean}/api/v1/models"
-    elif ":11434" in endpoint_clean:
+    if ":11434" in endpoint_clean:
         models_url = f"{endpoint_clean}/api/tags"
     else:
-        models_url = f"{endpoint_clean}/v1/models"
+        norm_endpoint = normalize_endpoint_url(endpoint_clean)
+        suffix = get_api_version_suffix(norm_endpoint)
+        models_url = f"{norm_endpoint}{suffix}/models"
 
     headers = {"User-Agent": USER_AGENT}
     if "openrouter.ai" in endpoint_clean:

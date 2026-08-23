@@ -54,6 +54,14 @@ def _is_zai_host(url):
     return "api.z.ai" in url_lower or "z.ai" in url_lower
 
 
+def _is_google_host(url):
+    """True when URL targets Google Gemini API (generativelanguage.googleapis.com)."""
+    if not isinstance(url, str):
+        return False
+    url_lower = url.lower()
+    return "generativelanguage.googleapis.com" in url_lower
+
+
 def _zai_url_path(url):
     """Normalized path without trailing slash (empty string when bare host)."""
     if not isinstance(url, str):
@@ -72,6 +80,9 @@ def get_api_version_suffix(url, is_openwebui=False):
         if _zai_url_path(url) in ("", "/"):
             return "/api/paas/v4"
         return "/v4"
+    # Google Gemini: OpenAI-compatible API base is /v1beta/openai
+    if _is_google_host(url):
+        return "/v1beta/openai"
     return "/v1"
 
 
@@ -94,6 +105,16 @@ def normalize_endpoint_url(url, is_openwebui=False):
             return url[: -len("/api/v1")]
         if lower.endswith("/api"):
             return url[: -len("/api")]
+        if lower.endswith("/v1"):
+            return url[:-3]
+        return url
+
+    if _is_google_host(url):
+        lower = url.lower()
+        if lower.endswith("/v1beta/openai"):
+            return url[: -len("/v1beta/openai")]
+        if lower.endswith("/v1beta"):
+            return url[: -len("/v1beta")]
         if lower.endswith("/v1"):
             return url[:-3]
         return url

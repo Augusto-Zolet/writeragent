@@ -26,7 +26,7 @@ _PRESET_EXPECTED_PROVIDER = {
     "https://api.perplexity.ai": "perplexity",
     "https://api.x.ai": "xai",
     "https://api.anthropic.com": "anthropic",
-    "https://generativelanguage.googleapis.com/v1beta/openai": "google",
+    "https://generativelanguage.googleapis.com": "google",
     "https://integrate.api.nvidia.com": "nvidia",
     "https://api.z.ai/api/paas": "zai",
 }

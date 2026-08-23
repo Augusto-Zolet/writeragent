@@ -1,28 +1,43 @@
+# WriterAgent - AI Writing Assistant for LibreOffice
+# Copyright (c) 2026 KeithCu
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
 import json
 from unittest.mock import MagicMock, patch
 import pytest
 from plugin.framework.client.llm_client import LlmClient
+from plugin.framework.client.google_shim import GoogleShim
+from plugin.framework.client.openai_shim import OpenAIShim
 from plugin.tests.testing_utils import MockContext
 
 @pytest.fixture
 def mock_ctx():
     return MockContext()
 
-def test_google_make_chat_request_tools(mock_ctx):
+
+def test_google_get_shim_returns_google_shim(mock_ctx):
+    """Verify that LlmClient with Google config resolves to GoogleShim (subclass of OpenAIShim)."""
     config = {
         "endpoint": "https://generativelanguage.googleapis.com",
         "api_key": "test-key",
-        "model": "gemini-1.5-pro",
+        "model": "gemini-2.0-flash",
     }
     client = LlmClient(config, mock_ctx)
-    client._resolve_auth = MagicMock(return_value={"provider": "google", "api_key": "test-key"})
+    shim = client._get_shim()
+    assert isinstance(shim, GoogleShim)
+    assert isinstance(shim, OpenAIShim)
 
+
+def test_google_chat_request_openai_format(mock_ctx):
+    """Verify that GoogleShim inherits OpenAIShim chat request building with /v1beta/openai/chat/completions."""
+    config = {
+        "endpoint": "https://generativelanguage.googleapis.com",
+        "api_key": "test-gemini-key",
+        "model": "gemini-2.0-flash",
+    }
+    client = LlmClient(config, mock_ctx)
     messages = [
         {"role": "user", "content": "What is the weather?"},
-        {"role": "assistant", "content": "Thinking...", "tool_calls": [
-            {"id": "call_1", "type": "function", "function": {"name": "get_weather", "arguments": '{"location": "London"}'}}
-        ]},
-        {"role": "tool", "tool_call_id": "call_1", "name": "get_weather", "content": '{"temp": 20}'}
     ]
     tools = [
         {
@@ -36,93 +51,75 @@ def test_google_make_chat_request_tools(mock_ctx):
     ]
 
     method, path, body, headers = client.make_chat_request(messages, tools=tools)
+    assert method == "POST"
+    assert path == "/v1beta/openai/chat/completions"
+    assert headers["Authorization"] == "Bearer test-gemini-key"
+
     data = json.loads(body.decode("utf-8"))
-
-    # Verify tools
+    assert data["model"] == "gemini-2.0-flash"
+    assert "messages" in data
     assert "tools" in data
-    assert len(data["tools"]) == 1
-    assert "function_declarations" in data["tools"][0]
-    fd = data["tools"][0]["function_declarations"][0]
-    assert fd["name"] == "get_weather"
-
-    # Verify contents
-    contents = data["contents"]
-    assert len(contents) == 3
-    assert contents[0]["role"] == "user"
-    assert contents[0]["parts"][0]["text"] == "What is the weather?"
-
-    assert contents[1]["role"] == "model"
-    assert contents[1]["parts"][0]["text"] == "Thinking..."
-    assert "functionCall" in contents[1]["parts"][1]
-    assert contents[1]["parts"][1]["functionCall"]["name"] == "get_weather"
-    assert contents[1]["parts"][1]["functionCall"]["args"] == {"location": "London"}
-
-    assert contents[2]["role"] == "function"
-    assert contents[2]["parts"][0]["functionResponse"]["name"] == "get_weather"
-    assert contents[2]["parts"][0]["functionResponse"]["response"] == {"temp": 20}
-
-def test_google_extract_content_from_response(mock_ctx):
-    client = LlmClient({"endpoint": "http://test"}, mock_ctx)
-    client._resolve_auth = MagicMock(return_value={"provider": "google"})
-
-    chunk = {
-        "candidates": [{
-            "content": {
-                "parts": [
-                    {"text": "I will check the weather. "},
-                    {"functionCall": {"name": "get_weather", "args": {"location": "Paris"}}}
-                ]
-            },
-            "finishReason": "STOP"
-        }],
-        "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5}
-    }
-
-    content, finish_reason, thinking, delta = client.extract_content_from_response(chunk)
-
-    assert content == "I will check the weather. "
-    assert finish_reason == "stop"
-    assert thinking is None
-    assert "tool_calls" in delta
-    assert len(delta["tool_calls"]) == 1
-    assert delta["tool_calls"][0]["function"]["name"] == "get_weather"
-    assert json.loads(delta["tool_calls"][0]["function"]["arguments"]) == {"location": "Paris"}
-    assert delta["usage"]["promptTokenCount"] == 10
+    assert data["tools"][0]["function"]["name"] == "get_weather"
 
 
 def test_google_image_completion(mock_ctx):
+    """Verify that GoogleShim builds native Google image requests."""
     config = {
         "endpoint": "https://generativelanguage.googleapis.com",
         "api_key": "test-key",
     }
     client = LlmClient(config, mock_ctx)
-    client._resolve_auth = MagicMock(return_value={"provider": "google", "api_key": "test-key"})
+    shim = client._get_shim()
+    assert isinstance(shim, GoogleShim)
 
-    with patch("plugin.framework.client.llm_client.sync_request") as mock_sync:
-        # 1. Test Imagen path (model name starts with imagen)
-        mock_sync.return_value = {"predictions": [{"bytesBase64Encoded": "imagen_data"}]}
-        client.image_completion("Draw a sunset", model="imagen-3.0-generate-002", width=1792, height=1024)
-        
-        args, kwargs = mock_sync.call_args
-        assert ":predict" in args[0]
-        body = json.loads(kwargs["data"])
-        assert body["parameters"]["aspectRatio"] == "16:9"
+    # 1. Test Imagen path (model name starts with imagen)
+    method, path, body, headers = shim.build_image_request("Draw a sunset", model="imagen-3.0-generate-002", width=1792, height=1024)
+    assert method == "POST"
+    assert path == "/v1beta/models/imagen-3.0-generate-002:predict?key=test-key"
+    data = json.loads(body.decode("utf-8"))
+    assert data["parameters"]["aspectRatio"] == "16:9"
 
-        # 2. Test Multimodal path (other models)
-        mock_sync.return_value = {
-            "candidates": [{
-                "content": {
-                    "parts": [{"inlineData": {"data": "multimodal_data", "mimeType": "image/png"}}]
-                }
-            }]
-        }
-        client.image_completion("Generate an image", model="gemini-2.0-flash-exp-image-generation")
-        
-        args, kwargs = mock_sync.call_args
-        assert ":generateContent" in args[0]
-        body = json.loads(kwargs["data"])
-        assert "responseModalities" in body["generationConfig"]
-        assert "IMAGE" in body["generationConfig"]["responseModalities"]
+    # 2. Test Multimodal path (other models)
+    method, path, body, headers = shim.build_image_request("Generate an image", model="gemini-2.5-flash-image", width=1024, height=1024)
+    assert method == "POST"
+    assert path == "/v1beta/models/gemini-2.5-flash-image:generateContent?key=test-key"
+    data = json.loads(body.decode("utf-8"))
+    assert "responseModalities" in data["generationConfig"]
+    assert "IMAGE" in data["generationConfig"]["responseModalities"]
+
+
+def test_google_parse_image_responses(mock_ctx):
+    """Verify parsing both Imagen predictions and Gemini candidates inlineData."""
+    client = LlmClient({"endpoint": "https://generativelanguage.googleapis.com"}, mock_ctx)
+    shim = GoogleShim(client)
+
+    # Imagen predictions format
+    data_imagen = {"predictions": [{"bytesBase64Encoded": "img_b64_1"}]}
+    assert shim.parse_image_responses(data_imagen) == ["img_b64_1"]
+
+    # Gemini multimodal format
+    data_multimodal = {
+        "candidates": [{
+            "content": {"parts": [{"inlineData": {"data": "img_b64_2", "mimeType": "image/png"}}]}
+        }]
+    }
+    assert shim.parse_image_responses(data_multimodal) == ["img_b64_2"]
+
+
+def test_google_openai_auth_resolution():
+    """Verify auth resolution for Google Gemini endpoints produces Bearer header."""
+    from plugin.framework.client.auth import resolve_auth_for_config, build_auth_headers
+
+    auth_info = resolve_auth_for_config({
+        "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "api_key": "test-key-123",
+    })
+    assert auth_info["provider"] == "google"
+    assert auth_info["header_style"] == "bearer"
+
+    headers = build_auth_headers(auth_info)
+    assert headers["Authorization"] == "Bearer test-key-123"
+
 
 if __name__ == "__main__":
     pytest.main([__file__])

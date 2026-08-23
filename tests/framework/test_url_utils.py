@@ -14,9 +14,17 @@ class TestNormalizeEndpointUrl():
         assert (normalize_endpoint_url('https://api.example.com/v1/') == 'https://api.example.com')
         assert (normalize_endpoint_url('https://openrouter.ai/api/v1') == 'https://openrouter.ai/api')
 
-    def test_preserves_v1beta_and_similar(self):
-        u = 'https://generativelanguage.googleapis.com/v1beta/openai'
-        assert (normalize_endpoint_url(u) == u)
+    def test_google_normalization(self):
+        assert normalize_endpoint_url("https://generativelanguage.googleapis.com/v1beta/openai") == "https://generativelanguage.googleapis.com"
+        assert normalize_endpoint_url("https://generativelanguage.googleapis.com/v1beta") == "https://generativelanguage.googleapis.com"
+        assert normalize_endpoint_url("https://generativelanguage.googleapis.com/v1") == "https://generativelanguage.googleapis.com"
+        assert normalize_endpoint_url("https://generativelanguage.googleapis.com") == "https://generativelanguage.googleapis.com"
+
+    def test_google_chat_url_roundtrip(self):
+        stored = normalize_endpoint_url("https://generativelanguage.googleapis.com/v1beta/openai")
+        suffix = get_api_version_suffix(stored)
+        assert stored + suffix + "/chat/completions" == "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+        assert stored + suffix + "/models" == "https://generativelanguage.googleapis.com/v1beta/openai/models"
 
     def test_empty_and_whitespace(self):
         assert (normalize_endpoint_url('') == '')
@@ -63,6 +71,9 @@ class TestNormalizeEndpointUrl():
             assert once + get_api_version_suffix(once, is_openwebui=True) + "/chat/completions" == "http://localhost:3000/api/chat/completions"
 
 class TestApiVersionSuffix():
+
+    def test_google_suffix(self):
+        assert get_api_version_suffix("https://generativelanguage.googleapis.com") == "/v1beta/openai"
 
     def test_zai_suffix(self):
         assert get_api_version_suffix("https://api.z.ai") == "/api/paas/v4"
