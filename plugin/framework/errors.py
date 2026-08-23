@@ -23,12 +23,94 @@ All custom exceptions should inherit from WriterAgentException.
 # crosshair: off
 from __future__ import annotations
 
+import contextlib
+import logging
 from typing import Any, Literal, TypedDict
 
 from plugin.framework.i18n import _
 from plugin.framework.json_utils import safe_json_loads, safe_python_literal_eval
 
 from plugin.framework.deal_shim import deal
+
+try:
+    from com.sun.star.lang import DisposedException
+    from com.sun.star.uno import RuntimeException, Exception as UnoException
+
+    # In test mock environments, UnoException or RuntimeException might be aliased to builtins.Exception.
+    # We only include types that are not the root Exception class.
+    _raw_uno_exceptions = (DisposedException, RuntimeException, UnoException)
+    UNO_DISPOSED_EXCEPTIONS: tuple[type[BaseException], ...] = tuple(
+        cls for cls in _raw_uno_exceptions if isinstance(cls, type) and issubclass(cls, BaseException) and cls is not Exception
+    )
+except (ImportError, AttributeError):
+    UNO_DISPOSED_EXCEPTIONS = ()
+
+
+def is_disposed_exception(exc: BaseException) -> bool:
+    """Return True if exc represents a UNO object disposal or runtime teardown exception."""
+    if isinstance(exc, DocumentDisposedError):
+        return True
+    if UNO_DISPOSED_EXCEPTIONS and isinstance(exc, UNO_DISPOSED_EXCEPTIONS):
+        return True
+    exc_name = type(exc).__name__
+    return "DisposedException" in exc_name or "RuntimeException" in exc_name
+
+
+class suppress_disposed(contextlib.ContextDecorator):
+    """Context manager and decorator to safely execute UI / UNO lifecycle actions.
+
+    Disposed UNO objects (and related bridge teardown exceptions) are caught, logged at DEBUG
+    level, and suppressed.
+
+    Unexpected non-disposal exceptions are logged (via logger.exception) and,
+    if suppress_all is True (default for UI lifecycle blocks), suppressed so they do not crash host UI event loops.
+    """
+
+    def __init__(
+        self,
+        action: str = "action",
+        *,
+        logger: logging.Logger | None = None,
+        log_unexpected: bool = True,
+        suppress_all: bool = True,
+        exc_info: bool = False,
+    ):
+        self.action = action
+        self.logger = logger
+        self.log_unexpected = log_unexpected
+        self.suppress_all = suppress_all
+        self.exc_info = exc_info
+
+    def __enter__(self) -> suppress_disposed:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: Any,
+    ) -> bool:
+        if exc_val is None:
+            return False
+
+        log_obj = self.logger or logging.getLogger("writeragent.errors")
+
+        if is_disposed_exception(exc_val):
+            log_obj.debug(
+                "%s skipped (likely disposed): %s",
+                self.action,
+                exc_val,
+                exc_info=self.exc_info,
+            )
+            return True
+
+        if self.log_unexpected:
+            log_obj.exception("Unexpected error during %s: %s", self.action, exc_val)
+
+        return self.suppress_all
+
+
+ignore_disposed = suppress_disposed
 
 
 # Status values for tool execution results (cast/docs alias only — not TypedDict fields).
@@ -528,14 +610,18 @@ __all__ = [
     "WorkerPoolError",
     "WriterAgentException",
     "WriterError",
+    "UNO_DISPOSED_EXCEPTIONS",
     "check_disposed",
     "format_error_message",      # The single i18n-friendly mapper (centralized here in 2026 janitor effort)
     "format_error_payload",
     "handle_errors",
+    "ignore_disposed",
+    "is_disposed_exception",
     "make_tool_error",           # Central factory for all tool error dicts
     "safe_call",
     "safe_json_loads",
     "safe_python_literal_eval",
     "safe_uno_call",
+    "suppress_disposed",
 ]
 

@@ -521,5 +521,91 @@ class TestSecurityFix(unittest.TestCase):
 
     def test_smolagents_deserializer(self):
         self.assertEqual(safe_python_literal_eval('{"type": "string"}'), {'type': 'string'})
+
+
+class TestSuppressDisposed(unittest.TestCase):
+
+    def test_is_disposed_exception(self):
+        from plugin.framework.errors import (
+            DocumentDisposedError,
+            is_disposed_exception,
+        )
+
+        class CustomDisposedException(Exception):
+            pass
+
+        class CustomRuntimeException(Exception):
+            pass
+
+        class UnrelatedError(Exception):
+            pass
+
+        self.assertTrue(is_disposed_exception(DocumentDisposedError("Object disposed")))
+        self.assertTrue(is_disposed_exception(CustomDisposedException("Disposed")))
+        self.assertTrue(is_disposed_exception(CustomRuntimeException("Runtime UNO error")))
+        self.assertFalse(is_disposed_exception(UnrelatedError("Regular failure")))
+        self.assertFalse(is_disposed_exception(ValueError("Bad value")))
+
+    def test_suppress_disposed_with_disposed_error(self):
+        from plugin.framework.errors import (
+            DocumentDisposedError,
+            suppress_disposed,
+        )
+
+        mock_logger = MagicMock()
+        executed = False
+        with suppress_disposed("test_disposed_action", logger=mock_logger):
+            executed = True
+            raise DocumentDisposedError("Model was disposed")
+
+        self.assertTrue(executed)
+        mock_logger.debug.assert_called_once()
+        self.assertEqual(mock_logger.debug.call_args[0][1], "test_disposed_action")
+        mock_logger.exception.assert_not_called()
+
+    def test_suppress_disposed_unexpected_error_suppressed(self):
+        from plugin.framework.errors import suppress_disposed
+
+        mock_logger = MagicMock()
+        executed = False
+        with suppress_disposed("test_unexpected_action", logger=mock_logger, suppress_all=True):
+            executed = True
+            raise ValueError("Something unexpected")
+
+        self.assertTrue(executed)
+        mock_logger.exception.assert_called_once()
+        self.assertEqual(mock_logger.exception.call_args[0][1], "test_unexpected_action")
+        mock_logger.debug.assert_not_called()
+
+    def test_suppress_disposed_unexpected_error_raised(self):
+        from plugin.framework.errors import suppress_disposed
+
+        mock_logger = MagicMock()
+        with self.assertRaises(ValueError):
+            with suppress_disposed("test_raise_action", logger=mock_logger, suppress_all=False):
+                raise ValueError("Must be raised")
+
+        mock_logger.exception.assert_called_once()
+        self.assertEqual(mock_logger.exception.call_args[0][1], "test_raise_action")
+
+    def test_suppress_disposed_as_decorator(self):
+        from plugin.framework.errors import (
+            DocumentDisposedError,
+            ignore_disposed,
+            suppress_disposed,
+        )
+
+        mock_logger = MagicMock()
+
+        @suppress_disposed("decorated_function", logger=mock_logger)
+        def faulty_fn():
+            raise DocumentDisposedError("Peer disposed")
+
+        result = faulty_fn()
+        self.assertIsNone(result)
+        mock_logger.debug.assert_called_once()
+        self.assertIs(ignore_disposed, suppress_disposed)
+
+
 if (__name__ == '__main__'):
     unittest.main()

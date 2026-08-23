@@ -30,6 +30,7 @@ import uno
 from plugin.chatbot.send_handlers import SendHandlersMixin
 from plugin.chatbot.tool_loop import ToolCallingMixin
 
+from plugin.framework.errors import suppress_disposed
 from plugin.framework.logging import update_activity_state
 from plugin.framework.queue_executor import QueueExecutor
 from plugin.chatbot.history_db import get_chat_history
@@ -459,7 +460,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self._approval_event = event
         self._approval_query_for_engine = query
         self._approval_ui_backup = {}
-        try:
+        with suppress_disposed("begin_inline_web_approval backup", logger=log):
             if self.send_control and self.send_control.getModel():
                 m = self.send_control.getModel()
                 self._approval_ui_backup["send_label"] = m.Label
@@ -474,31 +475,17 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                 self._approval_ui_backup["clear_label"] = cm.Label
             if self.status_control:
                 self._approval_ui_backup["status_text"] = self.status_control.getText()
-        except Exception as e:
-            from com.sun.star.lang import DisposedException
-            from com.sun.star.uno import RuntimeException, Exception as UnoException
 
-            if isinstance(e, (DisposedException, RuntimeException, UnoException)):
-                log.debug("begin_inline_web_approval backup (likely disposed): %s", e)
-            else:
-                log.debug("begin_inline_web_approval backup: %s", e)
-
-        try:
+        with suppress_disposed("begin_inline_web_approval", logger=log):
             if self.send_control and self.send_control.getModel():
                 m = self.send_control.getModel()
                 m.Label = _("Accept")
                 m.Enabled = True
                 if self._fixed_send_width:
-                    try:
+                    with suppress_disposed("begin_inline_web_approval setPosSize", logger=log):
                         r = self.send_control.getPosSize()
                         if r.Width != self._fixed_send_width:
                             self.send_control.setPosSize(r.X, r.Y, self._fixed_send_width, r.Height, 15)
-                    except Exception as e:
-                        from com.sun.star.lang import DisposedException
-                        from com.sun.star.uno import RuntimeException, Exception as UnoException
-
-                        if isinstance(e, (DisposedException, RuntimeException, UnoException)):
-                            log.debug("begin_inline_web_approval setPosSize (likely disposed): %s", e)
             if self.stop_control and self.stop_control.getModel():
                 m = self.stop_control.getModel()
                 m.Label = _("Change")
@@ -507,14 +494,6 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                 m = self.clear_control.getModel()
                 m.Label = _("Reject")
                 m.Enabled = True
-        except Exception as e:
-            from com.sun.star.lang import DisposedException
-            from com.sun.star.uno import RuntimeException, Exception as UnoException
-
-            if isinstance(e, (DisposedException, RuntimeException, UnoException)):
-                log.debug("begin_inline_web_approval error (likely disposed): %s", e)
-            else:
-                log.exception("begin_inline_web_approval failed")
 
         # Approval is inline (Accept / Change / Reject); search preview is already in the transcript.
         self._set_status(_("Waiting for approval…"))
@@ -539,7 +518,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self._approval_query_for_engine = None
         b = self._approval_ui_backup or {}
         self._approval_ui_backup = None
-        try:
+        with suppress_disposed("_finish_inline_web_approval restore", logger=log):
             if self.send_control and self.send_control.getModel():
                 m = self.send_control.getModel()
                 if "send_label" in b:
@@ -559,14 +538,6 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                     cm.Label = b["clear_label"]
             if self.status_control and "status_text" in b:
                 self.status_control.setText(b["status_text"])
-        except Exception as e:
-            from com.sun.star.lang import DisposedException
-            from com.sun.star.uno import RuntimeException, Exception as UnoException
-
-            if isinstance(e, (DisposedException, RuntimeException, UnoException)):
-                log.debug("_finish_inline_web_approval restore (likely disposed): %s", e)
-            else:
-                log.debug("_finish_inline_web_approval restore: %s", e)
         try:
             ev.approved = approved
             ev.query_override = query_override if approved else None
@@ -580,19 +551,11 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         """Update the status field in the sidebar (read-only TextField).
         Uses setText() (XTextComponent) to write directly to the control/peer,
         bypassing model→view notifications which can desync after document edits."""
-        try:
+        with suppress_disposed(f"_set_status({text})", logger=log):
             if self.status_control:
                 self.status_control.setText(text)
             else:
                 log.debug("_set_status: NO CONTROL for '%s'" % text)
-        except Exception as e:
-            from com.sun.star.lang import DisposedException
-            from com.sun.star.uno import RuntimeException, Exception as UnoException
-
-            if isinstance(e, (DisposedException, RuntimeException, UnoException)):
-                log.debug("_set_status('%s', level=logging.DEBUG) likely disposed: %s" % (text, e))
-            else:
-                log.debug("_set_status('%s', level=logging.DEBUG) EXCEPTION: %s" % (text, e))
 
     def _on_grammar_status(self, **data):
         """Show native grammar proofreader progress in the sidebar status field."""
@@ -610,19 +573,13 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
     def _scroll_response_to_bottom(self):
         """Scroll the response area to show the bottom (newest content).
         Uses XTextComponent.setSelection to place caret at end, which scrolls the view."""
-        try:
+        with suppress_disposed("_scroll_response_to_bottom", logger=log):
             if self.response_control:
                 model = self.response_control.getModel()
                 if model and hasattr(self.response_control, "setSelection"):
                     text = model.Text or ""
                     length = len(text)
                     self.response_control.setSelection(uno.createUnoStruct("com.sun.star.awt.Selection", length, length))
-        except Exception as e:
-            from com.sun.star.lang import DisposedException
-            from com.sun.star.uno import RuntimeException, Exception as UnoException
-
-            if isinstance(e, (DisposedException, RuntimeException, UnoException)):
-                log.debug("_scroll_response_to_bottom failed (likely disposed): %s", e)
 
     '''
     def _get_scrollbar(self):
@@ -645,7 +602,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
 
     def _append_response(self, text, is_thinking=False, role="assistant"):
         """Append text to the response area (RichTextControl or plain multiline field)."""
-        try:
+        with suppress_disposed("_append_response", logger=log):
             widget = getattr(self, "rich_text_widget", None)
             if widget:
                 auto_scroll = self._should_auto_scroll()
@@ -707,12 +664,6 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                 set_control_text(self.response_control, current + clean_text)
                 if should_scroll:
                     self._scroll_response_to_bottom()
-        except Exception as e:
-            from com.sun.star.lang import DisposedException
-            from com.sun.star.uno import RuntimeException, Exception as UnoException
-
-            if isinstance(e, (DisposedException, RuntimeException, UnoException)):
-                log.debug("_append_response failed (likely disposed): %s", e)
 
     def _on_mcp_request(self, tool="", args=None, method=None, **kwargs):
         """Handle MCP request events from the bus (background thread)."""
@@ -775,23 +726,11 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
     def _set_button_states(self, send_enabled, stop_enabled):
         """Set Send/Stop enabled flags (per-control try/except so one UNO failure cannot strand the other)."""
         if self.send_control and self.send_control.getModel():
-            try:
+            with suppress_disposed("set send_control enabled state", logger=log):
                 self.send_control.getModel().Enabled = bool(send_enabled)
-            except Exception as e:
-                from com.sun.star.lang import DisposedException
-                from com.sun.star.uno import RuntimeException, Exception as UnoException
-
-                if isinstance(e, (DisposedException, RuntimeException, UnoException)):
-                    log.debug("Failed to set send_control enabled state (likely disposed): %s", e)
         if self.stop_control and self.stop_control.getModel():
-            try:
+            with suppress_disposed("set stop_control enabled state", logger=log):
                 self.stop_control.getModel().Enabled = bool(stop_enabled)
-            except Exception as e:
-                from com.sun.star.lang import DisposedException
-                from com.sun.star.uno import RuntimeException, Exception as UnoException
-
-                if isinstance(e, (DisposedException, RuntimeException, UnoException)):
-                    log.debug("Failed to set stop_control enabled state (likely disposed): %s", e)
 
     def dispatch(self, event):
         """Dispatch an event to the state machine, compute new state, and apply effects."""
@@ -831,16 +770,10 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                     if btn_model.Label != _(effect.send_label):
                         btn_model.Label = _(effect.send_label)
                     if self._fixed_send_width:
-                        try:
+                        with suppress_disposed("set pos size for send_control", logger=log):
                             r = self.send_control.getPosSize()
                             if r.Width != self._fixed_send_width:
                                 self.send_control.setPosSize(r.X, r.Y, self._fixed_send_width, r.Height, 15)
-                        except Exception as e:
-                            from com.sun.star.lang import DisposedException
-                            from com.sun.star.uno import RuntimeException, Exception as UnoException
-
-                            if isinstance(e, (DisposedException, RuntimeException, UnoException)):
-                                log.debug("Failed to set pos size for send_control (likely disposed): %s", e)
 
                 if effect.status_text is not None and effect.status_text != "":
                     self._set_status(_(effect.status_text))

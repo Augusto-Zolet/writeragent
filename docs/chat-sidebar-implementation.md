@@ -130,15 +130,28 @@ That means `Dialogs/ChatPanelDialog.xdl` was not loadable. A past hot-deploy bug
 
 All extension logging goes through `plugin/framework/logging.py` (`init_logging`). The single log file is **`writeragent_debug.log`** in the LibreOffice user config directory (same folder as `writeragent.json`, e.g. `~/.config/libreoffice/4/user/` on Linux; `%APPDATA%\LibreOffice\4\user\config\` on Windows). Use `log_level` in `writeragent.json` and standard `logging.getLogger(...)` calls; optional structured agent traces use `agent_log()` when `enable_agent_log` is set (same file).
 
-### Key Files (Current)
+### UI Lifecycle Exception Handling (`suppress_disposed`)
 
-| File | Role |
-|------|------|
-| `panel_factory.py` / `panel.py` | ChatPanelFactory, ChatPanelElement, ChatToolPanel, SendButtonListener; ContainerWindowProvider + setVisible(True) |
-| `Dialogs/ChatPanelDialog.xdl` | Panel UI (response, query, send); `withtitlebar="false"` |
-| `registry/org/openoffice/Office/UI/Sidebar.xcu` | WriterAgent deck + ChatPanel; `WantsAWT` true |
-| `registry/org/openoffice/Office/UI/Factories.xcu` | ChatPanelFactory registration |
-| `META-INF/manifest.xml` | Registers panel factory, Sidebar.xcu, Factories.xcu |
+During sidebar layout negotiation, document switching, tab cycling, or window disposal, UNO components and controls (`m_panelRootWindow`, peer windows, buttons, controllers) can be disposed asynchronously by LibreOffice. Calling methods on them will raise `DisposedException` or `RuntimeException`.
+
+To keep panel lifecycle code clean and avoid repetitive `try...except` boilerplate, use `suppress_disposed` from `plugin.framework.errors`:
+
+```python
+from plugin.framework.errors import suppress_disposed
+
+# As a context manager:
+with suppress_disposed("relayout panel", logger=log):
+    self.PanelWindow.setPosSize(0, 0, eff_w, current_h, 15)
+
+# As a decorator:
+@suppress_disposed("update status bar", logger=log)
+def _set_status_safe(self, text: str) -> None:
+    self._set_status(text)
+```
+
+`suppress_disposed` automatically:
+- Catches and silences `DocumentDisposedError`, `com.sun.star.lang.DisposedException`, and related UNO disposal runtime exceptions at `DEBUG` log level.
+- Logs unexpected non-disposed exceptions with `log.exception(...)` while safely containing UI crashes when `suppress_all=True` (the default).
 
 ---
 

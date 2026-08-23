@@ -12,20 +12,13 @@ import base64
 import os
 from typing import TYPE_CHECKING, Protocol, Any, Callable, Sequence, cast
 
-try:
-    from com.sun.star.lang import DisposedException
-    from com.sun.star.uno import RuntimeException, Exception as UnoException
-    UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
-except ImportError:
-    UNO_DISPOSED_EXCEPTIONS = cast("Any", (Exception,))
-
 if TYPE_CHECKING:
     from plugin.framework.client.llm_client import LlmClient
     from plugin.chatbot.panel import ChatSession
 
 from plugin.framework.async_stream import run_stream_drain_loop, StreamQueueKind, BatchingStreamQueue
 from plugin.framework.logging import agent_log, update_activity_state
-from plugin.framework.errors import format_error_message
+from plugin.framework.errors import format_error_message, is_disposed_exception, suppress_disposed, UnoObjectError
 from plugin.framework.client.errors import is_audio_unsupported_error
 from plugin.framework.config import (
     get_api_config,
@@ -45,7 +38,7 @@ from plugin.chatbot.config_ui_helpers import sync_sidebar_text_model
 from plugin.framework.constants import CHAT_DOCUMENT_CONTEXT_MAX_CHARS
 from plugin.framework.prompts import get_chat_system_prompt_for_document
 from plugin.doc.document_helpers import get_document_context_for_chat
-from plugin.framework.errors import format_error_payload, UnoObjectError, NetworkError
+from plugin.framework.errors import format_error_payload, NetworkError
 from plugin.framework.queue_executor import llm_request_lane
 from plugin.framework.client.llm_client import LlmClient
 from plugin.framework.config import as_bool
@@ -290,7 +283,7 @@ class ToolCallingMixin:
             self._set_status("Error")
             return
         except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
+            if is_disposed_exception(e):
                 log.debug("Document likely disposed while reading context: %s", e)
                 self._append_response("\n[Document closed or unavailable.]\n")
             else:
@@ -485,15 +478,12 @@ class ToolCallingMixin:
             s = cast("Sequence[Any]", raw)
             ln = len(s)
             if ln > 4:
-                try:
+                with suppress_disposed("Tool loop event: mutates_document check", logger=log):
                     from plugin.main import get_tools as _get_tools_registry
 
                     tool = _get_tools_registry().get(s[2])
                     if tool and tool.detects_mutation():
                         mutates = True
-                except Exception as e:
-                    if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                        log.debug("Tool loop event: mutates_document check failed (likely disposed): %s", e)
             return ToolLoopEvent(kind=EventKind.TOOL_RESULT, data={"call_id": s[1] if ln > 1 else None, "func_name": s[2] if ln > 2 else None, "func_args_str": s[3] if ln > 3 else None, "result": s[4] if ln > 4 else None, "mutates_document": mutates})
         elif kind == StreamQueueKind.FINAL_DONE:
             return ToolLoopEvent(kind=EventKind.FINAL_DONE, data={"content": data})

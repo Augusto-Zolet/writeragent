@@ -1,14 +1,9 @@
 import logging
 
-from com.sun.star.lang import DisposedException
-from com.sun.star.uno import RuntimeException, Exception as UnoException
-
-# Common exceptions for UI components that may be disposed during layout/refresh
-UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
-
 from plugin.chatbot.dialogs import get_optional as get_optional_control, get_control_text, set_control_text, translate_dialog
 from plugin.chatbot.panel_resize import _PanelResizeListener
 from plugin.framework.config import get_config
+from plugin.framework.errors import suppress_disposed
 from plugin.framework.i18n import _
 from plugin.framework.event_bus import global_event_bus
 from plugin.framework.logging import init_logging
@@ -20,7 +15,7 @@ def _measure_send_button_max_width(send_ctrl, has_recording):
     """Max pixel width for Send/Record/Stop Rec so label toggles do not resize the row."""
     if not send_ctrl or not hasattr(send_ctrl, "getModel"):
         return None
-    try:
+    with suppress_disposed("measure send button width", logger=log):
         m = send_ctrl.getModel()
         saved = m.Label
         labels = ["Send", "Record", "Stop Rec", "Accept"] if has_recording else ["Send", "Accept"]
@@ -30,19 +25,14 @@ def _measure_send_button_max_width(send_ctrl, has_recording):
             wmax = max(wmax, send_ctrl.getPosSize().Width)
         m.Label = saved
         return wmax if wmax > 0 else None
-    except Exception as e:
-        if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-            log.debug("Failed to measure send button width (likely disposed): %s", e)
-        else:
-            log.debug("Unexpected error measuring send button width: %s", e)
-        return None
+    return None
 
 
 def _measure_aux_button_max_width(ctrl, labels):
     """Stabilize width when a button's label toggles (e.g. Stop/Change, Clear/Reject)."""
     if not ctrl or not hasattr(ctrl, "getModel") or not labels:
         return None
-    try:
+    with suppress_disposed("measure aux button width", logger=log):
         m = ctrl.getModel()
         saved = m.Label
         wmax = ctrl.getPosSize().Width
@@ -51,12 +41,7 @@ def _measure_aux_button_max_width(ctrl, labels):
             wmax = max(wmax, ctrl.getPosSize().Width)
         m.Label = saved
         return wmax if wmax > 0 else None
-    except Exception as e:
-        if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-            log.debug("Failed to measure aux button width '%s' (likely disposed): %s", ctrl.getName() if hasattr(ctrl, "getName") else "?", e)
-        else:
-            log.debug("Unexpected error measuring aux button width: %s", e)
-        return None
+    return None
 
 
 def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  # pyright: ignore[reportUnusedFunction]  # imported as wire_chatpanel_controls by panel_factory
@@ -99,15 +84,10 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
     # Helper to show errors visibly in the response area
     def _show_init_error(msg):
         log.error("_wireControls ERROR: %s" % msg)
-        try:
+        with suppress_disposed("show init error on response control", logger=log, exc_info=True):
             if controls["response"] and controls["response"].getModel():
                 current = get_control_text(controls["response"]) or ""
                 set_control_text(controls["response"], current + "[Init error: %s]\n" % msg)
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("Failed to show init error on response control (likely disposed)", exc_info=True)
-            else:
-                log.exception("Unexpected error displaying init error")
 
     ensure_extension_on_path(self.ctx)
 
@@ -177,30 +157,20 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
             log.exception("QueryTextListener setup failed")
 
     if controls["status"] and hasattr(controls["status"], "setText"):
-        try:
+        with suppress_disposed("set status text on init", logger=log, exc_info=True):
             controls["status"].setText(_("Ready"))
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("Failed to set status text on init (likely disposed)", exc_info=True)
-            else:
-                log.exception("Error setting status text")
 
     # Stop +22px/windowResized loop when Record <-> Send (see writeragent_debug.log).
     # Measure before first relayout so snapshot preserves stabilized button widths.
     if controls["send"]:
-        try:
+        with suppress_disposed("send button width stabilize", logger=log):
             fw = _measure_send_button_max_width(controls["send"], has_recording)
             if fw:
                 if hasattr(self, "send_listener"):
                     self.send_listener.set_fixed_send_width(fw)
                 sr = controls["send"].getPosSize()
                 controls["send"].setPosSize(sr.X, sr.Y, fw, sr.Height, 15)
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("send button width stabilize skipped (likely disposed): %s", e)
-            else:
-                log.debug("send button width stabilize skipped: %s", e)
-        try:
+        with suppress_disposed("stop/clear button width stabilize", logger=log):
             for c, lab_list in ((controls.get("stop"), ["Stop", "Change", "Reject"]), (controls.get("clear"), ["Clear", "Reject"])):
                 if not c:
                     continue
@@ -208,11 +178,6 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
                 if aw:
                     r = c.getPosSize()
                     c.setPosSize(r.X, r.Y, aw, r.Height, 15)
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("stop/clear button width stabilize skipped (likely disposed): %s", e)
-            else:
-                log.debug("stop/clear button width stabilize skipped: %s", e)
 
     try:
         log.debug("Attaching _PanelResizeListener to root_window; controls=%s" % (sorted(k for k, v in controls.items() if v)))

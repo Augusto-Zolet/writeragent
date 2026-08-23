@@ -339,7 +339,7 @@ flowchart LR
 | **Calc** | Values from **active selection** via [`insert_result_into_calc`](../plugin/scripting/python_runner.py) | Dict title/summary + tables; 1D/2D lists via `write_formula_range` |
 | **Draw/Impress** | None (message box) | — |
 
-Config keys: `last_python_script_writer`, `last_python_script_calc`, `last_python_script_draw`.
+Config keys: `last_python_script_name_writer`, `last_python_script_name_calc`, `last_python_script_name_draw`.
 
 ### Additional files (Layer 2)
 
@@ -752,7 +752,7 @@ Makefile
 | [`tests/scripting/test_venv_probe_progress.py`](../tests/scripting/test_venv_probe_progress.py) | Venv Test UI progress |
 | [`tests/scripting/test_venv_diagnostics.py`](../tests/scripting/test_venv_diagnostics.py) | Self-check probe groups |
 | [`tests/scripting/test_worker_harness_trusted_action.py`](../tests/scripting/test_worker_harness_trusted_action.py) | Trusted RPC dispatch |
-| [`tests/scripting/test_python_runner_config.py`](../tests/scripting/test_python_runner_config.py) | `last_python_script_*` keys |
+| [`tests/scripting/test_python_runner_config.py`](../tests/scripting/test_python_runner_config.py) | `last_python_script_name_*` keys |
 | [`tests/scripting/test_python_runner_formatting.py`](../tests/scripting/test_python_runner_formatting.py) | `format_result_for_writer` |
 | [`tests/scripting/test_python_runner_analysis.py`](../tests/scripting/test_python_runner_analysis.py) | Analysis fast-path |
 | [`tests/scripting/test_python_runner_viz.py`](../tests/scripting/test_python_runner_viz.py) | Viz fast-path |

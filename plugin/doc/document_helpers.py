@@ -29,22 +29,20 @@ Linebreak / tracked-deletion reads, heading trees, and file paths live in
 ``plugin.doc.text_helpers`` (LibrePy). Do not re-export those names here.
 """
 import logging
-from typing import Any, cast
+from typing import Any
 from plugin.calc.bridge import CalcBridge
 from plugin.doc import doc_type as _doc_type
 from plugin.doc import text_helpers as _text_helpers
 from plugin.calc.analyzer import SheetAnalyzer
 from plugin.framework.constants import CHAT_DOCUMENT_CONTEXT_MAX_CHARS
 from plugin.framework.uno_context import get_active_document
-from plugin.framework.errors import UnoObjectError, check_disposed, safe_call
+from plugin.framework.errors import (
+    UnoObjectError,
+    check_disposed,
+    safe_call,
+    suppress_disposed,
+)
 from plugin.framework.thread_guard import main_thread_only, _wrap_uno
-
-try:
-    from com.sun.star.lang import DisposedException
-    from com.sun.star.uno import RuntimeException, Exception as UnoException
-    UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
-except ImportError:
-    UNO_DISPOSED_EXCEPTIONS = cast("Any", (Exception,))
 
 
 def is_document_disposed(doc: Any) -> bool:
@@ -55,8 +53,6 @@ def is_document_disposed(doc: Any) -> bool:
         try:
             _unused = doc.getImplementationName()
             return False
-        except UNO_DISPOSED_EXCEPTIONS:
-            return True
         except Exception:
             return True
     return False
@@ -578,7 +574,7 @@ def get_document_from_frame(frame):
     """
     if not frame:
         return None
-    try:
+    with suppress_disposed("resolve document from frame", logger=logging.getLogger(__name__)):
         check_disposed(frame, "Frame")
         controller = frame.getController()
         if not controller:
@@ -588,11 +584,6 @@ def get_document_from_frame(frame):
         if model is not None:
             from plugin.framework.thread_guard import guard_uno
             return guard_uno(model)
-    except Exception as e:
-        if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-            logging.getLogger(__name__).debug("Failed to get model from frame controller (likely disposed): %s", e)
-        else:
-            logging.getLogger(__name__).exception("Error resolving document from frame")
     return None
 
 

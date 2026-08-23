@@ -27,16 +27,14 @@ import uno
 import unohelper
 
 from com.sun.star.container import NoSuchElementException
-from com.sun.star.lang import DisposedException, IllegalArgumentException
-from com.sun.star.uno import Exception as UnoException
-from com.sun.star.uno import RuntimeException
+from com.sun.star.lang import IllegalArgumentException
 from com.sun.star.ui import XSidebarPanel, XToolPanel, XUIElement, XUIElementFactory
 
 from plugin.framework.uno_bootstrap import ensure_plugin_on_path
 
 ensure_plugin_on_path(__file__, levels_up=3, also_add_contrib=True)
 
-from plugin.framework.errors import UnoObjectError
+from plugin.framework.errors import UnoObjectError, suppress_disposed
 from plugin.framework.uno_context import get_extension_url, get_ctx
 
 if TYPE_CHECKING:
@@ -49,7 +47,6 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
 XDL_PATH = "Dialogs/PythonSidebarDialog.xdl"
 _PRE_NEGOTIATION_PANEL_WIDTH = 220
 _IMPL_NAME = "org.extension.librepy.PythonPanelFactory"
@@ -99,13 +96,10 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         parent_rect = self.parent_window.getPosSize()
         parent_w = parent_rect.Width
         parent_h = parent_rect.Height
-        try:
+        current_h = 0
+        with suppress_disposed("getHeightForWidth getPosSize", logger=log):
             before = self.PanelWindow.getPosSize()
             current_h = before.Height if before else 0
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("getHeightForWidth: PanelWindow disposed: %s", e)
-            current_h = 0
         if current_h <= 0:
             current_h = parent_h if parent_h > 0 else 400
 
@@ -118,20 +112,12 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
             parent_h,
             eff_w,
         )
-        try:
+        with suppress_disposed("getHeightForWidth setPosSize", logger=log):
             self.PanelWindow.setPosSize(0, 0, eff_w, current_h, 15)
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("getHeightForWidth setPosSize failed: %s", e)
         rl = getattr(self, "resize_listener", None)
         if rl is not None:
-            try:
+            with suppress_disposed("getHeightForWidth relayout_now", logger=log):
                 rl.relayout_now(self.PanelWindow)
-            except Exception as e:
-                if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                    log.debug("getHeightForWidth relayout_now failed: %s", e)
-                else:
-                    log.debug("getHeightForWidth relayout_now: %s", e)
         return uno.createUnoStruct("com.sun.star.ui.LayoutSize", 100, -1, 400)
 
     def getMinimalWidth(self):
@@ -186,18 +172,12 @@ class PythonPanelElement(unohelper.Base, XUIElement):
         )
         self.m_panelRootWindow = provider.createContainerWindow(dialog_url, "", self.xParentWindow, None)
         if self.m_panelRootWindow and hasattr(self.m_panelRootWindow, "setVisible"):
-            try:
+            with suppress_disposed("setVisible", logger=log):
                 self.m_panelRootWindow.setVisible(True)
-            except Exception as e:
-                if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                    log.debug("setVisible failed: %s", e)
-        try:
+        with suppress_disposed("constrain panel", logger=log):
             parent_rect = self.xParentWindow.getPosSize()
             target_h = parent_rect.Height if parent_rect.Height > 0 else 400
             self.m_panelRootWindow.setPosSize(0, 0, 220, target_h, 15)
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("constrain panel failed: %s", e)
         return self.m_panelRootWindow
 
     def disposing(self, Source=None):

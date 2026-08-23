@@ -16,20 +16,17 @@ import json
 import threading
 import queue
 import logging
-from typing import TYPE_CHECKING, Protocol, Any, Callable, TypeVar, cast
-
-try:
-    from com.sun.star.lang import DisposedException
-    from com.sun.star.uno import RuntimeException, Exception as UnoException
-    # Common exceptions for UI components that may be disposed during layout/refresh
-    UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
-except ImportError:
-    # Fallback for tests without PyUNO
-    UNO_DISPOSED_EXCEPTIONS = cast("Any", (Exception,))
+from typing import TYPE_CHECKING, Protocol, Any, Callable, TypeVar
 
 from plugin.framework.i18n import _
 from plugin.framework.async_stream import StreamQueueKind, run_blocking_in_thread, run_async_worker_with_drain
-from plugin.framework.errors import safe_json_loads, format_error_payload, AgentParsingError, ConfigError, NetworkError
+from plugin.framework.errors import (
+    AgentParsingError,
+    NetworkError,
+    format_error_payload,
+    safe_json_loads,
+    suppress_disposed,
+)
 from plugin.framework.config import get_api_config, get_config, get_config_int_safe, as_bool
 from plugin.framework.client.llm_client import LlmClient
 from plugin.framework.constants import CHAT_DOCUMENT_CONTEXT_MAX_CHARS
@@ -260,18 +257,8 @@ class SendHandlersMixin:
 
                 cancel_scope = getattr(self, "_send_cancellation", None)
                 tctx = ToolContext(doc=model, ctx=self.ctx, stop_checker=self.resolve_stop_checker(), doc_type=getattr(self, "cached_doc_type", None) or "writer", services=get_tools()._services, caller="chat", status_callback=lambda t: q.put((StreamQueueKind.STATUS, t)), send_cancellation=cancel_scope, uno_services_supported=getattr(self, "cached_uno_services", None))
-                try:
-
-
+                with suppress_disposed("LRU update", logger=log, exc_info=True):
                     update_lru_history(base_size_val, "image_base_size_lru", "")
-                except Exception as elru:
-                    if isinstance(elru, ConfigError):
-                        log.exception("LRU update ConfigError")
-                    else:
-                        if isinstance(elru, UNO_DISPOSED_EXCEPTIONS):
-                            log.debug("LRU update error (likely disposed)", exc_info=True)
-                        else:
-                            log.exception("LRU update failed")
 
 
 
@@ -317,17 +304,16 @@ class SendHandlersMixin:
 
 
         document_url = ""
-        try:
+        with suppress_disposed("get document URL for agent backend", logger=log):
             if model and hasattr(model, "getURL"):
                 document_url = str(model.getURL() or "")
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("Failed to get document URL for agent backend (likely disposed): %s", e)
 
         try:
             doc_context = get_document_context_for_chat(model, CHAT_DOCUMENT_CONTEXT_MAX_CHARS, include_end=True, include_selection=True, ctx=self.ctx)
         except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
+            from plugin.framework.errors import is_disposed_exception
+
+            if is_disposed_exception(e):
                 log.debug("Failed to build document context for agent backend (likely disposed): %s", e)
             else:
                 log.exception("Failed to build document context for agent backend")

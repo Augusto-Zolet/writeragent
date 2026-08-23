@@ -29,12 +29,8 @@ import uuid
 import uno
 import unohelper
 
-from com.sun.star.lang import DisposedException, IllegalArgumentException
-from com.sun.star.uno import RuntimeException, Exception as UnoException
+from com.sun.star.lang import IllegalArgumentException
 from com.sun.star.container import NoSuchElementException
-
-# Common exceptions for UI components that may be disposed during layout/refresh
-UNO_DISPOSED_EXCEPTIONS = (DisposedException, RuntimeException, UnoException)
 
 # Ensure the extension's install directory is on sys.path so that normal
 # "import plugin.xxx" statements work when LibreOffice loads this module.
@@ -80,7 +76,7 @@ from plugin.framework.uno_listeners import BaseItemListener, BaseTextListener
 from plugin.framework.config import get_config, get_current_endpoint
 from plugin.framework.client.model_fetcher import get_text_model, get_image_model, set_image_model, set_text_model
 from plugin.framework.i18n import _
-from plugin.framework.errors import UnoObjectError, ConfigError
+from plugin.framework.errors import UnoObjectError, suppress_disposed
 from plugin.framework.prompts import get_chat_system_prompt_for_document, get_greeting_for_document, DEFAULT_RESEARCH_GREETING, DEFAULT_DEEP_RESEARCH_GREETING, DEFAULT_BRAINSTORMING_GREETING, DEFAULT_PPT_MASTER_GREETING
 from plugin.doc.doc_type import get_document_type, DocumentType
 from plugin.doc.udprops import get_document_property, set_document_property
@@ -179,16 +175,13 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         deck_w = width
 
         # Read current actual size *before* we decide.
-        try:
+        before = None
+        current_w = 0
+        current_h = 0
+        with suppress_disposed("getHeightForWidth getPosSize", logger=log):
             before = self.PanelWindow.getPosSize()
             current_w = before.Width if before else 0
             current_h = before.Height if before else 0
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("getHeightForWidth: PanelWindow likely disposed: %s", e)
-            before = None
-            current_w = 0
-            current_h = 0
 
         # Width is negotiated here; height stays whatever LO/deck already allocated.
         if current_h <= 0:
@@ -223,32 +216,21 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         log.debug("getHeightForWidth deck_hint=%s parent=%sx%s current_root=%s eff_W=%s" % (deck_w, parent_w, parent_h, "%sx%s" % (before.Width, before.Height) if before else None, eff_w))
         rl = getattr(self, "resize_listener", None)
         if rl is not None and hasattr(rl, "note_width_negotiated"):
-            try:
+            with suppress_disposed("getHeightForWidth note_width_negotiated", logger=log):
                 rl.note_width_negotiated()
-            except Exception as e:
-                if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                    log.debug("getHeightForWidth: resize listener likely disposed: %s", e)
-        try:
+        with suppress_disposed("getHeightForWidth setPosSize", logger=log):
             self.PanelWindow.setPosSize(0, 0, eff_w, current_h, 15)
             after = self.PanelWindow.getPosSize()
             log.debug("getHeightForWidth root_after=%sx%s" % (after.Width, after.Height))
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("getHeightForWidth: failed to set or get pos size (likely disposed): %s", e)
 
         if rl is not None:
-            try:
+            with suppress_disposed("getHeightForWidth relayout_now", logger=log):
                 from plugin.chatbot.rich_text_control import log_rich_scroll
 
                 rich = rl._c.get("response_rich") if hasattr(rl, "_c") else None
                 log_rich_scroll("getHeightForWidth_before", control=rich, eff_w=eff_w)
                 rl.relayout_now(self.PanelWindow)
                 log_rich_scroll("getHeightForWidth_after", control=rich, eff_w=eff_w)
-            except Exception as e:
-                if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                    log.debug("getHeightForWidth relayout_now failed (likely disposed): %s", e)
-                else:
-                    log.debug("getHeightForWidth relayout_now: %s" % e)
 
         return uno.createUnoStruct("com.sun.star.ui.LayoutSize", 100, -1, 400)
 
@@ -338,18 +320,13 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             )
         # Sidebar does not show the panel content without this (framework does not make it visible).
         if hasattr(self.m_panelRootWindow, "setVisible"):
-            try:
+            with suppress_disposed("set panel root window visible", logger=log):
                 self.m_panelRootWindow.setVisible(True)
-            except Exception as e:
-                if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                    log.debug("Failed to set panel root window visible (likely disposed): %s", e)
-                else:
-                    log.warning("[RICH-LIFECYCLE] setVisible(True) failed: %s", e)
         # Bug fix: on restored-wide startup, createContainerWindow can leave the root
         # at a stale frame-sized width before DeckLayouter calls getHeightForWidth.
         # Briefly cap that pre-negotiation size so sfx2 does not seed an H-scroll
         # range from the temporary root; getHeightForWidth expands to deck width.
-        try:
+        with suppress_disposed("constrain panel window", logger=log):
             parent_rect = self.xParentWindow.getPosSize()
             current_rect = self.m_panelRootWindow.getPosSize()
             source_w = parent_rect.Width if parent_rect.Width > 0 else current_rect.Width
@@ -360,9 +337,6 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             if target_w > 0 and target_h > 0:
                 self.m_panelRootWindow.setPosSize(0, 0, target_w, target_h, 15)
                 log.debug("panel pre-negotiation constrained to W=%s H=%s" % (target_w, target_h))
-        except Exception as e:
-            if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("Failed to constrain panel window (likely disposed): %s", e)
         return self.m_panelRootWindow
 
     def disposing(self, Source=None):
@@ -681,28 +655,17 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             root = getattr(self, "m_panelRootWindow", None)
             rl = getattr(tp, "resize_listener", None) if tp else None
             if rl and root:
-                try:
+                with suppress_disposed("relayout after toggling image UI", logger=log):
                     rl.relayout_now(root)
-                except Exception as e:
-                    if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                        log.debug("Failed to relayout after toggling image UI (likely disposed): %s", e)
 
         mode_flags = self._sidebar_mode_flags(model)
         initial_mode = CHAT_MODE_CHAT
 
         if chat_mode_selector:
-            try:
+            with suppress_disposed("chat_mode_selector wire", logger=log, exc_info=True):
                 populate_mode_selector_with_flags(chat_mode_selector, mode_flags)
                 set_selector_mode_with_flags(chat_mode_selector, initial_mode, mode_flags)
                 toggle_image_ui(is_image_mode(initial_mode))
-            except Exception as e:
-                if isinstance(e, ConfigError):
-                    log.exception("chat_mode_selector ConfigError")
-                else:
-                    if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                        log.debug("chat_mode_selector wire error (likely disposed)", exc_info=True)
-                    else:
-                        log.exception("chat_mode_selector wire failed")
 
         return initial_mode, mode_flags, toggle_image_ui
 
