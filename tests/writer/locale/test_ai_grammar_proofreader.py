@@ -174,6 +174,26 @@ def test_worker_does_not_pause_local_provider_when_agent_active() -> None:
     run_check.assert_called_once()
 
 
+def test_classify_errors_against_window_counts_before_in_after() -> None:
+    from plugin.writer.locale.ai_grammar_proofreader import classify_errors_against_window
+
+    errors = [
+        {"n_error_start": 2, "n_error_length": 3},
+        {"n_error_start": 20, "n_error_length": 4},
+        {"n_error_start": 40, "n_error_length": 2},
+        {"n_error_start": 18, "n_error_length": 5},
+    ]
+    cls = classify_errors_against_window(errors, 20, 30)
+    assert cls["before_window"] == 1
+    assert cls["in_window"] == 1
+    assert cls["after_window"] == 1
+    assert cls["straddle"] == 1
+    assert "2+3:before" in cls["error_spans"]
+    assert "20+4:in" in cls["error_spans"]
+    assert "40+2:after" in cls["error_spans"]
+    assert "18+5:straddle" in cls["error_spans"]
+
+
 def test_apply_proofreading_end_positions_skips_space_after_sentence() -> None:
     from plugin.writer.locale.ai_grammar_proofreader import _apply_proofreading_end_positions
     class Res:

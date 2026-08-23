@@ -338,6 +338,71 @@ def _apply_proofreading_end_positions(a_res: Any, a_text: str, covered_end: int)
     a_res.nBehindEndOfSentencePosition = n_next
 
 
+def classify_errors_against_window(
+    errors: Sequence[dict[str, Any]], n_start: int, n_behind: int
+) -> dict[str, Any]:
+    """Count cached errors fully inside / before / after / straddling ``[n_start, n_behind)``.
+
+    Writer typically only paints markup inside that half-open span. ``before_window`` on a
+    later-sentence call is the suspected reason earlier Harper hits never show as waves.
+    """
+    in_w = before = after = straddle = 0
+    parts: list[str] = []
+    for e in errors:
+        start = int(e.get("n_error_start", 0) or 0)
+        length = int(e.get("n_error_length", 0) or 0)
+        end = start + length
+        if start >= n_start and end <= n_behind:
+            in_w += 1
+            where = "in"
+        elif end <= n_start:
+            before += 1
+            where = "before"
+        elif start >= n_behind:
+            after += 1
+            where = "after"
+        else:
+            straddle += 1
+            where = "straddle"
+        parts.append(f"{start}+{length}:{where}")
+    return {
+        "in_window": in_w,
+        "before_window": before,
+        "after_window": after,
+        "straddle": straddle,
+        "error_spans": ",".join(parts),
+    }
+
+
+def _obs_result_window(
+    doc_id: str,
+    loc_key: str,
+    a_res: Any,
+    combined_errors: Sequence[dict[str, Any]],
+    *,
+    paragraph_span_count: int,
+    active_span_count: int,
+    uncached_active_count: int,
+) -> None:
+    n_start = int(getattr(a_res, "nStartOfSentencePosition", 0) or 0)
+    n_behind = int(getattr(a_res, "nBehindEndOfSentencePosition", 0) or 0)
+    n_next = int(getattr(a_res, "nStartOfNextSentencePosition", 0) or 0)
+    cls = classify_errors_against_window(combined_errors, n_start, n_behind)
+    grammar_obs(
+        "do_proofreading_result_window",
+        doc_id=doc_id,
+        grammar_bcp47=loc_key,
+        n_start=n_start,
+        n_behind=n_behind,
+        n_next=n_next,
+        n_errors=len(combined_errors),
+        paragraph_spans=paragraph_span_count,
+        active_spans=active_span_count,
+        uncached_active=uncached_active_count,
+        **cls,
+    )
+
+
 def _errors_to_uno_tuple(norms: Sequence[NormalizedProofError]) -> tuple[Any, ...]:
     if uno_mod is None:
         return ()
@@ -504,6 +569,24 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             # 2. Resolve the active spans that LibreOffice is currently requesting/editing
             active_spans = self._resolve_work_spans(aDocumentIdentifier, loc_key, aText, nStartOfSentencePosition, nSuggestedBehindEndOfSentencePosition)
             if not active_spans:
+                grammar_obs(
+                    "do_proofreading_result_window",
+                    doc_id=aDocumentIdentifier,
+                    grammar_bcp47=loc_key,
+                    n_start=nStartOfSentencePosition,
+                    n_behind=getattr(a_res, "nBehindEndOfSentencePosition", None),
+                    n_next=getattr(a_res, "nStartOfNextSentencePosition", None),
+                    n_errors=0,
+                    paragraph_spans=len(paragraph_spans),
+                    active_spans=0,
+                    uncached_active=0,
+                    in_window=0,
+                    before_window=0,
+                    after_window=0,
+                    straddle=0,
+                    error_spans="",
+                    skip="no_active_spans",
+                )
                 return a_res
 
             # We set the covered end to the end of the active spans we are checking
@@ -529,6 +612,16 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
 
             # 4. For enqueuing background checks, we only care about active spans that are uncached
             uncached_active_spans = reconcile_active_and_paragraph_spans(active_spans, uncached_paragraph_spans)
+
+            _obs_result_window(
+                aDocumentIdentifier,
+                loc_key,
+                a_res,
+                combined_errors,
+                paragraph_span_count=len(paragraph_spans),
+                active_span_count=len(active_spans),
+                uncached_active_count=len(uncached_active_spans),
+            )
 
             if not uncached_active_spans:
                 grammar_obs("do_proofreading_cache_all_hit", doc_id=aDocumentIdentifier, grammar_bcp47=loc_key, sentence_count=len(active_spans), error_count=len(combined_errors))
