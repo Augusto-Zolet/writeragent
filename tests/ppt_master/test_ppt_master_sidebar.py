@@ -30,7 +30,8 @@ def test_sidebar_flags_impress_has_ppt_master():
 def mode_from_label_ppt_master(labels, flags):
     from plugin.chatbot.chat_sidebar_mode import mode_from_label
 
-    return mode_from_label(labels[-1], **flags.__dict__)
+    # Librarian is always last; PPT-Master is the last doc-type-specific mode.
+    return mode_from_label(labels[-2], **flags.__dict__)
 
 
 def test_sidebar_flags_writer_no_ppt_master():

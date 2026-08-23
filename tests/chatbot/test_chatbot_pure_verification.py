@@ -50,7 +50,8 @@ def test_mode_from_label_contracts(label: str) -> None:
 
     labels = get_mode_labels()
     assert isinstance(labels, tuple)
-    assert len(labels) >= 4
+    assert len(labels) >= 5
+    assert "librarian" in _VALID_MODES
 
 
 def test_skills_guidance_constant() -> None:

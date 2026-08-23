@@ -413,6 +413,24 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             if self.chat_mode_selector and flags:
                 set_selector_mode_with_flags(self.chat_mode_selector, CHAT_MODE_CHAT, flags)
 
+    def on_librarian_session_finished(self) -> None:
+        """Reset sidebar after switch_to_document_mode (dropdown returns to Chat). History is kept."""
+        from plugin.chatbot.chat_sidebar_mode import (
+            CHAT_MODE_CHAT,
+            clear_librarian_session,
+            set_selector_mode_with_flags,
+        )
+
+        flags = getattr(self, "sidebar_mode_flags", None)
+        clear_librarian_session(self)
+        if self.chat_mode_selector and flags:
+            set_selector_mode_with_flags(self.chat_mode_selector, CHAT_MODE_CHAT, flags)
+        # Do not rely on ComboBox item-changed: swap to doc_session, re-render Chat
+        # pane, and refresh [DOCUMENT CONTENT] for the next send.
+        apply_fn = getattr(self, "_apply_sidebar_mode_fn", None)
+        if callable(apply_fn):
+            apply_fn(CHAT_MODE_CHAT)
+
     def on_writing_plan_session_finished(self) -> None:
         """Reset sidebar after writing_plan_finished (dropdown returns to Chat)."""
         from plugin.chatbot.chat_sidebar_mode import (
@@ -961,6 +979,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
             CHAT_MODE_BRAINSTORMING,
             CHAT_MODE_DEEP_RESEARCH,
             CHAT_MODE_IMAGE,
+            CHAT_MODE_LIBRARIAN,
             CHAT_MODE_PPT_MASTER,
             CHAT_MODE_WEB_RESEARCH,
             CHAT_MODE_WRITING_PLAN,
@@ -970,6 +989,11 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
 
         flags = getattr(self, "sidebar_mode_flags", None) or sidebar_mode_flags_for_doc_type(doc_type_label or "writer")
         sidebar_mode = mode_from_selector_with_flags(self.chat_mode_selector, flags)
+
+        if sidebar_mode == CHAT_MODE_LIBRARIAN:
+            log.info("_do_send: using librarian onboarding agent")
+            self._run_librarian(query_text, model)
+            return
 
         if sidebar_mode == CHAT_MODE_WEB_RESEARCH:
             log.info("_do_send: using web research sub-agent — skip chat model and direct image")
@@ -1019,28 +1043,6 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                 return
         except Exception:
             log.exception("_do_send: agent backend check failed")
-
-        if self._in_librarian_mode:
-            log.info("_do_send: continuing librarian onboarding agent")
-            self._run_librarian(query_text, model)
-            return
-
-        # Check if USER.md exists for Librarian Onboarding entry
-        user_md_exists = False
-        from plugin.chatbot.memory import MemoryStore
-
-        store = MemoryStore(self.ctx)
-        if store.read("user"):
-            user_md_exists = True
-
-        # Start onboarding when no user profile exists yet. Once started, the
-        # per-panel librarian flag keeps later turns in onboarding until the
-        # librarian explicitly switches modes.
-        if not user_md_exists:
-            self._in_librarian_mode = True
-            log.info("_do_send: using librarian onboarding agent")
-            self._run_librarian(query_text, model)
-            return
 
         # Regular Chat with Tools or Streams
         # Cast to Any to satisfy ty since SendButtonListener mixes in multiple protocol hosts

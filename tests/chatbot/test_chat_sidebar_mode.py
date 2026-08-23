@@ -8,16 +8,18 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from plugin.chatbot.chat_sidebar_mode import (
     CHAT_MODE_BRAINSTORMING,
     CHAT_MODE_CHAT,
     CHAT_MODE_DEEP_RESEARCH,
     CHAT_MODE_IMAGE,
+    CHAT_MODE_LIBRARIAN,
     CHAT_MODE_WEB_RESEARCH,
     CHAT_MODE_WRITING_PLAN,
     clear_brainstorming_session,
+    clear_librarian_session,
     clear_writing_plan_session,
     get_mode_labels,
     mode_from_label,
@@ -29,19 +31,22 @@ from plugin.chatbot.chat_sidebar_mode import (
 
 def test_mode_labels_include_brainstorming_when_writer():
     labels = get_mode_labels(include_brainstorming=True, include_writing_plan=True)
-    assert len(labels) == 6
+    assert len(labels) == 7
     assert mode_from_label(labels[0], include_brainstorming=True, include_writing_plan=True) == CHAT_MODE_CHAT
+    assert labels[1] == "Image"
     assert mode_from_label(labels[1], include_brainstorming=True, include_writing_plan=True) == CHAT_MODE_IMAGE
     assert mode_from_label(labels[2], include_brainstorming=True, include_writing_plan=True) == CHAT_MODE_WEB_RESEARCH
     assert mode_from_label(labels[3], include_brainstorming=True, include_writing_plan=True) == CHAT_MODE_DEEP_RESEARCH
     assert mode_from_label(labels[4], include_brainstorming=True, include_writing_plan=True) == CHAT_MODE_BRAINSTORMING
     assert mode_from_label(labels[5], include_brainstorming=True, include_writing_plan=True) == CHAT_MODE_WRITING_PLAN
+    assert mode_from_label(labels[6], include_brainstorming=True, include_writing_plan=True) == CHAT_MODE_LIBRARIAN
 
 
 def test_mode_labels_omit_brainstorming_for_calc():
     labels = get_mode_labels(include_brainstorming=False, include_writing_plan=True, include_ppt_master=False)
-    assert len(labels) == 5
+    assert len(labels) == 6
     assert mode_from_label(labels[4], include_brainstorming=False, include_writing_plan=True) == CHAT_MODE_WRITING_PLAN
+    assert mode_from_label(labels[-1], include_brainstorming=False, include_writing_plan=True) == CHAT_MODE_LIBRARIAN
 
 
 def test_mode_labels_ppt_master_for_impress():
@@ -49,8 +54,9 @@ def test_mode_labels_ppt_master_for_impress():
 
     flags = sidebar_mode_flags_for_doc_type("impress")
     labels = get_mode_labels(**flags.__dict__)
-    assert len(labels) == 5
+    assert len(labels) == 6
     assert mode_from_label(labels[4], **flags.__dict__) == CHAT_MODE_PPT_MASTER
+    assert mode_from_label(labels[-1], **flags.__dict__) == CHAT_MODE_LIBRARIAN
 
 
 def test_mode_from_selector_reads_combobox_text():
@@ -93,3 +99,46 @@ def test_clear_writing_plan_session_resets_flags():
     clear_writing_plan_session(listener)
     assert listener._in_writing_plan_mode is False
     assert listener._writing_plan_topic == ""
+
+
+def test_clear_librarian_session_resets_flag_only():
+    listener = MagicMock()
+    listener._in_librarian_mode = True
+    clear_librarian_session(listener)
+    assert listener._in_librarian_mode is False
+
+
+def test_librarian_default_mode_first_then_chat():
+    from plugin.chatbot.chat_sidebar_mode import librarian_default_mode, mark_librarian_invoked
+
+    with patch("plugin.framework.config.get_config_bool_safe", return_value=False):
+        assert librarian_default_mode() == CHAT_MODE_LIBRARIAN
+    with patch("plugin.framework.config.get_config_bool_safe", return_value=True):
+        assert librarian_default_mode() == CHAT_MODE_CHAT
+    with patch("plugin.framework.config.set_config") as mock_set:
+        mark_librarian_invoked()
+        mock_set.assert_called_once_with("chatbot.librarian_invoked", True)
+
+
+def test_librarian_default_mode_existing_profile_skips_and_sets_flag():
+    from plugin.chatbot.chat_sidebar_mode import librarian_default_mode
+
+    with patch("plugin.framework.config.get_config_bool_safe", return_value=False), patch(
+        "plugin.chatbot.memory.user_profile_exists", return_value=True
+    ), patch("plugin.chatbot.chat_sidebar_mode.mark_librarian_invoked") as mock_mark:
+        assert librarian_default_mode(ctx=object()) == CHAT_MODE_CHAT
+        mock_mark.assert_called_once()
+
+
+def test_librarian_history_session_id_is_global():
+    from plugin.chatbot.chat_sidebar_mode import LIBRARIAN_HISTORY_SESSION_ID
+
+    assert LIBRARIAN_HISTORY_SESSION_ID == "writeragent_librarian"
+    assert "_web" not in LIBRARIAN_HISTORY_SESSION_ID
+
+
+def test_set_selector_mode_librarian_is_last_index():
+    ctrl = MagicMock()
+    labels = get_mode_labels(include_brainstorming=True, include_writing_plan=True)
+    set_selector_mode(ctrl, CHAT_MODE_LIBRARIAN, include_brainstorming=True, include_writing_plan=True)
+    ctrl.selectItemPos.assert_called_once_with(len(labels) - 1, True)

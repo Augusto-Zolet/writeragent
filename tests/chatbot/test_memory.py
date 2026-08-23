@@ -13,6 +13,7 @@ from plugin.chatbot.memory import (
     format_upsert_memory_chat_line_from_arguments,
     memory_key_from_tool_arguments,
     upsert_memory_arguments_dict,
+    user_profile_exists,
 )
 
 class DummyCtx:
@@ -49,6 +50,18 @@ class TestMemory(unittest.TestCase):
             MemoryStore(tctx)
 
         mock_cfg.assert_called_once_with()
+
+    def test_user_profile_exists_false_when_empty(self):
+        with patch("plugin.chatbot.memory.user_config_dir", return_value=self.tmp_dir):
+            assert user_profile_exists(self.ctx) is False
+            MemoryStore(self.ctx).write("user", "   ")
+            assert user_profile_exists(self.ctx) is False
+            MemoryStore(self.ctx).write("user", '{"name": "Keith"}')
+            assert user_profile_exists(self.ctx) is True
+
+    def test_user_profile_exists_false_on_store_error(self):
+        with patch("plugin.chatbot.memory.MemoryStore", side_effect=RuntimeError("no config")):
+            assert user_profile_exists(object()) is False
 
     def test_memory_store_accepts_raw_ctx(self):
         raw_ctx = object()

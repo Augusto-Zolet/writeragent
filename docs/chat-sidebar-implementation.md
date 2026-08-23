@@ -22,7 +22,7 @@ Prompt text lives in [`plugin/framework/prompts.py`](../plugin/framework/prompts
 
 **Menu chat** (non-sidebar entry) has no tool-calling; it is conversational only.
 
-**Sidebar mode dropdown** (Chat, Image, Web Research, …) is session-only: the panel always wires to **Chat** on load. Users can switch modes during the session; the choice is not persisted to `writeragent.json`.
+**Sidebar mode dropdown** (Chat, Image, Web Research, …, Librarian last) is session-only and is **not** persisted to `writeragent.json`. On load the panel selects **Librarian** when `USER.md` is empty, otherwise **Chat**. Chat and Web Research histories are per document; Librarian uses a fixed session id in the same history DB (one transcript per LibreOffice user profile). Switching modes swaps the active `ChatSession` and does not mix transcripts.
 
 ### Reasoning (`[Thinking]`) and tool calls
 

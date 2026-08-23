@@ -4,7 +4,7 @@ This mixin is used by SendButtonListener in panel.py and contains
 alternate send flows that would otherwise bloat that class:
 
 - Audio transcription fallback
-- Direct image generation (Use Image model)
+- Direct image generation (sidebar Image mode)
 - External agent backends (Aider, Hermes)
 - Web research sub-agent
 """
@@ -96,6 +96,7 @@ class SendHandlerHost(Protocol):
     def _get_mcp_url(self) -> str | None: ...
     def _do_send_direct_image(self, query_text: str, model: Any) -> None: ...
     def _do_send_via_agent_backend(self, query_text: str, model: Any, doc_type_str: str) -> None: ...
+    def on_librarian_session_finished(self) -> None: ...
     def _run_librarian(self, query_text: str, model: Any) -> None: ...
     def _run_brainstorming(self, query_text: str, model: Any) -> None: ...
     def _run_writing_plan(self, query_text: str, model: Any) -> None: ...
@@ -181,6 +182,12 @@ class SendHandlersMixin:
 
         def on_stream_done(item):
             payload = item[1] if isinstance(item, tuple) and len(item) > 1 else item
+            if isinstance(payload, dict) and payload.get("librarian_switch_to_chat"):
+                finished_cb = getattr(self, "on_librarian_session_finished", None)
+                if callable(finished_cb):
+                    finished_cb()
+                else:
+                    self._in_librarian_mode = False
             dispatch_event(StreamDoneEvent(payload))
 
         def on_stopped():
@@ -617,21 +624,20 @@ class SendHandlersMixin:
                         self._record_assistant_start = True
                         q.put((StreamQueueKind.CHUNK, answer + "\n"))
                         self.session.add_assistant_message(content=answer)
+                        q.put((StreamQueueKind.STREAM_DONE, {}))
                     elif data.get("status") == "switch_mode":
-                        # We want to exit librarian flow on the next turn.
-                        self._in_librarian_mode = False
-
+                        # Exit librarian on the UI thread via STREAM_DONE (combobox is UNO).
                         answer = data.get("result", _("Perfect! I'm switching you to the main assistant now."))
                         self._record_assistant_start = True
                         q.put((StreamQueueKind.CHUNK, answer + "\n"))
                         self.session.add_assistant_message(content=answer)
+                        q.put((StreamQueueKind.STREAM_DONE, {"librarian_switch_to_chat": True}))
                     else:
                         self._in_librarian_mode = False
 
                         msg = data.get("message", _("Unknown librarian error."))
                         q.put((StreamQueueKind.CHUNK, "\n" + _("[Librarian error: {0}]").format(msg) + "\n"))
-
-                    q.put((StreamQueueKind.STREAM_DONE, {}))
+                        q.put((StreamQueueKind.STREAM_DONE, {}))
                 elif is_brainstorming:
                     topic = getattr(self, "_brainstorming_topic", "") or ""
                     res = get_tools().execute(

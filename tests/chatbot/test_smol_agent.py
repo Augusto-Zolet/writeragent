@@ -91,7 +91,7 @@ setup_uno_mocks()
 # =============================================================================
 
 
-def _make_listener(*, in_librarian_mode: bool) -> SimpleNamespace:
+def _make_listener(*, in_librarian_mode: bool = False, sidebar_mode: str = "chat") -> SimpleNamespace:
     query_control = MagicMock()
     query_control.getModel.return_value = True
 
@@ -102,7 +102,7 @@ def _make_listener(*, in_librarian_mode: bool) -> SimpleNamespace:
         cached_doc_type="writer",
         cached_uno_services=frozenset({"com.sun.star.text.TextDocument"}),
         audio_wav_path=None,
-        chat_mode_selector=None,
+        chat_mode_selector=MagicMock(),
         model_selector=MagicMock(),
         sidebar_include_brainstorming=True,
         query_control=query_control,
@@ -791,64 +791,82 @@ def test_format_grammar_status_failed_language_vs_grammar() -> None:
     assert grm == "Grammar: failed 'Grammar ch…' len 13: ValueError"
 
 
-def test_do_send_enters_librarian_when_user_memory_missing():
-    listener = _make_listener(in_librarian_mode=False)
+def _patch_do_send(listener, *, sidebar_mode: str):
+    from plugin.chatbot.chat_sidebar_mode import SidebarModeFlags
 
-    with patch("plugin.chatbot.panel.update_activity_state"), patch(
-        "plugin.chatbot.dialogs.get_control_text", return_value="Hello"
-    ), patch("plugin.chatbot.dialogs.set_control_text"), patch(
-        "plugin.framework.config.get_config", return_value=None
-    ), patch(
-        "plugin.agent_backend.registry.normalize_backend_id", return_value="builtin"
-    ), patch("plugin.chatbot.config_ui_helpers.sync_sidebar_text_model"), patch(
+    listener.sidebar_mode_flags = SidebarModeFlags(include_brainstorming=True, include_writing_plan=True)
+    return (
+        patch("plugin.chatbot.panel.update_activity_state"),
+        patch("plugin.chatbot.dialogs.get_control_text", return_value="Hello"),
+        patch("plugin.chatbot.dialogs.set_control_text"),
+        patch("plugin.framework.config.get_config", return_value=None),
+        patch("plugin.agent_backend.registry.normalize_backend_id", return_value="builtin"),
+        patch("plugin.chatbot.config_ui_helpers.sync_sidebar_text_model"),
+        patch(
+            "plugin.chatbot.chat_sidebar_mode.mode_from_selector_with_flags",
+            return_value=sidebar_mode,
+        ),
+    )
+
+
+def test_do_send_enters_librarian_when_selector_is_librarian():
+    from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_LIBRARIAN
+
+    listener = _make_listener()
+    patches = _patch_do_send(listener, sidebar_mode=CHAT_MODE_LIBRARIAN)
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6]:
+        SendButtonListener._do_send(listener)
+
+    listener._run_librarian.assert_called_once()
+    listener._do_send_chat_with_tools.assert_not_called()
+
+
+def test_do_send_chat_even_when_user_memory_missing():
+    """Dropdown is the door: Chat + empty USER.md must not intercept (#346)."""
+    from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_CHAT
+
+    listener = _make_listener()
+    patches = _patch_do_send(listener, sidebar_mode=CHAT_MODE_CHAT)
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6], patch(
         "plugin.chatbot.memory.MemoryStore"
     ) as mock_store:
         mock_store.return_value.read.return_value = ""
         SendButtonListener._do_send(listener)
 
-    assert listener._in_librarian_mode is True
-    listener._run_librarian.assert_called_once()
-    listener._do_send_chat_with_tools.assert_not_called()
-
-
-def test_do_send_stays_in_librarian_mode_without_rechecking_memory():
-    listener = _make_listener(in_librarian_mode=True)
-
-    with patch("plugin.chatbot.panel.update_activity_state"), patch(
-        "plugin.chatbot.dialogs.get_control_text", return_value="Hello again"
-    ), patch("plugin.chatbot.dialogs.set_control_text"), patch(
-        "plugin.framework.config.get_config", return_value=None
-    ), patch(
-        "plugin.agent_backend.registry.normalize_backend_id", return_value="builtin"
-    ), patch("plugin.chatbot.config_ui_helpers.sync_sidebar_text_model"), patch(
-        "plugin.chatbot.memory.MemoryStore"
-    ) as mock_store:
-        SendButtonListener._do_send(listener)
-
-    assert listener._in_librarian_mode is True
-    mock_store.assert_not_called()
-    listener._run_librarian.assert_called_once()
-    listener._do_send_chat_with_tools.assert_not_called()
-
-
-def test_do_send_uses_document_chat_after_librarian_flag_clears():
-    listener = _make_listener(in_librarian_mode=False)
-
-    with patch("plugin.chatbot.panel.update_activity_state"), patch(
-        "plugin.chatbot.dialogs.get_control_text", return_value="Work on the document"
-    ), patch("plugin.chatbot.dialogs.set_control_text"), patch(
-        "plugin.framework.config.get_config", return_value=None
-    ), patch(
-        "plugin.agent_backend.registry.normalize_backend_id", return_value="builtin"
-    ), patch("plugin.chatbot.config_ui_helpers.sync_sidebar_text_model"), patch(
-        "plugin.chatbot.memory.MemoryStore"
-    ) as mock_store:
-        mock_store.return_value.read.return_value = '{"name": "Keith"}'
-        SendButtonListener._do_send(listener)
-
-    assert listener._in_librarian_mode is False
     listener._run_librarian.assert_not_called()
     listener._do_send_chat_with_tools.assert_called_once()
+    mock_store.assert_not_called()
+
+
+def test_do_send_uses_document_chat_when_selector_is_chat():
+    from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_CHAT
+
+    listener = _make_listener()
+    patches = _patch_do_send(listener, sidebar_mode=CHAT_MODE_CHAT)
+    with patches[0], patches[1], patches[2], patches[3], patches[4], patches[5], patches[6]:
+        SendButtonListener._do_send(listener)
+
+    listener._run_librarian.assert_not_called()
+    listener._do_send_chat_with_tools.assert_called_once()
+
+
+def test_on_librarian_session_finished_applies_chat_mode():
+    from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_CHAT, SidebarModeFlags
+    from plugin.chatbot.panel import SendButtonListener
+
+    listener = SimpleNamespace(
+        sidebar_mode_flags=SidebarModeFlags(include_brainstorming=True, include_writing_plan=True),
+        chat_mode_selector=MagicMock(),
+        _apply_sidebar_mode_fn=MagicMock(),
+        _in_librarian_mode=True,
+    )
+    with patch("plugin.chatbot.chat_sidebar_mode.set_selector_mode_with_flags") as mock_set:
+        SendButtonListener.on_librarian_session_finished(listener)  # type: ignore[misc]
+
+    assert listener._in_librarian_mode is False
+    mock_set.assert_called_once()
+    assert mock_set.call_args[0][1] == CHAT_MODE_CHAT
+    listener._apply_sidebar_mode_fn.assert_called_once_with(CHAT_MODE_CHAT)
 
 
 class TestSmolMixedToolCalls(unittest.TestCase):

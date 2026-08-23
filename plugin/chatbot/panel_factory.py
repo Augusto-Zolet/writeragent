@@ -77,7 +77,7 @@ from plugin.framework.config import get_config, get_current_endpoint
 from plugin.framework.client.model_fetcher import get_text_model, get_image_model, set_image_model, set_text_model
 from plugin.framework.i18n import _
 from plugin.framework.errors import UnoObjectError, suppress_disposed
-from plugin.framework.prompts import get_chat_system_prompt_for_document, get_greeting_for_document, DEFAULT_RESEARCH_GREETING, DEFAULT_DEEP_RESEARCH_GREETING, DEFAULT_BRAINSTORMING_GREETING, DEFAULT_PPT_MASTER_GREETING
+from plugin.framework.prompts import get_chat_system_prompt_for_document, get_greeting_for_document, DEFAULT_RESEARCH_GREETING, DEFAULT_DEEP_RESEARCH_GREETING, DEFAULT_BRAINSTORMING_GREETING, DEFAULT_PPT_MASTER_GREETING, DEFAULT_LIBRARIAN_GREETING
 from plugin.doc.doc_type import get_document_type, DocumentType
 from plugin.doc.udprops import get_document_property, set_document_property
 
@@ -579,7 +579,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         return sidebar_mode_flags_for_doc_type(doc_type_label_for_enum(get_document_type(model)))
 
     def _greeting_for_sidebar_mode(self, mode, model):
-        from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_BRAINSTORMING, CHAT_MODE_DEEP_RESEARCH, CHAT_MODE_PPT_MASTER, CHAT_MODE_WEB_RESEARCH
+        from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_BRAINSTORMING, CHAT_MODE_DEEP_RESEARCH, CHAT_MODE_LIBRARIAN, CHAT_MODE_PPT_MASTER, CHAT_MODE_WEB_RESEARCH
 
         if mode == CHAT_MODE_WEB_RESEARCH:
             return _(DEFAULT_RESEARCH_GREETING)
@@ -589,6 +589,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             return _(DEFAULT_BRAINSTORMING_GREETING)
         if mode == CHAT_MODE_PPT_MASTER:
             return _(DEFAULT_PPT_MASTER_GREETING)
+        if mode == CHAT_MODE_LIBRARIAN:
+            return _(DEFAULT_LIBRARIAN_GREETING)
         return get_greeting_for_document(model)
 
     def _wire_chat_mode_ui(
@@ -603,7 +605,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         model,
     ):
         """Initializes sidebar mode dropdown and image-related controls; returns (initial_mode, include_brainstorming, toggle_image_ui)."""
-        from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_CHAT, is_image_mode, populate_mode_selector_with_flags, set_selector_mode_with_flags
+        from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_LIBRARIAN, is_image_mode, librarian_default_mode, mark_librarian_invoked, populate_mode_selector_with_flags, set_selector_mode_with_flags
 
         if aspect_ratio_selector:
             aspect_ratio_selector.addItems(("Square", "Landscape (16:9)", "Portrait (9:16)", "Landscape (3:2)", "Portrait (2:3)"), 0)
@@ -659,7 +661,9 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                     rl.relayout_now(root)
 
         mode_flags = self._sidebar_mode_flags(model)
-        initial_mode = CHAT_MODE_CHAT
+        initial_mode = librarian_default_mode(self.ctx)
+        if initial_mode == CHAT_MODE_LIBRARIAN:
+            mark_librarian_invoked()
 
         if chat_mode_selector:
             with suppress_disposed("chat_mode_selector wire", logger=log, exc_info=True):
@@ -672,10 +676,13 @@ class ChatPanelElement(unohelper.Base, XUIElement):
     def _apply_sidebar_mode(self, mode, model, response_ctrl, send_listener, clear_listener, toggle_image_ui):
         from plugin.chatbot.chat_sidebar_mode import (
             CHAT_MODE_BRAINSTORMING,
+            CHAT_MODE_CHAT,
             CHAT_MODE_DEEP_RESEARCH,
+            CHAT_MODE_LIBRARIAN,
             CHAT_MODE_PPT_MASTER,
             CHAT_MODE_WEB_RESEARCH,
             clear_brainstorming_session,
+            clear_librarian_session,
             clear_ppt_master_session,
             is_image_mode,
         )
@@ -684,10 +691,17 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             clear_brainstorming_session(send_listener)
         if mode != CHAT_MODE_PPT_MASTER and send_listener:
             clear_ppt_master_session(send_listener)
-        if mode in (CHAT_MODE_WEB_RESEARCH, CHAT_MODE_DEEP_RESEARCH):
+        if mode != CHAT_MODE_LIBRARIAN and send_listener:
+            # Flag only — librarian ChatSession history is global and must survive mode switches.
+            clear_librarian_session(send_listener)
+        if mode == CHAT_MODE_LIBRARIAN:
+            self.session = self.librarian_session
+        elif mode in (CHAT_MODE_WEB_RESEARCH, CHAT_MODE_DEEP_RESEARCH):
             self.session = self.web_session
         else:
             self.session = self.doc_session
+        if mode == CHAT_MODE_CHAT:
+            self._refresh_doc_session_context(model)
         toggle_image_ui(is_image_mode(mode))
         greeting = self._greeting_for_sidebar_mode(mode, model)
         if send_listener:
@@ -698,11 +712,43 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             self._render_session_history(self.session, response_ctrl, model, greeting)
         return greeting
 
+    def _refresh_doc_session_context(self, model) -> None:
+        """Reload Chat system prompt + [DOCUMENT CONTENT] for the document session.
+
+        Why: switch_to_document_mode (and picking Chat) must not keep a stale snapshot
+        from an earlier send. Visible pane still shows Chat history; the model sees
+        the current document on the next turn because tool_loop also refreshes — this
+        keeps the session consistent immediately after the dropdown flips.
+        """
+        session = getattr(self, "doc_session", None)
+        if session is None or model is None:
+            return
+        try:
+            from plugin.doc.document_helpers import get_document_context_for_chat
+            from plugin.framework.constants import CHAT_DOCUMENT_CONTEXT_MAX_CHARS
+
+            extra_instructions = str(get_config("additional_instructions") or "")
+            base_prompt = get_chat_system_prompt_for_document(model, extra_instructions, ctx=self.ctx)
+            doc_text = get_document_context_for_chat(
+                model, CHAT_DOCUMENT_CONTEXT_MAX_CHARS, include_end=True, include_selection=True, ctx=self.ctx
+            )
+            session.set_system_context(base_prompt, doc_text)
+        except Exception:
+            log.debug("_refresh_doc_session_context failed", exc_info=True)
+
     def _wire_chat_mode_listener(self, chat_mode_selector, model, response_ctrl, send_listener, clear_listener, toggle_image_ui, mode_flags):
         from plugin.chatbot.chat_sidebar_mode import mode_from_selector_with_flags
 
+        def apply_mode(mode):
+            self._apply_sidebar_mode(mode, model, response_ctrl, send_listener, clear_listener, toggle_image_ui)
+
+        # Librarian switch_to_document_mode must apply Chat even if ComboBox
+        # selectItemPos does not fire the item listener (UNO is inconsistent).
+        if send_listener is not None:
+            send_listener._apply_sidebar_mode_fn = apply_mode
+
         if not chat_mode_selector or not hasattr(chat_mode_selector, "addItemListener"):
-            return
+            return apply_mode
 
         class ChatModeListener(BaseItemListener):
             def __init__(self, panel, ctx, selector, flags, apply_target):
@@ -715,9 +761,6 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             def on_item_state_changed(self, rEvent):
                 mode = mode_from_selector_with_flags(self.selector, self.mode_flags)
                 self.apply_target(mode)
-
-        def apply_mode(mode):
-            self._apply_sidebar_mode(mode, model, response_ctrl, send_listener, clear_listener, toggle_image_ui)
 
         chat_mode_selector.addItemListener(ChatModeListener(self, self.ctx, chat_mode_selector, mode_flags, apply_mode))
         return apply_mode
@@ -773,6 +816,12 @@ class ChatPanelElement(unohelper.Base, XUIElement):
 
         self.doc_session = ChatSession(system_prompt, session_id=session_id)
         self.web_session = ChatSession("Observe: Always use the web_search tool to answer questions.", session_id=session_id + "_web")
+        from plugin.chatbot.chat_sidebar_mode import LIBRARIAN_HISTORY_SESSION_ID
+
+        self.librarian_session = ChatSession(
+            _(DEFAULT_LIBRARIAN_GREETING),
+            session_id=LIBRARIAN_HISTORY_SESSION_ID,
+        )
         self.session = self.doc_session
 
     def _wire_buttons(self, controls, model, initial_mode, mode_flags, toggle_image_ui):

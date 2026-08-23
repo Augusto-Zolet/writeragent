@@ -11,6 +11,7 @@ the area gotchas.
 - Smol / librarian ReAct (separate runtime; shares `LlmClient`): `smol_agent.py`
 - Dialogs / settings: `dialogs.py`, `dialog_views.py`, `settings_dialog.py`
 - Memory (experimental): `memory.py` — `MEMORY_GUIDANCE` is in `plugin/framework/prompts.py`
+- Librarian is a **sidebar mode** (last in the dropdown). Do **not** gate `_do_send` on missing `USER.md`. Default selection uses `chatbot.librarian_invoked` (first open only), not `USER.md`. History is a global `ChatSession` (`LIBRARIAN_HISTORY_SESSION_ID`), not per document.
 
 Topic docs: [docs/chat-sidebar-implementation.md](../../docs/chat-sidebar-implementation.md),
 [docs/chat-smol-tool-architecture.md](../../docs/chat-smol-tool-architecture.md),

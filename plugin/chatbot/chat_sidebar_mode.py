@@ -6,7 +6,7 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-"""Sidebar chat mode dropdown: Chat, Image, Web Research, Deep Research, Brainstorming, Writing Plan, PPT-Master."""
+"""Sidebar chat mode dropdown: Chat, Image, Web Research, Deep Research, Brainstorming, Writing Plan, PPT-Master, Librarian."""
 
 from __future__ import annotations
 
@@ -26,6 +26,11 @@ CHAT_MODE_DEEP_RESEARCH = "deep_research"
 CHAT_MODE_BRAINSTORMING = "brainstorming"
 CHAT_MODE_WRITING_PLAN = "writing_plan"
 CHAT_MODE_PPT_MASTER = "ppt-master"
+CHAT_MODE_LIBRARIAN = "librarian"
+
+# Fixed history_db session id: one Librarian transcript per LibreOffice user
+# profile, not per document (unlike doc_session / web_session).
+LIBRARIAN_HISTORY_SESSION_ID = "writeragent_librarian"
 
 _VALID_MODES = frozenset(
     {
@@ -36,6 +41,7 @@ _VALID_MODES = frozenset(
         CHAT_MODE_BRAINSTORMING,
         CHAT_MODE_WRITING_PLAN,
         CHAT_MODE_PPT_MASTER,
+        CHAT_MODE_LIBRARIAN,
     }
 )
 
@@ -64,7 +70,7 @@ def _label_chat() -> str:
 
 
 def _label_image() -> str:
-    return _("Image model")
+    return _("Image")
 
 
 def _label_web_research() -> str:
@@ -87,6 +93,10 @@ def _label_ppt_master() -> str:
     return _("PPT-Master")
 
 
+def _label_librarian() -> str:
+    return _("Librarian")
+
+
 def _modes_for(flags: SidebarModeFlags) -> tuple[str, ...]:
     modes: list[str] = [CHAT_MODE_CHAT, CHAT_MODE_IMAGE, CHAT_MODE_WEB_RESEARCH, CHAT_MODE_DEEP_RESEARCH]
     if flags.include_brainstorming:
@@ -95,10 +105,13 @@ def _modes_for(flags: SidebarModeFlags) -> tuple[str, ...]:
         modes.append(CHAT_MODE_WRITING_PLAN)
     if flags.include_ppt_master:
         modes.append(CHAT_MODE_PPT_MASTER)
+    # Last on purpose: onboarding is opt-in after first run; default *selection*
+    # can still be Librarian when USER.md is missing.
+    modes.append(CHAT_MODE_LIBRARIAN)
     return tuple(modes)
 
 
-@deal.post(lambda result: isinstance(result, tuple) and len(result) >= 4)
+@deal.post(lambda result: isinstance(result, tuple) and len(result) >= 5)
 def get_mode_labels(*, include_brainstorming: bool = False, include_writing_plan: bool = True, include_ppt_master: bool = False) -> tuple[str, ...]:
     """Translated combobox labels in display order."""
     flags = SidebarModeFlags(
@@ -113,6 +126,7 @@ def get_mode_labels(*, include_brainstorming: bool = False, include_writing_plan
         labels.append(_label_writing_plan())
     if flags.include_ppt_master:
         labels.append(_label_ppt_master())
+    labels.append(_label_librarian())
     return tuple(labels)
 
 
@@ -303,6 +317,44 @@ def is_writing_plan_mode(mode: str) -> bool:
 
 def is_ppt_master_mode(mode: str) -> bool:
     return mode == CHAT_MODE_PPT_MASTER
+
+
+def is_librarian_mode(mode: str) -> bool:
+    return mode == CHAT_MODE_LIBRARIAN
+
+
+def librarian_default_mode(ctx: Any = None) -> str:
+    """Librarian once on first sidebar open; later opens start on Chat even if USER.md is empty.
+
+    USER.md is not the ongoing gate. If a profile already exists (pre-flag installs),
+    treat Librarian as already offered so upgrades do not re-open onboarding.
+    """
+    from plugin.framework.config import get_config_bool_safe
+
+    if get_config_bool_safe("chatbot.librarian_invoked"):
+        return CHAT_MODE_CHAT
+    if ctx is not None:
+        from plugin.chatbot.memory import user_profile_exists
+
+        if user_profile_exists(ctx):
+            mark_librarian_invoked()
+            return CHAT_MODE_CHAT
+    return CHAT_MODE_LIBRARIAN
+
+
+def mark_librarian_invoked() -> None:
+    """Record that Librarian was shown or used so it is not the default next time."""
+    from plugin.framework.config import set_config
+
+    try:
+        set_config("chatbot.librarian_invoked", True)
+    except Exception:
+        log.debug("mark_librarian_invoked: could not persist flag", exc_info=True)
+
+
+def clear_librarian_session(send_listener: Any) -> None:
+    """Drop sticky librarian flag only — do not wipe librarian ChatSession history."""
+    send_listener._in_librarian_mode = False
 
 
 def clear_writing_plan_session(send_listener: Any) -> None:

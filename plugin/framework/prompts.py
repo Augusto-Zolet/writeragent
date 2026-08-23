@@ -764,6 +764,7 @@ DEFAULT_DEEP_RESEARCH_GREETING = "AI: Deep Research mode runs a multi-step web i
 DEFAULT_BRAINSTORMING_GREETING = "AI: Let's explore and design your idea together. I'll ask questions, suggest approaches, and help you build an approved spec in your document when you're ready."
 DEFAULT_WRITING_PLAN_GREETING = "AI: Let's draft your document section-by-section. I'll help you create a writing plan outline, and then implement it incrementally with your approval."
 DEFAULT_PPT_MASTER_GREETING = "AI: PPT-Master mode — I'll run the ppt-master workflow in your configured Python venv (scripts + export to Impress). Describe your topic or point me at a project folder."
+DEFAULT_LIBRARIAN_GREETING = "AI: I'm the WriterAgent Librarian — a host who can learn your name, favorite colors, and give a short tour. Pick Chat in the dropdown whenever you want to work on the document."
 
 
 def get_greeting_for_document(model):

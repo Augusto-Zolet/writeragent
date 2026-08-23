@@ -50,6 +50,17 @@ On the UI thread before each librarian turn, [`plugin/chatbot/librarian.py`](plu
 
 Generic placeholders (`user`, `root`, `administrator`, …) are filtered out. The hint is injected as `[SUGGESTED USER NAME]` in agent instructions; the model **confirms** before calling `upsert_memory` with key `"name"`. If the user prefers another name or declines, the agent respects that.
 
+## Shipped: Librarian is a sidebar mode
+
+Onboarding is **not** a hidden intercept on missing `USER.md`. It is the last item in the sidebar mode dropdown (`CHAT_MODE_LIBRARIAN`).
+
+- **Default selection:** first sidebar open (config `chatbot.librarian_invoked` still false) → Librarian, then the flag is set. Later opens start on **Chat** even if `USER.md` is empty (user never answered). Pick Librarian anytime from the dropdown.
+- **Re-entry:** pick Librarian any time. Same smol agent (`librarian_onboarding`).
+- **History:** global `ChatSession` with id `writeragent_librarian` (not per document). Switching to Chat shows document chat; switching back restores the Librarian transcript. Clear only wipes the active session.
+- **LLM exit:** `switch_to_document_mode` sets the dropdown to **Chat** on the UI thread, swaps to `doc_session` (Chat pane + history), and refreshes `[DOCUMENT CONTENT]` on that session. Librarian history is kept for later. Does not wait for ComboBox item-changed.
+
+See [`docs/chat-librarian-mode-dev-plan.md`](chat-librarian-mode-dev-plan.md).
+
 
 ## Reply language and localized UI
 

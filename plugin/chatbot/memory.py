@@ -64,6 +64,16 @@ class MemoryStore:
         return True
 
 
+def user_profile_exists(ctx: Any) -> bool:
+    """True when USER.md has non-empty content. Missing store or I/O → False (start Librarian)."""
+    try:
+        store = MemoryStore(ctx)
+        return bool(str(store.read("user") or "").strip())
+    except Exception:
+        log.debug("user_profile_exists: treating profile as missing", exc_info=True)
+        return False
+
+
 # Chat preview when upsert_memory runs (sidebar / librarian); value truncated for huge strings.
 UPSERT_MEMORY_CHAT_VALUE_MAX = 400
 

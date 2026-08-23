@@ -247,6 +247,11 @@ config:
     label: Rich Text Control Sidebar
     helper: "Formatted chat via RichTextControl. Requires restart."
     
+  librarian_invoked:
+    type: boolean
+    default: false
+    internal: true
+
   humanizer_enabled:
     type: boolean
     default: false
