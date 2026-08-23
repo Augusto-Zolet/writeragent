@@ -135,7 +135,7 @@ class ListConditionalFormats(ToolCalcConditionalBase):
 
             return {"status": "ok", "range": range_str or "(used area)", "rules": rules, "count": len(rules)}
         except Exception as e:
-            logger.error("List conditional formats error: %s", str(e))
+            logger.exception("List conditional formats failed")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -231,7 +231,7 @@ class AddConditionalFormat(ToolCalcConditionalBase):
 
             return {"status": "ok", "range": range_str, "rule_count": count}
         except Exception as e:
-            logger.error("Add conditional format error: %s", str(e))
+            logger.exception("Add conditional format failed")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -267,5 +267,5 @@ class RemoveConditionalFormats(ToolCalcConditionalBase):
             return {"status": "ok", "range": range_str, "cleared": True}
 
         except Exception as e:
-            logger.error("Remove conditional formats error: %s", str(e))
+            logger.exception("Remove conditional formats failed")
             raise ToolExecutionError(str(e)) from e

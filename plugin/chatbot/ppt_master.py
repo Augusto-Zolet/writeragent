@@ -123,7 +123,7 @@ class PptMasterSessionTool(ToolBase):
             )
         except Exception as e:
             tb = traceback.format_exc()
-            log.error("PPT-Master error: %s", e)
+            log.exception("PPT-Master execution failed")
             err = ToolExecutionError(f"PPT-Master failed: {str(e)}\n\n{tb}", details={"query": query})
             return format_error_payload(err)
 

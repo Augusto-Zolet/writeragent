@@ -148,8 +148,8 @@ class ACPBackend(AgentBackend):
         try:
             result = self._conn.send_request("initialize", {"protocolVersion": _ACP_PROTOCOL_VERSION, "clientCapabilities": {"fs": {"read_text_file": False, "write_text_file": False}, "terminal": False}, "clientInfo": {"name": "WriterAgent", "version": "1.0"}}, timeout=15)
             log.info(f"ACP initialized: {result}")
-        except Exception as e:
-            log.error(f"ACP initialize failed: {e}")
+        except Exception:
+            log.exception("ACP initialize failed")
             self._conn.stop()
             self._conn = None
             raise
@@ -171,8 +171,8 @@ class ACPBackend(AgentBackend):
                 result = self._conn.send_request("session/new", params, timeout=30)
                 self._session_id = result.get("sessionId", "") if result else ""
                 log.debug(f"ACP session created: {self._session_id}")
-        except Exception as e:
-            log.error(f"ACP session creation failed: {e}")
+        except Exception:
+            log.exception("ACP session creation failed")
             raise
 
     def _build_prompt_blocks(self, user_message: str, document_context: Optional[str] = None, system_prompt: Optional[str] = None, selection_text: Optional[str] = None, document_url: Optional[str] = None) -> List[Dict]:
@@ -342,7 +342,7 @@ class ACPBackend(AgentBackend):
             if self._stop_requested:
                 queue.put((StreamQueueKind.STOPPED,))
             else:
-                log.error(f"Prompt error: {e}")
+                log.exception("Prompt execution failed")
                 queue.put((StreamQueueKind.ERROR, format_error_payload(e)))
         finally:
             if self._conn:
@@ -368,8 +368,8 @@ class ACPBackend(AgentBackend):
 
         try:
             self._conn.send_response(request_id, result={"approved": approved})
-        except Exception as e:
-            log.error(f"Failed to submit approval: {e}")
+        except Exception:
+            log.exception("Failed to submit approval")
 
     def shutdown(self):
         """Clean up resources."""

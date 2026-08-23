@@ -333,7 +333,7 @@ def binary_available(provider: str) -> bool:
         log.info("%s version: %s", provider, ver or "(empty)")
         return True
     except FileNotFoundError:
-        log.error(
+        log.exception(
             "%s binary not found on PATH. Install from: %s",
             version_args[0],
             install_url,
@@ -584,7 +584,7 @@ class TunnelManager:
                     )
                     self._process.start()
                 except FileNotFoundError:
-                    log.error("%s binary not found", info["version_args"][0])
+                    log.exception("%s binary not found", info["version_args"][0])
                     self._process = None
                     self._dispatch_unlocked(
                         TunnelEvent(

@@ -141,7 +141,7 @@ class GoalSeekTool(ToolBaseDummy):
 
             return {"status": "ok", "message": message, "result": {"value": result_val, "divergence": divergence}}
         except Exception as e:
-            logger.error("Goal Seek error: %s", str(e))
+            logger.exception("Goal Seek failed")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -317,7 +317,7 @@ class SolverTool(ToolBaseDummy):
                 return {"status": "error", "message": "Solver failed to find a solution.", "result": {"success": False}}
 
         except Exception as e:
-            logger.error("Solver error: %s", str(e))
+            logger.exception("Solver failed")
             raise ToolExecutionError(str(e)) from e
 
 

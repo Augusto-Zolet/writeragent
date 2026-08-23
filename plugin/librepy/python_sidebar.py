@@ -190,8 +190,8 @@ class _PanelResizeListener(BaseWindowListener):
         try:
             self._in_relayout = True
             self._relayout(win)
-        except Exception as e:
-            log.error("python sidebar relayout_now error: %s", e)
+        except Exception:
+            log.exception("python sidebar relayout_now failed")
         finally:
             self._in_relayout = False
 

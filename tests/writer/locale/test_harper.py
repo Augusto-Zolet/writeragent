@@ -847,8 +847,8 @@ def test_fetch_latest_release_asset_logs_github_api_failure(mock_log: MagicMock,
         with pytest.raises(RuntimeError, match="Harper releases API request failed"):
             _fetch_latest_release_asset("linux", "x86_64", tmp_path / "harper")
 
-    mock_log.error.assert_called()
-    assert mock_log.error.call_args.kwargs.get("exc_info") is True
+    mock_log.exception.assert_called()
+    assert "GitHub releases API request failed" in mock_log.exception.call_args[0][0]
 
 
 @patch("plugin.writer.locale.harper_binary.retrieve")
@@ -867,8 +867,8 @@ def test_download_harper_binary_logs_error_with_exc_info(mock_log: MagicMock, mo
     with pytest.raises(RuntimeError, match="Failed to auto-download Harper binary"):
         harper_binary_module._download_harper_binary(dest, release)
 
-    mock_log.error.assert_called()
-    assert mock_log.error.call_args.kwargs.get("exc_info") is True
+    mock_log.exception.assert_called()
+    assert "Failed to download and extract binary" in mock_log.exception.call_args[0][0]
 
 
 @patch("plugin.writer.locale.harper._get_harper_binary")
@@ -879,9 +879,8 @@ def test_run_harper_lint_logs_binary_resolve_failure(mock_log: MagicMock, mock_g
     with pytest.raises(RuntimeError, match="Failed to auto-download"):
         run_harper_lint("They is here.", "/tmp")
 
-    mock_log.error.assert_called()
-    assert "Failed to resolve harper-ls binary" in mock_log.error.call_args[0][0]
-    assert mock_log.error.call_args.kwargs.get("exc_info") is True
+    mock_log.exception.assert_called()
+    assert "Failed to resolve harper-ls binary" in mock_log.exception.call_args[0][0]
 
 
 @patch("plugin.writer.locale.harper.log")

@@ -459,9 +459,9 @@ class ToolCallingMixin:
                     real_q.put((StreamQueueKind.FINAL_DONE, "".join(last_streamed)))
             except Exception as e:
                 if isinstance(e, NetworkError):
-                    log.error("Final stream NetworkError: %s", e)
+                    log.exception("Final stream NetworkError")
                 else:
-                    log.error("Final stream error: %s", e)
+                    log.exception("Final stream failed")
                 if batched: batched.flush()
                 real_q.put((StreamQueueKind.ERROR, format_error_payload(e)))
 

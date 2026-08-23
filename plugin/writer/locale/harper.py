@@ -230,8 +230,8 @@ class HarperLSClient:
                                 new_text = chg.get("newText")
                                 if new_text is not None and new_text not in suggestions:
                                     suggestions.append(new_text)
-        except Exception as e:
-            log.error("[harper] Failed to fetch codeActions: %s", e)
+        except Exception:
+            log.exception("[harper] Failed to fetch codeActions")
         return suggestions
 
     def lint(self, text: str, bcp47: str = "en-US", *, heartbeat_fn: Callable[[dict[str, str]], None] | None = None) -> list:
@@ -252,8 +252,8 @@ class HarperLSClient:
             self._sync_document(text, version)
             diagnostics = self._collect_diagnostics(version, deadline)
             return [{"diagnostic": diag, "suggestions": self._suggestions_for_diagnostic(diag, deadline)} for diag in diagnostics]
-        except Exception as e:
-            log.error("[harper] Exception during linting, closing client: %s", e)
+        except Exception:
+            log.exception("[harper] Exception during linting, closing client")
             self.close()
             raise
 
@@ -306,14 +306,14 @@ def run_harper_lint(text: str, user_config_dir: str, bcp47: str = "en-US", *, he
     try:
         harper_bin = _get_harper_binary(user_config_dir, heartbeat_fn=heartbeat_fn)
     except Exception as e:
-        log.error("[harper] Failed to resolve harper-ls binary: %s", e, exc_info=True)
+        log.exception("[harper] Failed to resolve harper-ls binary")
         raise RuntimeError(str(e)) from e
 
     client = _get_or_create_client(harper_bin, user_config_dir, bcp47, heartbeat_fn=heartbeat_fn)
     try:
         results = client.lint(text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
-    except Exception as e:
-        log.error("[harper] Linting error or connection lost, restarting client: %s", e)
+    except Exception:
+        log.exception("[harper] Linting error or connection lost, restarting client")
         client.close()
         _HARPER_CLIENT_CACHE[harper_bin] = HarperLSClient(harper_bin, user_config_dir=user_config_dir, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
         results = _HARPER_CLIENT_CACHE[harper_bin].lint(text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)

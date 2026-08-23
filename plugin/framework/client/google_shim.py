@@ -66,8 +66,8 @@ class GoogleShim(BaseProviderShim):
                                             "data": "".join(b64_data.split()),
                                         }
                                     })
-                                except Exception as e:
-                                    log.error("Failed to parse base64 image in GoogleShim: %s", e)
+                                except Exception:
+                                    log.exception("Failed to parse base64 image in GoogleShim")
 
             tool_calls = m.get("tool_calls")
             if tool_calls:

@@ -297,6 +297,6 @@ TOOLS FOR COMPLETION:
             return {"status": "ok", "result": str(final_ans)}
         except Exception as e:
             tb = traceback.format_exc()
-            log.error("Librarian error: %s", e)
+            log.exception("Librarian execution failed")
             err = ToolExecutionError(f"Librarian failed: {str(e)}\n\n{tb}", details={"query": query})
             return format_error_payload(err)

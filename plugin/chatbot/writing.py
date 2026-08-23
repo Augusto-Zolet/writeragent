@@ -257,6 +257,6 @@ class WritingPlanSessionTool(ToolBase):
             )
         except Exception as e:
             tb = traceback.format_exc()
-            log.error("Writing plan agent error: %s", e)
+            log.exception("Writing plan agent execution failed")
             err = ToolExecutionError(f"Writing plan failed: {str(e)}\n\n{tb}", details={"query": query})
             return format_error_payload(err)

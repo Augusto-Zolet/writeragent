@@ -309,8 +309,8 @@ def _backup_config_file(config_file_path: str, *, reason: str = "invalid-json") 
         shutil.copy2(config_file_path, backup_path)
         log.warning("Backed up config %s to %s (%s)", config_file_path, backup_path, reason)
         return backup_path
-    except OSError as e:
-        log.error("Failed to backup config %s: %s", config_file_path, e)
+    except OSError:
+        log.exception("Failed to backup config %s", config_file_path)
         return None
 
 
@@ -1028,7 +1028,7 @@ def set_config(key, value):
         global_event_bus.emit("config:changed", ctx=_emit_config_changed_ctx())
 
     except OSError as e:
-        log.error("Error writing to %s: %s", config_file_path, e)
+        log.exception("Error writing to %s", config_file_path)
         raise ConfigError(f"Failed to save config: {e}", "CONFIG_SAVE_ERROR") from e
 
 
@@ -1057,7 +1057,7 @@ def remove_config(key):
         global_event_bus.emit("config:changed", ctx=_emit_config_changed_ctx())
 
     except OSError as e:
-        log.error("Error writing to %s: %s", config_file_path, e)
+        log.exception("Error writing to %s", config_file_path)
         raise ConfigError(f"Failed to remove config key: {e}", "CONFIG_SAVE_ERROR") from e
 
 
@@ -1226,11 +1226,11 @@ def _get_validated_config_dict():
         _cache.data = out
         _cache.mtime = current_mtime
         return out
-    except ConfigError as e:
-        log.error("Config error reading %s: %s", config_file_path, e)
+    except ConfigError:
+        log.exception("Config error reading %s", config_file_path)
         return {}
-    except OSError as e:
-        log.error("Error reading %s: %s", config_file_path, e)
+    except OSError:
+        log.exception("Error reading %s", config_file_path)
         return {}
 
 

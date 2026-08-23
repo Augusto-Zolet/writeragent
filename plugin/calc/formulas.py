@@ -119,7 +119,7 @@ class ListCalcFunctions(ToolBase):
             logger.info("Found %d matching Calc functions for filter '%s'", len(matched_functions), filter_str)
             return {"status": "ok", "functions": matched_functions}
         except Exception as e:
-            logger.error("Error listing Calc functions: %s", str(e))
+            logger.exception("Listing Calc functions failed")
             raise ToolExecutionError(f"Error listing Calc functions: {str(e)}") from e
 
 
@@ -239,11 +239,11 @@ class EvaluateFormula(ToolCalcErrorBase):
                 "result_type": result_type_str
             }
         except Exception as e:
-            logger.error("Formula evaluation failed: %s", str(e))
+            logger.exception("Formula evaluation failed")
             raise ToolExecutionError(f"Formula evaluation failed: {str(e)}") from e
         finally:
             try:
                 if sheets.hasByName(temp_sheet_name):
                     sheets.removeByName(temp_sheet_name)
-            except Exception as cleanup_err:
-                logger.error("Failed to cleanup evaluation sheet: %s", cleanup_err)
+            except Exception:
+                logger.exception("Failed to cleanup evaluation sheet")

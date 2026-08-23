@@ -133,6 +133,6 @@ class DeepResearchSessionTool(ToolBase):
             )
         except Exception as e:
             tb = traceback.format_exc()
-            log.error("Deep research agent error: %s", e)
+            log.exception("Deep research agent execution failed")
             err = ToolExecutionError(f"Deep research failed: {str(e)}\n\n{tb}", details={"query": query})
             return format_error_payload(err)

@@ -102,10 +102,10 @@ class EventBus:
                 continue
             try:
                 resolved(**data)
-            except TypeError as e:
-                log.error("TypeError in event handler %s for %s: %s", resolved, event, e)
-            except ValueError as e:
-                log.error("ValueError in event handler %s for %s: %s", resolved, event, e)
+            except TypeError:
+                log.exception("TypeError in event handler %s for %s", resolved, event)
+            except ValueError:
+                log.exception("ValueError in event handler %s for %s", resolved, event)
             except Exception as e:
                 # Still catch Exception to avoid one bad listener breaking the whole bus,
                 # but log it clearly as an unhandled application error

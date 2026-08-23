@@ -357,8 +357,8 @@ def _handle_approval_required(state: _DrainState, _data: Any, item: Any) -> None
     if state.on_approval_required:
         try:
             state.on_approval_required(item)
-        except Exception as e:
-            log.error("approval_required handler: %s" % e)
+        except Exception:
+            log.exception("approval_required handler failed")
 
 
 def _handle_stopped(state: _DrainState, _data: Any, _item: Any) -> None:
@@ -421,7 +421,7 @@ def _process_batch(state: _DrainState, items: list[Any], stop_checker: Callable[
             _DISPATCH[raw_kind](state, data, item)
         except Exception as loop_e:
             error_payload = format_error_payload(loop_e)
-            log.error("Stream processing error: %s" % error_payload)
+            log.exception("Stream processing failed")
             state.q.put((StreamQueueKind.ERROR, error_payload))
 
         if state.job_done[0]:
@@ -469,7 +469,7 @@ def run_stream_drain_loop(q, toolkit, job_done, apply_chunk_fn, on_stream_done, 
                     items = _drain_batch(q, 0.1)
                 except Exception as e:
                     error_payload = format_error_payload(e)
-                    log.error("Stream queue error: %s" % error_payload)
+                    log.exception("Stream queue drain failed")
                     on_error(error_payload)
                     job_done[0] = True
                     break
@@ -501,7 +501,7 @@ def run_stream_drain_loop(q, toolkit, job_done, apply_chunk_fn, on_stream_done, 
                     _process_batch(state, items, stop_checker)
                 except Exception as e:
                     error_payload = format_error_payload(e)
-                    log.error("run_stream_drain_loop EXCEPTION: %s" % error_payload)
+                    log.exception("run_stream_drain_loop batch processing failed")
                     job_done[0] = True
                     try:
                         on_error(error_payload)
@@ -516,21 +516,21 @@ def run_stream_drain_loop(q, toolkit, job_done, apply_chunk_fn, on_stream_done, 
 
     except NestedDrainOwnerError as e:
         error_payload = format_error_payload(e)
-        log.error("Nested stream drain rejected: %s", error_payload)
+        log.exception("Nested stream drain rejected")
         try:
             on_error(error_payload)
         except Exception:
-            log.error("Failed to notify error handler for nested drain")
+            log.exception("Failed to notify error handler for nested drain")
         job_done[0] = True
 
     except Exception as e:
         error_payload = format_error_payload(e)
-        log.error("Stream drain loop crashed: %s" % error_payload)
+        log.exception("Stream drain loop crashed")
 
         try:
             on_error(error_payload)
         except Exception:
-            log.error("Failed to notify error handler")
+            log.exception("Failed to notify error handler")
 
         job_done[0] = True
 

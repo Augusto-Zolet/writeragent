@@ -145,7 +145,7 @@ class GenericRequestHandler(BaseHTTPRequestHandler):
                     status, data = cast("tuple[int, Any]", result)
                 self._send_json(status, data)
         except Exception as e:
-            log.error("%s %s error: %s", method, path, e, exc_info=True)
+            log.exception("%s %s failed", method, path)
             from plugin.framework.errors import format_error_payload
 
             self._send_json(500, format_error_payload(e))
@@ -203,7 +203,7 @@ class HttpServer:
         try:
             self._server = _ThreadedHTTPServer((self.host, self.port), GenericRequestHandler)
         except OSError:
-            log.error("Could not bind %s:%s — %s", self.host, self.port, _PORT_IN_USE_GUIDANCE)
+            log.exception("Could not bind %s:%s — %s", self.host, self.port, _PORT_IN_USE_GUIDANCE)
             raise
 
         if self.use_ssl:
@@ -243,9 +243,9 @@ class HttpServer:
         try:
             if self._server:
                 self._server.serve_forever()
-        except Exception as e:
+        except Exception:
             if self._running:
-                log.error("HTTP server error: %s", type(e).__name__)
+                log.exception("HTTP server error")
         finally:
             self._running = False
 

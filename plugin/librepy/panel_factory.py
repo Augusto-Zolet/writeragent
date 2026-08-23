@@ -168,8 +168,7 @@ class PythonPanelElement(unohelper.Base, XUIElement):
                     root_window.getPosSize().Width,
                 )
             except Exception as e:
-                log.error("PythonPanel getRealInterface ERROR: %s", e)
-                log.error(traceback.format_exc())
+                log.exception("PythonPanel getRealInterface failed")
                 raise UnoObjectError(
                     "Failed to create LibrePy Python sidebar panel",
                     details={"resource": self.ResourceURL},

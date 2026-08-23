@@ -118,5 +118,5 @@ class SheetAnalyzer:
 
             return result
         except Exception as e:
-            logger.error("Error creating sheet summary: %s", str(e))
+            logger.exception("Error creating sheet summary")
             raise ToolExecutionError(str(e)) from e

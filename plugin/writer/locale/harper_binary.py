@@ -140,7 +140,7 @@ def _fetch_latest_release_asset(system: str, machine: str, harper_dir: Path, *, 
     try:
         release = _github_api_request(_HARPER_RELEASES_API)
     except Exception as e:
-        log.error("[harper] GitHub releases API request failed: %s", e, exc_info=True)
+        log.exception("[harper] GitHub releases API request failed")
         raise RuntimeError(f"Harper releases API request failed: {e}") from e
     tag_name = str(release.get("tag_name") or "").strip()
     if not tag_name:
@@ -251,7 +251,7 @@ def _download_harper_binary(dest_path: Path, release: HarperReleaseAsset, *, hea
             except Exception as cleanup_err:
                 log.warning("[harper] Could not remove downloaded archive %s: %s", archive_path, cleanup_err)
     except Exception as e:
-        log.error("[harper] Failed to download and extract binary: %s", e, exc_info=True)
+        log.exception("[harper] Failed to download and extract binary")
         raise RuntimeError(f"Failed to auto-download Harper binary: {e}") from e
     finally:
         try:

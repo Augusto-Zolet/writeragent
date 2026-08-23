@@ -248,7 +248,7 @@ class NamedRangeList(ToolCalcRangeBase):
             logger.info("Named ranges listed (scope=%s): count=%d", scope_clean, len(result))
             return {"status": "ok", "result": result}
         except Exception as e:
-            logger.error("List named ranges error: %s", str(e))
+            logger.exception("List named ranges failed")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -312,7 +312,7 @@ class NamedRangeGetInfo(ToolCalcRangeBase):
 
             raise UnoObjectError(f"No named range found with name '{name}'.")
         except Exception as e:
-            logger.error("Get named range info error (%s): %s", name, str(e))
+            logger.exception("Get named range info failed for %s", name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -389,7 +389,7 @@ class NamedRangeAdd(ToolCalcRangeBase):
                 "message": f"Named range '{name}' added successfully in scope '{effective_scope}' pointing to '{content}'.",
             }
         except Exception as e:
-            logger.error("Add named range error (%s): %s", name, str(e))
+            logger.exception("Add named range failed for %s", name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -476,7 +476,7 @@ class NamedRangeEdit(ToolCalcRangeBase):
                 "message": f"Named range '{final_name}' updated successfully in scope '{effective_scope}'.",
             }
         except Exception as e:
-            logger.error("Edit named range error (%s): %s", name, str(e))
+            logger.exception("Edit named range failed for %s", name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -515,7 +515,7 @@ class NamedRangeDelete(ToolCalcRangeBase):
             logger.info("Named range deleted: [%s] %s", effective_scope, name)
             return {"status": "ok", "message": f"Named range '{name}' deleted successfully from scope '{effective_scope}'."}
         except Exception as e:
-            logger.error("Delete named range error (%s): %s", name, str(e))
+            logger.exception("Delete named range failed for %s", name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -605,5 +605,5 @@ class NamedRangeCreateFromTitles(ToolCalcRangeBase):
                 "message": f"Named ranges created from titles along border '{border_str}' for range '{range_str}' in scope '{effective_scope}'.",
             }
         except Exception as e:
-            logger.error("Create named ranges from titles error (%s): %s", range_str, str(e))
+            logger.exception("Create named ranges from titles failed for %s", range_str)
             raise ToolExecutionError(str(e)) from e

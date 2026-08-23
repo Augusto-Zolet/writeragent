@@ -144,7 +144,7 @@ def input_box(ctx, message, title="", default="", x=None, y=None):
         dlg_url = base_url + "/Dialogs/EditInputDialog.xdl"
         dlg = dp.createDialog(dlg_url)
     except Exception as e:
-        log.error("input_box: failed to create dialog: %s", e)
+        log.exception("input_box: failed to create dialog")
         raise UnoObjectError(f"Failed to create dialog: {e}") from e
 
     need_dispose = True
@@ -186,7 +186,7 @@ def input_box(ctx, message, title="", default="", x=None, y=None):
         need_dispose = False
         return "", ""
     except Exception as e:
-        log.error("input_box error: %s", e)
+        log.exception("input_box failed")
         raise UnoObjectError(f"Error in input_box: {e}") from e
     finally:
         if need_dispose:
@@ -429,8 +429,8 @@ class SettingsDialog:
             model = ctrl.getModel()
             if hasattr(model, "StringItemList"):
                 model.StringItemList = labels
-        except Exception as e:
-            log.error(f"Failed to set options for {field['name']}: {e}")
+        except Exception:
+            log.exception("Failed to set options for %s", field.get("name"))
 
     def _setup_endpoint_listener(self, ctrl):
         if hasattr(ctrl, "addItemListener"):
@@ -472,8 +472,8 @@ class SettingsDialog:
                     result[name] = ctrl.getText()
                 else:
                     result[name] = get_control_text(ctrl)
-            except Exception as e:
-                log.error(f"Failed to extract field {name}: {e}")
+            except Exception:
+                log.exception("Failed to extract field %s", name)
                 result[name] = ""
         return result
 
@@ -918,8 +918,8 @@ def setup_module_tabs(dlg):
                 step += 1
     except ImportError:
         pass
-    except Exception as e:
-        log.error(f"Failed to setup module tabs: {e}")
+    except Exception:
+        log.exception("Failed to setup module tabs")
 
 
 class DownloadAudioListener(BaseActionListener):

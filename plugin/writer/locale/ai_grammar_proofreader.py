@@ -269,8 +269,8 @@ def _locale_tuple() -> tuple[Any, ...]:
             la, ctry = bcp47_to_uno_lang_country(tag)
             out.append(cast("Any", uno_mod.createUnoStruct("com.sun.star.lang.Locale", Language=la, Country=ctry, Variant="")))
         return tuple(out)
-    except Exception as e:
-        log.error("[grammar] _locale_tuple: Locale construction failed: %s", e, exc_info=True)
+    except Exception:
+        log.exception("[grammar] _locale_tuple: Locale construction failed")
         return ()
 
 
@@ -376,8 +376,8 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
         self._supported_service_names = (SERVICE_NAME,)
         try:
             self._locales = _locale_tuple()
-        except Exception as e:
-            log.error("[grammar] WriterAgentAiGrammarProofreader.__init__: _locale_tuple failed: %s", e, exc_info=True)
+        except Exception:
+            log.exception("[grammar] WriterAgentAiGrammarProofreader.__init__: _locale_tuple failed")
             self._locales = ()
 
     # --- XServiceName / XServiceInfo ---

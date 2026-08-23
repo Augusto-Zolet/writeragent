@@ -365,8 +365,8 @@ class GrammarWorkQueue:
                     grammar_obs("queue_execute_batch", doc_id=doc_id, locale=locale, item_count=len(group_items))
                     import plugin.writer.locale.grammar_worker as grammar_worker
                     grammar_worker.run_llm_and_cache_batch(group_items, grammar_queue_instance=self)
-                except Exception as e:
-                    log.error("[grammar] queue worker batch failed doc=%s loc=%s: %s", doc_id, locale, e, exc_info=True)
+                except Exception:
+                    log.exception("[grammar] queue worker batch failed doc=%s loc=%s", doc_id, locale)
 
 
 _grammar_queue_singleton = GrammarWorkQueue()

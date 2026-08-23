@@ -717,7 +717,7 @@ class UpsertChart(ToolBaseDummy):
                 return self._tool_error("Unsupported document type for chart creation.")
             except Exception as e:
                 msg = _format_chart_exception_msg(e)
-                logger.error("Chart creation error: %s", msg)
+                logger.exception("Chart creation failed")
                 raise ToolExecutionError(f"Tool execution failed: {msg}") from e
 
         elif action == "edit":
@@ -742,7 +742,7 @@ class UpsertChart(ToolBaseDummy):
                 _apply_chart_styling(chart_doc, **kwargs)
             except Exception as e:
                 msg = _format_chart_exception_msg(e)
-                logger.error("Chart edit error: %s", msg)
+                logger.exception("Chart edit failed")
                 raise ToolExecutionError(f"Tool execution failed: {msg}") from e
 
             return {"status": "ok", "name": chart_name, "message": "Chart updated."}
@@ -892,7 +892,7 @@ class UpsertChart(ToolBaseDummy):
                     text.insertTextContent(cursor, chart_obj, False)
                     logger.info("Successfully inserted chart object with DRAW_OLE CLSID.")
                 except Exception as e3:
-                    logger.error("All insertion attempts failed for chart object: %s", e3)
+                    logger.exception("All insertion attempts failed for chart object")
                     return self._tool_error(f"Failed to insert chart into document: {e3}")
 
         # 4. Configure properties after insertion
@@ -956,8 +956,8 @@ class UpsertChart(ToolBaseDummy):
                     logger.info("Set chart diagram: %s", service)
                 else:
                     logger.error("Failed to create diagram instance for service: %s", service)
-            except Exception as e:
-                logger.error("Failed to set chart diagram: %s", e)
+            except Exception:
+                logger.exception("Failed to set chart diagram")
 
             _apply_chart_styling(chart_doc, **kwargs)
         else:

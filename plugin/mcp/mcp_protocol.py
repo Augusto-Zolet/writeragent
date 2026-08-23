@@ -750,13 +750,13 @@ class MCPProtocolHandler:
             log.warning("MCP %s: busy (%s)", method, e)
             return (429, wire_types.jsonrpc_failure(req_id, wire_types.SERVER_BUSY, str(e), {"retryable": True}))
         except TimeoutError as e:
-            log.error("MCP %s: timeout (%s)", method, e)
+            log.exception("MCP %s timeout", method)
             return (504, wire_types.jsonrpc_failure(req_id, wire_types.EXECUTION_TIMEOUT, str(e)))
         except WriterAgentException as e:
-            log.error("MCP %s error: %s", method, e, exc_info=True)
+            log.exception("MCP %s error", method)
             return (500, wire_types.jsonrpc_failure(req_id, wire_types.INTERNAL_ERROR, e.message, data=format_error_payload(e)))
         except Exception as e:
-            log.error("MCP %s error: %s", method, e, exc_info=True)
+            log.exception("MCP %s error", method)
             return (500, wire_types.jsonrpc_failure(req_id, wire_types.INTERNAL_ERROR, str(e), data=format_error_payload(e)))
 
     # ── Backpressure execution ───────────────────────────────────────

@@ -131,9 +131,9 @@ def _initialize_extension_paths(ctx):
         except Exception as e:
             log.warning("[grammar] sidebar init: could not load or run grammar proofreader bootstrap: %s", e, exc_info=True)
         _paths_initialized = True
-    except Exception as e:
+    except Exception:
         init_logging(ctx)
-        log.error("_initialize_extension_paths ERROR: %s" % e)
+        log.exception("_initialize_extension_paths failed")
 
 
 # ---------------------------------------------------------------------------
@@ -296,8 +296,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                 wire_chatpanel_controls(self, root_window, HAS_RECORDING, _initialize_extension_paths)
                 log.info("[RICH-LIFECYCLE] getRealInterface completed successfully (rich_text wiring done)")
             except Exception as e:
-                log.error("getRealInterface ERROR [resource_url=%s]: %s", self.ResourceURL, e)
-                log.error(traceback.format_exc())
+                log.exception("getRealInterface failed [resource_url=%s]", self.ResourceURL)
                 raise UnoObjectError("Failed to create ChatPanel UI element", details={"resource": self.ResourceURL}) from e
         # Panel is a Python UNO component; stubs do not overlap XInterface.
         return cast("XInterface", cast("object", self.toolpanel))
@@ -433,8 +432,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                 if hasattr(response_ctrl, "setSelection"):
                     length = len(text)
                     response_ctrl.setSelection(uno.createUnoStruct("com.sun.star.awt.Selection", length, length))
-        except Exception as e:
-            log.error("_render_session_history error [greeting=%s]: %s", greeting, e)
+        except Exception:
+            log.exception("_render_session_history failed [greeting=%s]", greeting)
 
     def _refresh_controls_from_config(self):
         """Reload model and prompt selectors from config (e.g. after user changes Settings).
@@ -488,8 +487,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         try:
             # Backend indicator: show "Aider" / "Hermes" when external agent backend is enabled
             self._update_backend_indicator(root)
-        except Exception as e:
-            log.error("_refresh_controls_from_config backend indicator error: %s", e)
+        except Exception:
+            log.exception("_refresh_controls_from_config backend indicator failed")
 
     def _update_backend_indicator(self, root_window=None):
         """Set backend indicator label from config (visible when external backend enabled) and gray out controls."""
@@ -525,8 +524,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             if chat_mode_selector and hasattr(chat_mode_selector, "getModel"):
                 set_control_enabled(chat_mode_selector, not is_external)
 
-        except Exception as e:
-            log.error("_update_backend_indicator error: %s" % e)
+        except Exception:
+            log.exception("_update_backend_indicator failed")
 
     def _get_document_model(self):
         """Helper to get the current document model strictly from the frame."""
@@ -699,12 +698,12 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                 toggle_image_ui(is_image_mode(initial_mode))
             except Exception as e:
                 if isinstance(e, ConfigError):
-                    log.error("chat_mode_selector ConfigError: %s" % e)
+                    log.exception("chat_mode_selector ConfigError")
                 else:
                     if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                        log.debug("chat_mode_selector wire error (likely disposed): %s", e)
+                        log.debug("chat_mode_selector wire error (likely disposed)", exc_info=True)
                     else:
-                        log.error("chat_mode_selector wire error: %s" % e)
+                        log.exception("chat_mode_selector wire failed")
 
         return initial_mode, mode_flags, toggle_image_ui
 
@@ -787,8 +786,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                     new_db = get_chat_history(session_id)
                     for msg in old_db.get_messages():
                         new_db.add_message(msg["role"], msg["content"], msg.get("tool_calls"))
-                except Exception as e:
-                    log.error(f"Failed to copy chat history from {old_session_id} to {session_id}: {e}")
+                except Exception:
+                    log.exception("Failed to copy chat history from %s to %s", old_session_id, session_id)
 
                 if model:
                     set_document_property(model, "WriterAgentSessionID", session_id)
@@ -903,8 +902,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             if controls["stop"]:
                 controls["stop"].addActionListener(StopButtonListener(send_listener))
             send_listener._set_button_states(send_enabled=True, stop_enabled=False)
-        except Exception as e:
-            log.error("Send/Stop button wiring error: %s", e)
+        except Exception:
+            log.exception("Send/Stop button wiring failed")
 
         clear_listener = None
         active_greeting = self._greeting_for_sidebar_mode(initial_mode, model)
@@ -912,8 +911,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             try:
                 clear_listener = ClearButtonListener(self.session, controls["response"], controls["status"], greeting=active_greeting, send_listener=send_listener)
                 controls["clear"].addActionListener(clear_listener)
-            except Exception as e:
-                log.exception("Clear button wiring error: %s", e)
+            except Exception:
+                log.exception("Clear button wiring failed")
 
         self._apply_sidebar_mode(initial_mode, model, controls["response"], send_listener, clear_listener, toggle_image_ui)
         self._wire_chat_mode_listener(

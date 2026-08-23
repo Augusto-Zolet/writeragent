@@ -75,13 +75,13 @@ def sync_request(url, data=None, headers=None, timeout=10, parse_json=True, meth
             err_body = ""
 
         msg = _format_http_error_response(status, reason, err_body)
-        log.error(f"HTTP Error: {msg}")
+        log.exception("HTTP Error: %s", msg)
         raise NetworkError(msg, code="HTTP_ERROR", details={"url": url, "status": status}) from e
     except NetworkError:
         raise
     except Exception as e:
         if is_local_https and _is_certificate_verify_error(e):
-            log.error("Local HTTPS certificate verification failed for %s; retrying unverified." % host)
+            log.exception("Local HTTPS certificate verification failed for %s; retrying unverified.", host)
             try:
                 return _read_with_context(get_unverified_ssl_context())
             except urllib.error.HTTPError as retry_http_e:
@@ -92,10 +92,10 @@ def sync_request(url, data=None, headers=None, timeout=10, parse_json=True, meth
                 except Exception:
                     err_body = ""
                 msg = _format_http_error_response(status, reason, err_body)
-                log.error(f"HTTP Error: {msg}")
+                log.exception("HTTP Error: %s", msg)
                 raise NetworkError(msg, code="HTTP_ERROR", details={"url": url, "status": status}) from retry_http_e
             except Exception as retry_e:
-                log.error(f"Request failed: {format_error_message(retry_e)}")
+                log.exception("Request retry failed: %s", format_error_message(retry_e))
                 raise NetworkError(format_error_message(retry_e), details={"url": url}) from retry_e
-        log.error(f"Request failed: {format_error_message(e)}")
+        log.exception("Request failed: %s", format_error_message(e))
         raise NetworkError(format_error_message(e), details={"url": url}) from e

@@ -361,7 +361,7 @@ class CellManipulator:
                     self._set_number_format(address_or_range, number_format)
                 logger.info("Cell %s style updated.", address_or_range.upper())
         except Exception as e:
-            logger.error("Style application error (%s): %s", address_or_range, str(e))
+            logger.exception("Style application failed for %s", address_or_range)
             raise ToolExecutionError(str(e)) from e
 
     def _set_range_style(self, range_str, bold=None, italic=None, bg_color=None, font_color=None, font_size=None, h_align=None, v_align=None, wrap_text=None, border_color=None):
@@ -421,7 +421,7 @@ class CellManipulator:
             cell_range.clearContents(23)
             logger.info("Range %s cleared.", range_str.upper())
         except Exception as e:
-            logger.error("Range clear error (%s): %s", range_str, str(e))
+            logger.exception("Range clear failed for %s", range_str)
             raise ToolExecutionError(str(e)) from e
 
     def merge_cells(self, range_str: str, center: bool = True):
@@ -440,7 +440,7 @@ class CellManipulator:
                 cell_range.setPropertyValue("HoriJustify", CENTER)
                 cell_range.setPropertyValue("VertJustify", V_CENTER)
         except Exception as e:
-            logger.error("Cell merge error (%s): %s", range_str, str(e))
+            logger.exception("Cell merge failed for %s", range_str)
             raise ToolExecutionError(str(e)) from e
 
     def sort_range(self, range_str: str, sort_column: int = 0, ascending: bool = True, has_header: bool = True):
@@ -479,7 +479,7 @@ class CellManipulator:
             logger.info("Range %s sorted %s by column %d.", range_str.upper(), direction, sort_column)
             return f"Range {range_str} sorted {direction} by column {sort_column}."
         except Exception as e:
-            logger.error("Sort error (%s): %s", range_str, str(e))
+            logger.exception("Sort failed for %s", range_str)
             raise ToolExecutionError(str(e)) from e
 
     def _make_number_formatter(self, doc):
@@ -877,7 +877,7 @@ class CellManipulator:
         except Exception as e:
             # UNO often yields str(e) == ""; keep a usable message for the agent.
             msg = str(e) or getattr(e, "Message", None) or type(e).__name__
-            logger.error("Range formula write error (%s): %s", range_str, msg, exc_info=True)
+            logger.exception("Range formula write failed for %s", range_str)
             raise ToolExecutionError(msg) from e
 
     # ── Chart ──────────────────────────────────────────────────────────
@@ -893,7 +893,7 @@ class CellManipulator:
             logger.info("%d row(s) deleted starting from row %d.", count, row_num)
             return f"{count} row(s) deleted starting from row {row_num}."
         except Exception as e:
-            logger.error("Row deletion error: %s", str(e))
+            logger.exception("Row deletion failed")
             raise ToolExecutionError(str(e)) from e
 
     def delete_columns(self, col_letter: str, count: int = 1):
@@ -906,7 +906,7 @@ class CellManipulator:
             logger.info("%d column(s) deleted starting from column %s.", count, col_letter.upper())
             return f"{count} column(s) deleted starting from column {col_letter.upper()}."
         except Exception as e:
-            logger.error("Column deletion error: %s", str(e))
+            logger.exception("Column deletion failed")
             raise ToolExecutionError(str(e)) from e
 
     def delete_structure(self, structure_type: str, start, count: int = 1):

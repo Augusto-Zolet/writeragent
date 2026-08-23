@@ -262,6 +262,6 @@ class BrainstormingSessionTool(ToolBase):
             )
         except Exception as e:
             tb = traceback.format_exc()
-            log.error("Brainstorming error: %s", e)
+            log.exception("Brainstorming execution failed")
             err = ToolExecutionError(f"Brainstorming failed: {str(e)}\n\n{tb}", details={"query": query})
             return format_error_payload(err)

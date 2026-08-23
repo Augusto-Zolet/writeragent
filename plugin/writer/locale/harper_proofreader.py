@@ -84,8 +84,8 @@ def _harper_locale_tuple() -> tuple[Any, ...]:
             la, ctry = bcp47_to_uno_lang_country(tag)
             out.append(cast("Any", uno_mod.createUnoStruct("com.sun.star.lang.Locale", Language=la, Country=ctry, Variant="")))
         return tuple(out)
-    except Exception as e:
-        log.error("[grammar] LibreHarper locale construction failed: %s", e, exc_info=True)
+    except Exception:
+        log.exception("[grammar] LibreHarper locale construction failed")
         return ()
 
 

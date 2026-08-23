@@ -167,8 +167,8 @@ class _PanelResizeListener(BaseWindowListener):  # pyright: ignore[reportUnusedC
         try:
             self._in_relayout = True
             self._relayout(win)
-        except Exception as e:
-            log.error("relayout_now error: %s" % e)
+        except Exception:
+            log.exception("relayout_now failed")
         finally:
             self._in_relayout = False
 

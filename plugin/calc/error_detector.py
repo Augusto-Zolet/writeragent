@@ -177,7 +177,7 @@ class ErrorDetector:
             logger.info("%d errors detected (range: %s).", len(errors), range_str or "full sheet")
             return errors
         except Exception as e:
-            logger.error("Error detection failure: %s", str(e))
+            logger.exception("Error detection failed")
             raise ToolExecutionError(str(e)) from e
 
     def explain_error(self, address: str) -> dict:
@@ -234,7 +234,7 @@ class ErrorDetector:
                 result["dependency_chain"] = dependency_chain
             return result
         except Exception as e:
-            logger.error("Error explanation failure (%s): %s", address, str(e))
+            logger.exception("Error explanation failed for %s", address)
             raise ToolExecutionError(str(e)) from e
 
     def detect_and_explain(self, range_str: str | None = None) -> dict:

@@ -216,8 +216,8 @@ class ConfigService(ServiceBase):
 
             try:
                 _write_config_file(self._config_path, data)
-            except OSError as e:
-                log.error("ConfigService.set config file save error: %s", e)
+            except OSError:
+                log.exception("ConfigService.set config file save failed")
 
             ctx = None  # No UNO context in file-based test mode
         else:

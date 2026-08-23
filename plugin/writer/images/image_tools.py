@@ -549,8 +549,8 @@ def replace_image_in_place(ctx, model, img_path, width_px, height_px, title="", 
                 add_image_to_gallery(ctx, img_path, f"{title}\n\n{description}")
             return True
         return False
-    except Exception as e:
-        logger.error("Replace image in place failed: %s", e)
+    except Exception:
+        logger.exception("Replace image in place failed")
         return False
 
 
@@ -605,8 +605,8 @@ def export_graphic_object_to_bytes(ctx: Any, obj: Any) -> bytes | None:
         return None
     try:
         return export_graphic_to_bytes(ctx, graphic)
-    except Exception as e:
-        logger.error("Failed to export graphic object: %s", e)
+    except Exception:
+        logger.exception("Failed to export graphic object")
         return None
 
 
@@ -629,8 +629,8 @@ def get_selected_image_base64(model, ctx=None):
         if png_bytes is None:
             return None
         return base64.b64encode(png_bytes).decode("utf-8")
-    except Exception as e:
-        logger.error("Failed to get selected image: %s", e)
+    except Exception:
+        logger.exception("Failed to get selected image")
         return None
 
 
@@ -654,5 +654,5 @@ def add_image_to_gallery(ctx, img_path, title):
 
         theme.insertURLByIndex(uno.systemPathToFileUrl(str(target_path)), -1)
         theme.update()
-    except Exception as e:
-        logger.error(f"Failed to add to gallery: {e}")
+    except Exception:
+        logger.exception("Failed to add to gallery")

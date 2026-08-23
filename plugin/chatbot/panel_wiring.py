@@ -106,9 +106,9 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
                 set_control_text(controls["response"], current + "[Init error: %s]\n" % msg)
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("Failed to show init error on response control (likely disposed): %s", e)
+                log.debug("Failed to show init error on response control (likely disposed)", exc_info=True)
             else:
-                log.error("Unexpected error displaying init error: %s", e)
+                log.exception("Unexpected error displaying init error")
 
     ensure_extension_on_path(self.ctx)
 
@@ -138,7 +138,7 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
         )
     except Exception as e:
         _show_init_error("Config: %s" % e)
-        log.error(traceback.format_exc())
+        log.exception("Config/model/UI wiring failed")
 
     # 2. Setup Sessions
     self._setup_sessions(model, extra_instructions)
@@ -174,17 +174,17 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
                     self.send_listener.dispatch(SendEvent(SendEventKind.TEXT_UPDATED, {"has_text": has_text}))
             else:
                 log.warning("No send_listener available for QueryTextListener setup")
-        except Exception as e:
-            log.error("QueryTextListener setup error: %s" % e)
+        except Exception:
+            log.exception("QueryTextListener setup failed")
 
     if controls["status"] and hasattr(controls["status"], "setText"):
         try:
             controls["status"].setText(_("Ready"))
         except Exception as e:
             if isinstance(e, UNO_DISPOSED_EXCEPTIONS):
-                log.debug("Failed to set status text on init (likely disposed): %s", e)
+                log.debug("Failed to set status text on init (likely disposed)", exc_info=True)
             else:
-                log.exception("Error setting status text: %s", e)
+                log.exception("Error setting status text")
 
     # Stop +22px/windowResized loop when Record <-> Send (see writeragent_debug.log).
     # Measure before first relayout so snapshot preserves stabilized button widths.
@@ -247,8 +247,8 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
             log.debug("layout_sanity: root_w=%d max_child_right=%d overflow=%s" % (rw, max_right, "YES" if max_right > rw - 2 else "no"))
         except Exception:
             pass
-    except Exception as e:
-        log.error("Resize listener error: %s" % e)
+    except Exception:
+        log.exception("Resize listener setup failed")
 
     # Backend indicator (Aider / Hermes when external agent enabled)
     self._update_backend_indicator(root_window)
@@ -344,8 +344,8 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
                     log_rich_scroll("on_ready_step", control=rich_control, step="history")
                     rich_greeting = self._greeting_for_sidebar_mode(initial_mode, model)
                     self._render_session_history(self.session, controls["response"], model, rich_greeting)
-                except Exception as e:
-                    log.error("Initial RichTextControl render failed: %s", e)
+                except Exception:
+                    log.exception("Initial RichTextControl render failed")
                 if hasattr(self, "_rich_control_listener") and self._rich_control_listener:
                     try:
                         log_rich_scroll("on_ready_step", control=rich_control, step="sync_bounds")
@@ -376,5 +376,5 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
             # GNOME sidebar deck: peer is often ready here but windowShown never fires — init
             # must not wait on the listener alone (KDE usually gets windowShown instead).
             rich_control_listener.try_eager_init()
-        except Exception as e:
-            log.error("RichTextControl sidebar initialization failed: %s", e)
+        except Exception:
+            log.exception("RichTextControl sidebar initialization failed")

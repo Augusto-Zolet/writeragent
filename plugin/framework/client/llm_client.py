@@ -225,8 +225,8 @@ class LlmClient:
         """Resolve auth info from config."""
         try:
             return resolve_auth_for_config(self.config)
-        except AuthError as e:
-            log.error(f"Auth resolution error: {e}")
+        except AuthError:
+            log.exception("Auth resolution failed")
             return {}
 
     def _get_provider(self):
@@ -535,7 +535,7 @@ class LlmClient:
                             chunk = json.loads(payload)
                         except json.JSONDecodeError:
                             if payload and payload != "{}":
-                                log.error("streaming_loop: JSON decode error in payload: %s" % payload)
+                                log.exception("streaming_loop: JSON decode error in payload: %s", payload)
                             continue
 
                         chunk_model = chunk.get("model")
@@ -672,7 +672,7 @@ class LlmClient:
                 raise
             except Exception as e:
                 err_msg = format_error_message(e)
-                log.error("streaming_loop: Unexpected error: %s -> %s" % (type(e).__name__, err_msg))
+                log.exception("streaming_loop: Unexpected error")
                 raise NetworkError(err_msg, details={"url": path}) from e
 
             # If we completed successfully without retry, return
@@ -778,7 +778,7 @@ class LlmClient:
                 raise
             except Exception as e:
                 err_msg = format_error_message(e)
-                log.error("stream_request_with_tools ERROR: %s -> %s" % (type(e).__name__, err_msg))
+                log.exception("stream_request_with_tools failed")
                 raise NetworkError(err_msg, details={"url": path}) from e
 
             raw_content = message_snapshot.get("content")
@@ -844,7 +844,7 @@ class LlmClient:
                     raise
                 except Exception as e:
                     err_msg = format_error_message(e)
-                    log.error("request_with_tools ERROR: %s -> %s" % (type(e).__name__, err_msg))
+                    log.exception("request_with_tools failed")
                     raise NetworkError(err_msg, details={"url": path}) from e
 
             log.debug("=== Sync response: %s" % json.dumps(result, indent=2))

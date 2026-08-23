@@ -82,13 +82,8 @@ class ChatSession:
             try:
                 self.db = get_chat_history(session_id)
                 self.messages = self.db.get_messages()
-            except Exception as e:
-                from plugin.framework.errors import WriterAgentException
-
-                if isinstance(e, WriterAgentException):
-                    log.error("ChatSession history load WriterAgentException: %s" % e)
-                else:
-                    log.error("ChatSession history load error: %s" % e)
+            except Exception:
+                log.exception("ChatSession history load failed")
 
         # If no history, or system prompt forced
         if not self.messages and self.base_system_prompt:

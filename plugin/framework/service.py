@@ -120,10 +120,10 @@ class ServiceRegistry:
                     else:
                         svc_instance = obj()
                     self.register(obj.name, svc_instance)
-                except (TypeError, ValueError, ImportError) as e:
-                    log.error("Failed to instantiate service %s (TypeError/ValueError/ImportError): %s", obj.__name__, e)
-                except Exception as e:
-                    log.error("Failed to instantiate service %s (unexpected): %s", obj.__name__, e)
+                except (TypeError, ValueError, ImportError):
+                    log.exception("Failed to instantiate service %s (TypeError/ValueError/ImportError)", obj.__name__)
+                except Exception:
+                    log.exception("Failed to instantiate service %s (unexpected)", obj.__name__)
 
     def get(self, name):
         """Get a service by name, or None if not registered."""

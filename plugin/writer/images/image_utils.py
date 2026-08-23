@@ -96,7 +96,7 @@ class EndpointImageProvider(ImageProvider):
                         return paths, ""
                     return [], "No image data returned from provider"
                 except Exception as e:
-                    logger.error("OpenRouter dedicated image generation error: %s", e)
+                    logger.exception("OpenRouter dedicated image generation failed")
                     return [], str(e)
 
             _method, _path, body, _headers = self.client.make_chat_request(messages, max_tokens=1000, model=model)
@@ -144,7 +144,7 @@ class EndpointImageProvider(ImageProvider):
                     return paths, ""
                 return [], "No image data returned from provider"
             except Exception as e:
-                logger.error("Image generation error: %s", e)
+                logger.exception("Image generation failed")
                 return [], str(e)
 
         # Fallback: image in content string (some endpoints)

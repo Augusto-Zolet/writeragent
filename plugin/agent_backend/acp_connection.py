@@ -182,8 +182,8 @@ class ACPConnection:
             if self._proc and self._proc.stdin:
                 self._proc.stdin.write(line.encode("utf-8"))
                 self._proc.stdin.flush()
-        except Exception as e:
-            log.error(f"Failed to send response: {e}")
+        except Exception:
+            log.exception("Failed to send response")
 
     def set_notification_callback(self, callback):
         """Set a callback(method, params, msg_id) for incoming notifications."""
@@ -233,12 +233,12 @@ class ACPConnection:
                     if self._notify_callback:
                         try:
                             self._notify_callback(method, params, msg_id)
-                        except Exception as e:
-                            log.error(f"Notification callback error: {e}")
+                        except Exception:
+                            log.exception("Notification callback error")
 
-            except Exception as e:
+            except Exception:
                 if self._running:
-                    log.error(f"Reader error: {e}")
+                    log.exception("Reader error")
                 break
 
         # Live drain already collected stderr; log a bounded tail for debugging.

@@ -203,15 +203,15 @@ def run_in_background(func, *args, name=None, error_callback=None, daemon=True, 
             return result
         except Exception as e:
             error_id = str(uuid.uuid4())
-            log.error(f"Task {task_id} failed: {str(e)}\n{traceback.format_exc()}", extra={"task_id": task_id, "task_name": task_name, "error_id": error_id, "error_type": type(e).__name__})
+            log.exception(f"Task {task_id} failed", extra={"task_id": task_id, "task_name": task_name, "error_id": error_id, "error_type": type(e).__name__})
 
             wrapped_error = WorkerPoolError(f"Task '{task_name}' failed", code="WORKER_TASK_FAILED", details={"task_id": task_id, "task_name": task_name, "error_id": error_id, "original_error": str(e), "error_type": type(e).__name__})
 
             if error_callback:
                 try:
                     error_callback(wrapped_error)
-                except Exception as ec:
-                    log.error("Error in error_callback for '%s': %s", task_name, ec)
+                except Exception:
+                    log.exception("Error in error_callback for '%s'", task_name)
         finally:
             thread_guard.set_background_task(None)
 
@@ -352,7 +352,7 @@ class AsyncProcess:
         try:
             self.process = subprocess.Popen(self.args, **self._popen_kwargs)
         except Exception as e:
-            log.error("Failed to start process: %s", self.args)
+            log.exception("Failed to start process: %s", self.args)
             from plugin.framework.errors import ToolExecutionError
 
             raise ToolExecutionError(f"Failed to start process: {self.args}", details={"error": str(e)}) from e
@@ -405,8 +405,8 @@ class AsyncProcess:
         if self.on_exit_cb:
             try:
                 self.on_exit_cb(rc)
-            except Exception as e:
-                log.error("Error in on_exit_cb for process: %s", e)
+            except Exception:
+                log.exception("Error in on_exit_cb for process")
 
     def terminate(self, timeout=5.0):
         """Standard graceful termination -> SIGKILL."""

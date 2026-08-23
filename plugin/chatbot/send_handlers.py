@@ -265,15 +265,13 @@ class SendHandlersMixin:
 
                     update_lru_history(base_size_val, "image_base_size_lru", "")
                 except Exception as elru:
-
-
                     if isinstance(elru, ConfigError):
-                        log.error("LRU update ConfigError: %s" % elru)
+                        log.exception("LRU update ConfigError")
                     else:
                         if isinstance(elru, UNO_DISPOSED_EXCEPTIONS):
-                            log.debug("LRU update error (likely disposed): %s" % elru)
+                            log.debug("LRU update error (likely disposed)", exc_info=True)
                         else:
-                            log.error("LRU update error: %s" % elru)
+                            log.exception("LRU update failed")
 
 
 
@@ -292,7 +290,7 @@ class SendHandlersMixin:
                 q.put((StreamQueueKind.STREAM_DONE, {}))
             except Exception as e:
                 doc_type = getattr(self, "cached_doc_type", None) or "unknown"
-                log.error("Direct image path ERROR in _do_send_direct_image [doc: %s]: %s", doc_type, e)
+                log.exception("Direct image path failed in _do_send_direct_image [doc: %s]", doc_type)
 
 
                 q.put((StreamQueueKind.ERROR, format_error_payload(e)))

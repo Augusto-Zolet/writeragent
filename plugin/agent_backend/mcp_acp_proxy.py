@@ -80,7 +80,7 @@ class MCPACPProxy(AgentBackend):
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            log.error(f"MCP call failed: {e}")
+            log.exception("MCP call failed")
             return {"error": {"code": -32000, "message": str(e)}}
 
     def _get_tools(self) -> List[Dict]:

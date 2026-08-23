@@ -154,7 +154,7 @@ def run_single_sentence_provider(
             process_grammar_results([(item, text)], [errors], bcp47, original_bcp47, elapsed_ms, ec)
             grammar_obs(obs_event_name, chunk_len=1, results_len=len(errors), elapsed_ms=elapsed_ms, bcp47=bcp47)
         except Exception as ex:
-            log.error("[grammar] %s check failed: %s", provider_name, ex, exc_info=True)
+            log.exception("[grammar] %s check failed", provider_name)
             emit_grammar_status("failed", f"{provider_name} check", result=str(ex))
 
 
@@ -252,7 +252,7 @@ def run_grammar_check(
 
 
     except Exception as e:
-        log.error("[grammar] Grammar check error: %s", e, exc_info=True)
+        log.exception("[grammar] Grammar check failed")
         emit_grammar_status("failed", "Grammar check", result=str(e))
 
 
@@ -723,7 +723,7 @@ def _run_language_validation(
             log.info("[grammar] Single item language mismatch: %s -> %s. Proceeding with new locale.", target_bcp47, decision.target_bcp47)
         return decision
     except Exception as e:
-        log.error("[grammar] Language validation error: %s", e, exc_info=True)
+        log.exception("[grammar] Language validation error")
         emit_grammar_status("failed", "Language detection", result=str(e))
         return None
 
@@ -939,7 +939,7 @@ def run_llm_and_cache_batch(
             _worker_process_chunk(chunk, ec, grammar_bcp47, detect_lang_enabled, detect_lang_instruction)
 
     except Exception as e:
-        log.error("[grammar] worker batch failed: %s", e, exc_info=True)
+        log.exception("[grammar] worker batch failed")
         try:
             emit_grammar_status("failed", "Batch processing", result=type(e).__name__)
         except Exception:

@@ -54,10 +54,7 @@ def call_options_provider(ctx: Any, provider_path: str) -> Any:
         log.debug("call_options_provider success: %s options returned", len(options))
         return options
     except Exception as e:
-        log.error("call_options_provider FAILED for %s: %s", provider_path, e)
-        import traceback
-
-        log.error(traceback.format_exc())
+        log.exception("call_options_provider failed for %s", provider_path)
         from plugin.framework.errors import ConfigError
 
         raise ConfigError(f"Options provider {provider_path} failed: {e}") from e

@@ -57,8 +57,8 @@ class PythonExecutor:
                     return [[cell["value"] for cell in row] for row in data]
                 sheet = bridge.get_active_sheet()
                 return manipulator.safe_get_cell_value(sheet, addr)
-            except Exception as e:
-                logger.error("lp_helper error for address %s: %s", addr, e)
+            except Exception:
+                logger.exception("lp_helper failed for address %s", addr)
                 return None
 
         def set_range_helper(addr: str, data: Any):
@@ -136,8 +136,8 @@ class ExecutePythonScript(ToolBaseDummy):
                 elif all(len(row) == 1 for row in py_data):
                     py_data = [row[0] for row in py_data]
                 executor.executor.send_variables({"data": py_data})
-            except Exception as e:
-                logger.error("Failed to inject data_range %s: %s", data_range, e)
+            except Exception:
+                logger.exception("Failed to inject data_range %s", data_range)
 
         result = executor.execute_with_return(code)
 

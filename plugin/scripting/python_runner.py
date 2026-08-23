@@ -267,8 +267,8 @@ def insert_result_into_draw(doc: Any, uno_ctx: Any, result: Any) -> None:
                 try:
                     _ensure_table_dims(table, num_rows, num_cols)
                     fill_table_cells(table, final_data)
-                except Exception as e:
-                    log.error(f"Error filling table cells: {e}")
+                except Exception:
+                    log.exception("Error filling table cells")
             else:
                 # Fallback to text if table model is inaccessible
                 shape.setString(str(result))

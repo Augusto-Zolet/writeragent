@@ -150,7 +150,7 @@ class VibeBackend(ACPBackend):
             if self._stop_requested:
                 queue.put((StreamQueueKind.STOPPED,))
             else:
-                log.error(f"Prompt error: {e}")
+                log.exception("Prompt execution failed")
                 queue.put((StreamQueueKind.ERROR, format_error_payload(e)))
         finally:
             if self._conn:
