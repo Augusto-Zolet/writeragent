@@ -478,8 +478,7 @@ class TestProviderButtonIcons(unittest.TestCase):
             apply_provider_button_icon(ctrl, ctx, "openrouter")
 
         self.assertEqual(model.ImageURL, "file:///tmp/oxt/assets/openrouter_48.png")
-        self.assertEqual(model.ScaleMode, 1)
-        self.assertTrue(model.ScaleImage)
+        self.assertEqual(model.ImagePosition, 1)
 
     def test_apply_uses_48px_asset(self):
         from plugin.chatbot.dialog_views import apply_provider_button_icon

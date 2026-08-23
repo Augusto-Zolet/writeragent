@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE dlg:window PUBLIC "-//OpenOffice.org//DTD OfficeDocument 1.0//EN" "dialog.dtd">
 <dlg:window xmlns:dlg="http://openoffice.org/2000/dialog" xmlns:script="http://openoffice.org/2000/script"
-  dlg:id="SettingsDialog" dlg:left="100" dlg:top="50" dlg:width="500" dlg:height="218"
+  dlg:id="SettingsDialog" dlg:left="100" dlg:top="50" dlg:width="440" dlg:height="218"
   dlg:closeable="true" dlg:moveable="true" dlg:resizeable="false" dlg:title="Settings"
   dlg:page="1">
  <dlg:bulletinboard>
@@ -15,22 +15,22 @@
 
   <!-- === Page 1: General Settings === -->
   <dlg:text dlg:id="label_endpoint" dlg:page="1" dlg:left="8" dlg:top="26" dlg:width="150" dlg:height="10" dlg:value="Endpoint URL (/v1 added):" dlg:align="left"/>
-  <dlg:combobox dlg:id="endpoint" dlg:page="1" dlg:left="165" dlg:top="24" dlg:width="225" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
-  <dlg:text dlg:id="label_request_timeout" dlg:page="1" dlg:left="395" dlg:top="26" dlg:width="52" dlg:height="10" dlg:value="Timeout (s):" dlg:align="left"/>
-  <dlg:textfield dlg:id="request_timeout" dlg:page="1" dlg:left="450" dlg:top="24" dlg:width="40" dlg:height="14" dlg:tabstop="true" dlg:value="120"/>
+  <dlg:combobox dlg:id="endpoint" dlg:page="1" dlg:left="165" dlg:top="24" dlg:width="165" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
+  <dlg:text dlg:id="label_request_timeout" dlg:page="1" dlg:left="335" dlg:top="26" dlg:width="52" dlg:height="10" dlg:value="Timeout (s):" dlg:align="left"/>
+  <dlg:textfield dlg:id="request_timeout" dlg:page="1" dlg:left="390" dlg:top="24" dlg:width="40" dlg:height="14" dlg:tabstop="true" dlg:value="120"/>
 
   <dlg:text dlg:id="label_api_key" dlg:page="1" dlg:left="8" dlg:top="42" dlg:width="150" dlg:height="10" dlg:value="API Key:" dlg:align="left"/>
-  <dlg:textfield dlg:id="api_key" dlg:page="1" dlg:left="165" dlg:top="40" dlg:width="210" dlg:height="14" dlg:tabstop="true" dlg:value=""/>
-  <dlg:button dlg:id="btn_test_conn" dlg:page="1" dlg:left="380" dlg:top="40" dlg:width="110" dlg:height="14" dlg:tabstop="true" dlg:value="Test Connection"/>
+  <dlg:textfield dlg:id="api_key" dlg:page="1" dlg:left="165" dlg:top="40" dlg:width="175" dlg:height="14" dlg:tabstop="true" dlg:value=""/>
+  <dlg:button dlg:id="btn_test_conn" dlg:page="1" dlg:left="345" dlg:top="40" dlg:width="85" dlg:height="14" dlg:tabstop="true" dlg:value="Test Connection"/>
 
   <dlg:text dlg:id="label_text_model" dlg:page="1" dlg:left="8" dlg:top="58" dlg:width="150" dlg:height="10" dlg:value="Text/Chat Model:" dlg:align="left"/>
-  <dlg:combobox dlg:id="text_model" dlg:page="1" dlg:left="165" dlg:top="56" dlg:width="325" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
+  <dlg:combobox dlg:id="text_model" dlg:page="1" dlg:left="165" dlg:top="56" dlg:width="265" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
 
   <dlg:text dlg:id="label_image_model" dlg:page="1" dlg:left="8" dlg:top="74" dlg:width="150" dlg:height="10" dlg:value="Image Model:" dlg:align="left"/>
-  <dlg:combobox dlg:id="image_model" dlg:page="1" dlg:left="165" dlg:top="72" dlg:width="325" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
+  <dlg:combobox dlg:id="image_model" dlg:page="1" dlg:left="165" dlg:top="72" dlg:width="265" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
 
   <dlg:text dlg:id="label_stt_model" dlg:page="1" dlg:left="8" dlg:top="90" dlg:width="150" dlg:height="10" dlg:value="Audio Model:" dlg:align="left"/>
-  <dlg:combobox dlg:id="stt_model" dlg:page="1" dlg:left="165" dlg:top="88" dlg:width="325" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
+  <dlg:combobox dlg:id="stt_model" dlg:page="1" dlg:left="165" dlg:top="88" dlg:width="265" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
 
   <!-- Row 6: Temperature and Max Tokens on same line -->
   <dlg:text dlg:id="label_temperature" dlg:page="1" dlg:left="8" dlg:top="106" dlg:width="58" dlg:height="10" dlg:value="Temperature:" dlg:align="left"/>
@@ -40,22 +40,18 @@
 
   <!-- Row 7: Additional Instructions -->
   <dlg:text dlg:id="label_additional_instructions" dlg:page="1" dlg:left="8" dlg:top="122" dlg:width="150" dlg:height="10" dlg:value="Additional Instructions:" dlg:align="left"/>
-  <dlg:combobox dlg:id="additional_instructions" dlg:page="1" dlg:left="165" dlg:top="120" dlg:width="325" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
+  <dlg:combobox dlg:id="additional_instructions" dlg:page="1" dlg:left="165" dlg:top="120" dlg:width="265" dlg:height="14" dlg:tabstop="true" dlg:spin="true" dlg:dropdown="true" dlg:value="" dlg:border="1"/>
 
   <!-- Row 8: Get API Key buttons -->
   <dlg:text dlg:id="label_get_api_key" dlg:page="1" dlg:left="8" dlg:top="140" dlg:width="150" dlg:height="10" dlg:value="Get API Key:" dlg:align="left"/>
-  <dlg:img dlg:id="img_openrouter" dlg:page="1" dlg:left="165" dlg:top="138" dlg:width="14" dlg:height="14" dlg:scale-mode="isotropic" dlg:tabstop="false"/>
-  <dlg:button dlg:id="btn_openrouter" dlg:page="1" dlg:left="180" dlg:top="138" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:value="OpenRouter"/>
-  <dlg:img dlg:id="img_together" dlg:page="1" dlg:left="247" dlg:top="138" dlg:width="14" dlg:height="14" dlg:scale-mode="isotropic" dlg:tabstop="false"/>
-  <dlg:button dlg:id="btn_together" dlg:page="1" dlg:left="262" dlg:top="138" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:value="Together AI"/>
-  <dlg:img dlg:id="img_huggingface" dlg:page="1" dlg:left="329" dlg:top="138" dlg:width="14" dlg:height="14" dlg:scale-mode="isotropic" dlg:tabstop="false"/>
-  <dlg:button dlg:id="btn_hf" dlg:page="1" dlg:left="344" dlg:top="138" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:value="Hugging Face"/>
-  <dlg:img dlg:id="img_nvidia" dlg:page="1" dlg:left="411" dlg:top="138" dlg:width="14" dlg:height="14" dlg:scale-mode="isotropic" dlg:tabstop="false"/>
-  <dlg:button dlg:id="btn_nvidia" dlg:page="1" dlg:left="426" dlg:top="138" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:value="NVIDIA NIM"/>
+  <dlg:button dlg:id="btn_openrouter" dlg:page="1" dlg:left="165" dlg:top="138" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:value="OpenRouter"/>
+  <dlg:button dlg:id="btn_together" dlg:page="1" dlg:left="232" dlg:top="138" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:value="Together AI"/>
+  <dlg:button dlg:id="btn_hf" dlg:page="1" dlg:left="299" dlg:top="138" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:value="Hugging Face"/>
+  <dlg:button dlg:id="btn_nvidia" dlg:page="1" dlg:left="366" dlg:top="138" dlg:width="64" dlg:height="14" dlg:tabstop="true" dlg:value="NVIDIA NIM"/>
 
   <!-- Row 9: Edit JSON button & Status Line -->
   <dlg:button dlg:id="btn_edit_config_json" dlg:page="1" dlg:left="8" dlg:top="156" dlg:width="125" dlg:height="14" dlg:tabstop="true" dlg:value="Edit config (JSON)…"/>
-  <dlg:text dlg:id="lbl_test_status" dlg:page="1" dlg:left="140" dlg:top="157" dlg:width="350" dlg:height="12" dlg:value="" dlg:align="left"/>
+  <dlg:text dlg:id="lbl_test_status" dlg:page="1" dlg:left="140" dlg:top="157" dlg:width="290" dlg:height="12" dlg:value="" dlg:align="left"/>
 
   <!-- === Page 2: Image Settings === -->
 
@@ -78,6 +74,6 @@
 
 
   <!-- OK Button (always visible, at bottom of dialog with small margin) -->
-  <dlg:button dlg:id="btn_ok" dlg:left="200" dlg:top="188" dlg:width="100" dlg:height="18" dlg:value="OK" dlg:button-type="ok" dlg:default="true"/>
+  <dlg:button dlg:id="btn_ok" dlg:left="170" dlg:top="188" dlg:width="100" dlg:height="18" dlg:value="OK" dlg:button-type="ok" dlg:default="true"/>
  </dlg:bulletinboard>
 </dlg:window>

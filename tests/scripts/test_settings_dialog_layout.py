@@ -211,21 +211,23 @@ def test_starter_buttons_share_row_and_include_nvidia(tmp_path: Path) -> None:
 
     window = ET.parse(xdl_path).getroot()
     dlg_width = int(window.get(f"{{{_DLG_NS}}}width") or 0)
+    assert dlg_width == 440
+
     label_right = int(attrs["label_get_api_key"]["left"]) + int(attrs["label_get_api_key"]["width"])
-    for btn_id, img_id in (
-        ("btn_openrouter", "img_openrouter"),
-        ("btn_together", "img_together"),
-        ("btn_hf", "img_huggingface"),
-        ("btn_nvidia", "img_nvidia"),
-    ):
-        assert img_id in attrs
+    btn_ids = ("btn_openrouter", "btn_together", "btn_hf", "btn_nvidia")
+    prev_right = label_right
+    for btn_id in btn_ids:
         assert int(attrs[btn_id]["height"]) == 14
         assert int(attrs[btn_id]["width"]) == 64
-        assert int(attrs[img_id]["height"]) == 14
-        assert int(attrs[img_id]["width"]) == 14
-        assert int(attrs[img_id]["left"]) >= label_right
-        assert int(attrs[btn_id]["left"]) + 64 <= dlg_width
-        assert attrs[btn_id]["top"] == attrs[img_id]["top"]
-    assert 'dlg:scale-mode="isotropic"' in xdl
+        btn_left = int(attrs[btn_id]["left"])
+        assert btn_left >= prev_right
+        assert btn_left + 64 <= dlg_width
+        prev_right = btn_left + 64
+
+    # Icons are placed directly on the buttons, no separate dlg:img elements
+    for img_id in ("img_openrouter", "img_together", "img_huggingface", "img_nvidia"):
+        assert img_id not in attrs
     assert "dlg:image-src=" not in xdl
+    assert attrs["btn_ok"]["left"] == "170"
+
 

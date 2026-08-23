@@ -16,7 +16,7 @@ When creating dialogs or multi-step wizards in LibreOffice Python (PyUNO):
 4. **Listeners**: Always inherit from `BaseActionListener`, `BaseItemListener`, `BaseTextListener`, or `BaseListener` from `plugin.framework.uno_listeners` to prevent exceptions from crashing PyUNO or LibreOffice.
 5. **Localization**: Always run `translate_dialog(dlg)` after loading to auto-translate labels/titles via `gettext` (`_()`).
 6. **Multi-Page / Wizards**: LibreOffice does **not** support `tabpagecontainer` or `tabpage` in Python extensions reliably. Use `dlg:page` on controls + `dlg.getModel().Step = page_num` with `TabListener` or Wizard Step buttons.
-7. **Button graphics**: VCL `PushButton` draws `ImageURL` at the bitmap’s native pixels (`vcl/source/control/button.cxx` `ImplDrawAlignedImage`) and does **not** grow with the button. Settings provider marks use a sibling `dlg:img` with `ScaleMode` ISOTROPIC (`vcl/source/control/imgctrl.cxx`) so the 48 px PNG fills the control; `apply_provider_button_icon` sets `ImageURL` at runtime.
+7. **Button graphics**: VCL `PushButton` (`com.sun.star.awt.UnoControlButtonModel`) supports `ImageURL` and `ImagePosition` (e.g. `LeftCenter = 1`) to place icons directly on buttons alongside labels. Settings provider buttons set `ImageURL` and `ImagePosition` directly at runtime via `apply_provider_button_icon`.
 
 ---
 
