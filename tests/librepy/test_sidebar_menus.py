@@ -11,6 +11,7 @@ from plugin.librepy.sidebar_menus import (
     invoke_action_handler,
     librepy_hamburger_actions,
     show_librepy_hamburger_menu,
+    show_python_sidebar_hamburger,
     wire_sidebar_header_buttons,
 )
 
@@ -110,6 +111,38 @@ def test_show_hamburger_uses_librepy_command_prefix():
     assert commands
     assert all(c.startswith(EXTENSION_ID_LIBREPY + ":") for c in commands)
     assert not any("embeddings.search" in c for c in commands)
+
+
+def test_writeragent_python_hamburger_uses_chat_menu():
+    ctx = MagicMock()
+    frame = MagicMock()
+    button = MagicMock()
+    with (
+        patch(
+            "plugin.framework.uno_context.resolve_package_extension_id",
+            return_value="org.extension.writeragent",
+        ),
+        patch("plugin.chatbot.hamburger_menu.show_hamburger_menu") as chat_menu,
+        patch("plugin.librepy.sidebar_menus.show_librepy_hamburger_menu") as core_menu,
+    ):
+        show_python_sidebar_hamburger(ctx, frame, button)
+    chat_menu.assert_called_once_with(ctx, frame, button)
+    core_menu.assert_not_called()
+
+
+def test_librepy_python_hamburger_stays_subset():
+    ctx = MagicMock()
+    frame = MagicMock()
+    button = MagicMock()
+    with (
+        patch(
+            "plugin.framework.uno_context.resolve_package_extension_id",
+            return_value="org.extension.librepy",
+        ),
+        patch("plugin.librepy.sidebar_menus.show_librepy_hamburger_menu") as core_menu,
+    ):
+        show_python_sidebar_hamburger(ctx, frame, button)
+    core_menu.assert_called_once_with(ctx, frame, button)
 
 
 def test_wire_header_no_search_control():

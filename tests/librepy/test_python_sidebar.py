@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from plugin.librepy.python_sidebar import (
+    _CALC_ONLY_IDS,
     _MIN_FLEX_HEIGHT,
     _PanelResizeListener,
     compute_python_sidebar_layout,
@@ -320,4 +321,63 @@ def test_python_tool_panel_get_height_for_width_handles_all_sizes():
     panel.getHeightForWidth(1262)
     panel_win.setPosSize.assert_called_with(0, 0, 1262, 400, 15)
     listener.relayout_now.assert_called_with(panel_win)
+
+
+def _writer_snapshot():
+    full = _xdl_snapshot()
+    return {k: v for k, v in full.items() if k not in _CALC_ONLY_IDS}
+
+
+def test_writer_layout_flexes_status_and_full_width_reset():
+    snapshot = _writer_snapshot()
+    layouts = compute_python_sidebar_layout(180, 376, snapshot)
+    assert "cells_list" not in layouts
+    assert layouts["btn_reset"][0] == 4
+    assert layouts["btn_reset"][0] + layouts["btn_reset"][2] == 168
+    tall = compute_python_sidebar_layout(180, 500, snapshot)
+    assert tall["status"][3] > layouts["status"][3]
+
+
+def test_writer_does_not_use_desktop_calc_document():
+    from plugin.librepy.python_sidebar import PythonSidebarController
+
+    ctrl = PythonSidebarController.__new__(PythonSidebarController)
+    ctrl.ctx = MagicMock()
+    ctrl.frame = MagicMock()
+    ctrl._calc_panel = False
+    with patch("plugin.librepy.python_sidebar.get_calc_document_from_ctx") as fallback:
+        assert ctrl._calc_document() is None
+    fallback.assert_not_called()
+
+
+def test_sidebar_xcu_registers_writer():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+    paths = (
+        root / "extension-core" / "registry" / "org" / "openoffice" / "Office" / "UI" / "Sidebar.xcu",
+        root / "extension" / "registry" / "org" / "openoffice" / "Office" / "UI" / "Sidebar.xcu",
+    )
+    for path in paths:
+        text = path.read_text(encoding="utf-8")
+        assert "LibrePyDeck" in text
+        assert "com.sun.star.text.TextDocument" in text
+
+
+def test_hide_calc_only_controls_calls_set_visible():
+    from plugin.librepy.python_sidebar import PythonSidebarController
+
+    ctrl = PythonSidebarController.__new__(PythonSidebarController)
+    hidden: list[str] = []
+
+    def fake_ctrl(name):
+        return name
+
+    ctrl._ctrl = fake_ctrl  # type: ignore[method-assign]
+    with patch(
+        "plugin.librepy.python_sidebar.set_control_visible",
+        side_effect=lambda c, vis: hidden.append(c) if not vis else None,
+    ):
+        ctrl._hide_calc_only_controls()
+    assert set(hidden) == set(_CALC_ONLY_IDS)
 

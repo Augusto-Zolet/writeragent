@@ -194,6 +194,22 @@ def execute_popup_under_button(popup: Any, button_ctrl: Any) -> int:
     return int(popup.execute(peer, rect, 0))
 
 
+def show_python_sidebar_hamburger(ctx: Any, frame: Any, button_ctrl: Any) -> None:
+    """WriterAgent: same popup as chat. LibrePy: registered-actions subset only."""
+    from plugin.framework.constants import EXTENSION_ID_WRITERAGENT
+    from plugin.framework.uno_context import resolve_package_extension_id
+
+    if resolve_package_extension_id(ctx) == EXTENSION_ID_WRITERAGENT:
+        try:
+            from plugin.chatbot.hamburger_menu import show_hamburger_menu
+
+            show_hamburger_menu(ctx, frame, button_ctrl)
+            return
+        except ImportError:
+            log.debug("chat hamburger unavailable; using LibrePy menu", exc_info=True)
+    show_librepy_hamburger_menu(ctx, frame, button_ctrl)
+
+
 @main_thread_only
 def show_librepy_hamburger_menu(ctx: Any, frame: Any, button_ctrl: Any) -> None:
     """Popup of LibrePy-registered actions beneath the hamburger button."""
@@ -252,7 +268,7 @@ class _HamburgerListener(BaseActionListener):
 
     def on_action_performed(self, rEvent) -> None:
         button_ctrl = getattr(rEvent, "Source", None)
-        show_librepy_hamburger_menu(self.ctx, self._frame, button_ctrl)
+        show_python_sidebar_hamburger(self.ctx, self._frame, button_ctrl)
 
 
 def wire_sidebar_header_buttons(

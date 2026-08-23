@@ -26,3 +26,4 @@ Topic docs: [docs/scripting-librepy-split.md](../../docs/scripting-librepy-split
 - Do **not** drop `plugin/calc/analyzer.py` from the LibrePy bundle.
 - Shipped LibrePy (`make deploy-core`) defaults to `log_level` WARN; a checkout that still has `plugin/tests/` defaults to DEBUG.
 - Python sidebar header/hamburger (`plugin/librepy/sidebar_menus.py`) must not import `plugin.main`, `llm_client`, embeddings, or MCP.
+- Python deck is Calc + Writer (not NotebookBar-only). Writer hides `=PY()` cell chrome; do not fall back to a Calc document from a Writer frame.

@@ -39,7 +39,7 @@ For the full extension, open a document to configure AI features:
 LibreOffice supports multiple user interface modes (**View → User Interface**):
 
 * **Classic (Standard Toolbar):** The top menubar includes the full **WriterAgent** menu with all tools and submenus.
-* **Tabbed (Notebookbar / Ribbon):** In tabbed interfaces where the standard menubar is hidden, all features are readily available directly from the **Sidebar header**:
+* **Tabbed (Notebookbar / Ribbon):** In tabbed interfaces where the standard menubar is hidden, all features are readily available from the **sidebar header**. WriterAgent chat and the **Python** deck (Writer + Calc) both expose Settings, Run Python, LaTeX / Edit cell, and the hamburger. LibrePy uses the Python deck only.
   * `[⚙]` **Settings:** Open configuration dialog.
   * `[🐍]` **Run Python Script...:** Run Python scripts.
   * `[√x]` / `[⊞🐍]` **Insert LaTeX Math...** (Writer) / **Edit Python in Cell...** (Calc).

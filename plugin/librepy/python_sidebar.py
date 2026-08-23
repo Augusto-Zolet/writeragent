@@ -17,7 +17,12 @@ from plugin.calc.python.diagnostics import (
     diagnostics_detail_text,
     get_diagnostics_store,
 )
-from plugin.chatbot.dialogs import get_optional as get_optional_control, set_control_text, translate_dialog
+from plugin.chatbot.dialogs import (
+    get_optional as get_optional_control,
+    set_control_text,
+    set_control_visible,
+    translate_dialog,
+)
 from plugin.framework.config import get_config_str
 from plugin.framework.i18n import _
 from plugin.framework.uno_listeners import (
@@ -67,6 +72,21 @@ _CONTROL_IDS = (
 
 _ROW3_BUTTONS = ("btn_refresh", "btn_edit_cell", "btn_run_script")
 _ROW2_BUTTONS = ("btn_edit_init", "btn_reset")
+
+# Calc =PY() browser; hidden in Writer so the header + venv status remain.
+_CALC_ONLY_IDS = (
+    "btn_refresh",
+    "btn_edit_cell",
+    "btn_run_script",
+    "cells_label",
+    "cells_list",
+    "filter_label",
+    "filter_combo",
+    "diag_label",
+    "diag_list",
+    "diag_detail",
+    "btn_edit_init",
+)
 
 
 def compute_python_sidebar_layout(
@@ -135,8 +155,12 @@ def compute_python_sidebar_layout(
             nx = left_margin
             nw = bw2
         elif name == "btn_reset":
-            nx = left_margin + bw2 + gap
-            nw = max(10, content_right - nx)
+            if "btn_edit_init" not in snapshot:
+                nx = left_margin
+                nw = content_width
+            else:
+                nx = left_margin + bw2 + gap
+                nw = max(10, content_right - nx)
         elif name == "filter_label":
             nx = left_margin
             nw = filter_label_w
@@ -341,6 +365,7 @@ class PythonSidebarController:
         self.ctx = ctx
         self.root = root_window
         self.frame = frame
+        self._calc_panel = self._frame_is_calc()
         self._cells: list[PythonCellInfo] = []
         self._diags: list[DiagnosticEntry] = []
         self._store = get_diagnostics_store()
@@ -349,12 +374,13 @@ class PythonSidebarController:
             translate_dialog(root_window)
         except Exception:
             log.debug("translate_dialog failed for Python sidebar", exc_info=True)
+        if not self._calc_panel:
+            self._hide_calc_only_controls()
         self._wire()
         self.resize_listener: _PanelResizeListener | None = None
         self._attach_resize_listener()
-        # Set up activation listener to refresh on sheet changes
         self._activation_listener = None
-        if self.frame is not None:
+        if self._calc_panel and self.frame is not None:
             try:
                 controller = self.frame.getController()
                 if controller is not None:
@@ -363,10 +389,11 @@ class PythonSidebarController:
             except Exception:
                 log.debug("sidebar activation listener add failed", exc_info=True)
         self.refresh()
-        try:
-            self._store.add_listener(self._on_diag)
-        except Exception:
-            log.debug("sidebar diagnostics listener add failed", exc_info=True)
+        if self._calc_panel:
+            try:
+                self._store.add_listener(self._on_diag)
+            except Exception:
+                log.debug("sidebar diagnostics listener add failed", exc_info=True)
 
     def disposing(self) -> None:
         rl = getattr(self, "resize_listener", None)
@@ -395,7 +422,10 @@ class PythonSidebarController:
     def _attach_resize_listener(self) -> None:
         """Snapshot XDL geometry and stretch content fields when the deck height changes."""
         try:
-            controls = {cid: self._ctrl(cid) for cid in _CONTROL_IDS}
+            ids = _CONTROL_IDS if self._calc_panel else tuple(
+                cid for cid in _CONTROL_IDS if cid not in _CALC_ONLY_IDS
+            )
+            controls = {cid: self._ctrl(cid) for cid in ids}
             listener = _PanelResizeListener(controls)
             listener._root_window = self.root
             if self.root is not None and hasattr(self.root, "addWindowListener"):
@@ -407,7 +437,7 @@ class PythonSidebarController:
             log.debug("sidebar resize listener attach failed", exc_info=True)
 
     def _wire(self) -> None:
-        filter_combo = self._ctrl("filter_combo")
+        filter_combo = self._ctrl("filter_combo") if self._calc_panel else None
         if filter_combo is not None:
             try:
                 model = filter_combo.getModel()
@@ -417,13 +447,16 @@ class PythonSidebarController:
                 log.debug("filter combo init failed", exc_info=True)
 
         bindings: list[tuple[str, Any]] = [
-            ("btn_refresh", self.refresh),
-            ("btn_edit_cell", self._on_edit_cell),
-            ("btn_run_script", self._on_run_script),
-            ("btn_edit_init", self._on_edit_init),
             ("btn_reset", self._on_reset),
             ("btn_settings", self._on_settings),
         ]
+        if self._calc_panel:
+            bindings[0:0] = [
+                ("btn_refresh", self.refresh),
+                ("btn_edit_cell", self._on_edit_cell),
+                ("btn_run_script", self._on_run_script),
+                ("btn_edit_init", self._on_edit_init),
+            ]
         for cid, handler in bindings:
             ctrl = self._ctrl(cid)
             if ctrl is None:
@@ -433,29 +466,32 @@ class PythonSidebarController:
             except Exception:
                 log.debug("wire action %s failed", cid, exc_info=True)
 
-        cells = self._ctrl("cells_list")
-        if cells is not None:
-            try:
-                cells.addItemListener(_Item(self._on_cell_selected))
-            except Exception:
-                log.debug("wire cells_list failed", exc_info=True)
+        if self._calc_panel:
+            cells = self._ctrl("cells_list")
+            if cells is not None:
+                try:
+                    cells.addItemListener(_Item(self._on_cell_selected))
+                except Exception:
+                    log.debug("wire cells_list failed", exc_info=True)
 
-        diags = self._ctrl("diag_list")
-        if diags is not None:
-            try:
-                diags.addItemListener(_Item(self._on_diag_selected))
-            except Exception:
-                log.debug("wire diag_list failed", exc_info=True)
+            diags = self._ctrl("diag_list")
+            if diags is not None:
+                try:
+                    diags.addItemListener(_Item(self._on_diag_selected))
+                except Exception:
+                    log.debug("wire diag_list failed", exc_info=True)
 
-        if filter_combo is not None:
-            try:
-                filter_combo.addItemListener(_Item(lambda _e: self.refresh()))
-            except Exception:
-                log.debug("wire filter_combo failed", exc_info=True)
+            if filter_combo is not None:
+                try:
+                    filter_combo.addItemListener(_Item(lambda _e: self.refresh()))
+                except Exception:
+                    log.debug("wire filter_combo failed", exc_info=True)
 
         try:
             header = {cid: self._ctrl(cid) for cid in HEADER_BUTTON_IDS}
-            wire_sidebar_header_buttons(self.ctx, self.frame, header, calc_doc=True)
+            wire_sidebar_header_buttons(
+                self.ctx, self.frame, header, calc_doc=self._calc_panel
+            )
         except Exception:
             log.debug("wire header toolbar failed", exc_info=True)
 
@@ -468,8 +504,29 @@ class PythonSidebarController:
             return
         post_to_main_thread(self.refresh)
 
+    def _frame_is_calc(self) -> bool:
+        frame = self.frame
+        if frame is None:
+            return False
+        try:
+            controller = frame.getController()
+            model = controller.getModel() if controller is not None else None
+            return bool(model is not None and is_calc(model))
+        except Exception:
+            log.debug("LibrePy sidebar: frame type resolve failed", exc_info=True)
+            return False
+
+    def _hide_calc_only_controls(self) -> None:
+        for cid in _CALC_ONLY_IDS:
+            set_control_visible(self._ctrl(cid), False)
+
     def _calc_document(self) -> Any | None:
-        """Prefer the Calc model bound to this sidebar frame, not Desktop current."""
+        """Prefer the Calc model bound to this sidebar frame, not Desktop current.
+
+        Writer panels must not fall back to some other open Calc document.
+        """
+        if not getattr(self, "_calc_panel", True):
+            return None
         frame = self.frame
         if frame is not None:
             try:
@@ -484,6 +541,9 @@ class PythonSidebarController:
         return get_calc_document_from_ctx(self.ctx)
 
     def refresh(self) -> None:
+        if not self._calc_panel:
+            set_control_text(self._ctrl("status"), format_runtime_status(self.ctx, None))
+            return
         doc = self._calc_document()
         set_control_text(self._ctrl("status"), format_runtime_status(self.ctx, doc))
 

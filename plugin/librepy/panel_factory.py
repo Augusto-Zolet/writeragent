@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""LibrePy Python sidebar panel (Calc-only) — UNO factory + XDL shell.
+"""LibrePy Python sidebar panel (Calc + Writer) — UNO factory + XDL shell.
 
 Follows the ChatPanel pattern: XUIElement creates the panel in getRealInterface()
 via ContainerWindowProvider + XDL. No chat imports.

@@ -67,7 +67,7 @@ Full catalog of capabilities: **[docs/features.md](docs/features.md)**.
    - **Python / LibrePy users:** Open Calc, check **Tools → LibrePy (or WriterAgent) → Settings → Python**, and click **Test** to verify your environment and NumPy/pandas availability.
    - **AI / WriterAgent users:** Open **WriterAgent → Settings** and enter your endpoint (e.g. `http://localhost:11434` for local [Ollama](https://ollama.com/), or an [OpenRouter](https://openrouter.ai/) / [Together.AI](https://www.together.ai/) API key). Open the sidebar via **View → Sidebar → WriterAgent** or press **Ctrl+Q** / **Ctrl+E**.
 
-> **UI Modes:** In classic toolbar mode, access tools through the top menubar. In tabbed/ribbon interfaces, all actions (Settings `⚙`, Python `🐍`, LaTeX math, search `🔍`, and full menus via `☰`) are available directly on the sidebar.
+> **UI Modes:** In classic toolbar mode, access tools through the top menubar. In tabbed/ribbon interfaces, use the **WriterAgent** chat sidebar and/or the **Python** sidebar (Writer + Calc): Settings `⚙`, Python `🐍`, LaTeX math or Edit cell, search `🔍` (WriterAgent chat only), and full menus via `☰`.
 
 For detailed setup instructions, see the **[Install and Troubleshooting Guide](docs/install-troubleshooting.md)**.
 

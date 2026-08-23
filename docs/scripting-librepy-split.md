@@ -1061,13 +1061,13 @@ flowchart LR
 | [`plugin/calc/navigation.py`](../plugin/calc/navigation.py) | Click-to-navigate from sidebar |
 | [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) | Excel Python-in-Excel → DAG `=PY` (auto on open + CLI) |
 | [`plugin/scripting/venv/editor_main.py`](../plugin/scripting/venv/editor_main.py) | Child process entry (runs in user venv) |
-| [`extension-core/registry/.../Sidebar.xcu`](../extension-core/registry/org/openoffice/Office/UI/Sidebar.xcu) | LibrePyDeck + PythonPanel (Calc only); deck icon `assets/python_32.png` (PSF two-snakes) |
+| [`extension-core/registry/.../Sidebar.xcu`](../extension-core/registry/org/openoffice/Office/UI/Sidebar.xcu) | LibrePyDeck + PythonPanel (Calc + Writer); deck icon `assets/python_32.png` (PSF two-snakes) |
 | [`extension-core/registry/.../Factories.xcu`](../extension-core/registry/org/openoffice/Office/UI/Factories.xcu) | PythonPanelFactory registration |
 | [`extension/Dialogs/PythonSidebarDialog.xdl`](../extension/Dialogs/PythonSidebarDialog.xdl) | Sidebar layout |
 
 Requires Layer 2 (`appearance.py`, `document_scripts.py`, `python_runner.py`) and Layer 0 worker for **Run** from Monaco.
 
-**LibrePy Python sidebar:** Calc-only native deck (not chat). Header icons (Settings, Run Python, Edit cell, hamburger) dispatch the same registered actions as the menus; hamburger lists only handlers that exist in LibrePy (no Search/embeddings, MCP, or chat extend/edit). Lists active-sheet `=PY()` cells, shows filtered diagnostics, and dispatches existing menu actions. Monaco remains a separate pywebview window. Content fields (`status`, `cells_list`, `diag_list`, `diag_detail`) share leftover deck height in proportion to their XDL heights; all controls scale horizontally to the panel width (8px right margin) except the 16px header icons. Frame-sized width hints are ignored so the deck does not flash skinny or keep a horizontal scrollbar.
+**LibrePy Python sidebar:** Native deck (not chat) in **Calc and Writer** (always; not gated on NotebookBar). Header icons dispatch the same registered actions as the menus. **LibrePy** hamburger lists only handlers that exist in core (no Search/embeddings, MCP, or chat extend/edit). **WriterAgent** Python hamburger is the same popup as the chat sidebar (`show_hamburger_menu`). Calc: third header button is Edit Python in Cell; lists active-sheet `=PY()` cells and filtered diagnostics. Writer: third button is Insert LaTeX; Calc `=PY()` chrome is hidden; venv/session status plus Reset/Settings remain so tabbed UI still has the tools when the menubar is gone. Monaco remains a separate pywebview window. Visible content fields share leftover deck height; all controls scale horizontally except the 16px header icons. Frame-sized width hints are ignored so the deck does not flash skinny or keep a horizontal scrollbar.
 
 ### Not in OXT
 
