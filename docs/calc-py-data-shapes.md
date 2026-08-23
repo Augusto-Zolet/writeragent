@@ -182,7 +182,8 @@ What Python sees after UNO unwrap / pack ([`calc_addin_data.py`](../plugin/calc/
 | Logical typed in Calc | `1.0` / `0.0` |
 | Formula / plain / Python-style text logicals | `True` / `False` (after coercion) |
 
-**Egress:** Python `True` / `False` map to UNO booleans in `to_calc_compatible`. `=PY("True")` should display a **logical** TRUE, not the text `"True"`.
+**Egress:** Python `True` / `False` map to `1.0` / `0.0` (UNO double) in `to_calc_compatible` and `_coerce_spill_value`. Calc's Add-In bridge unpacks doubles and strings; returning doubles preserves truthiness across Calc formulas (e.g. `IF(...)`, filters, matrix operations).
+
 
 ---
 

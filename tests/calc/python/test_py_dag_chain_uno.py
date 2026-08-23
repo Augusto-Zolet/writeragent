@@ -69,3 +69,26 @@ def test_py_data_arg_dag_chain_uno(ctx, doc):
     assert sheet.getCellByPosition(4, 0).getValue() == 10.0
     assert sheet.getCellByPosition(5, 0).getValue() == 10.0
 
+    # 4. Issue #413: Boolean return
+    res_bool_true = func.py("result = True")
+    assert res_bool_true == 1.0
+    assert isinstance(res_bool_true, float)
+
+    res_bool_false = func.py("result = False")
+    assert res_bool_false == 0.0
+    assert isinstance(res_bool_false, float)
+
+    # Chained boolean logic in Python add-in
+    res_bool_chain = func.py("result = 'YES' if data else 'NO'", ((res_bool_true,),))
+    assert res_bool_chain == "YES"
+
+    res_bool_chain_false = func.py("result = 'YES' if data else 'NO'", ((res_bool_false,),))
+    assert res_bool_chain_false == "NO"
+
+
+
+
+
+
+
+

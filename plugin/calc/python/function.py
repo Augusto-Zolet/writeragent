@@ -124,12 +124,13 @@ def _calc_iso_datetime(dt: datetime.datetime) -> str:
     return dt.isoformat()
 
 
-def to_calc_compatible(val: Any) -> float | str | bool | tuple:
+def to_calc_compatible(val: Any) -> float | str | tuple:
     """Recursively convert Python values into LibreOffice Calc supported types.
 
-    Calc cells and matrix formulas only support float (UNO double), str (UNO string),
-    and bool (UNO boolean). Crucially, Calc matrix formulas do NOT support integer
-    (UNO long) types and will throw #VALUE! if a sequence contains integers/longs.
+    Calc cells and matrix formulas only support float (UNO double) and str (UNO string).
+    Crucially, Calc matrix formulas do NOT support integer (UNO long) types and will
+    throw #VALUE! if a sequence contains integers/longs. Python booleans are converted
+    to 1.0 / 0.0 (UNO double) because Calc's Add-In bridge only unpacks doubles and strings.
 
     Host LibreOffice Python has no pandas/numpy — temporal pandas types are duck-typed
     (Timestamp subclasses datetime; NaT is NaTType). Do not import pandas here.
@@ -140,8 +141,16 @@ def to_calc_compatible(val: Any) -> float | str | bool | tuple:
     tname = type(val).__name__
     if tname in ("NaTType", "NAType"):
         return ""
+    # Bugfix (#413): When Python bool (True/False) was returned directly, PyUNO wrapped it in
+    # uno::Any with TypeClass_BOOLEAN. LibreOffice Calc's C++ Add-In caller (ScUnoAddInCall)
+    # only unpacks double and string types, silently defaulting unhandled types (including BOOLEAN)
+    # to 0.0. Mapping bool to 1.0 / 0.0 allows Calc formulas (e.g. IF, logical operators) to evaluate
+    # truthiness correctly and matches _coerce_spill_value.
     if isinstance(val, bool):
-        return val
+        return 1.0 if val else 0.0
+
+
+
     if isinstance(val, int):
         return float(val)
     if isinstance(val, float):
@@ -1125,6 +1134,8 @@ def _execute_python_addin_impl(
             final_ret = finalize_python_return(ctx, code, result, index_arg=index_arg, worker_data=worker_data)
             log.debug("PYTHON returning scalar: %r (type: %s)", final_ret, type(final_ret).__name__)
             return final_ret
+
+
         err_msg = _format_python_addin_worker_error(str(res.get("message") or res.get("error") or ""))
         _record_py_diagnostic(ctx, code, res, status="error", message=err_msg)
         log.debug("PYTHON returning worker error: %r", err_msg)

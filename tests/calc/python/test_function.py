@@ -36,9 +36,16 @@ def test_to_calc_compatible_finite_float_unchanged() -> None:
     assert to_calc_compatible(3.5) == 3.5
 
 
-def test_to_calc_compatible_bool_passthrough() -> None:
-    assert to_calc_compatible(True) is True
-    assert to_calc_compatible(False) is False
+def test_to_calc_compatible_bool_coercion() -> None:
+    # Bugfix (#413): Python bool maps to float 1.0/0.0 for Calc compatibility
+    res_true = to_calc_compatible(True)
+    assert res_true == 1.0
+    assert isinstance(res_true, float)
+
+    res_false = to_calc_compatible(False)
+    assert res_false == 0.0
+    assert isinstance(res_false, float)
+
 
 
 def test_to_calc_compatible_nan_in_nested_matrix() -> None:
