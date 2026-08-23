@@ -67,3 +67,38 @@ def test_find_document_by_predicate_fallback() -> None:
         doc = session_manager._calc_document(ctx)
         assert doc is not None
 
+
+def test_workbook_session_id_with_explicit_doc() -> None:
+    """Explicit doc argument avoids desktop lookups and works regardless of thread affinity."""
+    from unittest.mock import MagicMock, patch
+
+    ctx = MagicMock()
+    mock_doc = MagicMock()
+    mock_doc.getURL.return_value = "file:///custom_sheet.ods"
+
+    with (
+        patch("plugin.scripting.session_manager.python_session_mode", return_value="shared"),
+        patch("plugin.scripting.session_manager.is_calc", return_value=True),
+        patch("plugin.framework.thread_guard.on_main_thread", return_value=False),
+    ):
+        sid = session_manager.workbook_session_id(ctx, doc=mock_doc)
+        assert sid == "calc:file:///custom_sheet.ods"
+
+
+def test_reset_workbook_python_session_prefers_calc() -> None:
+    """When both Calc and Writer are open/available, reset routes to Calc first."""
+    from unittest.mock import MagicMock, patch
+
+    ctx = MagicMock()
+    mock_calc = MagicMock()
+    mock_writer = MagicMock()
+
+    with (
+        patch("plugin.scripting.session_manager._calc_document", return_value=mock_calc),
+        patch("plugin.scripting.session_manager._writer_document", return_value=mock_writer),
+        patch("plugin.scripting.session_manager._reset_calc_python_sessions") as mock_reset_calc,
+    ):
+        session_manager.reset_workbook_python_session(ctx)
+        mock_reset_calc.assert_called_once_with(ctx, mock_calc)
+
+

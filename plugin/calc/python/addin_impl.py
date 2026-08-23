@@ -63,9 +63,10 @@ except ImportError:
 class PythonFunction(SingleFunctionAddInBase, _XPythonFunctionBase):  # pyright: ignore[reportGeneralTypeIssues, reportUntypedBaseClass]  # pyrefly: ignore[invalid-inheritance]
     """Calc add-in: org.extension.writeragent.PythonFunction (=PY / =PYTHON)."""
 
-    def __init__(self, ctx: Any) -> None:
+    def __init__(self, ctx: Any, doc: Any | None = None) -> None:
         log.debug("=== PythonFunction.__init__ ===")
         super().__init__(ctx, PYTHON_FUNCTION_SPECS)
+        self.doc = doc
         self._true_strings, self._false_strings = self._get_localized_booleans()
 
     def _get_localized_booleans(self) -> tuple[set[str], set[str]]:
@@ -102,7 +103,7 @@ class PythonFunction(SingleFunctionAddInBase, _XPythonFunctionBase):  # pyright:
         return true_strs, false_strs
 
     def python(self, code: str, data: Any = None) -> Any:
-        return execute_python_addin(self.ctx, code, data, self._true_strings, self._false_strings)
+        return execute_python_addin(self.ctx, code, data, self._true_strings, self._false_strings, doc=self.doc)
 
     def py(self, code: str, data: Any = None) -> Any:
         return self.python(code, data)

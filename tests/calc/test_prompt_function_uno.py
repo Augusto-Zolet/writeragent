@@ -25,7 +25,10 @@ def test_prompt_addin_metadata(ctx):
 def test_python_addin_execution(ctx):
     from plugin.calc.python.addin import PythonFunction
     from plugin.calc.python.function import MATRIX_SCALAR_SESSIONS
+    from plugin.framework.config import set_config
     import unittest.mock
+
+    set_config("scripting.python_session_mode", "isolated")
 
     if hasattr(MATRIX_SCALAR_SESSIONS, "sessions"):
         MATRIX_SCALAR_SESSIONS.sessions.clear()

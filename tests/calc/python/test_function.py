@@ -719,8 +719,8 @@ def test_execute_python_addin_maps_missing_venv_error(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
-    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda _ctx: {})
-    monkeypatch.setattr(python_function, "workbook_session_id", lambda _ctx: None)
+    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda *_a, **_k: {})
+    monkeypatch.setattr(python_function, "workbook_session_id", lambda *_a, **_k: None)
     out = python_function.execute_python_addin(_ctx_with_doc(CalcDocStub()), "1+1")
     assert "Settings" in out
     assert "Test" in out
@@ -738,8 +738,8 @@ def test_execute_python_addin_maps_timeout_error(monkeypatch) -> None:
         },
     )
     monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
-    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda _ctx: {})
-    monkeypatch.setattr(python_function, "workbook_session_id", lambda _ctx: None)
+    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda *_a, **_k: {})
+    monkeypatch.setattr(python_function, "workbook_session_id", lambda *_a, **_k: None)
     out = python_function.execute_python_addin(_ctx_with_doc(CalcDocStub()), "1+1")
     assert out.startswith("Error:")
     assert "timed out" in out.lower()
@@ -764,8 +764,8 @@ def test_py_timing_off_by_default(monkeypatch: pytest.MonkeyPatch, caplog: pytes
         lambda *_a, **_k: {"status": "ok", "result": 2.0},
     )
     monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
-    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda _ctx: {})
-    monkeypatch.setattr(python_function, "workbook_session_id", lambda _ctx: None)
+    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda *_a, **_k: {})
+    monkeypatch.setattr(python_function, "workbook_session_id", lambda *_a, **_k: None)
     python_function.execute_python_addin(_ctx_with_doc(CalcDocStub()), "1+1")
     assert not any(r.message.startswith("py_timing ") for r in caplog.records)
 
@@ -782,8 +782,8 @@ def test_py_timing_logs_ipc_ms_and_pass_totals(monkeypatch: pytest.MonkeyPatch, 
         lambda *_a, **_k: {"status": "ok", "result": 2.0},
     )
     monkeypatch.setattr(python_function, "_record_py_diagnostic", lambda *_a, **_k: None)
-    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda _ctx: {})
-    monkeypatch.setattr(python_function, "workbook_session_id", lambda _ctx: None)
+    monkeypatch.setattr(python_function, "get_python_init_kwargs", lambda *_a, **_k: {})
+    monkeypatch.setattr(python_function, "workbook_session_id", lambda *_a, **_k: None)
     ctx = _ctx_with_doc(CalcDocStub())
     code = (
         'from writeragent.scripting.analysis import run_analysis; '

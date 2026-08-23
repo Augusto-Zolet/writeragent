@@ -261,7 +261,7 @@ def _get_calc_doc(ctx: Any) -> Any | None:
     return None
 
 
-def session_key(ctx: Any, code: str) -> tuple:
+def session_key(ctx: Any, code: str, doc: Any | None = None) -> tuple:
     # Bugfix (#402): When Calc evaluates formulas during remote PyUNO calls (e.g. setFormula),
     # =PY() runs on a UNO bridge thread (Dummy-N). Calling _get_calc_doc touches get_desktop,
     # which violates thread-safety and triggers the Layer A thread guard.
@@ -269,19 +269,21 @@ def session_key(ctx: Any, code: str) -> tuple:
     doc_url = ""
     sheet_name = ""
     try:
-        from plugin.framework.thread_guard import on_main_thread
+        target = doc
+        if target is None:
+            from plugin.framework.thread_guard import on_main_thread
 
-        if on_main_thread() and (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
-            doc = _get_calc_doc(ctx)
-            if doc is not None:
-                url_val = getattr(doc, "getURL", lambda: "")()
-                doc_url = url_val if isinstance(url_val, str) else ""
-                ctrl = getattr(doc, "getCurrentController", lambda: None)()
-                if ctrl is not None:
-                    sheet = getattr(ctrl, "getActiveSheet", lambda: None)()
-                    if sheet is not None:
-                        name_val = getattr(sheet, "getName", lambda: "")()
-                        sheet_name = name_val if isinstance(name_val, str) else ""
+            if on_main_thread() and (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
+                target = _get_calc_doc(ctx)
+        if target is not None:
+            url_val = getattr(target, "getURL", lambda: "")()
+            doc_url = url_val if isinstance(url_val, str) else ""
+            ctrl = getattr(target, "getCurrentController", lambda: None)()
+            if ctrl is not None:
+                sheet = getattr(ctrl, "getActiveSheet", lambda: None)()
+                if sheet is not None:
+                    name_val = getattr(sheet, "getName", lambda: "")()
+                    sheet_name = name_val if isinstance(name_val, str) else ""
     except Exception:
         log.debug("session_key inline metadata lookup exception", exc_info=True)
     return (doc_url, sheet_name, code)
@@ -298,12 +300,19 @@ class WorkerResultSession:
         self.next_index = 0
 
 
-def scalar_for_list_result(ctx: Any, code: str, result: Any, *, worker_data: Any = None) -> float | str | bool:
+def scalar_for_list_result(
+    ctx: Any,
+    code: str,
+    result: Any,
+    *,
+    worker_data: Any = None,
+    doc: Any | None = None,
+) -> float | str | bool:
     """Return one Calc scalar per invocation when the worker produced a list."""
     flat: list = [to_calc_compatible(v) for v in flatten_result_values(result)]
     if not flat:
         return ""
-    key = (session_key(ctx, code), repr(worker_data))
+    key = (session_key(ctx, code, doc=doc), repr(worker_data))
     sessions = getattr(MATRIX_SCALAR_SESSIONS, "sessions", None)
     if sessions is None:
         sessions = {}
@@ -766,6 +775,7 @@ def finalize_python_return(
     *,
     index_arg: Any = None,
     worker_data: Any = None,
+    doc: Any | None = None,
 ) -> float | str | bool | tuple:
     """Map worker result to a single value Calc's add-in bridge accepts."""
     # Worker egress (payload_codec.child_pack_result + host_unpack_data) always yields plain
@@ -779,15 +789,15 @@ def finalize_python_return(
         from plugin.framework.config import get_config_bool
         if get_config_bool("scripting.python_auto_spill"):
             try:
-                doc = None
+                target_doc = doc
                 from plugin.framework.thread_guard import on_main_thread
 
-                if not on_main_thread() or not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
+                if target_doc is None and (not on_main_thread() or not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager"))):
                     is_matrix = True
-                else:
-                    doc = _get_calc_doc(ctx)
-                if doc is not None:
-                    ctrl = doc.getCurrentController()
+                elif target_doc is None:
+                    target_doc = _get_calc_doc(ctx)
+                if target_doc is not None:
+                    ctrl = target_doc.getCurrentController()
                     if ctrl is not None:
                          selection = ctrl.getSelection()
                          if selection is not None and hasattr(selection, "getRangeAddress"):
@@ -810,12 +820,14 @@ def finalize_python_return(
             try:
                 from plugin.framework.thread_guard import on_main_thread
 
-                if not on_main_thread() or not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
+                target_doc = doc
+                if target_doc is None and (not on_main_thread() or not (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager"))):
                     return to_calc_compatible(grid_to_spill[0][0])
-                doc = _get_calc_doc(ctx)
-                if doc is not None:
-                    doc_url = getattr(doc, "getURL", lambda: "")() or ""
-                    located = locate_formula_cell_in_doc(ctx, doc, code)
+                if target_doc is None:
+                    target_doc = _get_calc_doc(ctx)
+                if target_doc is not None:
+                    doc_url = getattr(target_doc, "getURL", lambda: "")() or ""
+                    located = locate_formula_cell_in_doc(ctx, target_doc, code)
                     if located is not None:
                         sheet, _, formula_coord = located
                         sheet_name = sheet.getName() if hasattr(sheet, "getName") else "Sheet1"
@@ -824,7 +836,7 @@ def finalize_python_return(
                                 
                         # Check for collisions synchronously
                         if doc_url not in LOADED_DOCUMENTS:
-                            load_spill_registry_for_doc(doc)
+                            load_spill_registry_for_doc(target_doc)
                             LOADED_DOCUMENTS.add(doc_url)
 
                         # Register sheet modify listener for auto-cleanup of spills
@@ -851,12 +863,13 @@ def finalize_python_return(
                             EMPTY = cast("Any", 0)
 
                         collides = False
-                        for r_offset in range(num_rows):
-                            for c_offset in range(num_cols):
-                                target_r = formula_row + r_offset
-                                target_c = formula_col + c_offset
-
-                                if target_r >= 1048576 or target_c >= 16384:
+                        for r_idx in range(num_rows):
+                            for c_idx in range(num_cols):
+                                if r_idx == 0 and c_idx == 0:
+                                    continue
+                                target_r = formula_row + r_idx
+                                target_c = formula_col + c_idx
+                                if target_r >= 1048576 or target_c >= 1024:
                                     log.debug("Spill: collision: target coordinate %r is out of bounds", (target_r, target_c))
                                     collides = True
                                     break
@@ -887,7 +900,7 @@ def finalize_python_return(
                         def _deferred_spill_on_main() -> None:
                             post_to_main_thread(
                                 lambda: perform_deferred_spill(
-                                    ctx, doc_url, sheet_name, formula_row, formula_col, grid_to_spill
+                                    ctx, doc_url, sheet_name, formula_row, formula_col, grid_to_spill, doc=target_doc
                                 )
                             )
 
@@ -906,7 +919,7 @@ def finalize_python_return(
                 return f"Error: index {idx} out of range (result length {len(flat)})"
             return to_calc_compatible(flat[idx])
         
-        return scalar_for_list_result(ctx, code, result, worker_data=worker_data)
+        return scalar_for_list_result(ctx, code, result, worker_data=worker_data, doc=doc)
 
     return to_calc_compatible(result)
 
@@ -949,19 +962,13 @@ def _code_uses_indexed_multi_data(code: str) -> bool:
     return "data[" in src or "ranges[" in src
 
 
-def get_python_init_kwargs(ctx: Any) -> dict[str, Any]:
+def get_python_init_kwargs(ctx: Any, doc: Any | None = None) -> dict[str, Any]:
     try:
         from plugin.framework.thread_guard import on_main_thread
-
-        # Off-main callers (e.g. external UNO setFormula bridge threads) cannot safely resolve
-        # desktop documents without marshalling or violating UNO thread safety.
-        if not on_main_thread():
-            return {}
-
         from plugin.scripting.document_scripts import build_python_eval_init_kwargs, get_calc_document_from_ctx
 
-        doc = get_calc_document_from_ctx(ctx)
-        if doc is not None:
+        target = doc if doc is not None else (get_calc_document_from_ctx(ctx) if on_main_thread() else None)
+        if target is not None:
             # Close/reopen used to reuse the warm-worker calc:…:init cache because
             # nothing listened for OnUnload. Register once per workbook so init
             # runs again on the next open (listener install must not hide init kwargs).
@@ -970,10 +977,10 @@ def get_python_init_kwargs(ctx: Any) -> dict[str, Any]:
                     ensure_calc_workbook_unload_resets_python,
                 )
 
-                ensure_calc_workbook_unload_resets_python(ctx, doc)
+                ensure_calc_workbook_unload_resets_python(ctx, target)
             except Exception:
                 log.debug("python workbook unload listener install failed", exc_info=True)
-            return build_python_eval_init_kwargs(doc)
+            return build_python_eval_init_kwargs(target)
     except Exception:
         log.debug("get_python_init_kwargs failed", exc_info=True)
     return {}
@@ -1026,10 +1033,12 @@ def execute_python_addin(
     data: Any = None,
     true_strings: set[str] | None = None,
     false_strings: set[str] | None = None,
+    *,
+    doc: Any | None = None,
 ) -> Any:
     """Run *code* in the user venv and return a Calc-compatible scalar (or error string)."""
     with sync_host_dispatch():
-        return _execute_python_addin_impl(ctx, code, data, true_strings, false_strings)
+        return _execute_python_addin_impl(ctx, code, data, true_strings, false_strings, doc=doc)
 
 
 def _execute_python_addin_impl(
@@ -1038,6 +1047,8 @@ def _execute_python_addin_impl(
     data: Any = None,
     true_strings: set[str] | None = None,
     false_strings: set[str] | None = None,
+    *,
+    doc: Any | None = None,
 ) -> Any:
     log.debug("=== PYTHON(%r, data=%r) ===", code, data)
     timings = PYTHON_TIMINGS_LOG
@@ -1096,18 +1107,27 @@ def _execute_python_addin_impl(
             pack_ms = int(round((time.perf_counter() - t_pack) * 1000))
         # Synchronous: =PY() runs during Calc recalc; UI event pumping from
         # run_blocking_in_thread can re-enter the formula engine and yield #VALUE!.
+        target_doc = doc
+        if target_doc is None:
+            from plugin.framework.thread_guard import on_main_thread
+
+            if on_main_thread():
+                from plugin.scripting.session_manager import _calc_document
+
+                target_doc = _calc_document(ctx)
+
         sessions = getattr(MATRIX_SCALAR_SESSIONS, "sessions", None)
         if sessions is None:
             sessions = {}
             MATRIX_SCALAR_SESSIONS.sessions = sessions
-        cache_key = (session_key(ctx, code), repr(worker_data))
+        cache_key = (session_key(ctx, code, doc=target_doc), repr(worker_data))
         cached = sessions.get(cache_key)
         if isinstance(cached, WorkerResultSession) and cached.next_index < len(cached.flat):
             used_cache = True
             res = {"status": "ok", "result": cached.raw}
         else:
-            session_id = workbook_session_id(ctx)
-            init_kwargs = get_python_init_kwargs(ctx)
+            session_id = workbook_session_id(ctx, doc=target_doc)
+            init_kwargs = get_python_init_kwargs(ctx, doc=target_doc)
             t_ipc = time.perf_counter() if timings else 0.0
             res = run_code_in_user_venv(
                 ctx,
@@ -1131,7 +1151,7 @@ def _execute_python_addin_impl(
                 if timings:
                     image_ms = int(round((time.perf_counter() - t_img) * 1000))
                 return _("Image inserted") if len(images) == 1 else _("Images inserted")
-            final_ret = finalize_python_return(ctx, code, result, index_arg=index_arg, worker_data=worker_data)
+            final_ret = finalize_python_return(ctx, code, result, index_arg=index_arg, worker_data=worker_data, doc=target_doc)
             log.debug("PYTHON returning scalar: %r (type: %s)", final_ret, type(final_ret).__name__)
             return final_ret
 

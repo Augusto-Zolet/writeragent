@@ -81,10 +81,6 @@ def _find_document_by_predicate(ctx: Any, predicate: Any) -> Any | None:
     return None
 
 
-def _active_document(ctx: Any) -> Any | None:
-    return _find_document_by_predicate(ctx, lambda d: is_calc(d) or is_writer(d))
-
-
 def _calc_document(ctx: Any) -> Any | None:
     return _find_document_by_predicate(ctx, is_calc)
 
@@ -119,32 +115,27 @@ def calc_init_session_id(doc: Any) -> str:
     return f"{calc_workbook_base_session_id(doc)}:init"
 
 
-def workbook_session_id(ctx: Any) -> str | None:
-    """Return ``calc:…`` session id when shared mode and active doc is Calc, else ``None``."""
-    # Bugfix (#402): Previously, workbook_session_id unconditionally marshaled to the main thread
-    # via execute_on_main_thread whenever off-main, even in isolated mode (the default).
-    # When =PY() is evaluated from a remote PyUNO bridge thread (e.g. Dummy-2 during setFormula),
-    # the main thread is blocked in the UNO RPC dispatch, causing a 30s deadlock/timeout.
-    # Check python_session_mode first (config read only, no UNO); if not shared, return None immediately.
-    # When shared mode is used off-main, guard execute_on_main_thread against TimeoutError/exceptions
-    # and gracefully fall back to None (isolated).
+def workbook_session_id(ctx: Any, doc: Any | None = None) -> str | None:
+    """Return ``calc:…`` session id when shared mode and target doc is Calc, else ``None``."""
     if python_session_mode(ctx) != "shared":
         return None
 
+    if doc is not None and is_calc(doc):
+        from plugin.framework.thread_guard import guard_uno
+
+        return calc_workbook_base_session_id(guard_uno(doc))
+
     from plugin.framework.thread_guard import on_main_thread
 
-    # Off-main threads (e.g. remote PyUNO RPC bridge or calculation threads) cannot safely query
+    # Off-main threads without an explicit doc cannot safely query
     # the desktop model and must not block on execute_on_main_thread (deadlock hazard #402).
     if not on_main_thread():
         return None
 
-    def _workbook_session_id_impl() -> str | None:
-        doc = _calc_document(ctx)
-        if doc is None:
-            return None
-        return calc_workbook_base_session_id(doc)
-
-    return _workbook_session_id_impl()
+    target = _calc_document(ctx)
+    if target is None:
+        return None
+    return calc_workbook_base_session_id(target)
 
 
 def notebook_session_id(ctx: Any, doc: Any | None = None) -> str | None:
@@ -155,10 +146,10 @@ def notebook_session_id(ctx: Any, doc: Any | None = None) -> str | None:
     return f"notebook:{_workbook_session_key(target)}"
 
 
-def reset_notebook_python_session(ctx: Any) -> None:
+def reset_notebook_python_session(ctx: Any, doc: Any | None = None) -> None:
     """Menubar path: reset shared Python namespace for the active Writer notebook document."""
-    doc = _writer_document(ctx)
-    if doc is None:
+    target = doc if doc is not None else _writer_document(ctx)
+    if target is None:
         _msgbox(
             ctx,
             _(
@@ -167,7 +158,7 @@ def reset_notebook_python_session(ctx: Any) -> None:
             ),
         )
         return
-    if not _has_notebook_registry(doc):
+    if not _has_notebook_registry(target):
         _msgbox(
             ctx,
             _(
@@ -177,7 +168,7 @@ def reset_notebook_python_session(ctx: Any) -> None:
         )
         return
 
-    session_id = notebook_session_id(ctx, doc)
+    session_id = notebook_session_id(ctx, target)
     if not session_id:
         _msgbox(ctx, _("Could not resolve notebook Python session."))
         return
@@ -191,9 +182,9 @@ def reset_notebook_python_session(ctx: Any) -> None:
     _msgbox(ctx, _("Error: {0}").format(msg))
 
 
-def _reset_calc_python_sessions(ctx: Any) -> None:
-    doc = _calc_document(ctx)
-    if doc is None:
+def _reset_calc_python_sessions(ctx: Any, doc: Any | None = None) -> None:
+    target = doc if doc is not None else _calc_document(ctx)
+    if target is None:
         _msgbox(
             ctx,
             _(
@@ -203,16 +194,29 @@ def _reset_calc_python_sessions(ctx: Any) -> None:
         )
         return
 
-    from plugin.scripting.document_scripts import get_calc_init_script
+    from plugin.scripting.document_scripts import build_python_eval_init_kwargs, get_calc_init_script
 
-    session_id = calc_workbook_base_session_id(doc)
+    session_id = calc_workbook_base_session_id(target)
     res = reset_python_session(ctx, session_id)
     if res.get("status") != "ok":
         msg = res.get("message") or _("Could not reset Python session.")
         _msgbox(ctx, _("Error: {0}").format(msg))
         return
 
-    has_init = bool((get_calc_init_script(doc) or "").strip())
+    # Re-seed init script immediately after reset (C2.2.3) so helper functions (e.g. def double(x): ...)
+    # and init variables are re-populated in the worker for both shared and isolated sessions.
+    init_kwargs = build_python_eval_init_kwargs(target)
+    if init_kwargs:
+        from plugin.scripting.venv_worker import run_code_in_user_venv
+
+        run_code_in_user_venv(
+            ctx,
+            "None",
+            session_id=session_id if python_session_mode(ctx) == "shared" else None,
+            **init_kwargs,
+        )
+
+    has_init = bool((get_calc_init_script(target) or "").strip())
     if python_session_mode(ctx) == "shared":
         _msgbox(ctx, _("Python session reset for this workbook."))
     elif has_init:
@@ -234,19 +238,42 @@ def _reset_calc_python_sessions(ctx: Any) -> None:
         )
 
 
-def reset_workbook_python_session(ctx: Any) -> None:
+def reset_workbook_python_session(ctx: Any, doc: Any | None = None) -> None:
     """Menubar handler: reset notebook kernel (Writer) or shared Calc workbook session."""
-    doc = _active_document(ctx)
-    if doc is not None and is_writer(doc) and _has_notebook_registry(doc):
-        reset_notebook_python_session(ctx)
+    if doc is not None:
+        if is_writer(doc):
+            if _has_notebook_registry(doc):
+                reset_notebook_python_session(ctx, doc)
+            else:
+                _msgbox(
+                    ctx,
+                    _(
+                        "This Writer document has no imported notebook registry. "
+                        "Use Tools → Import Jupyter Notebook… to enable notebook Python session reset."
+                    ),
+                )
+            return
+        _reset_calc_python_sessions(ctx, doc)
         return
-    if doc is not None and is_writer(doc):
-        _msgbox(
-            ctx,
-            _(
-                "This Writer document has no imported notebook registry. "
-                "Use Tools → Import Jupyter Notebook… to enable notebook Python session reset."
-            ),
-        )
+
+    # Prioritize Calc document if one is active/open
+    calc_doc = _calc_document(ctx)
+    if calc_doc is not None:
+        _reset_calc_python_sessions(ctx, calc_doc)
         return
-    _reset_calc_python_sessions(ctx)
+
+    writer_doc = _writer_document(ctx)
+    if writer_doc is not None:
+        if _has_notebook_registry(writer_doc):
+            reset_notebook_python_session(ctx, writer_doc)
+        else:
+            _msgbox(
+                ctx,
+                _(
+                    "This Writer document has no imported notebook registry. "
+                    "Use Tools → Import Jupyter Notebook… to enable notebook Python session reset."
+                ),
+            )
+        return
+
+    _reset_calc_python_sessions(ctx, None)
