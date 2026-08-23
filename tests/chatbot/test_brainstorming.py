@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 from plugin.chatbot.brainstorming import (
     BrainstormResearchWeb,
-    BrainstormingFinishedTool,
     BrainstormingSessionTool,
     SaveDesignSpec,
     _normalize_html_content_array,
@@ -110,14 +109,6 @@ def test_brainstorm_research_web_delegates_to_web_research():
         out = tool.execute(ctx, query="topic")
         instance.execute.assert_called_once_with(ctx, query="topic")
         assert out["result"] == "facts"
-
-
-def test_brainstorming_finished_returns_finished_status():
-    tool = BrainstormingFinishedTool()
-    result = tool.execute(MagicMock(), message="<p>Done.</p>", spec_saved=True)
-    assert result["status"] == "finished"
-    assert result["result"] == "<p>Done.</p>"
-    assert result["spec_saved"] is True
 
 
 def test_collect_brainstorming_tools_merges_doc_research_reads():

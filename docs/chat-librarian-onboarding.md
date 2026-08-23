@@ -57,7 +57,7 @@ Onboarding is **not** a hidden intercept on missing `USER.md`. It is the last it
 - **Default selection:** first sidebar open (config `chatbot.librarian_invoked` still false) → Librarian, then the flag is set. Later opens start on **Chat** even if `USER.md` is empty (user never answered). Pick Librarian anytime from the dropdown.
 - **Re-entry:** pick Librarian any time. Same smol agent (`librarian_onboarding`).
 - **History:** global `ChatSession` with id `writeragent_librarian` (not per document). Switching to Chat shows document chat; switching back restores the Librarian transcript. Clear only wipes the active session.
-- **LLM exit:** `switch_to_document_mode` sets the dropdown to **Chat** on the UI thread, swaps to `doc_session` (Chat pane + history), and refreshes `[DOCUMENT CONTENT]` on that session. Librarian history is kept for later. Does not wait for ComboBox item-changed.
+- **LLM exit:** `reply_to_user` with `switch_to_document_mode=true` (same flag name as the old leave tool). That sets the dropdown to **Chat** on the UI thread, swaps to `doc_session`, and refreshes `[DOCUMENT CONTENT]`. Librarian history is kept. Human exit is still the dropdown.
 
 See [`docs/chat-librarian-mode-dev-plan.md`](chat-librarian-mode-dev-plan.md).
 

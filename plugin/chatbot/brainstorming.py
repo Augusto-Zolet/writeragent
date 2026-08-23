@@ -11,11 +11,10 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
-    from plugin.contrib.smolagents.memory import ActionStep, ToolCall
+    from plugin.contrib.smolagents.memory import ToolCall
 
 from plugin.doc.document_research import DOC_RESEARCH_DISCOVERY_TOOL_NAMES, filter_document_research_discovery_tools
 from plugin.doc.specialized_base import _field_from_tool_arguments
@@ -119,31 +118,6 @@ class SaveDesignSpec(ToolWriterSpecialBase):
         return apply_tool.execute_safe(ctx, content=content, target=target)
 
 
-class BrainstormingFinishedTool(ToolBase):
-    """Ends the brainstorming session and returns control to the main assistant."""
-
-    name = "brainstorming_finished"
-    description = "Ends brainstorming after the design spec is saved and reviewed. message must be HTML."
-    tier = "specialized_control"
-    is_final_answer_tool = True
-    is_mutation = False
-    parameters = {
-        "type": "object",
-        "properties": {
-            "message": {"type": "string", "description": "HTML handoff message for the chat sidebar."},
-            "spec_saved": {"type": "boolean", "description": "True if save_design_spec was called this session."},
-        },
-        "required": ["message"],
-    }
-
-    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
-        from plugin.framework.i18n import _
-
-        message = kwargs.get("message") or _("Brainstorming complete.")
-        spec_saved = bool(kwargs.get("spec_saved", False))
-        return {"status": "finished", "result": str(message), "spec_saved": spec_saved}
-
-
 def _run_brainstorming_agent(ctx: ToolContext, *, query: str = "", history_text: str | None = None, topic: str | None = None, **kwargs: Any) -> dict[str, Any]:
     """Run one turn of the brainstorming smol sub-agent."""
     from plugin.chatbot.smol_agent import SmolAgentExecutor, SmolToolAdapter, build_toolcalling_agent
@@ -160,10 +134,11 @@ def _run_brainstorming_agent(ctx: ToolContext, *, query: str = "", history_text:
     if status_callback:
         status_callback("Brainstorming...")
 
+    from plugin.chatbot.sticky_reply import BRAINSTORMING_REPLY_SPEC, StickyReplyToUserTool, interpret_sticky_final_answer
+
     domain_tools = collect_brainstorming_tools(ctx)
-    finish_tool = BrainstormingFinishedTool()
     smol_tools = [SmolToolAdapter(t, ctx, safe=True, main_thread_sync=True, inputs_style="specialized") for t in domain_tools]
-    smol_tools.append(SmolToolAdapter(finish_tool, ctx, safe=False, inputs_style="librarian"))
+    smol_tools.append(SmolToolAdapter(StickyReplyToUserTool(BRAINSTORMING_REPLY_SPEC), ctx, safe=False, inputs_style="librarian"))
 
     instructions = get_brainstorming_sub_agent_instructions(ctx.ctx)
     if topic and topic.strip():
@@ -195,36 +170,17 @@ def _run_brainstorming_agent(ctx: ToolContext, *, query: str = "", history_text:
             status_callback(f"{step.name}...")
         return None
 
-    def action_step_handler(step: ActionStep) -> Any:
-        if step.observations:
-            obs_str = str(step.observations)
-            if "'status': 'finished'" in obs_str or '"status": "finished"' in obs_str:
-                match = re.search(r"'result': '([^']*)'", obs_str) or re.search(r'"result": "([^"]*)"', obs_str)
-                handoff = match.group(1) if match else None
-                spec_match = re.search(r"'spec_saved': (True|False)", obs_str) or re.search(r'"spec_saved": (true|false)', obs_str, re.I)
-                spec_saved = spec_match.group(1).lower() == "true" if spec_match else False
-                if append_thinking_callback:
-                    msg = f"Step {step.step_number}:\n"
-                    if step.model_output:
-                        mo = step.model_output
-                        msg += f"{(mo.strip() if isinstance(mo, str) else str(mo).strip())}\n"
-                    msg += f"Observation: {obs_str.strip()}\n\n"
-                    append_thinking_callback(msg)
-                return {"status": "finished", "result": handoff or "Brainstorming complete.", "spec_saved": spec_saved}
-        return None
-
     executor = SmolAgentExecutor(ctx)
     res = executor.execute_safe(
         agent,
         task,
         tool_call_handler=tool_call_handler,
-        action_step_handler=action_step_handler,
         stop_message="Brainstorming stopped by user.",
         error_prefix="Brainstorming failed",
     )
-    if isinstance(res, dict):
+    if isinstance(res, dict) and res.get("status") == "error":
         return res
-    return {"status": "ok", "result": str(res)}
+    return interpret_sticky_final_answer(res, leave_status=BRAINSTORMING_REPLY_SPEC.leave_status)
 
 
 class BrainstormingSessionTool(ToolBase):

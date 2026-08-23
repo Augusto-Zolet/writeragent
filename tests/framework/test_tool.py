@@ -442,10 +442,7 @@ class TestManageChartsSpecializedTier:
 
 class TestLibrarianToolVisibility:
     def test_librarian_tools_are_hidden_by_default_in_main_chat_schema(self):
-        from plugin.chatbot.librarian import (
-            LibrarianOnboardingTool,
-            SwitchToDocumentModeTool,
-        )
+        from plugin.chatbot.librarian import LibrarianOnboardingTool
 
         class VisibleTool(ToolBase):
             name = "visible_tool"
@@ -457,7 +454,6 @@ class TestLibrarianToolVisibility:
         reg = _make_registry(
             VisibleTool(),
             LibrarianOnboardingTool(),
-            SwitchToDocumentModeTool(),
         )
 
         schemas = reg.get_schemas("openai", doc=TestingFactory.create_doc(doc_type="writer"))
@@ -465,7 +461,7 @@ class TestLibrarianToolVisibility:
 
         assert "visible_tool" in tool_names
         assert "librarian_onboarding" not in tool_names
-        assert "switch_to_document_mode" not in tool_names
+        assert "reply_to_user" not in tool_names
 
 class TestSchemas:
     def test_openai_schemas(self):

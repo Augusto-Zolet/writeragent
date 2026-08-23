@@ -153,7 +153,7 @@ Do **not** merge **`tool_loop`** with **`ToolCallingAgent`** without a product d
 |----------|---------|
 | Transcript shape | OpenAI multi-turn vs ReAct steps |
 | Streaming / FSM | Chat drain + sidebar state vs sub-agent `run()` |
-| Final-answer tools | `reply_to_user`, `specialized_workflow_finished`, `switch_to_document_mode` |
+| Final-answer tools | `reply_to_user` (sticky modes: leave via flags `switch_to_document_mode` / `brainstorming_finished` / `writing_plan_finished`), `specialized_workflow_finished` |
 | Threading | Specialized `execute_safe` + main thread vs librarian `execute` where safe |
 
 ---

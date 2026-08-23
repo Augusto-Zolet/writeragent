@@ -5,7 +5,6 @@
 
 import getpass
 import logging
-import re
 from typing import Any, Iterable, cast
 
 from plugin.framework.tool import ToolBase
@@ -80,27 +79,6 @@ def get_os_login_name() -> str | None:
 def get_suggested_user_name(ctx: Any) -> str | None:
     """Best-effort name for librarian confirmation: LO profile first, then OS login."""
     return get_libreoffice_user_display_name(ctx) or get_os_login_name()
-
-
-class SwitchToDocumentModeTool(ToolBase):
-    name = "switch_to_document_mode"
-    description = "Exits the Librarian onboarding flow and switches the user to the main document assistant mode. Use this when you are done or the user wants to work on the document."
-    parameters = {"type": "object", "properties": {"message": {"type": "string", "description": "A final friendly message to the user before switching."}}, "required": ["message"]}
-    # Hide from the default main-chat tool surface; librarian onboarding owns this tool.
-    tier = "specialized_control"
-    is_final_answer_tool = True
-    is_mutation = False
-    long_running = False
-
-    def is_async(self):
-        return False
-
-    def execute(self, ctx, **kwargs):
-        from plugin.framework.i18n import _
-
-        # If the tool is called, we will stop the Librarian flow.
-        # It's an internal signal, we'll return a specific status.
-        return {"status": "switch_mode", "message": kwargs.get("message", _("Switching to document mode..."))}
 
 
 def _run_librarian_agent(
@@ -187,7 +165,7 @@ NEVER write a document or output these details as a document.
 You must only share this information conversationally in the chat one at a time, as they may want to discuss each topic separately.
 NEVER mention a tip twice.
 Make the experience enjoyable and personal.
-IMPORTANT: Call switch_to_document_mode(message='...') when the conversation seems over, or when the user says goodbye or says they want to do document work (writing, editing, spreadsheets, etc.) or when you both agree the onboarding is complete.
+IMPORTANT: Call reply_to_user with answer and switch_to_document_mode=true when the conversation seems over, or when the user says goodbye or says they want to do document work (writing, editing, spreadsheets, etc.) or when you both agree the onboarding is complete.
 
 CONVERSATION STYLE:
 - Be warm, friendly, and genuinely curious to learn about the user.
@@ -199,8 +177,8 @@ CONVERSATION STYLE:
 - Make it fun! Use appropriate emojis and enthusiasm.
 
 TOOLS FOR COMPLETION:
-- Use 'reply_to_user' to respond to the user and CONTINUE the onboarding conversation (e.g., asking more questions).
-- Use 'switch_to_document_mode' with a friendly 'message' to END the onboarding and hand over to the document assistant.
+- Use reply_to_user with 'answer' to CONTINUE the onboarding conversation.
+- Use reply_to_user with 'answer' and switch_to_document_mode=true to END onboarding and switch the sidebar to Chat.
 
 """
 
@@ -212,14 +190,19 @@ TOOLS FOR COMPLETION:
     instructions += (
         "\n\n"
         + get_chat_response_format_instructions(ctx.ctx)
-        + "\nFormat reply_to_user and switch_to_document_mode message with this style; that text is shown in the chat sidebar."
+        + "\nFormat reply_to_user answer with this style; that text is shown in the chat sidebar."
     )
     if user_mem and user_mem.strip():
         instructions += "\n\n[USER PROFILE / MEMORY]\n" + user_mem.strip() + "\n"
 
+    from plugin.chatbot.sticky_reply import LIBRARIAN_REPLY_SPEC, StickyReplyToUserTool, interpret_sticky_final_answer
+
     agent = build_toolcalling_agent(
         ctx,
-        [SmolToolAdapter(MemoryTool(), ctx, safe=False, inputs_style="librarian"), SmolToolAdapter(SwitchToDocumentModeTool(), ctx, safe=False, inputs_style="librarian")],
+        [
+            SmolToolAdapter(MemoryTool(), ctx, safe=False, inputs_style="librarian"),
+            SmolToolAdapter(StickyReplyToUserTool(LIBRARIAN_REPLY_SPEC), ctx, safe=False, inputs_style="librarian"),
+        ],
         instructions=instructions,
         final_answer_tool_name="reply_to_user",
         examples_block=get_examples_block("librarian"),
@@ -259,24 +242,12 @@ TOOLS FOR COMPLETION:
 
                 if step.observations:
                     msg += f"Observation: {str(step.observations).strip()}\n"
-                    obs_str = str(step.observations)
-                    if "'status': 'switch_mode'" in obs_str:
-                        match = re.search(r"'message': '([^']*)'", obs_str)
-                        handoff = match.group(1) if match else None
-                        append_thinking_callback(msg + "\n")
-                        return {"status": "switch_mode", "result": str(handoff) if handoff else "Switching to document mode."}
 
                 append_thinking_callback(msg + "\n")
-            elif step.observations:
-                obs_str = str(step.observations)
-                if "'status': 'switch_mode'" in obs_str:
-                    match = re.search(r"'message': '([^']*)'", obs_str)
-                    handoff = match.group(1) if match else None
-                    return {"status": "switch_mode", "result": str(handoff) if handoff else "Switching to document mode."}
         elif isinstance(step, FinalAnswerStep):
             final_ans = step.output
 
-    return {"status": "ok", "result": str(final_ans)}
+    return interpret_sticky_final_answer(final_ans, leave_status=LIBRARIAN_REPLY_SPEC.leave_status)
 
 
 class LibrarianOnboardingTool(ToolBase):

@@ -8,7 +8,6 @@ from unittest.mock import MagicMock, patch
 
 from plugin.chatbot.writing import (
     WritingResearchWeb,
-    WritingPlanFinishedTool,
     WritingPlanSessionTool,
     WriteDocumentSection,
     _normalize_html_content_array,
@@ -77,14 +76,6 @@ def test_writing_research_web_delegates_to_web_research():
         out = tool.execute(ctx, query="topic")
         instance.execute.assert_called_once_with(ctx, query="topic")
         assert out["result"] == "facts"
-
-
-def test_writing_plan_finished_returns_finished_status():
-    tool = WritingPlanFinishedTool()
-    result = tool.execute(MagicMock(), message="<p>Done.</p>", plan_completed=True)
-    assert result["status"] == "finished"
-    assert result["result"] == "<p>Done.</p>"
-    assert result["plan_completed"] is True
 
 
 def test_collect_writing_tools_merges_doc_research_reads():

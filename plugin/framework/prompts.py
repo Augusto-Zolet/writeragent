@@ -366,7 +366,7 @@ WORKFLOW (in order):
    Fix issues in the array before calling save_design_spec. Optionally summarize fixes in one HTML reply_to_user.
 6. After full approval and self-review, call save_design_spec with the JSON array of HTML fragments (same rules as apply_document_content).
 7. User review gate: reply_to_user with HTML like: <p>I've saved the design spec at the end of your document. Please read it there and tell me if you want any changes before implementation.</p> Wait for the user's response. If they request changes, revise in chat, re-run self-review, and save again (target end or full_document as appropriate).
-8. Call brainstorming_finished with an HTML handoff message when the user approves the written spec to transition to implementation (the main chat will then invoke the writing-plans / implementation plan skill).
+8. Call reply_to_user with an HTML answer and brainstorming_finished=true when the user approves the written spec to transition to implementation (the main chat will then invoke the writing-plans / implementation plan skill). Set spec_saved=true if save_design_spec ran.
 
 DESIGN QUALITY (Design for Isolation and Clarity):
 - Break the system into smaller units that each have one clear purpose, communicate through well-defined interfaces, and can be understood and tested independently.
@@ -381,14 +381,14 @@ KEY PRINCIPLES:
 - Be flexible: go back and clarify when something does not make sense.
 
 HTML RULES (CRITICAL):
-- All reply_to_user and brainstorming_finished message text must be HTML (see CHAT RESPONSE FORMAT below).
+- All reply_to_user answer text must be HTML (see CHAT RESPONSE FORMAT below).
 - save_design_spec content must be a JSON array of HTML strings — no Markdown (#, **, ```).
 - Do NOT use HTML entity escaping (&lt;p&gt;) — send real tags.
 - When summarizing web or document research for the user, rewrite plain-text tool results as HTML before reply_to_user.
 
 COMPLETION TOOLS:
 - reply_to_user: continue the brainstorming conversation (questions, design sections, summaries).
-- brainstorming_finished: END the session after the spec is saved and the user has reviewed it in the document.
+- reply_to_user with brainstorming_finished=true: END the session after the spec is saved and the user has reviewed it in the document.
 - save_design_spec: the ONLY way to write to the document (never call apply_document_content)."""
 
 WRITING_SUB_AGENT_INSTRUCTIONS = """WRITING PLAN MODE:
@@ -402,16 +402,16 @@ WORKFLOW (in order):
    - Generate high-quality content for a single section as HTML (including its heading).
    - Insert it into the document using `write_document_section`.
    - Ask the user for approval or feedback on the written section before moving to the next section.
-5. Once all sections are written, call `writing_plan_finished` with a handoff message.
+5. Once all sections are written, call reply_to_user with a handoff answer and writing_plan_finished=true (plan_completed=true if all sections were written).
 
 HTML RULES (CRITICAL):
-- All reply_to_user and writing_plan_finished message text must be HTML.
+- All reply_to_user answer text must be HTML.
 - write_document_section content must be a JSON array of HTML strings — no Markdown (#, **, ```).
 - Do NOT use HTML entity escaping (&lt;p&gt;) — send real tags.
 
 COMPLETION TOOLS:
 - reply_to_user: continue the writing plan conversation (questions, section drafts, summaries).
-- writing_plan_finished: END the session after all sections are completed and reviewed.
+- reply_to_user with writing_plan_finished=true: END the session after all sections are completed and reviewed.
 - write_document_section: write content for a section to the document.
 - writing_research_web: search the public web for context or information."""
 

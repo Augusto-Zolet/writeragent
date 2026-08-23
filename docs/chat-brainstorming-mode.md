@@ -6,7 +6,7 @@ Brainstorming is a **multi-turn design sub-agent** the user starts from the Writ
 
 Brainstorming is **not** exposed to the main chat LLM (`delegate_to_specialized_writer_toolset` omits `brainstorming` and `writing_plan` via `WRITER_SIDEBAR_ONLY_DOMAINS` in [`plugin/framework/prompts.py`](../plugin/framework/prompts.py)).
 
-**Exit:** `brainstorming_finished` resets the dropdown to **Chat** (or **Writing Plan** when a spec was saved). Changing the dropdown away from Brainstorming mid-session cancels the in-progress session (history is kept).
+**Exit:** `reply_to_user` with `brainstorming_finished=true` (and `spec_saved` when a spec was written) resets the dropdown to **Chat** (or **Writing Plan** when a spec was saved). Changing the dropdown away from Brainstorming mid-session cancels the in-progress session (history is kept).
 
 **Not in v1:** Visual companion (browser mockups), Calc/Draw spec save.
 
@@ -26,7 +26,7 @@ sequenceDiagram
     User->>Panel: answer
     Panel->>BrainstormSubagent: next turn
     BrainstormSubagent->>BrainstormSubagent: save_design_spec
-    BrainstormSubagent-->>Panel: brainstorming_finished
+    BrainstormSubagent-->>Panel: reply_to_user (brainstorming_finished=true)
     Panel->>Panel: clear brainstorming mode
 ```
 
@@ -34,7 +34,7 @@ sequenceDiagram
 |-------|---------|
 | Turn 0 | User selects Brainstorming; first Send sets topic |
 | Turns 1..N | Panel routes Send to `brainstorming_session` (bypasses main tool loop) |
-| Exit | `brainstorming_finished` clears `_in_brainstorming_mode` |
+| Exit | `reply_to_user` + `brainstorming_finished=true` clears `_in_brainstorming_mode` |
 
 Implementation: [`plugin/chatbot/brainstorming.py`](../plugin/chatbot/brainstorming.py), [`plugin/chatbot/panel.py`](../plugin/chatbot/panel.py), [`plugin/chatbot/send_handlers.py`](../plugin/chatbot/send_handlers.py).
 
@@ -46,7 +46,7 @@ All brainstorming outputs use HTML — no Markdown in tool arguments.
 
 | Surface | Format |
 |---------|--------|
-| Sidebar (`reply_to_user`, `brainstorming_finished`) | Single HTML string (`<p>`, `<h2>`, `<ul>`, …) |
+| Sidebar (`reply_to_user`) | Single HTML string (`<p>`, `<h2>`, `<ul>`, …) |
 | Saved spec (`save_design_spec`) | JSON **array** of HTML strings (same as `apply_document_content.content`) |
 | Research shown to user | Sub-agent reformats plain-text web/doc results as HTML in chat |
 
@@ -78,7 +78,7 @@ Example spec array:
 | `get_document_content`, `get_document_tree`, `search_in_document` | Active Writer context |
 | `save_design_spec` | **Only** document write path |
 | `reply_to_user` | Continue conversation (smol final-answer tool) |
-| `brainstorming_finished` | End session |
+| `reply_to_user` + `brainstorming_finished=true` | End session |
 
 Raw `apply_document_content` is **not** exposed to the brainstorming sub-agent.
 
@@ -99,7 +99,7 @@ Adapted from [superpowers brainstorming](../superpowers/skills/brainstorming/SKI
 | Design for isolation | DESIGN QUALITY block in prompt |
 | Existing codebases | Explore first; targeted improvements only |
 | Spec self-review (4 checks) | Step 5 before `save_design_spec` |
-| User review gate | Step 7 — review spec in document before `brainstorming_finished` |
+| User review gate | Step 7 — review spec in document before `reply_to_user` with `brainstorming_finished=true` |
 | Key principles | YAGNI, incremental validation, flexibility |
 | Visual companion | Not in v1 |
 | Markdown spec + git commit | Replaced by HTML array in Writer document |

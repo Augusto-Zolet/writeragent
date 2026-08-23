@@ -7,8 +7,8 @@
 # (at your option) any later version.
 """Smolagents few-shot example blocks (Action/Observation) used at runtime.
 
-- **librarian** — onboarding (`reply_to_user`).
-- **brainstorming** — design exploration (`reply_to_user`, `save_design_spec`, `brainstorming_finished`).
+- **librarian** — onboarding (`reply_to_user`; leave with ``switch_to_document_mode=true``).
+- **brainstorming** — design exploration (`reply_to_user`, `save_design_spec`; leave with ``brainstorming_finished=true``).
 - **deep_research** — multi-step web research + `apply_document_content` (`reply_to_user`, `deep_research_web`).
 - **web_research** — web sub-agent (`final_answer`).
 - **``*:python``** — venv demo (`run_venv_python_script` + ``sp.prime``; no numpy imports).
@@ -42,6 +42,15 @@ Action:
   "arguments": {"answer": "Great, Joe! Would you like to learn more about WriterAgent?"}
 }
 Observation: {"status": "ok"}
+
+Task: User said they want to work on a spreadsheet now.
+
+Action:
+{
+  "name": "reply_to_user",
+  "arguments": {"answer": "Sounds good — switching you to the document assistant.", "switch_to_document_mode": true}
+}
+Observation: {"status": "switch_mode"}
 
 """
 
@@ -103,8 +112,8 @@ Observation: {"status": "ok"}
 
 Action:
 {
-  "name": "brainstorming_finished",
-  "arguments": {"message": "<p>Spec saved at the end of your document. Ready to implement when you are.</p>", "spec_saved": true}
+  "name": "reply_to_user",
+  "arguments": {"answer": "<p>Spec saved at the end of your document. Ready to implement when you are.</p>", "brainstorming_finished": true, "spec_saved": true}
 }
 Observation: {"status": "finished"}
 
@@ -153,8 +162,8 @@ Observation: {"status": "ok"}
 
 Action:
 {
-  "name": "writing_plan_finished",
-  "arguments": {"message": "<p>Writing plan execution completed. Sections 1 & 2 have been successfully drafted in the document.</p>", "plan_completed": true}
+  "name": "reply_to_user",
+  "arguments": {"answer": "<p>Writing plan execution completed. Sections 1 & 2 have been successfully drafted in the document.</p>", "writing_plan_finished": true, "plan_completed": true}
 }
 Observation: {"status": "finished"}
 

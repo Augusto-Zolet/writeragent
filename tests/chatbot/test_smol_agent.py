@@ -69,11 +69,11 @@ from plugin.chatbot.smol_agent import (
 )
 from plugin.chatbot.librarian import (
     LibrarianOnboardingTool,
-    SwitchToDocumentModeTool,
     get_libreoffice_user_display_name,
     get_os_login_name,
     get_suggested_user_name,
 )
+from plugin.chatbot.sticky_reply import LIBRARIAN_REPLY_SPEC, StickyReplyToUserTool
 from plugin.chatbot.memory import MemoryTool
 from plugin.contrib.smolagents.agents import ToolCallingAgent
 from plugin.contrib.smolagents.memory import ActionStep, FinalAnswerStep, ToolCall
@@ -477,16 +477,17 @@ class TestLibrarianSmol(unittest.TestCase):
         ctx.ctx = MagicMock()
 
         memory_tool = MemoryTool()
-        switch_tool = SwitchToDocumentModeTool()
+        reply_tool = StickyReplyToUserTool(LIBRARIAN_REPLY_SPEC)
 
         smol_memory = SmolToolAdapter(memory_tool, ctx, safe=False, inputs_style="librarian")
-        smol_switch = SmolToolAdapter(switch_tool, ctx, safe=False, inputs_style="librarian")
+        smol_reply = SmolToolAdapter(reply_tool, ctx, safe=False, inputs_style="librarian")
 
         # Verify that they are instances of smolagents.tools.BaseTool
         from plugin.contrib.smolagents.tools import BaseTool
 
         self.assertTrue(isinstance(smol_memory, BaseTool))
-        self.assertTrue(isinstance(smol_switch, BaseTool))
+        self.assertTrue(isinstance(smol_reply, BaseTool))
+        self.assertIn("switch_to_document_mode", smol_reply.inputs)
 
         # Verify inputs conversion
         self.assertIn("key", smol_memory.inputs)
@@ -509,17 +510,19 @@ class TestLibrarianSmol(unittest.TestCase):
 
         tools = [
             SmolToolAdapter(MemoryTool(), ctx, safe=False, inputs_style="librarian"),
-            SmolToolAdapter(SwitchToDocumentModeTool(), ctx, safe=False, inputs_style="librarian"),
+            SmolToolAdapter(StickyReplyToUserTool(LIBRARIAN_REPLY_SPEC), ctx, safe=False, inputs_style="librarian"),
         ]
 
         # This shouldn't raise "All elements must be instance of BaseTool"
         agent = ToolCallingAgent(
             tools=tools,
-            model=model
+            model=model,
+            final_answer_tool_name="reply_to_user",
         )
-        self.assertEqual(len(agent.tools), 3)  # memory, switch, final_answer
+        self.assertEqual(len(agent.tools), 2)  # memory + reply_to_user (no stock final_answer)
         self.assertIn("upsert_memory", agent.tools)
-        self.assertIn("switch_to_document_mode", agent.tools)
+        self.assertIn("reply_to_user", agent.tools)
+        self.assertNotIn("switch_to_document_mode", agent.tools)
 
     def test_switch_mode_extraction(self):
         ctx = MagicMock()
@@ -530,17 +533,10 @@ class TestLibrarianSmol(unittest.TestCase):
         with patch("plugin.chatbot.smol_agent.ToolCallingAgent") as mock_agent_class:
             mock_agent = mock_agent_class.return_value
 
-            # Simulate steps: one ActionStep with switch_mode
-            step1 = ActionStep(step_number=1, timing=Timing(start_time=time.time()))
-            step1.observations = "{'status': 'switch_mode', 'message': 'See you in document mode!'}"
-
-            def _switch_then_fail_gen():
-                yield step1
-                raise AssertionError(
-                    "Librarian must stop after switch_mode without consuming further smol steps"
-                )
-
-            mock_agent.run.return_value = _switch_then_fail_gen()
+            fa = FinalAnswerStep(
+                output={"status": "switch_mode", "result": "See you in document mode!", "message": "See you in document mode!"}
+            )
+            mock_agent.run.return_value = [fa]
 
             tool = LibrarianOnboardingTool()
             res = tool.execute(ctx, query="switch me")
