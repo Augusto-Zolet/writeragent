@@ -179,9 +179,9 @@ def _watch_lo(stop: threading.Event) -> None:
 
 
 def _force_utf8_stdio() -> None:
-    """Pin stdin/stdout to UTF-8.
+    """Pin stdin, stdout, and stderr to UTF-8 (surrogateescape / backslashreplace).
 
-    WHAT WAS WRONG: on Windows sys.stdin/sys.stdout default to the ANSI codepage
+    WHAT WAS WRONG: on Windows sys.stdin/sys.stdout/sys.stderr default to the ANSI codepage
     (cp1252 in most locales), not UTF-8.
 
     HOW IT HAPPENED: MCP clients speak UTF-8 JSON over the pipe, so every
@@ -192,15 +192,23 @@ def _force_utf8_stdio() -> None:
     is why the same server returns clean text over direct HTTP and mangled text
     through this bridge -- the stdio hop was the only ambiguous one.
 
-    WHY THIS FIXES IT: pinning both streams to UTF-8 makes this hop match what
-    the client sends and what the HTTP layer already expects. getattr guards the
-    call because tests (and any caller) may substitute a plain StringIO, which
-    has no reconfigure().
+    WHY THIS FIXES IT: pinning all three streams to UTF-8 makes this hop match
+    what the client sends and what the HTTP layer already expects. stdin/stdout
+    use surrogateescape so a malformed byte does not raise UnicodeDecodeError
+    inside ``for line in sys.stdin`` (which would kill the bridge); the existing
+    JSONDecodeError handler then skips that line. stderr uses backslashreplace,
+    matching Python's UTF-8 mode, so a later traceback stays readable. getattr
+    guards the call because tests (and any caller) may substitute a plain
+    StringIO, which has no reconfigure().
     """
-    for stream in (sys.stdin, sys.stdout):
+    for stream, errors in (
+        (sys.stdin, "surrogateescape"),
+        (sys.stdout, "surrogateescape"),
+        (sys.stderr, "backslashreplace"),
+    ):
         reconfigure = getattr(stream, "reconfigure", None)
         if reconfigure is not None:
-            reconfigure(encoding="utf-8")
+            reconfigure(encoding="utf-8", errors=errors)
 
 
 def main() -> int:

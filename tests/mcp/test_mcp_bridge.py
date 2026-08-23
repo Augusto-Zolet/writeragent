@@ -143,23 +143,41 @@ def _cp1252_stream(data: bytes = b""):
     return io.TextIOWrapper(io.BytesIO(data), encoding="cp1252")
 
 
-def test_force_utf8_stdio_pins_both_streams(monkeypatch):
-    stdin, stdout = _cp1252_stream(), _cp1252_stream()
+def test_force_utf8_stdio_pins_all_streams(monkeypatch):
+    stdin, stdout, stderr = _cp1252_stream(), _cp1252_stream(), _cp1252_stream()
     monkeypatch.setattr(bridge.sys, "stdin", stdin)
     monkeypatch.setattr(bridge.sys, "stdout", stdout)
+    monkeypatch.setattr(bridge.sys, "stderr", stderr)
 
     bridge._force_utf8_stdio()
 
-    assert stdin.encoding.lower().replace("-", "") == "utf8"
-    assert stdout.encoding.lower().replace("-", "") == "utf8"
+    for stream in (stdin, stdout, stderr):
+        assert stream.encoding.lower().replace("-", "") == "utf8"
+    assert stdin.errors == "surrogateescape"
+    assert stdout.errors == "surrogateescape"
+    assert stderr.errors == "backslashreplace"
 
 
 def test_force_utf8_stdio_tolerates_streams_without_reconfigure(monkeypatch):
     """A plain StringIO has no reconfigure(); pinning must not raise on it."""
     monkeypatch.setattr(bridge.sys, "stdin", io.StringIO())
     monkeypatch.setattr(bridge.sys, "stdout", io.StringIO())
+    monkeypatch.setattr(bridge.sys, "stderr", io.StringIO())
 
     bridge._force_utf8_stdio()  # must not raise
+
+
+def test_stdin_surrogateescape_tolerates_malformed_utf8(monkeypatch):
+    """Malformed UTF-8 bytes on stdin must not raise UnicodeDecodeError during stream reading."""
+    malformed = b"\x80\xff invalid utf8 bytes\n"
+    stdin = _cp1252_stream(malformed)
+    monkeypatch.setattr(bridge.sys, "stdin", stdin)
+
+    bridge._force_utf8_stdio()
+
+    line = bridge.sys.stdin.readline()
+    # 0x80 / 0xFF are invalid UTF-8; surrogateescape maps them to U+DC80 / U+DCFF.
+    assert line.startswith("\udc80\udcff")
 
 
 def test_stdin_preserves_accents_after_pinning(monkeypatch):
