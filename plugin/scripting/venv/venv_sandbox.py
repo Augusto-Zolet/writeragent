@@ -328,7 +328,11 @@ def _serialize_result_impl(obj: Any) -> Any:
     from plugin.scripting.calc_range import CalcRange, is_calc_range_payload
 
     if isinstance(obj, CalcRange):
-        # Returning a range echoes values (not a labeled table).
+        # Bugfix (#412): Returning a 1x1 CalcRange (e.g. result = data in fan-out DAGs)
+        # unrolls to a scalar so the host does not treat it as a matrix list result
+        # and walk MATRIX_SCALAR_SESSIONS. Multi-cell ranges echo values.
+        if obj.shape == (1, 1) and obj.values and obj.values[0]:
+            return _serialize_result_impl(obj.values[0][0])
         return child_pack_result(obj.values)
     if is_calc_range_payload(obj):
         return obj

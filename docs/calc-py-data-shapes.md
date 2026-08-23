@@ -40,7 +40,7 @@ When you write `=PY(code; range)`, the add-in:
 
 | Range you pass in Calc | Structure of `data` in Python | Example usage |
 | --- | --- | --- |
-| **Single cell** (e.g. `B1`) | `CalcRange` shape `(1, 1)` — use `data.values[0][0]` or `float(np.asarray(data))` | `data.values[0][0] * 2` |
+| **Single cell** (e.g. `B1`) | `CalcRange` shape `(1, 1)` — supports arithmetic (`+ - * / // % **`), unary (`+ - abs`), comparisons, scalar coercions (`float`, `int`, `round`), and formatting directly | `data + 3` or `data * 4` (or explicit `data.values[0][0]`) |
 | **Row** (e.g. `B1:D1`) | `CalcRange` shape `(1, N)` | `np.mean(data)` (via `__array__`) |
 | **Column** (e.g. `B1:B10`) | `CalcRange` shape `(N, 1)` | `np.mean(data)` |
 | **2D rectangle** (e.g. `B1:C5`) | `CalcRange` shape `(rows, cols)` | `data.to_pandas()` or `data.to_numpy()` |

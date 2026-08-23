@@ -72,6 +72,33 @@ def test_execute_request_injects_data():
     assert r["result"] == 10.0
 
 
+def test_execute_request_1x1_data_arithmetic_dag():
+    # Issue #412: 1x1 data in consumer formula participates directly in arithmetic
+    r1 = _execute_request("result = data + 3", [[2]])
+    assert r1["status"] == "ok"
+    assert r1["result"] == 5
+
+    r2 = _execute_request("result = data * 4", [[5.0]])
+    assert r2["status"] == "ok"
+    assert r2["result"] == 20.0
+
+
+def test_execute_request_1x1_data_serialize_unwraps_to_scalar():
+    # Issue #412: result = data on a 1x1 range serializes as a scalar, not [[2]]
+    r = _execute_request("result = data", [[2]])
+    assert r["status"] == "ok"
+    assert r["result"] == 2
+    assert not isinstance(r["result"], list)
+
+
+def test_execute_request_fan_out_dag_returns_scalars():
+    # Fan-out DAG (C2.4.3): multiple cells reading the same producer
+    r1 = _execute_request("result = data", [[2]])
+    r2 = _execute_request("result = data", [[2]])
+    assert r1["status"] == "ok" and r1["result"] == 2
+    assert r2["status"] == "ok" and r2["result"] == 2
+
+
 def test_execute_request_injects_ranges_single_range():
     r = _execute_request(
         "result = (len(ranges), data is ranges[0], hasattr(data, 'to_pandas'))",

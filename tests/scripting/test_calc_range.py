@@ -144,3 +144,153 @@ def test_to_pandas_date_cols_explicit_and_detected():
     grid_1904 = [["Date"], [1.0]]
     df_1904 = CalcRange(grid_1904).to_pandas(date_cols=True, date_origin="1904-01-01")
     assert df_1904.loc[0, "Date"] == pd.Timestamp("1904-01-02")
+
+
+def test_calc_range_1x1_arithmetic_and_scalar_returns():
+    data = CalcRange([[2]])
+    assert data + 3 == 5
+    assert 3 + data == 5
+    assert sum([data]) == 2
+    assert data * 4 == 8
+    assert 4 * data == 8
+    assert data - 1 == 1
+    assert 10 - data == 8
+    assert data / 2 == 1.0
+    assert 10 / data == 5.0
+    assert data // 2 == 1
+    assert 5 // data == 2
+    assert data % 2 == 0
+    assert 5 % data == 1
+    assert data ** 3 == 8
+    assert 3 ** data == 9
+    assert -data == -2
+    assert +data == 2
+    assert abs(data) == 2
+
+
+def test_calc_range_1x1_scalar_conversions_and_formatting():
+    import math
+
+    data = CalcRange([[2.5]])
+    assert float(data) == 2.5
+    assert int(data) == 2
+    assert round(data) == 2
+    assert round(CalcRange([[2.567]]), 2) == 2.57
+    assert math.trunc(data) == 2
+    assert math.floor(data) == 2
+    assert math.ceil(data) == 3
+    assert f"{data:.2f}" == "2.50"
+    assert str(data) == "2.5"
+
+
+def test_calc_range_1x1_comparisons_and_hash():
+    d1 = CalcRange([[2]])
+    d2 = CalcRange([[2]])
+    d3 = CalcRange([[5]])
+
+    assert d1 == 2
+    assert 2 == d1
+    assert d1 == d2
+    assert d1 != 3
+    assert d1 != d3
+    assert d1 < 3
+    assert d1 < d3
+    assert d1 <= 2
+    assert d1 <= d2
+    assert d3 > 2
+    assert d3 > d1
+    assert d3 >= 5
+    assert d3 >= d1
+    assert CalcRange.__hash__ is None
+
+
+def test_calc_range_1x1_string_and_blank():
+    s = CalcRange([["hello"]])
+    assert s + " world" == "hello world"
+    assert "say " + s == "say hello"
+    assert s * 2 == "hellohello"
+    assert 2 * s == "hellohello"
+    assert str(s) == "hello"
+
+    blank = CalcRange([[None]])
+    with pytest.raises(TypeError):
+        _ = blank + 3
+    with pytest.raises(TypeError):
+        _ = float(blank)
+    with pytest.raises(TypeError):
+        _ = int(blank)
+
+
+def test_calc_range_bool_protocol():
+    assert bool(CalcRange([[1]])) is True
+    assert bool(CalcRange([[0]])) is False
+    assert bool(CalcRange([[None]])) is False
+    assert bool(CalcRange([["hello"]])) is True
+    assert bool(CalcRange([[""]])) is False
+    assert bool(CalcRange([])) is False
+
+    multi = CalcRange([[1, 2], [3, 4]])
+    with pytest.raises(ValueError, match="ambiguous"):
+        _ = bool(multi)
+
+
+def test_calc_range_chaining_two_ranges():
+    r1 = CalcRange([[2]])
+    r2 = CalcRange([[3]])
+    assert r1 + r2 == 5
+    assert r1 * r2 == 6
+    assert r2 - r1 == 1
+
+
+def test_calc_range_multi_cell_arithmetic_broadcasting():
+    import numpy as np
+
+    multi = CalcRange([[1, 2], [3, 4]])
+    res = multi + 10
+    assert isinstance(res, np.ndarray)
+    assert res.tolist() == [[11, 12], [13, 14]]
+
+    res2 = 10 + multi
+    assert isinstance(res2, np.ndarray)
+    assert res2.tolist() == [[11, 12], [13, 14]]
+
+    # 1x1 + multi
+    single = CalcRange([[5]])
+    res3 = single + multi
+    assert isinstance(res3, np.ndarray)
+    assert res3.tolist() == [[6, 7], [8, 9]]
+
+
+def test_calc_range_preserves_attributes_on_1x1():
+    r = CalcRange([[42]], address="Sheet1.A1")
+    assert r.values == [[42]]
+    assert r.shape == (1, 1)
+    assert r.nrows == 1
+    assert r.ncols == 1
+    assert r.address == "Sheet1.A1"
+    assert r.to_numpy().shape == (1, 1)
+    assert r.to_pandas().shape == (0, 1)  # 1 row as header
+    assert r.to_pandas(header_row=None).shape == (1, 1)
+
+
+def test_calc_range_no_numpy_fallback():
+    from unittest.mock import patch
+
+    # 1x1 arithmetic is pure stdlib and never calls to_numpy
+    single = CalcRange([[7]])
+    with patch.object(CalcRange, "to_numpy", side_effect=ImportError("No module named numpy")):
+        assert single + 3 == 10
+        assert 10 - single == 3
+        assert single * 2 == 14
+        assert single == 7
+
+    # Multi-cell arithmetic requires NumPy and cleanly raises TypeError when absent
+    multi = CalcRange([[1, 2], [3, 4]])
+    with patch.object(CalcRange, "to_numpy", side_effect=ImportError("No module named numpy")):
+        with pytest.raises(TypeError, match="Multi-cell arithmetic requires NumPy"):
+            _ = multi + 10
+        with pytest.raises(TypeError, match="Multi-cell arithmetic requires NumPy"):
+            _ = -multi
+        with pytest.raises(TypeError, match="Multi-cell arithmetic requires NumPy"):
+            _ = multi == 10
+

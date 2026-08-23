@@ -14,6 +14,8 @@ imports live inside conversion methods (venv only).
 
 from __future__ import annotations
 
+import math
+import operator
 from typing import Any
 
 from plugin.framework.deal_shim import deal
@@ -174,8 +176,6 @@ class CalcRange:
 
     def to_numpy(self, *, dtype: Any = None) -> Any:
         """Explicit NumPy conversion (same as ``np.asarray(range)``)."""
-        import math
-
         import numpy as np
 
         def _cell(v: Any) -> Any:
@@ -225,6 +225,167 @@ class CalcRange:
             date_origin=date_origin,
             sheet_hint=self._address,
         ).df
+
+    # --- Issue #412: Arithmetic, comparison, and scalar protocols ---
+
+    __hash__ = None  # type: ignore[assignment]  # pyright: ignore[reportAssignmentType, reportGeneralTypeIssues]  # CalcRange is mutable / unhashable like ndarray
+
+    def __bool__(self) -> bool:
+        if self.shape == (1, 1):
+            return bool(self._values[0][0])
+        if self.shape == (0, 0) or not self._values:
+            return False
+        raise ValueError(
+            f"The truth value of a CalcRange with shape {self.shape} is ambiguous. "
+            "Use data.to_numpy().any() or data.to_numpy().all()"
+        )
+
+    def __str__(self) -> str:
+        if self.shape == (1, 1):
+            return str(self._values[0][0])
+        return self.__repr__()
+
+    def __format__(self, format_spec: str) -> str:
+        if self.shape == (1, 1):
+            return format(self._values[0][0], format_spec)
+        return format(str(self), format_spec)
+
+    # Scalar conversions
+    def __float__(self) -> float:
+        if self.shape == (1, 1):
+            val = self._values[0][0]
+            if val is None:
+                raise TypeError("Cannot convert empty cell (None) to float")
+            return float(val)
+        raise TypeError(f"Only 1x1 CalcRange can be converted to float, got shape {self.shape}")
+
+    def __int__(self) -> int:
+        if self.shape == (1, 1):
+            val = self._values[0][0]
+            if val is None:
+                raise TypeError("Cannot convert empty cell (None) to int")
+            return int(val)
+        raise TypeError(f"Only 1x1 CalcRange can be converted to int, got shape {self.shape}")
+
+    def __round__(self, ndigits: int | None = None) -> Any:
+        if self.shape == (1, 1):
+            val = self._values[0][0]
+            if val is None:
+                raise TypeError("Cannot round empty cell (None)")
+            return round(val, ndigits) if ndigits is not None else round(val)
+        raise TypeError(f"Only 1x1 CalcRange can be rounded, got shape {self.shape}")
+
+    def __trunc__(self) -> int:
+        return math.trunc(self.__float__())
+
+    def __floor__(self) -> int:
+        return math.floor(self.__float__())
+
+    def __ceil__(self) -> int:
+        return math.ceil(self.__float__())
+
+    # Dispatchers
+    def _binary_op(self, other: Any, op: Any, *, is_reverse: bool = False) -> Any:
+        if self.shape == (1, 1):
+            val = self._values[0][0]
+            if isinstance(other, CalcRange):
+                if other.shape == (1, 1):
+                    other_val = other._values[0][0]
+                    return op(other_val, val) if is_reverse else op(val, other_val)
+                try:
+                    other_arr = other.to_numpy()
+                except Exception as exc:
+                    raise TypeError(f"Multi-cell arithmetic requires NumPy: {exc}") from exc
+                return op(other_arr, val) if is_reverse else op(val, other_arr)
+            return op(other, val) if is_reverse else op(val, other)
+
+        try:
+            self_arr = self.to_numpy()
+        except Exception as exc:
+            raise TypeError(f"Multi-cell arithmetic requires NumPy: {exc}") from exc
+        if isinstance(other, CalcRange):
+            other = other._values[0][0] if other.shape == (1, 1) else other.to_numpy()
+        return op(other, self_arr) if is_reverse else op(self_arr, other)
+
+    def _unary_op(self, op: Any) -> Any:
+        if self.shape == (1, 1):
+            return op(self._values[0][0])
+        try:
+            return op(self.to_numpy())
+        except Exception as exc:
+            raise TypeError(f"Multi-cell arithmetic requires NumPy: {exc}") from exc
+
+    # Binary arithmetic
+    def __add__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.add)
+
+    def __radd__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.add, is_reverse=True)
+
+    def __sub__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.sub)
+
+    def __rsub__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.sub, is_reverse=True)
+
+    def __mul__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.mul)
+
+    def __rmul__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.mul, is_reverse=True)
+
+    def __truediv__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.truediv)
+
+    def __rtruediv__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.truediv, is_reverse=True)
+
+    def __floordiv__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.floordiv)
+
+    def __rfloordiv__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.floordiv, is_reverse=True)
+
+    def __mod__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.mod)
+
+    def __rmod__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.mod, is_reverse=True)
+
+    def __pow__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.pow)
+
+    def __rpow__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.pow, is_reverse=True)
+
+    # Unary
+    def __neg__(self) -> Any:
+        return self._unary_op(operator.neg)
+
+    def __pos__(self) -> Any:
+        return self._unary_op(operator.pos)
+
+    def __abs__(self) -> Any:
+        return self._unary_op(operator.abs)
+
+    # Rich comparisons (aligned through _binary_op: 1x1 returns bool; multi-cell returns bool ndarray)
+    def __eq__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.eq)
+
+    def __ne__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.ne)
+
+    def __lt__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.lt)
+
+    def __le__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.le)
+
+    def __gt__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.gt)
+
+    def __ge__(self, other: Any) -> Any:
+        return self._binary_op(other, operator.ge)
 
 
 def materialize_calc_range(wire: Any) -> CalcRange:
