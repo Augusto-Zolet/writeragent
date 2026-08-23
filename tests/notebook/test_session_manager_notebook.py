@@ -64,10 +64,10 @@ def test_reset_workbook_python_session_dispatches_to_notebook():
     ctx = MagicMock()
     doc = _writer_doc()
     with (
-        patch("plugin.scripting.session_manager._active_document", return_value=doc),
-        patch("plugin.scripting.session_manager.is_writer", return_value=True),
+        patch("plugin.scripting.session_manager._calc_document", return_value=None),
+        patch("plugin.scripting.session_manager._writer_document", return_value=doc),
         patch("plugin.scripting.session_manager._has_notebook_registry", return_value=True),
         patch("plugin.scripting.session_manager.reset_notebook_python_session") as mock_nb_reset,
     ):
         reset_workbook_python_session(ctx)
-    mock_nb_reset.assert_called_once_with(ctx)
+    mock_nb_reset.assert_called_once_with(ctx, doc)

@@ -273,8 +273,10 @@ def session_key(ctx: Any, code: str, doc: Any | None = None) -> tuple:
         if target is None:
             from plugin.framework.thread_guard import on_main_thread
 
-            if on_main_thread() and (hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager")):
-                target = _get_calc_doc(ctx)
+            # AST lint only treats a bare ``if on_main_thread():`` as a guard.
+            if on_main_thread():
+                if hasattr(ctx, "ServiceManager") or hasattr(ctx, "getServiceManager"):
+                    target = _get_calc_doc(ctx)
         if target is not None:
             url_val = getattr(target, "getURL", lambda: "")()
             doc_url = url_val if isinstance(url_val, str) else ""
@@ -967,7 +969,11 @@ def get_python_init_kwargs(ctx: Any, doc: Any | None = None) -> dict[str, Any]:
         from plugin.framework.thread_guard import on_main_thread
         from plugin.scripting.document_scripts import build_python_eval_init_kwargs, get_calc_document_from_ctx
 
-        target = doc if doc is not None else (get_calc_document_from_ctx(ctx) if on_main_thread() else None)
+        # Nested ternary hid on_main_thread() from the AST thread-safety linter.
+        target = doc
+        if target is None:
+            if on_main_thread():
+                target = get_calc_document_from_ctx(ctx)
         if target is not None:
             # Close/reopen used to reuse the warm-worker calc:…:init cache because
             # nothing listened for OnUnload. Register once per workbook so init

@@ -170,14 +170,19 @@ def _scalar_parse(quantity: Any) -> float:
     return float(qty.magnitude)
 
 
+def _is_blank_param(value: Any) -> bool:
+    """True for omitted helper args. Ranges/lists must not use ``!= ""`` (numpy truthiness)."""
+    return value is None or (isinstance(value, str) and value == "")
+
+
 def parse_quantity(*, quantity: Any = "", **kwargs: Any) -> Any:
     """Parse a quantity string or range of quantity strings into magnitudes."""
     helper = "parse_quantity"
     if _require_pint(helper) is None:
         return _missing_package(helper)
 
-    raw_quantity = quantity if quantity != "" else kwargs.get("quantity", "")
-    if raw_quantity == "":
+    raw_quantity = kwargs.get("quantity", "") if _is_blank_param(quantity) else quantity
+    if _is_blank_param(raw_quantity):
         return _error_result("MISSING_PARAM", "quantity is required", helper=helper)
 
     return map_over_range(
@@ -209,11 +214,11 @@ def format_quantity(
     if _require_pint(helper) is None:
         return _missing_package(helper)
 
-    raw_mag = magnitude if magnitude != "" else kwargs.get("magnitude", "")
-    raw_units = units if units != "" else kwargs.get("units", "")
-    raw_spec = format_spec if format_spec != "" else kwargs.get("format_spec", "")
+    raw_mag = kwargs.get("magnitude", "") if _is_blank_param(magnitude) else magnitude
+    raw_units = kwargs.get("units", "") if _is_blank_param(units) else units
+    raw_spec = kwargs.get("format_spec", "") if _is_blank_param(format_spec) else format_spec
 
-    if raw_units == "":
+    if _is_blank_param(raw_units):
         return _error_result("MISSING_PARAM", "units is required", helper=helper)
 
     return map_over_range(

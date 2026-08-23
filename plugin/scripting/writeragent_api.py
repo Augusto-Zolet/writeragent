@@ -8,7 +8,11 @@ import sys
 import threading
 import uuid
 from typing import Any
+from plugin.framework.constants import WORKFLOW_TASK_PREFIXES as _WORKFLOW_TASK_PREFIXES
 from plugin.scripting.ipc import read_pickle_frame, write_pickle_frame
+
+# Re-export so venv scripts and tests share the comment-scan prefix tuple.
+WORKFLOW_TASK_PREFIXES = _WORKFLOW_TASK_PREFIXES
 
 
 # Detect if running in-process (LibreOffice host) or out-of-process (Venv worker)

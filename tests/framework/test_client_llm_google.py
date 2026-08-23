@@ -3,7 +3,6 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 import json
-from unittest.mock import MagicMock, patch
 import pytest
 from plugin.framework.client.llm_client import LlmClient
 from plugin.framework.client.google_shim import GoogleShim

@@ -1057,16 +1057,14 @@ def test_gemini_shim_inline_data():
     with patch("plugin.framework.client.llm_client.LlmClient._resolve_auth") as mock_auth:
         mock_auth.return_value = {"api_key": "fake_key", "provider": "google"}
         _, _, json_data, _ = shim.build_chat_request(messages, 100, 0.5, None, False, "gemini-1.5-flash", None)
-        
+
         data = json.loads(json_data)
-        parts = data["contents"][0]["parts"]
-        assert len(parts) == 2
-        assert parts[0] == {"text": "Describe this"}
-        assert parts[1] == {
-            "inlineData": {
-                "mimeType": "image/png",
-                "data": "iVBORw0KGgoAAAANSUhEUgAAAAUA"
-            }
+        content = data["messages"][0]["content"]
+        assert len(content) == 2
+        assert content[0] == {"type": "text", "text": "Describe this"}
+        assert content[1] == {
+            "type": "image_url",
+            "image_url": {"url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA"},
         }
 
 

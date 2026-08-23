@@ -14,6 +14,6 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Single source of truth for extensio version."""
+"""Single source of truth for extension version."""
 
-EXTENSION_VERSION = "0.8.64"
+EXTENSION_VERSION = "0.8.65"

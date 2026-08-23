@@ -71,6 +71,21 @@ def execute_python_addin(ctx, code):
     assert any(f.rule_id == "blocking-marshal-in-sync-dispatch" for f in findings)
 
 
+def test_nested_on_main_thread_guard():
+    code = """
+from plugin.framework.thread_guard import on_main_thread
+
+def session_key(ctx, code, doc=None):
+    target = doc
+    if target is None:
+        if on_main_thread():
+            target = _get_calc_doc(ctx)
+    return target
+"""
+    findings = _scan_source(code, "plugin/calc/python/nested.py")
+    assert not findings
+
+
 def test_production_plugin_calc_python_is_clean():
     target = Path("plugin/calc/python")
     findings = scan_target(target)

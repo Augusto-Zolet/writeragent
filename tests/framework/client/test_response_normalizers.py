@@ -89,23 +89,25 @@ def test_anthropic_shim_parse_sync_response():
 def test_google_shim_parse_sync_response():
     client_mock = MagicMock()
     shim = GoogleShim(client_mock)
-    
+
     mock_payload = {
-        "candidates": [{
-            "content": {
-                "parts": [
-                    {"text": "Hello from Google"},
-                    {"functionCall": {"name": "web_search", "args": {"q": "libreoffice"}}}
+        "choices": [{
+            "message": {
+                "role": "assistant",
+                "content": "Hello from Google",
+                "tool_calls": [
+                    {"id": "call_1", "type": "function", "function": {"name": "web_search", "arguments": '{"q": "libreoffice"}'}}
                 ]
             },
-            "finishReason": "STOP"
+            "finish_reason": "stop"
         }],
-        "usageMetadata": {"promptTokenCount": 15, "candidatesTokenCount": 8}
+        "usage": {"prompt_tokens": 15, "completion_tokens": 8}
     }
-    
+
     content, finish_reason, tool_calls, usage, images, message = shim.parse_sync_response(mock_payload)
     assert content == "Hello from Google"
     assert finish_reason == "stop"
+    assert tool_calls is not None
     assert len(tool_calls) == 1
     assert tool_calls[0]["function"]["name"] == "web_search"
-    assert usage["promptTokenCount"] == 15
+    assert usage["prompt_tokens"] == 15

@@ -85,37 +85,45 @@ class ThreadSafetyASTVisitor(ast.NodeVisitor):
                     if exits_early and not stmt.orelse:
                         # Body is visited unguarded, but subsequent sibling statements are guarded
                         self.guarded_scopes.append(False)
-                        for s in stmt.body:
-                            self.visit(s)
+                        self._visit_statements(stmt.body)
                         self.guarded_scopes.pop()
                         guarded = True
                         continue
                     elif stmt.orelse:
                         # Body is unguarded, orelse is guarded
                         self.guarded_scopes.append(False)
-                        for s in stmt.body:
-                            self.visit(s)
+                        self._visit_statements(stmt.body)
                         self.guarded_scopes.pop()
 
                         self.guarded_scopes.append(True)
-                        for s in stmt.orelse:
-                            self.visit(s)
+                        self._visit_statements(stmt.orelse)
                         self.guarded_scopes.pop()
                         continue
 
                 # Case 2: if on_main_thread(): body is guarded, orelse is unguarded
                 if has_on_main and not cond_str.startswith("not ") and " not " not in cond_str:
                     self.guarded_scopes.append(True)
-                    for s in stmt.body:
-                        self.visit(s)
+                    self._visit_statements(stmt.body)
                     self.guarded_scopes.pop()
 
                     if stmt.orelse:
                         self.guarded_scopes.append(False)
-                        for s in stmt.orelse:
-                            self.visit(s)
+                        self._visit_statements(stmt.orelse)
                         self.guarded_scopes.pop()
                     continue
+
+                # Nested if: keep scanning as a statement list so inner
+                # if on_main_thread(): still counts as a guard.
+                # Propagate sibling-level guards (after ``if not on_main_thread(): return``).
+                if guarded:
+                    self.guarded_scopes.append(True)
+                self.visit(stmt.test)
+                self._visit_statements(stmt.body)
+                if stmt.orelse:
+                    self._visit_statements(stmt.orelse)
+                if guarded:
+                    self.guarded_scopes.pop()
+                continue
 
             if guarded:
                 self.guarded_scopes.append(True)

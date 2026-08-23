@@ -13,6 +13,17 @@ from plugin.calc.manipulator import CellManipulator
 from plugin.calc import CalcError
 from plugin.draw.shapes import DrawShapes, DrawError
 from plugin.framework.errors import safe_python_literal_eval
+import inspect
+
+
+def _suppress_disposed_debug_logs_present() -> bool:
+    """False in stripped release trees where log.debug/info call sites are removed."""
+    from plugin.framework.errors import suppress_disposed
+
+    try:
+        return "log_obj.debug" in inspect.getsource(suppress_disposed)
+    except OSError:
+        return False
 
 class DummyTool(ToolBase):
     name = 'dummy_tool'
@@ -559,8 +570,11 @@ class TestSuppressDisposed(unittest.TestCase):
             raise DocumentDisposedError("Model was disposed")
 
         self.assertTrue(executed)
-        mock_logger.debug.assert_called_once()
-        self.assertEqual(mock_logger.debug.call_args[0][1], "test_disposed_action")
+        if _suppress_disposed_debug_logs_present():
+            mock_logger.debug.assert_called_once()
+            self.assertEqual(mock_logger.debug.call_args[0][1], "test_disposed_action")
+        else:
+            mock_logger.debug.assert_not_called()
         mock_logger.exception.assert_not_called()
 
     def test_suppress_disposed_unexpected_error_suppressed(self):
@@ -603,7 +617,10 @@ class TestSuppressDisposed(unittest.TestCase):
 
         result = faulty_fn()
         self.assertIsNone(result)
-        mock_logger.debug.assert_called_once()
+        if _suppress_disposed_debug_logs_present():
+            mock_logger.debug.assert_called_once()
+        else:
+            mock_logger.debug.assert_not_called()
         self.assertIs(ignore_disposed, suppress_disposed)
 
 
