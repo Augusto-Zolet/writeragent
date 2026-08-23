@@ -28,6 +28,10 @@ Windows: ``%APPDATA%\\LibreOffice\\4\\user\\``). LibrePy shares this same file o
 purpose (venv path, session mode, timeouts). Broken JSON is copied to
 ``.bak`` when possible; ``json_repair`` fixes small typos on read.
 
+Writes omit keys that still match defaults and prefix the file with ``//``
+comment lines pointing at ``docs/writeragent-config-schema.md`` on GitHub.
+Those comments are stripped on read.
+
 Schema-backed coercion, option canonicalization, and min/max bounds live here
 so UI controllers can pass raw dialog values to ``set_config`` without copying
 validation rules from ``module.yaml``.
@@ -50,10 +54,64 @@ from plugin.framework.json_utils import repair_json
 
 from plugin.framework.deal_shim import deal
 
+# Comment header written above the JSON object. Not a config key.
+CONFIG_SCHEMA_DOC_URL = (
+    "https://github.com/KeithCu/writeragent/blob/main/docs/writeragent-config-schema.md"
+)
+CONFIG_SCHEMA_COMMENT = (
+    "// Only settings that differ from defaults are stored here.\n"
+    "// Full schema: " + CONFIG_SCHEMA_DOC_URL + "\n"
+)
+
 try:
-    from plugin._manifest import MODULES
+    from plugin._manifest import (
+        MODULES as _DEFAULT_MODULES,
+        CONFIG_DEFAULTS as _DEFAULT_CONFIG_DEFAULTS,
+        CONFIG_SCHEMAS as _DEFAULT_CONFIG_SCHEMAS,
+        DOTTED_FALLBACKS as _DEFAULT_DOTTED_FALLBACKS,
+    )
 except ImportError:
-    MODULES = []
+    _DEFAULT_MODULES = []
+    _DEFAULT_CONFIG_DEFAULTS = {}
+    _DEFAULT_CONFIG_SCHEMAS = {}
+    _DEFAULT_DOTTED_FALLBACKS = {}
+
+MODULES: list[dict[str, Any]] = _DEFAULT_MODULES  # type: ignore[assignment]
+CONFIG_DEFAULTS: dict[str, Any] = _DEFAULT_CONFIG_DEFAULTS
+CONFIG_SCHEMAS: dict[str, Any] = _DEFAULT_CONFIG_SCHEMAS
+DOTTED_FALLBACKS: dict[str, list[str]] = _DEFAULT_DOTTED_FALLBACKS
+
+
+def set_manifest_modules(modules: list[dict[str, Any]]) -> None:
+    """Set manifest modules list and rebuild fast defaults/schemas lookup dictionaries."""
+    global MODULES, CONFIG_DEFAULTS, CONFIG_SCHEMAS, DOTTED_FALLBACKS
+    MODULES = modules or []
+    defaults: dict[str, Any] = {}
+    schemas: dict[str, Any] = {}
+    fallbacks: dict[str, list[str]] = {}
+    for m in MODULES:
+        mod_name = m.get("name", "")
+        config = m.get("config", {})
+        if isinstance(config, dict) and mod_name:
+            for fname, schema in config.items():
+                if isinstance(schema, dict):
+                    full_key = f"{mod_name}.{fname}"
+                    if "default" in schema:
+                        defaults[full_key] = schema["default"]
+                        if fname not in defaults:
+                            defaults[fname] = schema["default"]
+                    schemas[full_key] = schema
+                    if fname not in schemas:
+                        schemas[fname] = schema
+                    fallbacks.setdefault(fname, []).append(full_key)
+    CONFIG_DEFAULTS = defaults
+    CONFIG_SCHEMAS = schemas
+    DOTTED_FALLBACKS = fallbacks
+
+
+def get_manifest_modules() -> list[dict[str, Any]]:
+    """Return active manifest modules list."""
+    return MODULES
 
 _uno_mod: Any
 _unohelper_mod: Any
@@ -314,9 +372,27 @@ def _backup_config_file(config_file_path: str, *, reason: str = "invalid-json") 
         return None
 
 
+def _strip_config_comment_header(text: str) -> str:
+    """Drop leading ``//`` comment lines and blank lines so json.loads can run."""
+    lines = text.splitlines(keepends=True)
+    i = 0
+    while i < len(lines):
+        stripped = lines[i].lstrip(" \t")
+        if stripped == "" or stripped.startswith("//"):
+            i += 1
+            continue
+        break
+    return "".join(lines[i:])
+
+
+def parse_config_json_text(text: str) -> dict | None:
+    """Parse writeragent.json text, ignoring the optional ``//`` schema header."""
+    return _try_parse_config_dict(text)
+
+
 def _try_parse_config_dict(text: str) -> dict | None:
     try:
-        data = json.loads(text)
+        data = json.loads(_strip_config_comment_header(text))
     except json.JSONDecodeError:
         return None
     if not isinstance(data, dict):
@@ -326,15 +402,16 @@ def _try_parse_config_dict(text: str) -> dict | None:
 
 def _try_repair_config_dict(text: str) -> dict | None:
     """Config-safe JSON repair: json strict=False and json_repair only (no literal_eval / LaTeX rewrite)."""
+    stripped = _strip_config_comment_header(text)
     try:
-        data = json.loads(text, strict=False)
+        data = json.loads(stripped, strict=False)
         if isinstance(data, dict):
             return data
     except (json.JSONDecodeError, TypeError, ValueError):
         pass
 
     try:
-        repaired = repair_json(text)
+        repaired = repair_json(stripped)
         data = json.loads(repaired, strict=False)
         if isinstance(data, dict):
             return data
@@ -345,8 +422,12 @@ def _try_repair_config_dict(text: str) -> dict | None:
 
 
 def _write_config_file(config_file_path: str, data: dict) -> None:
+    body = json.dumps(data, indent=4)
     with open(config_file_path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
+        f.write(CONFIG_SCHEMA_COMMENT)
+        f.write(body)
+        if not body.endswith("\n"):
+            f.write("\n")
 
 
 def _invalidate_config_cache() -> None:
@@ -680,14 +761,30 @@ class WriterAgentConfig:
         config._extra_config = extra_kwargs
         return config
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert back to dictionary, expanding _extra_config."""
-        out = {}
+    def to_dict(self, omit_defaults: bool = True) -> Dict[str, Any]:
+        """Convert back to dictionary, expanding _extra_config.
+
+        When omit_defaults is True (default), fields matching ``_resolve_default``
+        (schema, then dataclass, including log_level DEBUG/WARN) are excluded so
+        defaults are not written to the JSON config file. Extra keys with no
+        schema / dataclass / LRU default are dropped (retired or unknown).
+        """
+        out: Dict[str, Any] = {}
         for f in dataclasses.fields(self):
             if f.name == "_extra_config":
                 continue
-            out[f.name] = getattr(self, f.name)
-        out.update(self._extra_config)
+            val = getattr(self, f.name)
+            if omit_defaults and is_default_value(f.name, val):
+                continue
+            out[f.name] = val
+
+        for k, v in self._extra_config.items():
+            if not is_known_config_key(k):
+                continue
+            if omit_defaults and is_default_value(k, v):
+                continue
+            out[k] = v
+
         return out
 
 
@@ -728,8 +825,14 @@ def _dataclass_field_type(field: dataclasses.Field) -> str | None:
 
 
 def _module_schema_for_key(key: str) -> dict[str, Any] | None:
-    if not MODULES:
+    if MODULES is _DEFAULT_MODULES:
+        if key in CONFIG_SCHEMAS:
+            return dict(CONFIG_SCHEMAS[key])
+        for dotted in _dotted_fallback_keys(key):
+            if dotted in CONFIG_SCHEMAS:
+                return dict(CONFIG_SCHEMAS[dotted])
         return None
+
     if "." in key:
         mod_name, field_name = key.split(".", 1)
         for module in MODULES:
@@ -877,6 +980,164 @@ def coerce_config_value(key: str, value: Any, *, fallback_value: Any = _MISSING_
     return clamp_schema_value(key, value)
 
 
+# --- MODULES / manifest schema ---
+
+
+def _get_schema_default(key):
+    """Return default for key from manifest schema. Supports flat and dotted keys."""
+    if MODULES is _DEFAULT_MODULES:
+        if key in CONFIG_DEFAULTS:
+            return CONFIG_DEFAULTS[key]
+        for dotted in _dotted_fallback_keys(key):
+            if dotted in CONFIG_DEFAULTS:
+                return CONFIG_DEFAULTS[dotted]
+        return None
+
+    if "." in key:
+        mod_name, field_name = key.split(".", 1)
+        for m in MODULES:
+            if m.get("name") == mod_name:
+                config = m.get("config", {})
+                if isinstance(config, dict):
+                    for fname, schema in config.items():
+                        if fname == field_name and isinstance(schema, dict) and "default" in schema:
+                            return schema["default"]
+        return None
+    for m in MODULES:
+        config = m.get("config", {})
+        if isinstance(config, dict):
+            for fname, schema in config.items():
+                if fname == key and isinstance(schema, dict) and "default" in schema:
+                    return schema["default"]
+    return None
+
+
+def _dotted_fallback_keys(key):
+    """Yield dotted key variants for key using manifest modules (e.g. extend_selection_max_tokens -> chatbot.extend_selection_max_tokens)."""
+    if "." in key:
+        return
+    if MODULES is _DEFAULT_MODULES and key in DOTTED_FALLBACKS:
+        for dotted in DOTTED_FALLBACKS[key]:
+            yield dotted
+        return
+    for m in MODULES:
+        mod_name = m.get("name", "")
+        if not mod_name:
+            continue
+        config = m.get("config", {})
+        if isinstance(config, dict) and key in config:
+            yield f"{mod_name}.{key}"
+
+
+# --- Default resolution ---
+
+
+def _resolve_default(key):
+    """Resolve default for key: schema first, then dataclass. Safe fallbacks for None."""
+    if key == "log_level":
+        tests_dir = os.path.join(get_plugin_dir(), "tests")
+        return "DEBUG" if os.path.isdir(tests_dir) else "WARN"
+
+    val = _get_schema_default(key)
+    if val is not None:
+        return val
+
+    if _is_lru_list_config_key(key):
+        return []
+
+    safe_key = key.replace(".", "_")
+    for f in dataclasses.fields(WriterAgentConfig):
+        if f.name == safe_key:
+            return _dataclass_field_default(f)
+
+    # Strict check: if not in schema and not a recognized dynamic pattern, it's a bug.
+    raise ConfigError(f"Missing config key {key!r}: not a WriterAgentConfig field, MODULES default, or LRU pattern.", "CONFIG_KEY_NOT_FOUND", details={"key": key})
+
+
+def _is_equal_to_default(key: str, value: Any, default_val: Any) -> bool:
+    """Return True if `value` equals `default_val`."""
+    if default_val is None:
+        return value is None
+
+    if isinstance(default_val, bool):
+        return as_bool(value) is default_val
+
+    if isinstance(default_val, (int, float)) and not isinstance(default_val, bool):
+        if isinstance(value, bool):
+            return False
+        try:
+            return parse_float_robust(value) == parse_float_robust(default_val)
+        except (ValueError, TypeError):
+            return False
+
+    if isinstance(default_val, (dict, list)):
+        return type(value) is type(default_val) and value == default_val
+
+    if key == "endpoint":
+        norm_val = normalize_endpoint_url(str(value or "").strip())
+        norm_def = normalize_endpoint_url(str(default_val or "").strip())
+        return norm_val == norm_def
+
+    return str(value or "") == str(default_val or "")
+
+
+def is_known_config_key(key: str) -> bool:
+    """True if `key` has a schema, dataclass, or LRU default."""
+    try:
+        _resolve_default(key)
+    except ConfigError:
+        return False
+    except Exception:
+        return False
+    return True
+
+
+def is_default_value(key: str, value: Any) -> bool:
+    """Return True if `value` matches the default configuration value for `key`."""
+    try:
+        default_val = _resolve_default(key)
+    except ConfigError:
+        return False
+    except Exception:
+        return False
+    return _is_equal_to_default(key, value, default_val)
+
+
+def prune_default_values(data: dict[str, Any]) -> dict[str, Any]:
+    """Drop unknown keys and values that match schema/dataclass defaults."""
+    if not isinstance(data, dict):
+        return {}
+    return {
+        k: v
+        for k, v in data.items()
+        if is_known_config_key(k) and not is_default_value(k, v)
+    }
+
+
+# --- Validated JSON export ---
+
+
+def _build_validated_config_export(data: Dict[str, Any], config: "WriterAgentConfig") -> Dict[str, Any]:
+    """Merge validated WriterAgentConfig into a dict with the same keys as JSON `data`.
+
+    Known dataclass fields are read from attributes; all other keys (e.g. ``agent_backend.path``)
+    must come from ``config._extra_config`` after :meth:`WriterAgentConfig.validate`.
+    """
+    out: Dict[str, Any] = {}
+    field_names = {f.name for f in dataclasses.fields(config) if f.name != "_extra_config"}
+    for k, v in data.items():
+        safe_key = k.replace(".", "_")
+        if safe_key in field_names:
+            out[k] = getattr(config, safe_key)
+        else:
+            merged = config._extra_config.get(k, v)
+            if merged != v:
+                log.debug("config export: extra key %r merged after validate (raw_len=%s merged_len=%s)", k, len(str(v)), len(str(merged)))
+            out[k] = merged
+
+    return out
+
+
 # --- Core config I/O ---
 
 
@@ -992,7 +1253,7 @@ def _raw_config_value_for_key(config_data: dict[str, Any], key: str) -> Any:
 
 
 def set_config(key, value):
-    """Set a config key to value. Creates file if needed."""
+    """Set a config key to value. Creates file if needed. Omits defaults."""
     try:
         config_file_path = _config_path()
     except ConfigError:
@@ -1008,8 +1269,14 @@ def set_config(key, value):
     value = coerce_config_value(key, value, fallback_value=current_value)
     if config_data.get(key) == value:
         return
+
     test_data = dict(config_data)
+    for dotted in _dotted_fallback_keys(key):
+        test_data.pop(dotted, None)
+    if "." in key:
+        test_data.pop(key.split(".", 1)[1], None)
     test_data[key] = value
+
     try:
         test_config = WriterAgentConfig.from_dict(test_data)
         test_config.validate()
@@ -1043,12 +1310,34 @@ def remove_config(key):
         return
     try:
         with open(config_file_path, "r", encoding="utf-8") as f:
-            config_data = json.load(f)
+            config_data = parse_config_json_text(f.read())
         if not isinstance(config_data, dict):
             return
-    except (OSError, json.JSONDecodeError):
+    except OSError:
         return
-    config_data.pop(key, None)
+    removed = False
+    if key in config_data:
+        config_data.pop(key, None)
+        removed = True
+    for dotted in list(_dotted_fallback_keys(key)):
+        if dotted in config_data:
+            config_data.pop(dotted, None)
+            removed = True
+    if "." in key:
+        field_name = key.split(".", 1)[1]
+        if field_name in config_data:
+            config_data.pop(field_name, None)
+            removed = True
+    if not removed:
+        return
+
+    try:
+        test_config = WriterAgentConfig.from_dict(config_data)
+        test_config.validate()
+        config_data = test_config.to_dict()
+    except Exception:
+        pass
+
     try:
         _write_config_file(config_file_path, config_data)
 
@@ -1059,107 +1348,6 @@ def remove_config(key):
     except OSError as e:
         log.exception("Error writing to %s", config_file_path)
         raise ConfigError(f"Failed to remove config key: {e}", "CONFIG_SAVE_ERROR") from e
-
-
-# --- MODULES / manifest schema ---
-
-
-def _get_schema_default(key):
-    """Return default for key from MODULES (module.yaml schema). Supports flat and dotted keys."""
-    if not MODULES:
-        return None
-    # Dotted key (e.g. agent_backend.backend_id)
-    if "." in key:
-        mod_name, field_name = key.split(".", 1)
-        for m in MODULES:
-            if m.get("name") == mod_name:
-                config = m.get("config", {})
-                if isinstance(config, dict):
-                    for fname, schema in config.items():
-                        if fname == field_name and isinstance(schema, dict) and "default" in schema:
-                            return schema["default"]
-        return None
-    # Flat key: find first module that has this config field
-    for m in MODULES:
-        config = m.get("config", {})
-        if isinstance(config, dict):
-            for fname, schema in config.items():
-                if fname == key and isinstance(schema, dict) and "default" in schema:
-                    return schema["default"]
-    return None
-
-
-def _dotted_fallback_keys(key):
-    """Yield dotted key variants for key using MODULES (e.g. extend_selection_max_tokens -> chatbot.extend_selection_max_tokens)."""
-    if not MODULES:
-        return
-    if "." in key:
-        return
-    for m in MODULES:
-        mod_name = m.get("name", "")
-        if not mod_name:
-            continue
-        config = m.get("config", {})
-        if isinstance(config, dict):
-            for fname in config:
-                if fname == key:
-                    yield f"{mod_name}.{fname}"
-                    break
-
-
-# --- Default resolution ---
-
-
-def _resolve_default(key):
-    """Resolve default for key: schema first, then central dict. Safe fallbacks for None."""
-    if key == "log_level":
-        tests_dir = os.path.join(get_plugin_dir(), "tests")
-        return "DEBUG" if os.path.isdir(tests_dir) else "WARN"
-
-    val = _get_schema_default(key)
-    if val is not None:
-        return val
-
-    if _is_lru_list_config_key(key):
-        return []
-
-    # Get from default config object
-    default_config = WriterAgentConfig()
-
-    # Map dotted keys to flat keys if they match (e.g. chatbot.show_search_thinking)
-    safe_key = key.replace(".", "_")
-    field_names = {f.name for f in dataclasses.fields(default_config)}
-    if safe_key in field_names:
-        val = getattr(default_config, safe_key)
-        if val is not None:
-            return val
-
-    # Strict check: if not in schema and not a recognized dynamic pattern, it's a bug.
-    raise ConfigError(f"Missing config key {key!r}: not a WriterAgentConfig field, MODULES default, or LRU pattern.", "CONFIG_KEY_NOT_FOUND", details={"key": key})
-
-
-# --- Validated JSON cache ---
-
-
-def _build_validated_config_export(data: Dict[str, Any], config: "WriterAgentConfig") -> Dict[str, Any]:
-    """Merge validated WriterAgentConfig into a dict with the same keys as JSON `data`.
-
-    Known dataclass fields are read from attributes; all other keys (e.g. ``agent_backend.path``)
-    must come from ``config._extra_config`` after :meth:`WriterAgentConfig.validate`.
-    """
-    out: Dict[str, Any] = {}
-    field_names = {f.name for f in dataclasses.fields(config) if f.name != "_extra_config"}
-    for k, v in data.items():
-        safe_key = k.replace(".", "_")
-        if safe_key in field_names:
-            out[k] = getattr(config, safe_key)
-        else:
-            merged = config._extra_config.get(k, v)
-            if merged != v:
-                log.debug("config export: extra key %r merged after validate (raw_len=%s merged_len=%s)", k, len(str(v)), len(str(merged)))
-            out[k] = merged
-
-    return out
 
 
 def _get_validated_config_dict():
@@ -1212,14 +1400,19 @@ def _get_validated_config_dict():
             raw_int = parse_int_robust(raw_prompt_tokens) if raw_prompt_tokens is not None and raw_prompt_tokens != "" else None
         except ValueError:
             raw_int = None
-        if raw_int is not None and raw_int < 100 and out.get("calc_prompt_max_tokens") == 4096:
+        if raw_int is not None and raw_int < 100:
+            file_data = dict(data)
+            file_data.pop("calc_prompt_max_tokens", None)
+            cleaned_config = WriterAgentConfig.from_dict(file_data)
+            cleaned_config.validate()
+            cleaned_file_data = cleaned_config.to_dict()
             try:
-                _write_config_file(config_file_path, out)
+                _write_config_file(config_file_path, cleaned_file_data)
                 try:
                     current_mtime = os.path.getmtime(config_file_path)
                 except OSError:
                     pass
-                log.info("Persisted calc_prompt_max_tokens upgrade (%s → 4096)", raw_int)
+                log.info("Persisted calc_prompt_max_tokens upgrade (%s → default 4096)", raw_int)
             except OSError as e:
                 log.warning("Failed to persist calc_prompt_max_tokens upgrade: %s", e)
 

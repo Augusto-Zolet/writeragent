@@ -8,7 +8,6 @@ UNO Service implementation for WriterAgent configuration.
 """
 
 # crosshair: off
-import json
 import os
 import logging
 from typing import Any, Callable, cast
@@ -25,6 +24,7 @@ from plugin.framework.config import (
     get_config_dict,
     get_current_endpoint,
     set_api_key_for_endpoint,
+    parse_config_json_text,
     _load_config_dict,
     _write_config_file,
     _emit_config_changed_ctx,
@@ -136,13 +136,11 @@ class ConfigService(ServiceBase):
         if self._config_path and os.path.exists(self._config_path):
             try:
                 with open(self._config_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
-                    if not isinstance(data, dict):
+                    data = parse_config_json_text(f.read())
+                    if data is None:
                         raise ConfigError("Config file must be a JSON object")
                     if key in data:
                         return data[key]
-            except json.JSONDecodeError as e:
-                log.debug("ConfigService.get invalid JSON in %s: %s", self._config_path, e)
             except OSError as e:
                 log.debug("ConfigService.get IO error for %s: %s", self._config_path, e)
             except ConfigError as e:
@@ -249,12 +247,11 @@ class ConfigService(ServiceBase):
         if self._config_path and os.path.exists(self._config_path):
             try:
                 with open(self._config_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+                    data = parse_config_json_text(f.read())
                 if isinstance(data, dict) and key in data:
                     del data[key]
-                    with open(self._config_path, "w", encoding="utf-8") as f:
-                        json.dump(data, f)
-            except (OSError, json.JSONDecodeError) as e:
+                    _write_config_file(self._config_path, data)
+            except OSError as e:
                 log.warning("ConfigService.remove config file error for key %s: %s", key, e)
         else:
             remove_config(key)
@@ -265,11 +262,11 @@ class ConfigService(ServiceBase):
         if self._config_path and os.path.exists(self._config_path):
             try:
                 with open(self._config_path, "r", encoding="utf-8") as f:
-                    data = json.load(f)
+                    data = parse_config_json_text(f.read())
                 if not isinstance(data, dict):
                     return {}
                 return data
-            except (OSError, json.JSONDecodeError) as e:
+            except OSError as e:
                 log.debug("ConfigService.get_dict config file read error: %s", e)
                 return {}
         return get_config_dict()

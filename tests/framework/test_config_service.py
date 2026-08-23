@@ -1,5 +1,4 @@
 import pytest
-import json
 from plugin.framework.config_service import ConfigService, ConfigAccessError
 from plugin.framework.event_bus import EventBus
 
@@ -18,7 +17,7 @@ def config_svc(config_dir):
 @pytest.fixture
 def manifest():
     "Sample manifest data."
-    return {'mcp': {'config': {'port': {'type': 'int', 'default': 8766, 'public': True}, 'host': {'type': 'string', 'default': 'localhost', 'public': True}, 'ssl_key': {'type': 'string', 'default': '', 'public': False}}}, 'chatbot': {'config': {'max_tool_rounds': {'type': 'int', 'default': 15, 'public': False}}}}
+    return {'mcp': {'config': {'mcp_port': {'type': 'int', 'default': 18765, 'public': True}, 'host': {'type': 'string', 'default': 'localhost', 'public': True}, 'ssl_key': {'type': 'string', 'default': '', 'public': False}}}, 'chatbot': {'config': {'max_tool_rounds': {'type': 'int', 'default': 15, 'public': False}}}}
 
 class TestDefaults():
 
@@ -28,7 +27,7 @@ class TestDefaults():
         old_get_config = c.get_config
         c.get_config = (lambda x, y: None)
         try:
-            assert (config_svc.get('mcp.port') == 8766)
+            assert (config_svc.get('mcp.mcp_port') == 18765)
             assert (config_svc.get('mcp.host') == 'localhost')
         finally:
             c.get_config = old_get_config
@@ -44,27 +43,30 @@ class TestSetGet():
 
     def test_set_and_get(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000)
-        assert (config_svc.get('mcp.port') == 9000)
+        config_svc.set('mcp.mcp_port', 9000)
+        assert (config_svc.get('mcp.mcp_port') == 9000)
 
     def test_set_persists_to_file(self, config_svc, config_dir, manifest):
         config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000)
-        with open((config_dir / 'writeragent.json')) as f:
-            data = json.load(f)
-        assert (data['mcp.port'] == 9000)
+        config_svc.set('mcp.mcp_port', 9000)
+        from plugin.framework.config import parse_config_json_text
+
+        text = (config_dir / 'writeragent.json').read_text(encoding='utf-8')
+        data = parse_config_json_text(text)
+        assert data is not None
+        assert (data['mcp.mcp_port'] == 9000)
 
     def test_remove(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000)
-        config_svc.remove('mcp.port')
-        assert (config_svc.get('mcp.port') == 8766)
+        config_svc.set('mcp.mcp_port', 9000)
+        config_svc.remove('mcp.mcp_port')
+        assert (config_svc.get('mcp.mcp_port') == 18765)
 
     def test_get_dict(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000)
+        config_svc.set('mcp.mcp_port', 9000)
         d = config_svc.get_dict()
-        assert (d['mcp.port'] == 9000)
+        assert (d['mcp.mcp_port'] == 9000)
 
     def test_set_corrupt_config_backups_and_writes(self, config_svc, config_dir, manifest):
         corrupt = '{ invalid json '
@@ -72,20 +74,23 @@ class TestSetGet():
         backup_path = config_dir / 'writeragent.json.bak'
         config_path.write_text(corrupt, encoding='utf-8')
         config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000)
+        config_svc.set('mcp.mcp_port', 9000)
         assert backup_path.read_text(encoding='utf-8') == corrupt
-        data = json.loads(config_path.read_text(encoding='utf-8'))
-        assert data['mcp.port'] == 9000
+        from plugin.framework.config import parse_config_json_text
+
+        data = parse_config_json_text(config_path.read_text(encoding='utf-8'))
+        assert data is not None
+        assert data['mcp.mcp_port'] == 9000
 
 class TestAccessControl():
 
     def test_read_own_key_ok(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
-        assert (config_svc.get('mcp.port', caller_module='mcp') == 8766)
+        assert (config_svc.get('mcp.mcp_port', caller_module='mcp') == 18765)
 
     def test_read_public_key_ok(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
-        assert (config_svc.get('mcp.port', caller_module='chatbot') == 8766)
+        assert (config_svc.get('mcp.mcp_port', caller_module='chatbot') == 18765)
 
     def test_read_private_key_denied(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
@@ -94,13 +99,13 @@ class TestAccessControl():
 
     def test_write_own_key_ok(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
-        config_svc.set('mcp.port', 9000, caller_module='mcp')
-        assert (config_svc.get('mcp.port') == 9000)
+        config_svc.set('mcp.mcp_port', 9000, caller_module='mcp')
+        assert (config_svc.get('mcp.mcp_port') == 9000)
 
     def test_write_other_key_denied(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
         with pytest.raises(ConfigAccessError, match='cannot write'):
-            config_svc.set('mcp.port', 9000, caller_module='chatbot')
+            config_svc.set('mcp.mcp_port', 9000, caller_module='chatbot')
 
     def test_no_caller_no_restriction(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
@@ -114,20 +119,20 @@ class TestEvents():
         config_svc.set_events(bus)
         events = []
         bus.subscribe('config:changed', (lambda **kw: events.append(kw)))
-        config_svc.set('mcp.port', 9000)
+        config_svc.set('mcp.mcp_port', 9000)
         assert (len(events) == 1)
-        assert (events[0]['key'] == 'mcp.port')
+        assert (events[0]['key'] == 'mcp.mcp_port')
         assert (events[0]['value'] == 9000)
-        assert (events[0]['old_value'] == 8766)
+        assert (events[0]['old_value'] == 18765)
 
     def test_no_event_when_value_unchanged(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
         bus = EventBus()
         config_svc.set_events(bus)
-        config_svc.set('mcp.port', 8766)
+        config_svc.set('mcp.mcp_port', 18765)
         events = []
         bus.subscribe('config:changed', (lambda **kw: events.append(kw)))
-        config_svc.set('mcp.port', 8766)
+        config_svc.set('mcp.mcp_port', 18765)
         assert (events == [])
 
 class TestModuleConfigProxy():
@@ -135,18 +140,18 @@ class TestModuleConfigProxy():
     def test_auto_prefix(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
         proxy = config_svc.proxy_for('mcp')
-        assert (proxy.get('port') == 8766)
+        assert (proxy.get('mcp_port') == 18765)
 
     def test_set_auto_prefix(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
         proxy = config_svc.proxy_for('mcp')
-        proxy.set('port', 9000)
-        assert (proxy.get('port') == 9000)
+        proxy.set('mcp_port', 9000)
+        assert (proxy.get('mcp_port') == 9000)
 
     def test_cross_module_read_public(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
         proxy = config_svc.proxy_for('chatbot')
-        assert (proxy.get('mcp.port') == 8766)
+        assert (proxy.get('mcp.mcp_port') == 18765)
 
     def test_cross_module_read_private_denied(self, config_svc, manifest):
         config_svc.set_manifest(manifest)
@@ -173,8 +178,8 @@ class TestModuleConfigProxy():
         try:
             config_svc.set_manifest(manifest)
             proxy = config_svc.proxy_for('mcp')
-            proxy.set('port', 9000)
-            proxy.remove('port')
-            assert (proxy.get('port') == 8766)
+            proxy.set('mcp_port', 9000)
+            proxy.remove('mcp_port')
+            assert (proxy.get('mcp_port') == 18765)
         finally:
             c.get_config = old_get_config

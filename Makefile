@@ -155,7 +155,7 @@ endif
         writer calc draw impress \
         set-config vendor docker-build compile-translations compile-translations-core merge-translations refresh-pot reset-lang preview-translations check ty mypy pyright pyrefly bandit pyspector pyspector-report ty-run mypy-run pyright-run pyrefly-run \
         ruff ruff-fix ruff-for-build ruff-format-check ruff-format-grammar \
-        eval-deps run_eval run_eval-smoke
+        eval-deps run_eval run_eval-smoke schema-docs
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -177,6 +177,7 @@ help:
 	@echo "  make build-harper           Build standalone LibreHarper.oxt (Harper grammar only)"
 	@echo "  make deploy-harper          Build + install LibreHarper (does not remove WriterAgent)"
 	@echo "  make xcu                    Generate XCS/XCU from config schemas"
+	@echo "  make schema-docs            Generate docs/writeragent-config-schema.md from module.yaml"
 	@echo "  make clean                  Remove build artifacts"
 	@echo ""
 	@echo "Install:"
@@ -313,7 +314,11 @@ build-no-recording: ty ruff-for-build preview-translations vendor manifest compi
 # Full verification: typecheck, bandit, then a stripped-with-tests tree in /tmp
 # (tmpfs: faster compileall / pytest bytecode) so stripping doesn't break logic,
 # then build the clean release oxt in build/.
+schema-docs:
+	$(PYTHON) $(SCRIPTS)/generate_config_schema_docs.py
+
 release: clean
+	@$(MAKE) schema-docs
 	@$(MAKE) typecheck
 	@$(MAKE) bandit
 	@echo "Building stripped bundle for verification in a temp dir..."
@@ -342,7 +347,7 @@ openrouter-catalog:
 update-xml:
 	$(PYTHON) -c "import sys; sys.path.insert(0, '$(SCRIPTS)'); from manifest_registry import generate_update_xml; generate_update_xml('$(PROJECT_ROOT)', 'update.xml')"
 
-release-build: auto-translate vendor manifest openrouter-catalog compile-translations update-xml
+release-build: auto-translate vendor manifest openrouter-catalog compile-translations update-xml schema-docs
 	@echo "Building $(EXTENSION_NAME).oxt (release, bundle without tests)..."
 	$(PYTHON) $(SCRIPTS)/build_oxt.py --no-tests --output build/$(EXTENSION_NAME).oxt $(if $(filter 1,$(NO_RECORDING)),--no-recording)
 	@echo "Done: build/$(EXTENSION_NAME).oxt  (bundle in build/bundle/)"

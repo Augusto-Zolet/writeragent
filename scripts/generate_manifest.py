@@ -147,7 +147,7 @@ def _filter_librepy_config(config):
 
 
 def generate_manifest_py(modules, output_path, *, librepy_flavor=False):
-    """Generate _manifest.py with module descriptors as Python dicts."""
+    """Generate _manifest.py with module descriptors and pre-computed config defaults."""
     from plugin.version import EXTENSION_VERSION
     from manifest_common import write_if_changed
 
@@ -158,10 +158,28 @@ def generate_manifest_py(modules, output_path, *, librepy_flavor=False):
         "",
         "MODULES = [",
     ]
+    config_defaults = {}
+    config_schemas = {}
+    dotted_fallbacks = {}
+
     for m in modules:
         config = m.get("config", {})
         if librepy_flavor:
             config = _filter_librepy_config(config)
+        mod_name = m.get("name", "")
+        if isinstance(config, dict) and mod_name:
+            for fname, schema in config.items():
+                if isinstance(schema, dict):
+                    full_key = "%s.%s" % (mod_name, fname)
+                    if "default" in schema:
+                        config_defaults[full_key] = schema["default"]
+                        if fname not in config_defaults:
+                            config_defaults[fname] = schema["default"]
+                    config_schemas[full_key] = schema
+                    if fname not in config_schemas:
+                        config_schemas[fname] = schema
+                    dotted_fallbacks.setdefault(fname, []).append(full_key)
+
         # Clean repr — only keep runtime-relevant keys
         entry = {
             "name": m["name"],
@@ -181,6 +199,12 @@ def generate_manifest_py(modules, output_path, *, librepy_flavor=False):
         json_text = json.dumps(entry, indent=8, ensure_ascii=False)
         lines.append("    %s," % _json_to_python(json_text))
     lines.append("]")
+    lines.append("")
+    lines.append("CONFIG_DEFAULTS = %s" % _json_to_python(json.dumps(config_defaults, indent=4, ensure_ascii=False)))
+    lines.append("")
+    lines.append("CONFIG_SCHEMAS = %s" % _json_to_python(json.dumps(config_schemas, indent=4, ensure_ascii=False)))
+    lines.append("")
+    lines.append("DOTTED_FALLBACKS = %s" % _json_to_python(json.dumps(dotted_fallbacks, indent=4, ensure_ascii=False)))
     lines.append("")
 
     write_if_changed(output_path, "\n".join(lines))
