@@ -38,6 +38,19 @@ def test_ensure_downloaded_audio_on_path_idempotent(tmp_path):
         assert sys.path.count(str(bin_dir)) == 1
 
 
+def test_ensure_downloaded_audio_on_path_adds_in_tree_contrib():
+    original_path = list(sys.path)
+    try:
+        ensure_downloaded_audio_on_path()
+        # Verify in-tree contrib or contrib/vec_pack exists on sys.path
+        mod_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        contrib_dir = os.path.join(mod_dir, "contrib")
+        if os.path.isdir(contrib_dir):
+            assert contrib_dir in sys.path
+    finally:
+        sys.path[:] = original_path
+
+
 def test_download_url_to_file_atomic_replace_preserves_inode(tmp_path):
     """Redownload must not truncate an existing file in place (mapped .so SIGBUS)."""
     dest = tmp_path / "pack.so"

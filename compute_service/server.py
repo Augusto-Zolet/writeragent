@@ -603,6 +603,13 @@ def run_server(settings: ComputeSettings) -> None:
         settings.workers,
         settings.ocr_workers,
     )
+    # Initialize Cython accelerator and log status on startup
+    from plugin.scripting.payload_codec import get_cython_status_info, load_cython_accelerator
+
+    load_cython_accelerator()
+    _cy_active, _cy_loc, cy_status = get_cython_status_info()
+    log.info("%s", cy_status)
+
     # Warm up formula worker pool and verify dependencies in worker environment
     from compute_service.formula_pool import get_formula_pool
 

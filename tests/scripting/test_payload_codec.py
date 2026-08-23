@@ -601,6 +601,35 @@ def test_child_pack_numpy_scalar_types() -> None:
     assert child_pack_result(np.bool_(True)) is True
 
 
+def test_get_cython_status_info() -> None:
+    """Verify get_cython_status_info returns valid status line and location."""
+    from plugin.scripting.payload_codec import get_cython_status_info, host_cython_status_line
+
+    is_active, source_loc, status_line = get_cython_status_info()
+    assert isinstance(is_active, bool)
+    assert status_line.startswith("Cython Accelerator:")
+    if is_active:
+        assert "Active" in status_line
+        assert source_loc is not None
+    else:
+        assert "Inactive" in status_line
+        assert source_loc is None
+    assert host_cython_status_line() == status_line
+
+
+def test_cython_canary_failure_disables_accelerator() -> None:
+    """Verify that a failing canary test prevents activating the accelerator."""
+    from plugin.scripting.payload_codec import _verify_accelerator
+
+    def bad_fn2d(data, shape):
+        return [0.0], {}, None, [False], False
+
+    def bad_fn1d(data):
+        return [0.0], {}, None, [False], False
+
+    assert _verify_accelerator(bad_fn2d, bad_fn1d) is False
+
+
 def test_child_mixed_2d_returns_list_not_ndarray() -> None:
     """Any string column forces nested lists in child, not ndarray."""
     np = pytest.importorskip("numpy")

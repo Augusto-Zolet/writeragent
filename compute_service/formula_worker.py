@@ -25,6 +25,10 @@ if _PROJECT_ROOT not in sys.path:
 
 from compute_service.executor import execute_code
 from compute_service.worker_base import run_worker_stdio_loop
+from plugin.scripting.payload_codec import load_cython_accelerator
+
+# Initialize and verify Cython accelerator in formula worker subprocess
+load_cython_accelerator()
 
 
 def _handle_request(req: dict[str, Any]) -> dict[str, Any]:

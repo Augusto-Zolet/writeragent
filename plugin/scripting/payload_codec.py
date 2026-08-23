@@ -65,6 +65,7 @@ log = logging.getLogger(__name__)
 # --- Optional Cython accelerator --------------------------------------------------
 
 _CYTHON_ACCELERATOR_DISABLED = False
+_CYTHON_ACCELERATOR_LOCATION: str | None = None
 
 fast_flatten_grid_2d: Any = None
 fast_flatten_grid_1d: Any = None
@@ -116,47 +117,85 @@ def _verify_accelerator(fn2d: Any, fn1d: Any) -> bool:
 
 def load_cython_accelerator() -> None:
     """Attempt to load the Cython accelerator and verify it via a runtime canary test."""
-    global fast_flatten_grid_2d, fast_flatten_grid_1d, _CYTHON_ACCELERATOR_DISABLED
-    if _CYTHON_ACCELERATOR_DISABLED:
+    global fast_flatten_grid_2d, fast_flatten_grid_1d, _CYTHON_ACCELERATOR_DISABLED, _CYTHON_ACCELERATOR_LOCATION
+    if _CYTHON_ACCELERATOR_DISABLED and fast_flatten_grid_2d is None:
         return
 
-    # Check for accelerator in both possible locations
+    # Ensure native binary directories (installed user_config or in-tree repo contrib) are on sys.path
+    try:
+        from plugin.scripting.native_binaries import ensure_downloaded_audio_on_path
+
+        ensure_downloaded_audio_on_path()
+    except Exception as exc:
+        log.debug("load_cython_accelerator path ensure exception: %s", exc)
+
     fn2d = None
     fn1d = None
     loc = "none"
 
+    # Search import targets in priority order:
+    # 1. contrib.vec_pack (in-tree repository checkout)
     try:
-        # Preferred: plugin.contrib.vec_pack
-        import plugin.contrib.vec_pack as _vp
+        import contrib.vec_pack as _vp  # type: ignore
 
         fn2d = getattr(_vp, "fast_flatten_grid_2d", None)
         fn1d = getattr(_vp, "fast_flatten_grid_1d", None)
-        loc = "contrib"
+        if fn2d is not None and fn1d is not None:
+            loc = "contrib.vec_pack"
     except ImportError:
         pass
 
+    # 2. writeragent_vec (installed under user_config_dir/audio_binaries or standalone package)
     if fn2d is None or fn1d is None:
-        # Fallback: absolute import (mostly for dev/standalone tests)
         try:
             import writeragent_vec as _wv  # type: ignore
 
-            fn2d = _wv.fast_flatten_grid_2d
-            fn1d = _wv.fast_flatten_grid_1d
-            loc = "absolute"
+            fn2d = getattr(_wv, "fast_flatten_grid_2d", None)
+            fn1d = getattr(_wv, "fast_flatten_grid_1d", None)
+            if fn2d is not None and fn1d is not None:
+                loc = "writeragent_vec"
         except ImportError:
             pass
 
-    # Perform the canary check before assigning to global state
+    # 3. vec_pack (direct module on sys.path)
+    if fn2d is None or fn1d is None:
+        try:
+            import vec_pack as _vp  # type: ignore
+
+            fn2d = getattr(_vp, "fast_flatten_grid_2d", None)
+            fn1d = getattr(_vp, "fast_flatten_grid_1d", None)
+            if fn2d is not None and fn1d is not None:
+                loc = "vec_pack"
+        except ImportError:
+            pass
+
+    # 4. plugin.contrib.vec_pack (legacy fallback)
+    if fn2d is None or fn1d is None:
+        try:
+            import plugin.contrib.vec_pack as _vp  # type: ignore
+
+            fn2d = getattr(_vp, "fast_flatten_grid_2d", None)
+            fn1d = getattr(_vp, "fast_flatten_grid_1d", None)
+            if fn2d is not None and fn1d is not None:
+                loc = "plugin.contrib.vec_pack"
+        except ImportError:
+            pass
+
+    # Perform runtime canary test before activating global state
     if fn2d is not None and fn1d is not None:
         if _verify_accelerator(fn2d, fn1d):
             fast_flatten_grid_2d = fn2d
             fast_flatten_grid_1d = fn1d
-            log.debug("payload_codec: Cython accelerator (%s) verified and loaded", loc)
+            _CYTHON_ACCELERATOR_LOCATION = loc
+            _CYTHON_ACCELERATOR_DISABLED = False
+            log.info("payload_codec: Cython accelerator (%s) verified and loaded", loc)
         else:
             _CYTHON_ACCELERATOR_DISABLED = True
-            log.warning("payload_codec: Cython accelerator found but failed parity check; using pure Python")
+            _CYTHON_ACCELERATOR_LOCATION = None
+            log.warning("payload_codec: Cython accelerator found at %s but failed canary check; using pure Python", loc)
     else:
         _CYTHON_ACCELERATOR_DISABLED = True
+        _CYTHON_ACCELERATOR_LOCATION = None
         log.debug("payload_codec: Cython accelerator not found, using pure Python")
 
 
@@ -167,12 +206,15 @@ def invalidate_host_cython_accelerator() -> None:
     the old ``writeragent_vec`` module object. Clear globals and module cache so
     the next load binds the new file instead of calling into a stale mapping.
     """
-    global fast_flatten_grid_2d, fast_flatten_grid_1d, _CYTHON_ACCELERATOR_DISABLED
+    global fast_flatten_grid_2d, fast_flatten_grid_1d, _CYTHON_ACCELERATOR_DISABLED, _CYTHON_ACCELERATOR_LOCATION
     fast_flatten_grid_2d = None
     fast_flatten_grid_1d = None
     _CYTHON_ACCELERATOR_DISABLED = False
+    _CYTHON_ACCELERATOR_LOCATION = None
     for key in list(sys.modules):
-        if key == "writeragent_vec" or key.startswith("writeragent_vec."):
+        if key in ("writeragent_vec", "contrib.vec_pack", "vec_pack", "plugin.contrib.vec_pack") or key.startswith(
+            ("writeragent_vec.", "contrib.vec_pack.", "vec_pack.", "plugin.contrib.vec_pack.")
+        ):
             sys.modules.pop(key, None)
 
 
@@ -183,16 +225,25 @@ def reload_host_cython_accelerator() -> None:
     load_cython_accelerator()
 
 
+def get_cython_status_info() -> tuple[bool, str | None, str]:
+    """Return tuple of (is_active, source_location, status_line)."""
+    if fast_flatten_grid_2d is not None:
+        loc = _CYTHON_ACCELERATOR_LOCATION
+        if loc and loc != "active":
+            return True, loc, f"Cython Accelerator: Active (Optimized, source: {loc})"
+        return True, loc, "Cython Accelerator: Active (Optimized)"
+    return False, None, "Cython Accelerator: Inactive (Pure Python)"
+
+
 def host_cython_status_line(*, reload: bool = False) -> str:
-    """Human-readable host Cython status for Settings → Python Test probe header.
+    """Human-readable host Cython status for Settings -> Python Test probe header.
 
     Default is report-only (no import/reload). Pass ``reload=True`` on the main
     thread after ``native_binaries.ensure_downloaded_audio_on_path`` when a fresh load is wanted.
     """
     if reload:
         reload_host_cython_accelerator()
-    status = "Active (Optimized)" if fast_flatten_grid_2d is not None else "Inactive (Pure Python)"
-    return f"Cython Accelerator: {status}"
+    return get_cython_status_info()[2]
 
 
 # Initial load attempt

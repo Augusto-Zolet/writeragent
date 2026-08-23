@@ -296,9 +296,18 @@ Log format includes timestamps, log level, request IDs, modes, code size, execut
 
 ```text
 2026-08-17 20:00:00,123 [INFO] compute_service: Starting Python Compute Service on 127.0.0.1:8000 (auth=yes)...
+2026-08-17 20:00:00,125 [INFO] compute_service: Cython Accelerator: Active (Optimized, source: contrib.vec_pack)
 2026-08-17 20:00:01,456 [INFO] compute_service: exec /v1/execute id='req-123' mode=isolated session=None code_len=32 timeout=30s
 2026-08-17 20:00:01,489 [INFO] compute_service: done /v1/execute id='req-123' status='ok' duration=32.40ms
 ```
+
+### Cython Binary Acceleration & Canary Verification
+
+The service automatically detects compiled Cython binaries (`pack.*.so` / `pack.*.pyd`) from:
+1. In-tree git repository checkouts (`contrib/vec_pack`)
+2. Installed LibrePy user profile locations (`audio_binaries/writeragent_vec`)
+
+On startup, a runtime canary verification test (`_verify_accelerator`) runs to ensure binary integrity and compatibility before enabling Cython binary acceleration for `split_grid` 2D array packing. If no compatible binary is found or the canary check fails, the service logs a warning and falls back to pure Python without interrupting execution.
 
 ---
 

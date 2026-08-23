@@ -51,7 +51,7 @@ def _cleanup_stale_native_backups(bin_dir: str) -> None:
 
 
 def ensure_downloaded_audio_on_path() -> None:
-    """Ensure downloaded host binaries (audio + writeragent_vec) are on sys.path."""
+    """Ensure host binaries (audio + writeragent_vec) in user config or in-tree contrib are on sys.path."""
     from plugin.framework.config import user_config_dir
 
     try:
@@ -64,6 +64,21 @@ def ensure_downloaded_audio_on_path() -> None:
                     sys.path.insert(0, bin_dir)
     except Exception as exc:
         log.debug("Failed to add user config audio path to sys.path: %s", exc)
+
+    try:
+        # Also check for in-tree repo contrib directory (e.g. standalone/venv checkout)
+        mod_dir = os.path.dirname(os.path.abspath(__file__))
+        repo_root = os.path.abspath(os.path.join(mod_dir, "..", ".."))
+        contrib_dir = os.path.join(repo_root, "contrib")
+        if os.path.isdir(contrib_dir):
+            if contrib_dir not in sys.path:
+                sys.path.insert(0, contrib_dir)
+            vec_pack_dir = os.path.join(contrib_dir, "vec_pack")
+            if os.path.isdir(vec_pack_dir) and vec_pack_dir not in sys.path:
+                sys.path.insert(0, vec_pack_dir)
+    except Exception as exc:
+        log.debug("Failed to add in-tree contrib path to sys.path: %s", exc)
+
 
 
 def _atomic_replace_native(partial_path: str, dest_path: str) -> None:

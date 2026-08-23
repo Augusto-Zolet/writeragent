@@ -1093,7 +1093,7 @@ If 50 cells share one pattern `=A{row}*2`, one matrix `=PY()` counts as **50 con
 
 **Deliverables**
 
-- For `TODO` cells: batch prompt with formula + precedents + `CALC_PYTHON_FORMULA_LLM_HINT`
+- For `TODO` cells: batch prompt with formula + precedents + `CALC_PYTHON_FORMULA_LLM_HINT` (alias of `CALC_FORMULA_SYNTAX`; not a shorter sibling prompt)
 - User reviews diff before apply (never silent)
 - Target +3–5% coverage on corpus
 
