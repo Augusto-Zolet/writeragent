@@ -6,7 +6,6 @@
 import getpass
 import logging
 import re
-import traceback
 from typing import Any, Iterable, cast
 
 from plugin.framework.tool import ToolBase
@@ -104,76 +103,59 @@ class SwitchToDocumentModeTool(ToolBase):
         return {"status": "switch_mode", "message": kwargs.get("message", _("Switching to document mode..."))}
 
 
-class LibrarianOnboardingTool(ToolBase):
-    name = "librarian_onboarding"
-    description = "Librarian agent for new user onboarding."
-    parameters = {
-        "type": "object",
-        "properties": {
-            "query": {"type": "string", "description": "User message"},
-            "history_text": {"type": "string", "description": "Previous conversation text"},
-            "suggested_user_name": {"type": "string", "description": "OS/LO suggested name for confirmation (internal)."},
-        },
-        "required": ["query"],
-    }
-    # Hide from the default main-chat tool surface; librarian onboarding owns this tool.
-    tier = "specialized_control"
-    is_mutation = False
-    long_running = True
+def _run_librarian_agent(
+    ctx: Any,
+    *,
+    query: str = "",
+    history_text: str | None = None,
+    suggested_user_name: str | None = None,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    if isinstance(suggested_user_name, str):
+        suggested_user_name = suggested_user_name.strip() or None
+    else:
+        suggested_user_name = None
+    from plugin.framework.errors import format_error_payload, ToolExecutionError
 
-    def is_async(self):
-        return True
+    try:
+        from plugin.chatbot.smol_agent import build_toolcalling_agent, SmolToolAdapter
+        from plugin.contrib.smolagents.memory import ActionStep, FinalAnswerStep, ToolCall
+        from plugin.chatbot.smol_examples import get_examples_block
+        from plugin.chatbot.memory import MemoryTool, MemoryStore
+    except (ImportError, ValueError, TypeError) as e:
+        return format_error_payload(ToolExecutionError(f"Failed to load dependencies: {e}"))
 
-    def execute(self, ctx, **kwargs):
-        query = kwargs.get("query")
-        history_text = kwargs.get("history_text")
-        suggested_user_name = kwargs.get("suggested_user_name")
-        if isinstance(suggested_user_name, str):
-            suggested_user_name = suggested_user_name.strip() or None
-        else:
-            suggested_user_name = None
-        from plugin.framework.errors import format_error_payload, ToolExecutionError
+    status_callback = getattr(ctx, "status_callback", None)
+    append_thinking_callback = getattr(ctx, "append_thinking_callback", None)
+    chat_append_callback = getattr(ctx, "chat_append_callback", None)
+    stop_checker = getattr(ctx, "stop_checker", None)
 
-        try:
-            from plugin.chatbot.smol_agent import build_toolcalling_agent, SmolToolAdapter
-            from plugin.contrib.smolagents.memory import ActionStep, FinalAnswerStep, ToolCall
-            from plugin.chatbot.smol_examples import get_examples_block
-            from plugin.chatbot.memory import MemoryTool, MemoryStore
-        except (ImportError, ValueError, TypeError) as e:
-            return format_error_payload(ToolExecutionError(f"Failed to load dependencies: {e}"))
+    if history_text:
+        if len(history_text) > 4000:
+            history_text = "..." + history_text[-4000:]
 
-        status_callback = getattr(ctx, "status_callback", None)
-        append_thinking_callback = getattr(ctx, "append_thinking_callback", None)
-        chat_append_callback = getattr(ctx, "chat_append_callback", None)
-        stop_checker = getattr(ctx, "stop_checker", None)
+    user_mem = ""
+    try:
+        store = MemoryStore(ctx)
+        user_mem = store.read("user")
+    except Exception as e:
+        log.debug("Failed to read user memory for librarian: %s", e)
 
-        if history_text:
-            if len(history_text) > 4000:
-                history_text = "..." + history_text[-4000:]
+    if status_callback:
+        status_callback("Librarian is thinking...")
 
-        try:
-            user_mem = ""
-            try:
-                store = MemoryStore(ctx)
-                user_mem = store.read("user")
-            except Exception as e:
-                log.debug("Failed to read user memory for librarian: %s", e)
-
-            if status_callback:
-                status_callback("Librarian is thinking...")
-
-            if suggested_user_name:
-                priority_1 = f"""Priority 1. Confirm what to call the user and save it to memory (key "name") for later.
+    if suggested_user_name:
+        priority_1 = f"""Priority 1. Confirm what to call the user and save it to memory (key "name") for later.
   Ask whether they would like to be called {suggested_user_name} (phrase naturally in the user's language).
   Only call upsert_memory for "name" after they clearly confirm (yes, sure, that works).
   If they prefer a different name, save what they say. If they decline to share a name, do not pressure them and skip saving it.
   Also save everything else that could be useful later for future document work."""
-            else:
-                priority_1 = """Priority 1. Learn what to call the user and save it to memory (key "name") for later.
+    else:
+        priority_1 = """Priority 1. Learn what to call the user and save it to memory (key "name") for later.
   Ask what they would like to be called, then save after they answer.
   Also save everything else that could be useful later for future document work."""
 
-            instructions = f"""
+    instructions = f"""
 LIBRARIAN PERSONALITY:
 You are the WriterAgent Librarian - a friendly, curious, and helpful assistant who wants to get to know users and help them succeed.
 Think of this like a first date with your new AI colleague. You are happy to talk as long as the user wants or switch to work mode when they are ready.
@@ -225,78 +207,100 @@ TOOLS FOR COMPLETION:
 #Unused for now
 # Tip 7: In Writer, the sidebar mode dropdown includes Brainstorming. Choose Brainstorming to start a multi-turn design session: the agent asks one question at a time, can read the open document, search nearby files, and do web research, then discusses approaches with you. 
 
-            from plugin.framework.prompts import get_chat_response_format_instructions
+    from plugin.framework.prompts import get_chat_response_format_instructions
 
-            instructions += (
-                "\n\n"
-                + get_chat_response_format_instructions(ctx.ctx)
-                + "\nFormat reply_to_user and switch_to_document_mode message with this style; that text is shown in the chat sidebar."
-            )
-            if user_mem and user_mem.strip():
-                instructions += "\n\n[USER PROFILE / MEMORY]\n" + user_mem.strip() + "\n"
+    instructions += (
+        "\n\n"
+        + get_chat_response_format_instructions(ctx.ctx)
+        + "\nFormat reply_to_user and switch_to_document_mode message with this style; that text is shown in the chat sidebar."
+    )
+    if user_mem and user_mem.strip():
+        instructions += "\n\n[USER PROFILE / MEMORY]\n" + user_mem.strip() + "\n"
 
-            agent = build_toolcalling_agent(
-                ctx,
-                [SmolToolAdapter(MemoryTool(), ctx, safe=False, inputs_style="librarian"), SmolToolAdapter(SwitchToDocumentModeTool(), ctx, safe=False, inputs_style="librarian")],
-                instructions=instructions,
-                final_answer_tool_name="reply_to_user",
-                examples_block=get_examples_block("librarian"),
-                status_callback=status_callback,
-            )
+    agent = build_toolcalling_agent(
+        ctx,
+        [SmolToolAdapter(MemoryTool(), ctx, safe=False, inputs_style="librarian"), SmolToolAdapter(SwitchToDocumentModeTool(), ctx, safe=False, inputs_style="librarian")],
+        instructions=instructions,
+        final_answer_tool_name="reply_to_user",
+        examples_block=get_examples_block("librarian"),
+        status_callback=status_callback,
+    )
 
-            task = f"### CONVERSATION HISTORY:\n{history_text or 'None'}\n\n### CURRENT QUERY:\n{query}"
+    task = f"### CONVERSATION HISTORY:\n{history_text or 'None'}\n\n### CURRENT QUERY:\n{query}"
 
-            final_ans = None
+    final_ans = None
 
-            run_stream = cast("Iterable", agent.run(task, stream=True))
-            for step in run_stream:
-                if stop_checker and stop_checker():
-                    return format_error_payload(ToolExecutionError("Librarian stopped by user.", code="USER_STOPPED"))
-                if isinstance(step, ToolCall):
-                    if step.name == "upsert_memory":
-                        line = format_upsert_memory_chat_line_from_arguments(step.arguments)
-                        if callable(chat_append_callback):
-                            chat_append_callback(line)
-                        elif append_thinking_callback:
-                            append_thinking_callback(f"Running tool: {step.name} with {step.arguments}\n")
-                    elif append_thinking_callback:
-                        append_thinking_callback(f"Running tool: {step.name} with {step.arguments}\n")
-                    if status_callback:
-                        status_callback(f"{step.name}...")
-                elif isinstance(step, ActionStep):
-                    if append_thinking_callback:
-                        msg = f"Step {step.step_number}:\n"
-                        if step.model_output:
-                            mo = step.model_output
-                            msg += f"{(mo.strip() if isinstance(mo, str) else str(mo).strip())}\n"
-                        else:
-                            mom = getattr(step, "model_output_message", None)
-                            if mom is not None and getattr(mom, "content", None):
-                                mc = mom.content
-                                msg += f"{(mc.strip() if isinstance(mc, str) else str(mc).strip())}\n"
+    run_stream = cast("Iterable", agent.run(task, stream=True))
+    for step in run_stream:
+        if stop_checker and stop_checker():
+            return format_error_payload(ToolExecutionError("Librarian stopped by user.", code="USER_STOPPED"))
+        if isinstance(step, ToolCall):
+            if step.name == "upsert_memory":
+                line = format_upsert_memory_chat_line_from_arguments(step.arguments)
+                if callable(chat_append_callback):
+                    chat_append_callback(line)
+                elif append_thinking_callback:
+                    append_thinking_callback(f"Running tool: {step.name} with {step.arguments}\n")
+            elif append_thinking_callback:
+                append_thinking_callback(f"Running tool: {step.name} with {step.arguments}\n")
+            if status_callback:
+                status_callback(f"{step.name}...")
+        elif isinstance(step, ActionStep):
+            if append_thinking_callback:
+                msg = f"Step {step.step_number}:\n"
+                if step.model_output:
+                    mo = step.model_output
+                    msg += f"{(mo.strip() if isinstance(mo, str) else str(mo).strip())}\n"
+                else:
+                    mom = getattr(step, "model_output_message", None)
+                    if mom is not None and getattr(mom, "content", None):
+                        mc = mom.content
+                        msg += f"{(mc.strip() if isinstance(mc, str) else str(mc).strip())}\n"
 
-                        if step.observations:
-                            msg += f"Observation: {str(step.observations).strip()}\n"
-                            obs_str = str(step.observations)
-                            if "'status': 'switch_mode'" in obs_str:
-                                match = re.search(r"'message': '([^']*)'", obs_str)
-                                handoff = match.group(1) if match else None
-                                append_thinking_callback(msg + "\n")
-                                return {"status": "switch_mode", "result": str(handoff) if handoff else "Switching to document mode."}
-
+                if step.observations:
+                    msg += f"Observation: {str(step.observations).strip()}\n"
+                    obs_str = str(step.observations)
+                    if "'status': 'switch_mode'" in obs_str:
+                        match = re.search(r"'message': '([^']*)'", obs_str)
+                        handoff = match.group(1) if match else None
                         append_thinking_callback(msg + "\n")
-                    elif step.observations:
-                        obs_str = str(step.observations)
-                        if "'status': 'switch_mode'" in obs_str:
-                            match = re.search(r"'message': '([^']*)'", obs_str)
-                            handoff = match.group(1) if match else None
-                            return {"status": "switch_mode", "result": str(handoff) if handoff else "Switching to document mode."}
-                elif isinstance(step, FinalAnswerStep):
-                    final_ans = step.output
+                        return {"status": "switch_mode", "result": str(handoff) if handoff else "Switching to document mode."}
 
-            return {"status": "ok", "result": str(final_ans)}
-        except Exception as e:
-            tb = traceback.format_exc()
-            log.exception("Librarian execution failed")
-            err = ToolExecutionError(f"Librarian failed: {str(e)}\n\n{tb}", details={"query": query})
-            return format_error_payload(err)
+                append_thinking_callback(msg + "\n")
+            elif step.observations:
+                obs_str = str(step.observations)
+                if "'status': 'switch_mode'" in obs_str:
+                    match = re.search(r"'message': '([^']*)'", obs_str)
+                    handoff = match.group(1) if match else None
+                    return {"status": "switch_mode", "result": str(handoff) if handoff else "Switching to document mode."}
+        elif isinstance(step, FinalAnswerStep):
+            final_ans = step.output
+
+    return {"status": "ok", "result": str(final_ans)}
+
+
+class LibrarianOnboardingTool(ToolBase):
+    name = "librarian_onboarding"
+    description = "Librarian agent for new user onboarding."
+    parameters = {
+        "type": "object",
+        "properties": {
+            "query": {"type": "string", "description": "User message"},
+            "history_text": {"type": "string", "description": "Previous conversation text"},
+            "suggested_user_name": {"type": "string", "description": "OS/LO suggested name for confirmation (internal)."},
+        },
+        "required": ["query"],
+    }
+    # Hide from the default main-chat tool surface; librarian onboarding owns this tool.
+    tier = "specialized_control"
+    is_mutation = False
+    long_running = True
+
+    def is_async(self):
+        return True
+
+    def execute(self, ctx, **kwargs):
+        from plugin.chatbot.smol_agent import run_subagent_tool
+
+        return run_subagent_tool("Librarian", _run_librarian_agent, ctx, **kwargs)
+

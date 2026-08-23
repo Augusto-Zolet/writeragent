@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import logging
-import traceback
 from typing import Any, ClassVar
 
 from plugin.framework.tool import ToolBase, ToolContext
@@ -66,7 +65,7 @@ class DeepResearchWebTool(ToolBase):
         return WebResearchTool().execute(ctx, query=query, deep=True)
 
 
-def _run_deep_research_agent(ctx: ToolContext, *, query: str, history_text: str | None) -> dict[str, Any]:
+def _run_deep_research_agent(ctx: ToolContext, *, query: str = "", history_text: str | None = None, **kwargs: Any) -> dict[str, Any]:
     """Run one turn of the Deep Research smol sub-agent."""
     from plugin.chatbot.smol_agent import SmolAgentExecutor, SmolToolAdapter, build_toolcalling_agent
     from plugin.chatbot.smol_examples import get_examples_block
@@ -122,17 +121,7 @@ class DeepResearchSessionTool(ToolBase):
         return True
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
-        from plugin.framework.errors import format_error_payload, ToolExecutionError
+        from plugin.chatbot.smol_agent import run_subagent_tool
 
-        query = kwargs.get("query")
-        try:
-            return _run_deep_research_agent(
-                ctx,
-                query=str(query or ""),
-                history_text=kwargs.get("history_text"),
-            )
-        except Exception as e:
-            tb = traceback.format_exc()
-            log.exception("Deep research agent execution failed")
-            err = ToolExecutionError(f"Deep research failed: {str(e)}\n\n{tb}", details={"query": query})
-            return format_error_payload(err)
+        return run_subagent_tool("Deep research", _run_deep_research_agent, ctx, **kwargs)
+

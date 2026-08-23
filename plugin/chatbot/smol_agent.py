@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import logging
+import traceback
 from typing import TYPE_CHECKING, Any, Callable, Iterable, Literal, cast
 
 from plugin.contrib.smolagents.agents import ToolCallingAgent
@@ -26,7 +27,7 @@ from plugin.contrib.smolagents.memory import ActionStep, FinalAnswerStep, ToolCa
 from plugin.contrib.smolagents.models import ChatMessage, Model, TokenUsage, remove_content_after_stop_sequences
 from plugin.contrib.smolagents.tools import Tool as SmolTool
 from plugin.framework.config import get_api_config, get_config_int
-from plugin.framework.errors import ToolExecutionError
+from plugin.framework.errors import ToolExecutionError, format_error_payload
 from plugin.framework.client.llm_client import LlmClient
 
 if TYPE_CHECKING:
@@ -315,3 +316,30 @@ def build_toolcalling_agent(ctx: ToolContext, tools: Sequence[SmolTool], *, inst
     cancel_scope = getattr(ctx, "send_cancellation", None)
     smol_model = WriterAgentSmolModel(LlmClient(config, uno_ctx, cancellation_scope=cancel_scope), max_tokens=max_tokens, status_callback=status_callback, stop_checker=stop_checker)
     return ToolCallingAgent(tools=list(tools), model=smol_model, max_steps=max_steps, instructions=instructions, final_answer_tool_name=final_answer_tool_name, system_prompt_examples=examples_block)
+
+
+def run_subagent_tool(
+    agent_label: str,
+    runner: Callable[..., dict[str, Any]],
+    ctx: ToolContext,
+    **kwargs: Any,
+) -> dict[str, Any]:
+    """Execute a specialized subagent runner with standard error handling and traceback capture.
+
+    Args:
+        agent_label: Human-readable label for logging and errors (e.g. 'Writing plan', 'PPT-Master').
+        runner: Callable that executes the subagent turn (takes ctx and keyword arguments).
+        ctx: ToolContext for the tool execution.
+        **kwargs: Arguments passed to the tool (query, history_text, topic, etc.).
+
+    Returns:
+        Result dictionary from runner or formatted ToolExecutionError payload.
+    """
+    query = kwargs.get("query")
+    try:
+        return runner(ctx, **kwargs)
+    except Exception as e:
+        tb = traceback.format_exc()
+        log.exception("%s execution failed", agent_label)
+        err = ToolExecutionError(f"{agent_label} failed: {str(e)}\n\n{tb}", details={"query": query})
+        return format_error_payload(err)

@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import logging
-import traceback
 from typing import Any
 
 from plugin.framework.tool import ToolBase, ToolContext
@@ -27,10 +26,11 @@ def _selected_chat_model(ctx: ToolContext) -> str | None:
 def _run_ppt_master_venv_agent(
     ctx: ToolContext,
     *,
-    query: str,
-    history_text: str | None,
-    topic: str | None,
+    query: str = "",
+    history_text: str | None = None,
+    topic: str | None = None,
     model: str | None = None,
+    **kwargs: Any,
 ) -> dict[str, Any]:
     from plugin.framework.errors import ToolExecutionError, format_error_payload
     from plugin.ppt_master.venv.host import ppt_master_session_id, run_ppt_master_venv_turn
@@ -110,22 +110,10 @@ class PptMasterSessionTool(ToolBase):
         return True
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
-        from plugin.framework.errors import ToolExecutionError, format_error_payload
+        from plugin.chatbot.smol_agent import run_subagent_tool
 
-        query = kwargs.get("query")
-        try:
-            return _run_ppt_master_venv_agent(
-                ctx,
-                query=str(query or ""),
-                history_text=kwargs.get("history_text"),
-                topic=kwargs.get("topic"),
-                model=kwargs.get("model"),
-            )
-        except Exception as e:
-            tb = traceback.format_exc()
-            log.exception("PPT-Master execution failed")
-            err = ToolExecutionError(f"PPT-Master failed: {str(e)}\n\n{tb}", details={"query": query})
-            return format_error_payload(err)
+        return run_subagent_tool("PPT-Master", _run_ppt_master_venv_agent, ctx, **kwargs)
+
 
 
 __all__ = ["PptMasterSessionTool"]

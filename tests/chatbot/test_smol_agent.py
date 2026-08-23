@@ -64,6 +64,7 @@ from plugin.chatbot.smol_agent import (
     SmolToolAdapter,
     WriterAgentSmolModel,
     build_toolcalling_agent,
+    run_subagent_tool,
     to_smol_inputs,
 )
 from plugin.chatbot.librarian import (
@@ -1004,3 +1005,42 @@ class TestSmolImplicitFinalAnswerJson(unittest.TestCase):
         self.assertTrue(final_outputs[0].is_final_answer)
         self.assertEqual(final_outputs[0].output, "<h1>Title</h1>\n<p>Para</p>")
         self.assertNotIn('{"answer"', str(final_outputs[0].output))
+
+
+class TestRunSubagentTool(unittest.TestCase):
+    def test_run_subagent_tool_success(self):
+        ctx = MagicMock()
+        runner = MagicMock(return_value={"status": "ok", "result": "done"})
+
+        result = run_subagent_tool("Writing plan", runner, ctx, query="Draft essay", history_text="hi", topic="AI")
+
+        self.assertEqual(result, {"status": "ok", "result": "done"})
+        runner.assert_called_once_with(ctx, query="Draft essay", history_text="hi", topic="AI")
+
+    def test_run_subagent_tool_catches_exception_and_formats_error(self):
+        ctx = MagicMock()
+
+        def failing_runner(c, **kwargs):
+            raise RuntimeError("API timeout")
+
+        result = run_subagent_tool("Brainstorming", failing_runner, ctx, query="Brainstorm ideas")
+
+        self.assertEqual(result.get("status"), "error")
+        message = result.get("message", "")
+        self.assertIn("Brainstorming failed: API timeout", message)
+        self.assertIn("RuntimeError", message)
+        self.assertIn("Traceback", message)
+        self.assertEqual(result.get("details"), {"query": "Brainstormideas".replace("Brainstormideas", "Brainstorm ideas")})
+
+    def test_run_subagent_tool_with_no_query_in_kwargs(self):
+        ctx = MagicMock()
+
+        def failing_runner(c, **kwargs):
+            raise ValueError("bad input")
+
+        result = run_subagent_tool("Deep research", failing_runner, ctx)
+
+        self.assertEqual(result.get("status"), "error")
+        self.assertIn("Deep research failed: bad input", result.get("message", ""))
+        self.assertEqual(result.get("details"), {"query": None})
+

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import logging
 import re
-import traceback
 from typing import TYPE_CHECKING, Any, ClassVar
 
 if TYPE_CHECKING:
@@ -145,7 +144,7 @@ class BrainstormingFinishedTool(ToolBase):
         return {"status": "finished", "result": str(message), "spec_saved": spec_saved}
 
 
-def _run_brainstorming_agent(ctx: ToolContext, *, query: str, history_text: str | None, topic: str | None) -> dict[str, Any]:
+def _run_brainstorming_agent(ctx: ToolContext, *, query: str = "", history_text: str | None = None, topic: str | None = None, **kwargs: Any) -> dict[str, Any]:
     """Run one turn of the brainstorming smol sub-agent."""
     from plugin.chatbot.smol_agent import SmolAgentExecutor, SmolToolAdapter, build_toolcalling_agent
     from plugin.chatbot.smol_examples import get_examples_block
@@ -250,18 +249,7 @@ class BrainstormingSessionTool(ToolBase):
         return True
 
     def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
-        from plugin.framework.errors import format_error_payload, ToolExecutionError
+        from plugin.chatbot.smol_agent import run_subagent_tool
 
-        query = kwargs.get("query")
-        try:
-            return _run_brainstorming_agent(
-                ctx,
-                query=str(query or ""),
-                history_text=kwargs.get("history_text"),
-                topic=kwargs.get("topic"),
-            )
-        except Exception as e:
-            tb = traceback.format_exc()
-            log.exception("Brainstorming execution failed")
-            err = ToolExecutionError(f"Brainstorming failed: {str(e)}\n\n{tb}", details={"query": query})
-            return format_error_payload(err)
+        return run_subagent_tool("Brainstorming", _run_brainstorming_agent, ctx, **kwargs)
+
