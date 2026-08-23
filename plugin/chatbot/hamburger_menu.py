@@ -23,44 +23,9 @@ log = logging.getLogger("writeragent.hamburger_menu")
 
 def _load_graphic(ctx: Any, icon_filename: str) -> Any:
     """Load a PNG icon from extension assets/ as XGraphic."""
-    try:
-        from com.sun.star.beans import PropertyValue
-        from plugin.framework.uno_context import get_extension_url, menu_icon_asset_url
+    from plugin.librepy.sidebar_menus import load_menu_graphic
 
-        clean_name = icon_filename.replace("assets/", "").lstrip("/")
-        ext_url = get_extension_url(ctx)
-        smgr = getattr(ctx, "getServiceManager", lambda: None)()
-        if smgr is None:
-            return None
-        gp = smgr.createInstanceWithContext("com.sun.star.graphic.GraphicProvider", ctx)
-        if gp is None:
-            return None
-
-        # Primary: extension URL (vnd.sun.star.extension://... or file://...)
-        if ext_url:
-            pv = PropertyValue()
-            pv.Name = "URL"
-            pv.Value = menu_icon_asset_url(ext_url, clean_name)
-            graphic = gp.queryGraphic((pv,))
-            if graphic is not None:
-                return graphic
-
-        # Fallback for dev / test runner environments: direct project assets path
-        import os
-        import uno
-        from plugin.framework.constants import get_plugin_dir
-
-        dev_path = os.path.join(os.path.dirname(get_plugin_dir()), "extension", "assets", clean_name)
-        if os.path.isfile(dev_path):
-            pv = PropertyValue()
-            pv.Name = "URL"
-            pv.Value = uno.systemPathToFileUrl(dev_path)
-            return gp.queryGraphic((pv,))
-
-        return None
-    except Exception:
-        log.debug("_load_graphic failed for %s", icon_filename, exc_info=True)
-        return None
+    return load_menu_graphic(ctx, icon_filename)
 
 
 @main_thread_only
@@ -206,29 +171,12 @@ def show_hamburger_menu(ctx: Any, frame: Any, button_ctrl: Any) -> None:
         add_item(popup, _("Report bug..."), "main.report_bug", pos)
         pos += 1
 
-        # Determine popup positioning rectangle beneath button_ctrl
-        from com.sun.star.awt import Rectangle
+        from plugin.librepy.sidebar_menus import execute_popup_under_button, invoke_action_handler
 
-        rect = Rectangle()
-        peer = None
-        if hasattr(button_ctrl, "getPeer"):
-            peer = button_ctrl.getPeer()
-        if peer is None and hasattr(button_ctrl, "getContext"):
-            peer = button_ctrl.getContext()
-
-        if hasattr(button_ctrl, "getPosSize"):
-            ps = button_ctrl.getPosSize()
-            rect.X = int(ps.X)
-            rect.Y = int(ps.Y + ps.Height)
-            rect.Width = int(ps.Width)
-            rect.Height = 0
-
-        chosen_id = popup.execute(peer, rect, 0)
+        chosen_id = execute_popup_under_button(popup, button_ctrl)
         if chosen_id in item_actions:
             action_name = item_actions[chosen_id]
             log.info("Hamburger menu selected: %s", action_name)
-            handler = get_action_handler(action_name)
-            if handler:
-                handler(frame)
+            invoke_action_handler(get_action_handler(action_name), frame)
     except Exception as e:
         log.exception("show_hamburger_menu failed: %s", e)

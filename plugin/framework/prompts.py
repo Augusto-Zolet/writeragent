@@ -573,7 +573,8 @@ Other-sheet refs use a dot (Orders.A1), never Excel bang (Orders!A1 → #NAME?).
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1), =PY("result = …"; Orders.A1:H500)
 - =PY("result = …"; DataRange) writes Python into a cell (omit DataRange if unused).
   A list/table `result` spills down and right into empty cells.
-- Example: =PY("result = np.sum(data)"; Orders.A1:H500)."""
+- Example: =PY("result = np.sum(data)"; Orders.A1:H500).
+- Tables (headers, mixed types): =PY("result = data.to_pandas().drop_duplicates()"; Orders.A1:H500). np.unique on mixed rows fails — NumPy object arrays cannot compare/hash mixed cell types."""
 
 # DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE is built in _init_venv_import_policy_strings() (needs import policy).
 DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = ""
@@ -904,7 +905,8 @@ def _init_venv_import_policy_strings() -> None:
     CALC_PYTHON_FORMULA_LLM_HINT = (
         compact
         + " When outputting Calc Python formulas: write `=PY(\"result = …\"; A1:A10)`. "
-        "Use semicolon (;) argument separators; code runs in the venv sandbox above."
+        "Use semicolon (;) argument separators; code runs in the venv sandbox above. "
+        "Mixed tables: `data.to_pandas()` (np.unique cannot hash mixed cell types)."
         + (f" {calc_plot_hint}" if calc_plot_hint else "")
     )
     CALC_FORMULA_SYNTAX = f"""FORMULA SYNTAX: LibreOffice formulas use semicolon (;) between arguments, not comma.
@@ -914,7 +916,8 @@ Other-sheet refs use a dot (Orders.A1), never Excel bang (Orders!A1 → #NAME?).
 - =PY("result = …"; DataRange) writes Python into a cell (omit DataRange if unused).
   A list/table `result` spills down and right into empty cells.
 {compact}
-- Example: =PY("result = np.sum(data)"; Orders.A1:H500)."""
+- Example: =PY("result = np.sum(data)"; Orders.A1:H500).
+- Tables (headers, mixed types): =PY("result = data.to_pandas().drop_duplicates()"; Orders.A1:H500). np.unique on mixed rows fails — NumPy object arrays cannot compare/hash mixed cell types."""
     DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = f"""You are a LibreOffice Calc spreadsheet assistant who creates polished, professional, and colorful spreadsheets.
 Do not explain, do the operation directly using tools. Perform as many steps as needed in one turn when possible.
 

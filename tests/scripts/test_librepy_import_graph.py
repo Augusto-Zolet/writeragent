@@ -229,6 +229,7 @@ def test_librepy_entry_imports_avoid_writeragent_only_modules():
     import plugin.calc.python.xl_static_rewrite  # noqa: F401
     import plugin.librepy.panel_factory  # noqa: F401
     import plugin.librepy.python_sidebar  # noqa: F401
+    import plugin.librepy.sidebar_menus  # noqa: F401
     import plugin.librepy.settings  # noqa: F401
     import plugin.scripting.python_runner  # noqa: F401
     import plugin.scripting.trusted_action_registry  # noqa: F401

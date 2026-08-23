@@ -49,6 +49,7 @@ LIBREPY_PLUGIN_FILES: tuple[str, ...] = (
     "plugin/librepy/settings.py",
     "plugin/librepy/panel_factory.py",
     "plugin/librepy/python_sidebar.py",
+    "plugin/librepy/sidebar_menus.py",
     "plugin/calc/__init__.py",
     "plugin/calc/addin_common.py",
     "plugin/calc/calc_addin_data.py",

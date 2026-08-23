@@ -1057,6 +1057,7 @@ flowchart LR
 | [`plugin/calc/python/init_script_editor.py`](../plugin/calc/python/init_script_editor.py) | Monaco editor for workbook INIT script |
 | [`plugin/librepy/panel_factory.py`](../plugin/librepy/panel_factory.py) | LibrePy Calc sidebar UNO factory |
 | [`plugin/librepy/python_sidebar.py`](../plugin/librepy/python_sidebar.py) | Sidebar controller (cells, diagnostics, actions; vertical stretch from XDL snapshot heights) |
+| [`plugin/librepy/sidebar_menus.py`](../plugin/librepy/sidebar_menus.py) | Header toolbar + hamburger (LibrePy-registered actions only; no Search/embeddings/MCP) |
 | [`plugin/calc/navigation.py`](../plugin/calc/navigation.py) | Click-to-navigate from sidebar |
 | [`plugin/calc/excel_py_convert/`](../plugin/calc/excel_py_convert/) | Excel Python-in-Excel → DAG `=PY` (auto on open + CLI) |
 | [`plugin/scripting/venv/editor_main.py`](../plugin/scripting/venv/editor_main.py) | Child process entry (runs in user venv) |
@@ -1066,7 +1067,7 @@ flowchart LR
 
 Requires Layer 2 (`appearance.py`, `document_scripts.py`, `python_runner.py`) and Layer 0 worker for **Run** from Monaco.
 
-**LibrePy Python sidebar:** Calc-only native deck (not chat). Lists active-sheet `=PY()` cells, shows filtered diagnostics, and dispatches existing menu actions. Monaco remains a separate pywebview window. Content fields (`status`, `cells_list`, `diag_list`, `diag_detail`) share leftover deck height in proportion to their XDL heights; all controls scale horizontally to the panel width (8px right margin). Frame-sized width hints are ignored so the deck does not flash skinny or keep a horizontal scrollbar.
+**LibrePy Python sidebar:** Calc-only native deck (not chat). Header icons (Settings, Run Python, Edit cell, hamburger) dispatch the same registered actions as the menus; hamburger lists only handlers that exist in LibrePy (no Search/embeddings, MCP, or chat extend/edit). Lists active-sheet `=PY()` cells, shows filtered diagnostics, and dispatches existing menu actions. Monaco remains a separate pywebview window. Content fields (`status`, `cells_list`, `diag_list`, `diag_detail`) share leftover deck height in proportion to their XDL heights; all controls scale horizontally to the panel width (8px right margin) except the 16px header icons. Frame-sized width hints are ignored so the deck does not flash skinny or keep a horizontal scrollbar.
 
 ### Not in OXT
 

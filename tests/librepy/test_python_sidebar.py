@@ -21,21 +21,25 @@ from plugin.librepy.python_sidebar import (
 def _xdl_snapshot():
     """Positions from extension/Dialogs/PythonSidebarDialog.xdl."""
     return {
-        "status_label": (4, 4, 172, 10),
-        "status": (4, 14, 172, 28),
-        "btn_refresh": (4, 46, 54, 14),
-        "btn_edit_cell": (62, 46, 54, 14),
-        "btn_run_script": (120, 46, 56, 14),
-        "cells_label": (4, 64, 172, 10),
-        "cells_list": (4, 76, 172, 70),
-        "filter_label": (4, 150, 40, 10),
-        "filter_combo": (44, 148, 132, 14),
-        "diag_label": (4, 166, 172, 10),
-        "diag_list": (4, 178, 172, 50),
-        "diag_detail": (4, 232, 172, 70),
-        "btn_edit_init": (4, 308, 84, 14),
-        "btn_reset": (92, 308, 84, 14),
-        "btn_settings": (4, 326, 172, 14),
+        "btn_hdr_settings": (4, 2, 16, 12),
+        "btn_python": (22, 2, 16, 12),
+        "btn_latex": (40, 2, 16, 12),
+        "btn_hamburger": (58, 2, 16, 12),
+        "status_label": (4, 18, 172, 10),
+        "status": (4, 28, 172, 28),
+        "btn_refresh": (4, 60, 54, 14),
+        "btn_edit_cell": (62, 60, 54, 14),
+        "btn_run_script": (120, 60, 56, 14),
+        "cells_label": (4, 78, 172, 10),
+        "cells_list": (4, 90, 172, 70),
+        "filter_label": (4, 164, 40, 10),
+        "filter_combo": (44, 162, 132, 14),
+        "diag_label": (4, 180, 172, 10),
+        "diag_list": (4, 192, 172, 50),
+        "diag_detail": (4, 246, 172, 70),
+        "btn_edit_init": (4, 322, 84, 14),
+        "btn_reset": (92, 322, 84, 14),
+        "btn_settings": (4, 340, 172, 14),
     }
 
 
@@ -104,6 +108,9 @@ def test_python_sidebar_xdl_uses_menulist_not_listbox():
     assert "dlg:listbox" not in text
     assert 'dlg:id="cells_list"' in text and "dlg:menulist" in text
     assert 'dlg:id="diag_list"' in text
+    assert 'dlg:id="btn_hdr_settings"' in text
+    assert 'dlg:id="btn_hamburger"' in text
+    assert 'dlg:id="btn_search"' not in text
 
 
 def test_activation_listener_schedules_refresh():
@@ -142,7 +149,7 @@ def test_sidebar_prefers_frame_document_over_desktop():
 
 def test_layout_identity_at_xdl_height():
     snapshot = _xdl_snapshot()
-    layouts = compute_python_sidebar_layout(180, 360, snapshot)
+    layouts = compute_python_sidebar_layout(180, 376, snapshot)
     for rect in layouts.values():
         assert rect[0] + rect[2] <= 176
 
@@ -186,13 +193,13 @@ def test_layout_preserves_xdl_gaps_and_grows_flex_by_snapshot_ratio():
     status = layouts["status"]
     refresh = layouts["btn_refresh"]
     assert refresh[1] - (status[1] + status[3]) == 4
-    leftover = 500 - 20 - (340 - 218)
+    leftover = 500 - 20 - (354 - 218)
     assert layouts["status"][3] == leftover * 28 // 218
     assert layouts["cells_list"][3] == leftover * 70 // 218
     assert layouts["diag_list"][3] == leftover * 50 // 218
     assigned = layouts["status"][3] + layouts["cells_list"][3] + layouts["diag_list"][3]
     assert layouts["diag_detail"][3] == leftover - assigned
-    short = compute_python_sidebar_layout(180, 360, snapshot)
+    short = compute_python_sidebar_layout(180, 376, snapshot)
     tall = compute_python_sidebar_layout(180, 700, snapshot)
     for name in ("status", "cells_list", "diag_list", "diag_detail"):
         assert tall[name][3] > short[name][3]
@@ -250,6 +257,10 @@ def test_layout_button_rows_and_gaps_at_arbitrary_widths():
         for name, rect in layouts.items():
             assert rect[0] >= 4, f"{name} left edge {rect[0]} < 4 at width {w}"
             assert rect[0] + rect[2] <= w - 12, f"{name} right edge {rect[0] + rect[2]} > {w - 12} at width {w}"
+
+        for hdr in ("btn_hdr_settings", "btn_python", "btn_latex", "btn_hamburger"):
+            assert layouts[hdr][2] == 16
+            assert layouts[hdr][3] == 12
 
         # 3-button row: refresh, edit_cell, run_script
         r_ref = layouts["btn_refresh"]

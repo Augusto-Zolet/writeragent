@@ -21,6 +21,7 @@ from scripts.build_librepy_oxt import (  # noqa: E402
 
 _REQUIRED_RUNTIME = (
     "plugin/main_core.py",
+    "plugin/librepy/sidebar_menus.py",
     "plugin/calc/python/addin_librepy.py",
     "plugin/calc/python/workbook_lifecycle.py",
     "plugin/scripting/venv_worker.py",

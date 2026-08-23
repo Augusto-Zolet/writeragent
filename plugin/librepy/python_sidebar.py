@@ -29,6 +29,7 @@ from plugin.framework.uno_listeners import (
 from plugin.doc.doc_type import is_calc
 from plugin.scripting.document_scripts import get_calc_document_from_ctx
 from plugin.scripting.sandbox import resolve_venv_python
+from plugin.librepy.sidebar_menus import HEADER_BUTTON_IDS, wire_sidebar_header_buttons
 from plugin.scripting.session_manager import calc_workbook_base_session_id, python_session_mode
 
 log = logging.getLogger(__name__)
@@ -39,13 +40,14 @@ _FILTER_LABELS: tuple[tuple[str, DiagnosticFilter], ...] = (
     (_("Output"), "output"),
 )
 
-# PythonSidebarDialog.xdl: window 360, last button bottom 340.
+# PythonSidebarDialog.xdl: window 376, last button bottom 354.
 _BOTTOM_MARGIN = 20
 _RIGHT_MARGIN = 12
 _MIN_FLEX_HEIGHT = 16
 _MIN_CONTROL_WIDTH = 20
 _FLEX_CONTROLS = ("status", "cells_list", "diag_list", "diag_detail")
 _CONTROL_IDS = (
+    *HEADER_BUTTON_IDS,
     "status_label",
     "status",
     "btn_refresh",
@@ -141,6 +143,9 @@ def compute_python_sidebar_layout(
         elif name == "filter_combo":
             nx = left_margin + filter_label_w + gap
             nw = max(10, content_right - nx)
+        elif name in HEADER_BUTTON_IDS:
+            nx = _ox
+            nw = _ow
         elif name in (
             "status_label",
             "status",
@@ -447,6 +452,12 @@ class PythonSidebarController:
                 filter_combo.addItemListener(_Item(lambda _e: self.refresh()))
             except Exception:
                 log.debug("wire filter_combo failed", exc_info=True)
+
+        try:
+            header = {cid: self._ctrl(cid) for cid in HEADER_BUTTON_IDS}
+            wire_sidebar_header_buttons(self.ctx, self.frame, header, calc_doc=True)
+        except Exception:
+            log.debug("wire header toolbar failed", exc_info=True)
 
     def _schedule_refresh(self, _entry: DiagnosticEntry | None = None) -> None:
         from plugin.framework.queue_executor import post_to_main_thread

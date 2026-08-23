@@ -1,0 +1,133 @@
+# WriterAgent - AI Writing Assistant for LibreOffice
+# Copyright (c) 2026 KeithCu
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Tests for LibrePy sidebar header and hamburger (no embeddings/MCP)."""
+
+from unittest.mock import MagicMock, patch
+
+from plugin.framework.constants import EXTENSION_ID_LIBREPY
+from plugin.librepy.sidebar_menus import (
+    invoke_action_handler,
+    librepy_hamburger_actions,
+    show_librepy_hamburger_menu,
+    wire_sidebar_header_buttons,
+)
+
+_CORE_ACTIONS = {
+    "scripting.run_python_dialog",
+    "scripting.edit_python_cell",
+    "scripting.reset_python_session",
+    "main.settings",
+    "vision.open_settings",
+    "main.report_bug",
+}
+
+
+def _lookup(action: str):
+    if action in _CORE_ACTIONS:
+        return lambda: None
+    return None
+
+
+def test_calc_hamburger_includes_python_and_cell_not_search():
+    rows = librepy_hamburger_actions(
+        is_calc_doc=True,
+        is_writer_doc=False,
+        is_draw_doc=False,
+        handler_lookup=_lookup,
+    )
+    actions = [a for _label, a, _icon in rows]
+    assert "scripting.run_python_dialog" in actions
+    assert "scripting.edit_python_cell" in actions
+    assert "scripting.reset_python_session" in actions
+    assert "main.settings" in actions
+    assert "vision.open_settings" in actions
+    assert "main.report_bug" in actions
+    assert "embeddings.search_dialog" not in actions
+    assert "mcp.toggle_server" not in actions
+    assert "chatbot.extend_selection" not in actions
+    assert "calc.convert_spreadsheet_to_python" not in actions
+    assert "writer.insert_latex_dialog" not in actions
+
+
+def test_skips_unregistered_handlers():
+    rows = librepy_hamburger_actions(
+        is_calc_doc=True,
+        is_writer_doc=False,
+        is_draw_doc=False,
+        handler_lookup=lambda _a: None,
+    )
+    assert rows == []
+
+
+def test_invoke_zero_arg_handler():
+    called = []
+
+    def handler():
+        called.append(True)
+
+    invoke_action_handler(handler, frame=object())
+    assert called == [True]
+
+
+def test_invoke_frame_handler():
+    called = []
+
+    def handler(frame):
+        called.append(frame)
+
+    frame = object()
+    invoke_action_handler(handler, frame)
+    assert called == [frame]
+
+
+def test_show_hamburger_uses_librepy_command_prefix():
+    ctx = MagicMock()
+    smgr = MagicMock()
+    popup = MagicMock()
+    ctx.getServiceManager.return_value = smgr
+    smgr.createInstanceWithContext.return_value = popup
+    popup.execute.return_value = 0
+    button_ctrl = MagicMock()
+    button_ctrl.getPosSize.return_value = MagicMock(X=58, Y=2, Width=16, Height=12)
+    button_ctrl.getPeer.return_value = MagicMock()
+    frame = MagicMock()
+
+    with (
+        patch("plugin.librepy.sidebar_menus.is_calc", return_value=True),
+        patch("plugin.librepy.sidebar_menus.is_writer", return_value=False),
+        patch("plugin.librepy.sidebar_menus.is_draw", return_value=False),
+        patch("plugin.librepy.sidebar_menus.get_action_handler", side_effect=_lookup),
+        patch(
+            "plugin.librepy.sidebar_menus.command_prefix_for_ctx",
+            return_value=EXTENSION_ID_LIBREPY + ":",
+        ),
+    ):
+        show_librepy_hamburger_menu(ctx, frame, button_ctrl)
+
+    commands = [c.args[1] for c in popup.setCommand.call_args_list]
+    assert commands
+    assert all(c.startswith(EXTENSION_ID_LIBREPY + ":") for c in commands)
+    assert not any("embeddings.search" in c for c in commands)
+
+
+def test_wire_header_no_search_control():
+    ctx = MagicMock()
+    frame = MagicMock()
+    controls = {
+        "btn_hdr_settings": MagicMock(),
+        "btn_python": MagicMock(),
+        "btn_latex": MagicMock(),
+        "btn_hamburger": MagicMock(),
+    }
+    for ctrl in controls.values():
+        ctrl.getModel.return_value = MagicMock()
+
+    with patch("plugin.framework.uno_context.get_extension_url", return_value="file:///ext"):
+        wire_sidebar_header_buttons(ctx, frame, controls, calc_doc=True)
+
+    assert "btn_search" not in controls
+    controls["btn_python"].addActionListener.assert_called()
+    controls["btn_hamburger"].addActionListener.assert_called()
+    assert controls["btn_latex"].getModel.return_value.ImageURL.endswith("python_cell_32.png")

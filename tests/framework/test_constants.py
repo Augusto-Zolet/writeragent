@@ -324,12 +324,16 @@ def test_calc_core_directives_py_formula_not_domains():
 
 
 def test_calc_formula_syntax_sheet_dot_not_excel_bang():
-    from plugin.framework.prompts import CALC_FORMULA_SYNTAX
+    from plugin.framework.prompts import CALC_FORMULA_SYNTAX, CALC_PYTHON_FORMULA_LLM_HINT
 
     assert "never Excel bang" in CALC_FORMULA_SYNTAX
     assert "Orders.A1:H500" in CALC_FORMULA_SYNTAX
     assert "#NAME?" in CALC_FORMULA_SYNTAX
     assert "=PY(\"result = …\"; Orders.A1:H500)" in CALC_FORMULA_SYNTAX
+    assert "data.to_pandas().drop_duplicates()" in CALC_FORMULA_SYNTAX
+    assert "mixed cell types" in CALC_FORMULA_SYNTAX
+    assert "data.to_pandas()" in CALC_PYTHON_FORMULA_LLM_HINT
+    assert "mixed cell types" in CALC_PYTHON_FORMULA_LLM_HINT
 
 
 def test_calc_cell_links_use_calc_dot():
