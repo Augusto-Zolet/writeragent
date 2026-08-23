@@ -178,7 +178,34 @@ def _watch_lo(stop: threading.Event) -> None:
         was_up = up
 
 
+def _force_utf8_stdio() -> None:
+    """Pin stdin/stdout to UTF-8.
+
+    WHAT WAS WRONG: on Windows sys.stdin/sys.stdout default to the ANSI codepage
+    (cp1252 in most locales), not UTF-8.
+
+    HOW IT HAPPENED: MCP clients speak UTF-8 JSON over the pipe, so every
+    multi-byte character was decoded a byte at a time with the wrong codec --
+    U+00ED (bytes C3 AD) surfaced as two cp1252 characters, an em dash
+    (E2 80 94) as three. The text was already corrupted here, before the request
+    reached the HTTP layer, which decodes UTF-8 explicitly and is correct. That
+    is why the same server returns clean text over direct HTTP and mangled text
+    through this bridge -- the stdio hop was the only ambiguous one.
+
+    WHY THIS FIXES IT: pinning both streams to UTF-8 makes this hop match what
+    the client sends and what the HTTP layer already expects. getattr guards the
+    call because tests (and any caller) may substitute a plain StringIO, which
+    has no reconfigure().
+    """
+    for stream in (sys.stdin, sys.stdout):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8")
+
+
 def main() -> int:
+    # Must run before the first read: the first client message can already carry non-ASCII.
+    _force_utf8_stdio()
     stop = threading.Event()
     watcher = threading.Thread(target=_watch_lo, args=(stop,), daemon=True)
     watcher.start()

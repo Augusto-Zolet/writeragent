@@ -5,6 +5,7 @@
 """R7: the stdio<->HTTP MCP bridge must stay usable when LibreOffice is down (plug-and-play),
 and pass requests through when it is up. No LibreOffice required."""
 import importlib.util
+import io
 import json
 import os
 import threading
@@ -129,3 +130,64 @@ def test_post_to_lo_real_http(monkeypatch):
         assert out["result"]["method"] == "tools/list"
     finally:
         srv.shutdown()
+# ---- stdio encoding: Windows mojibake regression ----
+
+# Exactly the shapes that came back corrupted through the bridge: a lowercase
+# accent (U+00ED, bytes C3 AD), an em dash (U+2014, bytes E2 80 94), a cedilla
+# and a tilde. Written as escapes so this file's own encoding cannot mask a bug.
+_ACCENTED = "Excelent\u00edssimo \u2014 a\u00e7\u00e3o"
+
+
+def _cp1252_stream(data: bytes = b""):
+    """A text stream opened the way Windows opens stdio by default."""
+    return io.TextIOWrapper(io.BytesIO(data), encoding="cp1252")
+
+
+def test_force_utf8_stdio_pins_both_streams(monkeypatch):
+    stdin, stdout = _cp1252_stream(), _cp1252_stream()
+    monkeypatch.setattr(bridge.sys, "stdin", stdin)
+    monkeypatch.setattr(bridge.sys, "stdout", stdout)
+
+    bridge._force_utf8_stdio()
+
+    assert stdin.encoding.lower().replace("-", "") == "utf8"
+    assert stdout.encoding.lower().replace("-", "") == "utf8"
+
+
+def test_force_utf8_stdio_tolerates_streams_without_reconfigure(monkeypatch):
+    """A plain StringIO has no reconfigure(); pinning must not raise on it."""
+    monkeypatch.setattr(bridge.sys, "stdin", io.StringIO())
+    monkeypatch.setattr(bridge.sys, "stdout", io.StringIO())
+
+    bridge._force_utf8_stdio()  # must not raise
+
+
+def test_stdin_preserves_accents_after_pinning(monkeypatch):
+    """Regression: UTF-8 JSON arriving on a cp1252-defaulted stdin was mangled.
+
+    The client writes UTF-8 bytes to the pipe. Before the fix the stream decoded
+    them with the ANSI codepage, so the corruption was baked in here -- before the
+    HTTP layer, which decodes UTF-8 correctly, ever saw the request.
+    """
+    line = json.dumps(
+        {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"t": _ACCENTED}},
+        ensure_ascii=False,
+    ) + "\n"
+    stdin = _cp1252_stream(line.encode("utf-8"))
+    monkeypatch.setattr(bridge.sys, "stdin", stdin)
+    monkeypatch.setattr(bridge.sys, "stdout", _cp1252_stream())
+
+    bridge._force_utf8_stdio()
+
+    got = json.loads(bridge.sys.stdin.readline())
+    assert got["params"]["t"] == _ACCENTED
+
+
+def test_cp1252_stdin_would_mangle_accents_without_the_fix():
+    """Guards the premise: without pinning, the same bytes decode wrong.
+
+    If this ever stops holding, the regression test above is no longer proving
+    anything and both should be revisited.
+    """
+    raw = _ACCENTED.encode("utf-8")
+    assert _cp1252_stream(raw).read() != _ACCENTED
