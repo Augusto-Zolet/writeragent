@@ -225,6 +225,7 @@ def generate_module(tools: list["ToolBase"]) -> str:
         'import threading',
         'import uuid',
         'from typing import Any, Dict, List, Optional, Union',
+        'from plugin.framework.constants import WORKFLOW_TASK_PREFIXES',
         'from plugin.scripting.ipc import read_pickle_frame, write_pickle_frame',
         '',
         '',

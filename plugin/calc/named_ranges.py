@@ -27,7 +27,7 @@ from plugin.calc.address_utils import (
 )
 from plugin.calc.base import ToolCalcRangeBase
 from plugin.calc.bridge import CalcBridge
-from plugin.framework.errors import UnoObjectError
+from plugin.framework.errors import UnoObjectError, suppress_disposed
 
 log = logging.getLogger("writeragent.calc")
 
@@ -39,12 +39,7 @@ _FLAG_NAME_TO_BIT: dict[str, int] = {
     "row_header": 8,
 }
 
-_BIT_TO_FLAG_NAME: dict[int, str] = {
-    1: "filter_criteria",
-    2: "print_area",
-    4: "column_header",
-    8: "row_header",
-}
+_BIT_TO_FLAG_NAME: dict[int, str] = {v: k for k, v in _FLAG_NAME_TO_BIT.items()}
 
 
 def _parse_flags(flags: list[str] | str | int | None) -> int:
@@ -293,13 +288,11 @@ class NamedRangeGetInfo(ToolCalcRangeBase):
                 return {"status": "ok", "result": _extract_range_info(nr, "global", doc)}
 
             # Search active sheet
-            try:
+            with suppress_disposed("search active sheet named ranges", logger=log):
                 active_sheet = bridge.get_active_sheet()
                 if hasattr(active_sheet, "NamedRanges") and active_sheet.NamedRanges.hasByName(name):
                     nr = active_sheet.NamedRanges.getByName(name)
                     return {"status": "ok", "result": _extract_range_info(nr, active_sheet.getName(), doc)}
-            except Exception:
-                pass
 
             # Search all sheets
             if hasattr(doc, "getSheets"):

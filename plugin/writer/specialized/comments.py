@@ -18,7 +18,7 @@
 
 from typing import Any, cast
 
-from plugin.framework.constants import now_aware
+from plugin.framework.constants import WORKFLOW_TASK_PREFIXES, now_aware
 import logging
 import uno
 
@@ -252,7 +252,7 @@ class CommentResolve(ToolWriterCommentBase):
         return {"status": "ok", "comment_name": comment_name, "resolved": True}
 
 
-_WORKFLOW_TASK_PREFIXES = ("TODO-AI", "FIX", "QUESTION", "VALIDATION", "NOTE")
+_WORKFLOW_TASK_PREFIXES = WORKFLOW_TASK_PREFIXES
 _COMMENT_UNO = ["com.sun.star.text.TextDocument"]
 
 
@@ -385,12 +385,12 @@ def _comment_check_stop(ctx):
 class CommentScanTasks(ToolWriterCommentBase):
     name = "comment_scan_tasks"
     intent = "review"
-    description = "Find workflow tasks in comments (TODO-AI, FIX, QUESTION, VALIDATION, NOTE prefixes)."
+    description = f"Find workflow tasks in comments ({', '.join(WORKFLOW_TASK_PREFIXES)} prefixes)."
     parameters = {
         "type": "object",
         "properties": {
             "unresolved_only": {"type": "boolean", "description": "Only unresolved tasks (default true)."},
-            "prefix_filter": {"type": "string", "enum": ["TODO-AI", "FIX", "QUESTION", "VALIDATION", "NOTE"], "description": "Filter by task prefix."},
+            "prefix_filter": {"type": "string", "enum": list(WORKFLOW_TASK_PREFIXES), "description": "Filter by task prefix."},
         },
         "required": [],
     }

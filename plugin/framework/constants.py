@@ -45,6 +45,9 @@ PLUGIN_DIR = get_plugin_dir()
 # Max characters of Writer document text embedded in chat system context (excerpt, not model window).
 CHAT_DOCUMENT_CONTEXT_MAX_CHARS = 8000
 
+# Canonical comment workflow task prefixes for reviewer/agent tasks.
+WORKFLOW_TASK_PREFIXES: tuple[str, ...] = ("TODO-AI", "FIX", "QUESTION", "VALIDATION", "NOTE")
+
 # Local sentence-transformers default until multi-model bench picks a winner (docs/embeddings.md).
 DEFAULT_EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 EMBEDDINGS_WORKER_SESSION_PREFIX = "embeddings"

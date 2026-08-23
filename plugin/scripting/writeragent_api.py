@@ -79,14 +79,7 @@ def get_active_document_type() -> str:
     return "unknown"
 
 
-DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
-                   'calc_goal_seek',
-                   'calc_solver',
-                   'forecast_data',
-                   'optimize_data',
-                   'plot_data',
-                   'query_folder_sql'],
-    'bookmark': [   'bookmark_cleanup',
+DOMAIN_TOOLS = {   'bookmark': [   'bookmark_cleanup',
                     'bookmark_create',
                     'bookmark_delete',
                     'bookmark_get',
@@ -100,6 +93,7 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                 'insert_cell_html',
                 'list_calc_functions',
                 'merge_cells',
+                'query_folder_sql',
                 'read_cell_range',
                 'set_style',
                 'write_formula_range'],
@@ -128,12 +122,15 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
     'draw': [   'add_slide',
                 'delegate_to_specialized_draw_toolset',
                 'delete_slide',
+                'duplicate_slide',
                 'get_draw_tree',
                 'get_placeholder_text',
                 'get_presentation_info',
                 'list_pages',
                 'list_placeholders',
+                'move_slide',
                 'read_slide_text',
+                'rename_slide',
                 'set_active_page',
                 'set_placeholder_text'],
     'embedded': ['embedded_edit', 'embedded_insert'],
@@ -162,6 +159,11 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                   'image_replace',
                   'image_set_properties'],
     'indexe': ['indexes_add_mark', 'indexes_create', 'indexes_list', 'indexes_update_all'],
+    'mail_merge': [   'mail_merge_insert_field',
+                      'mail_merge_list_fields',
+                      'mail_merge_list_sources',
+                      'mail_merge_register_source',
+                      'mail_merge_run'],
     'math': ['insert_math'],
     'page': [   'page_get_columns',
                 'page_get_header_footer_text',
@@ -184,7 +186,14 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                  'named_range_list',
                  'sort_range'],
     'search': ['replace_in_spreadsheet', 'search_in_spreadsheet'],
-    'shape': ['shape_connect', 'shape_delete', 'shape_group', 'shape_summary', 'shape_upsert'],
+    'shape': [   'align_shapes',
+                 'create_diagram',
+                 'distribute_shapes',
+                 'shape_connect',
+                 'shape_delete',
+                 'shape_group',
+                 'shape_summary',
+                 'shape_upsert'],
     'sheet': [   'apply_sheet_filter',
                  'clear_sheet_filter',
                  'create_sheet',
@@ -194,8 +203,9 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                  'protect_sheet',
                  'rename_sheet',
                  'switch_sheet'],
+    'slide_layout': ['get_slide_layout', 'set_slide_layout'],
     'slide_master': ['get_slide_master', 'list_master_slides', 'set_slide_master'],
-    'slide_transition': ['get_slide_layout', 'get_slide_transition', 'set_slide_layout', 'set_slide_transition'],
+    'slide_transition': ['get_slide_transition', 'set_slide_transition'],
     'speaker_note': ['get_speaker_notes', 'set_speaker_notes'],
     'structural': [   'nav_goto_page',
                       'nav_heading',
@@ -226,40 +236,6 @@ DOMAIN_TOOLS = {   'analysi': [   'analyze_data',
                   'search_in_document',
                   'set_selection'],
     'writing_plan': ['write_document_section', 'writing_research_web']}
-
-
-class _AnalysiProxy:
-    """Proxy for analysi tools."""
-
-    def analyze_data(self, helper: str, *, params: dict = {}, data_range: str = "", output_range: str = "", headers: bool = True, task_hint: str = "", auto_plot: bool = True) -> dict:
-        """Run a trusted numpy/pandas analysis helper on spreadsheet data."""
-        return _rpc_call("analyze_data", helper=helper, params=params, data_range=data_range, output_range=output_range, headers=headers, task_hint=task_hint, auto_plot=auto_plot)
-
-    def calc_goal_seek(self, formula_cell: str, variable_cell: str, target_value: float, *, apply_result: bool = True) -> dict:
-        """Finds the value for a variable cell that makes a formula cell reach a target value."""
-        return _rpc_call("calc_goal_seek", formula_cell=formula_cell, variable_cell=variable_cell, target_value=target_value, apply_result=apply_result)
-
-    def calc_solver(self, objective_cell: str, variables: list, *, maximize: bool = True, constraints: list = [], engine: str = "") -> dict:
-        """Solves an optimization problem to maximize, minimize, or reach a value for an objective cell by changing multiple variable cells subject to constraints."""
-        return _rpc_call("calc_solver", objective_cell=objective_cell, variables=variables, maximize=maximize, constraints=constraints, engine=engine)
-
-    def forecast_data(self, helper: str, *, params: dict = {}, data_range: str = "", output_range: str = "", headers: bool = True, task_hint: str = "", auto_plot: bool = True) -> dict:
-        """Run a trusted time-series forecasting helper on spreadsheet data."""
-        return _rpc_call("forecast_data", helper=helper, params=params, data_range=data_range, output_range=output_range, headers=headers, task_hint=task_hint, auto_plot=auto_plot)
-
-    def optimize_data(self, helper: str, *, params: dict = {}, data_range: str = "", output_range: str = "", headers: bool = True, task_hint: str = "") -> dict:
-        """Run a trusted optimization helper on spreadsheet data."""
-        return _rpc_call("optimize_data", helper=helper, params=params, data_range=data_range, output_range=output_range, headers=headers, task_hint=task_hint)
-
-    def plot_data(self, helper: str, *, params: dict = {}, data_range: str = "", headers: bool = True, task_hint: str = "") -> dict:
-        """Run a trusted visualization helper on spreadsheet data."""
-        return _rpc_call("plot_data", helper=helper, params=params, data_range=data_range, headers=headers, task_hint=task_hint)
-
-    def query_folder_sql(self, sql: str, *, files: list = [], data_range: str = "", headers: bool = True, tables: dict = {}, task_hint: str = "") -> dict:
-        """Run read-only SQL (via DuckDB) against folder files and/or live Calc ranges (Phase C multi-table)."""
-        return _rpc_call("query_folder_sql", sql=sql, files=files, data_range=data_range, headers=headers, tables=tables, task_hint=task_hint)
-
-analysi = _AnalysiProxy()
 
 
 class _BookmarkProxy:
@@ -336,6 +312,10 @@ class _CalcProxy:
     def merge_cells(self, range_name: list, *, center: bool = True) -> dict:
         """Merges the specified cell range(s)."""
         return _rpc_call("merge_cells", range=range_name, center=center)
+
+    def query_folder_sql(self, sql: str, *, files: list = [], data_range: str = "", headers: bool = True, tables: dict = {}, task_hint: str = "") -> dict:
+        """Run read-only SQL (via DuckDB) against folder files and/or live Calc ranges (Phase C multi-table)."""
+        return _rpc_call("query_folder_sql", sql=sql, files=files, data_range=data_range, headers=headers, tables=tables, task_hint=task_hint)
 
     def read_cell_range(self, range_name: list) -> dict:
         """Reads values from the specified cell range(s)."""
@@ -511,6 +491,10 @@ class _DrawProxy:
         """Deletes the slide (page) at the specified index."""
         return _rpc_call("delete_slide", page=page)
 
+    def duplicate_slide(self, page: int, *, activate: bool = True) -> dict:
+        """Duplicates the slide at the given 0-based index."""
+        return _rpc_call("duplicate_slide", page=page, activate=activate)
+
     def get_draw_tree(self, *, page: int = 0) -> dict:
         """Returns a semantic tree (DOM) of the shapes on the active or specified draw page."""
         return _rpc_call("get_draw_tree", page=page)
@@ -531,9 +515,17 @@ class _DrawProxy:
         """List all text placeholders on a slide with their role (title, subtitle, body), text content, and index."""
         return _rpc_call("list_placeholders", page=page)
 
+    def move_slide(self, from_page: int, to_page: int) -> dict:
+        """Moves a slide from from_page to to_page (both 0-based)."""
+        return _rpc_call("move_slide", from_page=from_page, to_page=to_page)
+
     def read_slide_text(self, *, page: int = 0) -> dict:
         """Read all text content from a slide (shapes text) and speaker notes."""
         return _rpc_call("read_slide_text", page=page)
+
+    def rename_slide(self, page: int, name: str) -> dict:
+        """Sets the Name property of a slide (0-based page index)."""
+        return _rpc_call("rename_slide", page=page, name=name)
 
     def set_active_page(self, page: int) -> dict:
         """Changes the currently active slide (page) in Draw/Impress."""
@@ -689,9 +681,9 @@ class _ImagesProxy:
         """Get detailed info about a specific image: URL, dimensions, anchor type, orientation, crop (crop_mm, mm trimmed per edge), and paragraph index."""
         return _rpc_call("image_get_info", name=name)
 
-    def insert(self, path: str, *, locator: str = "", paragraph: int = 0, width_mm: int = 0, height_mm: int = 0, target: str = "", style: str = "", auto_height: bool = True) -> dict:
+    def insert(self, path: str, *, locator: str = "", paragraph: int = 0, page: int = 0, x_mm: float = 0.0, y_mm: float = 0.0, width_mm: int = 0, height_mm: int = 0, target: str = "", style: str = "", auto_height: bool = True) -> dict:
         """Insert an image from local path or URL into the document."""
-        return _rpc_call("image_insert", path=path, locator=locator, paragraph=paragraph, width_mm=width_mm, height_mm=height_mm, target=target, style=style, auto_height=auto_height)
+        return _rpc_call("image_insert", path=path, locator=locator, paragraph=paragraph, page=page, x_mm=x_mm, y_mm=y_mm, width_mm=width_mm, height_mm=height_mm, target=target, style=style, auto_height=auto_height)
 
     def list(self) -> dict:
         """List all images/graphic objects in the document with name, dimensions, title, and description."""
@@ -732,6 +724,32 @@ class _IndexeProxy:
         return _rpc_call("indexes_update_all")
 
 indexe = _IndexeProxy()
+
+
+class _MailMergeProxy:
+    """Proxy for mail_merge tools."""
+
+    def insert_field(self, column_name: str, *, data_source_name: str = '', table_name: str = '', command_type: str = 'table', target: str = 'selection', old_content: str = "") -> dict:
+        """Insert a database mail merge field (e.g."""
+        return _rpc_call("mail_merge_insert_field", column_name=column_name, data_source_name=data_source_name, table_name=table_name, command_type=command_type, target=target, old_content=old_content)
+
+    def list_fields(self) -> dict:
+        """List all database merge fields currently placed in the active Writer document, including their column names, data source names, and table names."""
+        return _rpc_call("mail_merge_list_fields")
+
+    def list_sources(self, *, include_tables: bool = False, data_source_name: str = "") -> dict:
+        """List all registered LibreOffice data sources (e.g."""
+        return _rpc_call("mail_merge_list_sources", include_tables=include_tables, data_source_name=data_source_name)
+
+    def register_source(self, name: str, *, file_path: str = "", action: str = 'register') -> dict:
+        """Register or unregister a file (.ods spreadsheet, .csv, or .odb database) as a named data source in LibreOffice, making it available for mail merge operations and merge fields."""
+        return _rpc_call("mail_merge_register_source", name=name, file_path=file_path, action=action)
+
+    def run(self, data_source_name: str, table_name: str, *, command_type: str = 'table', output_type: str = 'file', output_path: str = "", save_as_single_file: bool = False, file_format: str = 'odt', file_name_prefix: str = 'MergedDocument', file_name_from_column: bool = False, filter: str = "", document_url: str = "") -> dict:
+        """Execute a mail merge operation using LibreOffice's native MailMerge engine."""
+        return _rpc_call("mail_merge_run", data_source_name=data_source_name, table_name=table_name, command_type=command_type, output_type=output_type, output_path=output_path, save_as_single_file=save_as_single_file, file_format=file_format, file_name_prefix=file_name_prefix, file_name_from_column=file_name_from_column, filter=filter, document_url=document_url)
+
+mail_merge = _MailMergeProxy()
 
 
 class _MathProxy:
@@ -883,13 +901,25 @@ search = _SearchProxy()
 class _ShapeProxy:
     """Proxy for shape tools."""
 
+    def align_shapes(self, indices: list, alignment: str, *, page: int = 0) -> dict:
+        """Align multiple shapes on a page to a shared edge or center axis."""
+        return _rpc_call("align_shapes", page=page, indices=indices, alignment=alignment)
+
     def connect(self, start: int, end: int, *, page: int = 0, line_color: str = "", line_width: int = 0) -> dict:
         """Connect two shapes on the same page with a connector."""
         return _rpc_call("shape_connect", start=start, end=end, page=page, line_color=line_color, line_width=line_width)
 
+    def create_diagram(self, nodes: list, *, page: int = 0, layout: str = "", connections: list = []) -> dict:
+        """Create a flowchart/diagram of multiple nodes and connectors in one turn."""
+        return _rpc_call("create_diagram", page=page, layout=layout, nodes=nodes, connections=connections)
+
     def delete(self, index: int, *, page: int = 0) -> dict:
         """Deletes a shape by index."""
         return _rpc_call("shape_delete", index=index, page=page)
+
+    def distribute_shapes(self, indices: list, axis: str, *, page: int = 0) -> dict:
+        """Evenly distribute three or more shapes between the first and last along an axis."""
+        return _rpc_call("distribute_shapes", page=page, indices=indices, axis=axis)
 
     def group(self, indices: list, *, page: int = 0) -> dict:
         """Groups multiple shapes together on the same page."""
@@ -948,6 +978,20 @@ class _SheetProxy:
 sheet = _SheetProxy()
 
 
+class _SlideLayoutProxy:
+    """Proxy for slide_layout tools."""
+
+    def get_slide_layout(self, *, page: int = 0) -> dict:
+        """Get the layout type of an Impress slide."""
+        return _rpc_call("get_slide_layout", page=page)
+
+    def set_slide_layout(self, layout: str, *, page: int = 0) -> dict:
+        """Set the layout of an Impress slide."""
+        return _rpc_call("set_slide_layout", page=page, layout=layout)
+
+slide_layout = _SlideLayoutProxy()
+
+
 class _SlideMasterProxy:
     """Proxy for slide_master tools."""
 
@@ -969,17 +1013,9 @@ slide_master = _SlideMasterProxy()
 class _SlideTransitionProxy:
     """Proxy for slide_transition tools."""
 
-    def get_slide_layout(self, *, page: int = 0) -> dict:
-        """Get the layout type of an Impress slide."""
-        return _rpc_call("get_slide_layout", page=page)
-
     def get_slide_transition(self, *, page: int = 0) -> dict:
         """Get the transition effect, speed, duration, and advance mode for an Impress slide."""
         return _rpc_call("get_slide_transition", page=page)
-
-    def set_slide_layout(self, layout: str, *, page: int = 0) -> dict:
-        """Set the layout of an Impress slide."""
-        return _rpc_call("set_slide_layout", page=page, layout=layout)
 
     def set_slide_transition(self, *, page: int = 0, effect: str = "", speed: str = "", duration: int = 0, transition_duration: float = 0.0, advance: str = "") -> dict:
         """Set the transition effect on an Impress slide."""
@@ -1061,25 +1097,25 @@ styles = _StylesProxy()
 class _TableProxy:
     """Proxy for table tools."""
 
-    def get_cells(self, name: str) -> dict:
+    def get_cells(self, *, name: str = "", page: int = 0, index: int = 0) -> dict:
         """Return a table's cell text as a row-major matrix (matrix[row][col]) by position — not by cell name."""
-        return _rpc_call("table_get_cells", name=name)
+        return _rpc_call("table_get_cells", name=name, page=page, index=index)
 
-    def insert(self, rows: int, columns: int, **kwargs) -> dict:
-        """Insert a table (Writer text table or Draw/Impress TableShape)."""
-        return _rpc_call("table_insert", rows=rows, columns=columns, **kwargs)
+    def insert(self, rows: int, columns: int, *, data: list = [], page: int = 0, x: int = 0, y: int = 0, width: int = 0, height: int = 0) -> dict:
+        """Insert a table."""
+        return _rpc_call("table_insert", rows=rows, columns=columns, data=data, page=page, x=x, y=y, width=width, height=height)
 
     def list(self) -> dict:
-        """List the text tables in the document with their name and dimensions (rows x columns)."""
+        """List tables with name and dimensions (rows x columns)."""
         return _rpc_call("table_list")
 
-    def manage_table_structure(self, action: str, axis: str, name: str, index: int) -> dict:
+    def manage_table_structure(self, action: str, axis: str, index: int, *, name: str = "", page: int = 0, shape_index: int = 0) -> dict:
         """Insert or delete one table row or column."""
-        return _rpc_call("manage_table_structure", action=action, axis=axis, name=name, index=index)
+        return _rpc_call("manage_table_structure", action=action, axis=axis, name=name, index=index, page=page, shape_index=shape_index)
 
-    def set_cell(self, name: str, cell: str, text: str) -> dict:
+    def set_cell(self, cell: str, text: str, *, name: str = "", page: int = 0, index: int = 0) -> dict:
         """Set the plain-text content of ONE table cell, addressed A1-style (e.g."""
-        return _rpc_call("table_set_cell", name=name, cell=cell, text=text)
+        return _rpc_call("table_set_cell", name=name, cell=cell, text=text, page=page, index=index)
 
 table = _TableProxy()
 
@@ -1200,7 +1236,7 @@ class _WritingPlanProxy:
     """Proxy for writing_plan tools."""
 
     def write_document_section(self, content: list, *, target: str = "") -> dict:
-        """Write/append a specific section's content to the document."""
+        """Insert or replace a section of document content with formatted HTML."""
         return _rpc_call("write_document_section", content=content, target=target)
 
     def writing_research_web(self, query: str) -> dict:

@@ -466,7 +466,7 @@ class StyleUpdate(ToolWriterStyleBase):
                 style.setParentStyle(parent_style)
                 applied["ParentStyle"] = parent_style
             except Exception as e:
-                log.warning("Failed to set ParentStyle on %s: %s", style_name, e)
+                log.warning("Failed to set ParentStyle on %s: %s", style_name, e, exc_info=True)
                 failed["ParentStyle"] = str(e)
 
         if isinstance(property_updates, dict):
@@ -483,6 +483,7 @@ class StyleUpdate(ToolWriterStyleBase):
                     style.setPropertyValue(prop_name, prop_val)
                     applied[prop_name] = prop_val
                 except Exception as e:
+                    log.warning("Failed to set property %s on %s: %s", prop_name, style_name, e, exc_info=True)
                     failed[prop_name] = str(e)
 
         result = {"status": "ok", "style_name": style_name, "family": family}
@@ -581,8 +582,8 @@ class StyleCreate(ToolWriterStyleBase):
             if actual_parent:
                 try:
                     new_style.setParentStyle(actual_parent)
-                except Exception as e:
-                    log.warning("Failed to set parent_style '%s' on new style: %s", actual_parent, e)
+                except Exception:
+                    log.warning("Failed to set parent_style '%s' on new style", actual_parent, exc_info=True)
 
             # Apply properties
             if isinstance(property_updates, dict):
@@ -595,8 +596,8 @@ class StyleCreate(ToolWriterStyleBase):
                         prop_val = parsed
                     try:
                         new_style.setPropertyValue(prop_name, prop_val)
-                    except Exception as e:
-                        log.warning("Failed to set property %s on new style: %s", prop_name, e)
+                    except Exception:
+                        log.warning("Failed to set property %s on new style", prop_name, exc_info=True)
 
             # Register style
             style_family.insertByName(style_name, new_style)
@@ -614,8 +615,8 @@ class StyleCreate(ToolWriterStyleBase):
                     conditions.append(nv)
                 try:
                     new_style.setPropertyValue("ParaStyleConditions", tuple(conditions))
-                except Exception as e:
-                    log.warning("Failed to set ParaStyleConditions on new style: %s", e)
+                except Exception:
+                    log.warning("Failed to set ParaStyleConditions on new style", exc_info=True)
 
         except Exception as e:
             log.exception("Failed to create style '%s' in %s", style_name, family)
