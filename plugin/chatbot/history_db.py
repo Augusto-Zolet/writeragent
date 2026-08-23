@@ -26,8 +26,6 @@ except ImportError:
     sqlite3 = None  # type: ignore
     HAS_SQLITE = False
 
-logger = logging.getLogger(__name__)
-
 from plugin.framework.config import user_config_dir
 
 log = logging.getLogger(__name__)

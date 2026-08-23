@@ -29,7 +29,7 @@ from plugin.calc.base import ToolCalcRangeBase
 from plugin.calc.bridge import CalcBridge
 from plugin.framework.errors import ToolExecutionError, UnoObjectError
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 # NamedRangeFlag bitmask mappings (com.sun.star.sheet.NamedRangeFlag)
 _FLAG_NAME_TO_BIT: dict[str, int] = {
@@ -245,10 +245,10 @@ class NamedRangeList(ToolCalcRangeBase):
                     nr = container.getByName(name)
                     result.append(_extract_range_info(nr, effective_scope, doc))
 
-            logger.info("Named ranges listed (scope=%s): count=%d", scope_clean, len(result))
+            log.info("Named ranges listed (scope=%s): count=%d", scope_clean, len(result))
             return {"status": "ok", "result": result}
         except Exception as e:
-            logger.exception("List named ranges failed")
+            log.exception("List named ranges failed")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -312,7 +312,7 @@ class NamedRangeGetInfo(ToolCalcRangeBase):
 
             raise UnoObjectError(f"No named range found with name '{name}'.")
         except Exception as e:
-            logger.exception("Get named range info failed for %s", name)
+            log.exception("Get named range info failed for %s", name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -383,13 +383,13 @@ class NamedRangeAdd(ToolCalcRangeBase):
             type_mask = _parse_flags(flags_arg)
 
             container.addNewByName(name, content, pos, type_mask)
-            logger.info("Named range added: [%s] %s -> %s (flags=%d)", effective_scope, name, content, type_mask)
+            log.info("Named range added: [%s] %s -> %s (flags=%d)", effective_scope, name, content, type_mask)
             return {
                 "status": "ok",
                 "message": f"Named range '{name}' added successfully in scope '{effective_scope}' pointing to '{content}'.",
             }
         except Exception as e:
-            logger.exception("Add named range failed for %s", name)
+            log.exception("Add named range failed for %s", name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -470,13 +470,13 @@ class NamedRangeEdit(ToolCalcRangeBase):
             else:
                 final_name = name
 
-            logger.info("Named range edited: [%s] %s (new_name=%s)", effective_scope, name, new_name)
+            log.info("Named range edited: [%s] %s (new_name=%s)", effective_scope, name, new_name)
             return {
                 "status": "ok",
                 "message": f"Named range '{final_name}' updated successfully in scope '{effective_scope}'.",
             }
         except Exception as e:
-            logger.exception("Edit named range failed for %s", name)
+            log.exception("Edit named range failed for %s", name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -512,10 +512,10 @@ class NamedRangeDelete(ToolCalcRangeBase):
                 raise UnoObjectError(f"No named range found with the name '{name}' in scope '{effective_scope}'.")
 
             container.removeByName(name)
-            logger.info("Named range deleted: [%s] %s", effective_scope, name)
+            log.info("Named range deleted: [%s] %s", effective_scope, name)
             return {"status": "ok", "message": f"Named range '{name}' deleted successfully from scope '{effective_scope}'."}
         except Exception as e:
-            logger.exception("Delete named range failed for %s", name)
+            log.exception("Delete named range failed for %s", name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -599,11 +599,11 @@ class NamedRangeCreateFromTitles(ToolCalcRangeBase):
             container, effective_scope, _ = _resolve_container(doc, scope)
             container.addNewFromTitles(range_addr, border_map[border_clean])
 
-            logger.info("Named ranges created from titles: [%s] range=%s border=%s", effective_scope, range_str, border_clean)
+            log.info("Named ranges created from titles: [%s] range=%s border=%s", effective_scope, range_str, border_clean)
             return {
                 "status": "ok",
                 "message": f"Named ranges created from titles along border '{border_str}' for range '{range_str}' in scope '{effective_scope}'.",
             }
         except Exception as e:
-            logger.exception("Create named ranges from titles failed for %s", range_str)
+            log.exception("Create named ranges from titles failed for %s", range_str)
             raise ToolExecutionError(str(e)) from e

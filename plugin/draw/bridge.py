@@ -18,7 +18,7 @@
 
 import logging
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class DrawBridge:
@@ -99,7 +99,7 @@ class DrawBridge:
                 try:
                     controller.setCurrentPage(new_page)
                 except Exception as exc:
-                    logger.debug("setCurrentPage after insert failed: %s", exc)
+                    log.debug("setCurrentPage after insert failed: %s", exc)
         return new_page
 
     def delete_slide(self, index):
@@ -130,7 +130,7 @@ class DrawBridge:
             try:
                 new_page.MasterPage = master
             except Exception as exc:
-                logger.debug("insert_slide_from_master MasterPage: %s", exc)
+                log.debug("insert_slide_from_master MasterPage: %s", exc)
         if switch:
             self.set_current_page_index(insert_at)
         return new_page, insert_at
@@ -167,7 +167,7 @@ class DrawBridge:
             try:
                 pages.insertNewByIndex(min(to_index, pages.getCount()))
             except Exception as exc:
-                logger.debug("move_slide insert failed: %s", exc)
+                log.debug("move_slide insert failed: %s", exc)
                 return False
         return True
 
@@ -189,7 +189,7 @@ class DrawBridge:
                 controller.setCurrentPage(page)
                 return True
             except Exception as exc:
-                logger.debug("set_current_page_index failed: %s", exc)
+                log.debug("set_current_page_index failed: %s", exc)
         return False
 
     def get_active_page_index(self):
@@ -212,5 +212,5 @@ class DrawBridge:
                     if p == page or (hasattr(uno, "areSame") and getattr(uno, "areSame")(p, page)):
                         return i
         except Exception:
-            logger.debug("get_active_page_index failed", exc_info=True)
+            log.debug("get_active_page_index failed", exc_info=True)
         return 0

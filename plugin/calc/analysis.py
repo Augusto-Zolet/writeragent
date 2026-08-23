@@ -40,7 +40,7 @@ try:
 except ImportError:
     UNO_AVAILABLE = False
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 # Prefer non-Java solvers first so hidden Calc documents (no frame/controller) do not hit
 # NLPSolver engines that open status dialogs (see docs/calc-analysis-tools.md).
@@ -141,7 +141,7 @@ class GoalSeekTool(ToolBaseDummy):
 
             return {"status": "ok", "message": message, "result": {"value": result_val, "divergence": divergence}}
         except Exception as e:
-            logger.exception("Goal Seek failed")
+            log.exception("Goal Seek failed")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -280,7 +280,7 @@ class SolverTool(ToolBaseDummy):
             if not solver:
                 return self._tool_error("No Solver engine available in this LibreOffice installation")
 
-            logger.info("calc_solver: engine=%s implementation=%s", selected_engine_label or "unknown", _solver_impl_name(solver))
+            log.info("calc_solver: engine=%s implementation=%s", selected_engine_label or "unknown", _solver_impl_name(solver))
 
             solver.Document = doc
             solver.Maximize = maximize
@@ -317,7 +317,7 @@ class SolverTool(ToolBaseDummy):
                 return {"status": "error", "message": "Solver failed to find a solution.", "result": {"success": False}}
 
         except Exception as e:
-            logger.exception("Solver failed")
+            log.exception("Solver failed")
             raise ToolExecutionError(str(e)) from e
 
 

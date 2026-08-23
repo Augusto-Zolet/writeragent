@@ -47,7 +47,7 @@ except ImportError:
     EMPTY, VALUE, TEXT, FORMULA = cast("Any", 0), cast("Any", 1), cast("Any", 2), cast("Any", 3)
     UNO_AVAILABLE = False
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 
 class ListCalcFunctions(ToolBase):
@@ -116,10 +116,10 @@ class ListCalcFunctions(ToolBase):
                     "category_id": func_data.get("Category", 0),
                     "arguments": arg_list,
                 })
-            logger.info("Found %d matching Calc functions for filter '%s'", len(matched_functions), filter_str)
+            log.info("Found %d matching Calc functions for filter '%s'", len(matched_functions), filter_str)
             return {"status": "ok", "functions": matched_functions}
         except Exception as e:
-            logger.exception("Listing Calc functions failed")
+            log.exception("Listing Calc functions failed")
             raise ToolExecutionError(f"Error listing Calc functions: {str(e)}") from e
 
 
@@ -239,11 +239,11 @@ class EvaluateFormula(ToolCalcErrorBase):
                 "result_type": result_type_str
             }
         except Exception as e:
-            logger.exception("Formula evaluation failed")
+            log.exception("Formula evaluation failed")
             raise ToolExecutionError(f"Formula evaluation failed: {str(e)}") from e
         finally:
             try:
                 if sheets.hasByName(temp_sheet_name):
                     sheets.removeByName(temp_sheet_name)
             except Exception:
-                logger.exception("Failed to cleanup evaluation sheet")
+                log.exception("Failed to cleanup evaluation sheet")

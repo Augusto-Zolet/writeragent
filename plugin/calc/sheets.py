@@ -29,7 +29,7 @@ from plugin.calc.base import ToolCalcSheetBase
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.analyzer import SheetAnalyzer
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 
 class ListSheets(ToolCalcSheetBase):
@@ -45,10 +45,10 @@ class ListSheets(ToolCalcSheetBase):
         try:
             doc = bridge.get_active_document()
             sheet_names = list(doc.getSheets().getElementNames())
-            logger.info("Sheets listed: %s", sheet_names)
+            log.info("Sheets listed: %s", sheet_names)
             return {"status": "ok", "result": sheet_names}
         except Exception as e:
-            logger.exception("Sheet listing failed")
+            log.exception("Sheet listing failed")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -74,11 +74,11 @@ class SwitchSheet(ToolCalcSheetBase):
             sheet = sheets.getByName(sheet_name)
             controller = doc.getCurrentController()
             controller.setActiveSheet(sheet)
-            logger.info("Switched to sheet: %s", sheet_name)
+            log.info("Switched to sheet: %s", sheet_name)
             result = f"Switched to sheet '{sheet_name}'."
             return {"status": "ok", "message": result}
         except Exception as e:
-            logger.exception("Sheet switch failed for %s", sheet_name)
+            log.exception("Sheet switch failed for %s", sheet_name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -102,11 +102,11 @@ class CreateSheet(ToolCalcSheetBase):
             if position is None:
                 position = sheets.getCount()
             sheets.insertNewByName(sheet_name, position)
-            logger.info("New sheet created: %s (position: %d)", sheet_name, position)
+            log.info("New sheet created: %s (position: %d)", sheet_name, position)
             result = f"New sheet named '{sheet_name}' created."
             return {"status": "ok", "message": result}
         except Exception as e:
-            logger.exception("Sheet creation failed for %s", sheet_name)
+            log.exception("Sheet creation failed for %s", sheet_name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -133,10 +133,10 @@ class RenameSheet(ToolCalcSheetBase):
                 return self._tool_error(f"A sheet named '{new_name}' already exists in the document.")
             sheet = sheets.getByName(old_name)
             sheet.setName(new_name)
-            logger.info("Sheet renamed from '%s' to '%s'.", old_name, new_name)
+            log.info("Sheet renamed from '%s' to '%s'.", old_name, new_name)
             return {"status": "ok", "message": f"Sheet renamed to '{new_name}'."}
         except Exception as e:
-            logger.exception("Sheet rename failed (%s -> %s)", old_name, new_name)
+            log.exception("Sheet rename failed (%s -> %s)", old_name, new_name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -161,10 +161,10 @@ class DeleteSheet(ToolCalcSheetBase):
             if sheets.getCount() <= 1:
                 return self._tool_error("Cannot delete the only sheet in the document.")
             sheets.removeByName(sheet_name)
-            logger.info("Sheet deleted: %s", sheet_name)
+            log.info("Sheet deleted: %s", sheet_name)
             return {"status": "ok", "message": f"Sheet '{sheet_name}' deleted."}
         except Exception as e:
-            logger.exception("Sheet deletion failed for %s", sheet_name)
+            log.exception("Sheet deletion failed for %s", sheet_name)
             raise ToolExecutionError(str(e)) from e
 
 
@@ -199,10 +199,10 @@ class ProtectSheet(ToolCalcSheetBase):
                 sheet.unprotect("")
                 msg = f"Sheet '{sheet.getName()}' is now unprotected."
 
-            logger.info(msg)
+            log.info(msg)
             return {"status": "ok", "message": msg}
         except Exception as e:
-            logger.exception("Sheet protection failed")
+            log.exception("Sheet protection failed")
             raise ToolExecutionError(str(e)) from e
 
 

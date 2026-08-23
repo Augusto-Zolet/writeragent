@@ -36,7 +36,7 @@ from plugin.calc.bridge import CalcBridge
 from plugin.calc.manipulator import CellManipulator
 from plugin.calc.inspector import CellInspector
 
-logger = logging.getLogger("writeragent.calc.python.executor")
+log = logging.getLogger("writeragent.calc.python.executor")
 
 
 class PythonExecutor:
@@ -58,7 +58,7 @@ class PythonExecutor:
                 sheet = bridge.get_active_sheet()
                 return manipulator.safe_get_cell_value(sheet, addr)
             except Exception:
-                logger.exception("lp_helper failed for address %s", addr)
+                log.exception("lp_helper failed for address %s", addr)
                 return None
 
         def set_range_helper(addr: str, data: Any):
@@ -83,12 +83,12 @@ class PythonExecutor:
             result = code_output.output
             return self.format_result(result)
         except InterpreterError as e:
-            logger.exception("Sandbox execution error: \n%s", code_snippet)
+            log.exception("Sandbox execution error: \n%s", code_snippet)
             raise WriterAgentException(f"Execution Error: {str(e)}", code="PYTHON_EXECUTION_ERROR") from e
         except WriterAgentException:
             raise
         except Exception as e:
-            logger.exception("Error executing Python code: \n%s", code_snippet)
+            log.exception("Error executing Python code: \n%s", code_snippet)
             raise WriterAgentException(f"Execution Error: {str(e)}", code="PYTHON_EXECUTION_ERROR") from e
 
 
@@ -137,7 +137,7 @@ class ExecutePythonScript(ToolBaseDummy):
                     py_data = [row[0] for row in py_data]
                 executor.executor.send_variables({"data": py_data})
             except Exception:
-                logger.exception("Failed to inject data_range %s", data_range)
+                log.exception("Failed to inject data_range %s", data_range)
 
         result = executor.execute_with_return(code)
 

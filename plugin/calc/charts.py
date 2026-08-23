@@ -42,7 +42,7 @@ def supportsService(obj, service_name: str) -> bool:
         return False
 
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 # Chart CLSID: classic OLE chart (Calc sheet charts, Writer TextEmbeddedObject)
 # Uppercase is often more compatible with older OLE registries
@@ -104,7 +104,7 @@ def _chart_document_from_host(host: Any):
     try:
         if hasattr(host, "getEmbeddedObject"):
             ed = host.getEmbeddedObject()
-            logger.debug("Host.getEmbeddedObject() -> %s", ed)
+            log.debug("Host.getEmbeddedObject() -> %s", ed)
             if ed:
                 if hasattr(ed, "Component"):
                     comp = ed.Component
@@ -112,7 +112,7 @@ def _chart_document_from_host(host: Any):
                         return comp
                 return ed
     except Exception as e:
-        logger.debug("_chart_document_from_host getEmbeddedObject failed: %s", e)
+        log.debug("_chart_document_from_host getEmbeddedObject failed: %s", e)
 
 
     # 2. Try Model/Component properties (Standard for Shapes)
@@ -230,71 +230,71 @@ CHART_PROPERTIES = {
 
 def _apply_chart_styling(chart_doc, **kwargs):
     """Apply enhanced styling properties to a chart document."""
-    logger.info("Applying chart styling with kwargs: %s", {k: v for k, v in kwargs.items() if k not in ["data_range"]})
+    log.info("Applying chart styling with kwargs: %s", {k: v for k, v in kwargs.items() if k not in ["data_range"]})
     diagram = chart_doc.getDiagram()
     if not diagram:
-        logger.warning("No diagram found on chart document.")
+        log.warning("No diagram found on chart document.")
         return
 
     # 1. 3D Mode
     is_3d = kwargs.get("is_3d")
     if is_3d is not None and hasattr(diagram, "Dim3D"):
         diagram.Dim3D = is_3d
-        logger.debug("Set diagram 3D mode: %s", is_3d)
+        log.debug("Set diagram 3D mode: %s", is_3d)
 
     # 2. Stacking
     stacked = kwargs.get("stacked")
     if stacked is not None and hasattr(diagram, "Stacked"):
         diagram.Stacked = stacked
-        logger.debug("Set diagram stacked mode: %s", stacked)
+        log.debug("Set diagram stacked mode: %s", stacked)
 
     percent = kwargs.get("percent")
     if percent is not None and hasattr(diagram, "Percent"):
         diagram.Percent = percent
-        logger.debug("Set diagram percent stacked: %s", percent)
+        log.debug("Set diagram percent stacked: %s", percent)
 
     # 3. Bar/Column Orientation
     chart_type = kwargs.get("chart_type")
     if chart_type in ["bar", "column"] and hasattr(diagram, "Vertical"):
         diagram.Vertical = chart_type == "bar"
-        logger.debug("Set diagram orientation: vertical=%s", diagram.Vertical)
+        log.debug("Set diagram orientation: vertical=%s", diagram.Vertical)
 
     # 4. Titles
     title = kwargs.get("title")
     if title is not None:
         chart_doc.HasMainTitle = True
         chart_doc.getTitle().String = title
-        logger.debug("Set chart main title: '%s'", title)
+        log.debug("Set chart main title: '%s'", title)
 
     subtitle = kwargs.get("subtitle")
     if subtitle is not None:
         chart_doc.HasSubTitle = True
         chart_doc.getSubTitle().String = subtitle
-        logger.debug("Set chart subtitle: '%s'", subtitle)
+        log.debug("Set chart subtitle: '%s'", subtitle)
 
     x_axis_title = kwargs.get("x_axis_title")
     if x_axis_title is not None and hasattr(diagram, "HasXAxisTitle"):
         diagram.HasXAxisTitle = True
         try:
             _axis_title_shape_string(diagram.getXAxisTitle(), x_axis_title)
-            logger.debug("Set X axis title: '%s'", x_axis_title)
+            log.debug("Set X axis title: '%s'", x_axis_title)
         except Exception:
-            logger.exception("Setting X axis title failed")
+            log.exception("Setting X axis title failed")
 
     y_axis_title = kwargs.get("y_axis_title")
     if y_axis_title is not None and hasattr(diagram, "HasYAxisTitle"):
         diagram.HasYAxisTitle = True
         try:
             _axis_title_shape_string(diagram.getYAxisTitle(), y_axis_title)
-            logger.debug("Set Y axis title: '%s'", y_axis_title)
+            log.debug("Set Y axis title: '%s'", y_axis_title)
         except Exception:
-            logger.exception("Setting Y axis title failed")
+            log.exception("Setting Y axis title failed")
 
     # 5. Legend
     has_legend = kwargs.get("has_legend")
     if has_legend is not None:
         chart_doc.HasLegend = has_legend
-        logger.debug("Set chart legend visibility: %s", has_legend)
+        log.debug("Set chart legend visibility: %s", has_legend)
 
     legend_pos = kwargs.get("legend_position")
     if legend_pos and chart_doc.HasLegend:
@@ -311,9 +311,9 @@ def _apply_chart_styling(chart_doc, **kwargs):
                     chart_doc.HasLegend = False
                 else:
                     chart_doc.getLegend().Alignment = pos_map[legend_pos]
-                logger.debug("Set legend position: %s", legend_pos)
+                log.debug("Set legend position: %s", legend_pos)
         except (ImportError, AttributeError):
-            logger.exception("ChartLegendAlignment enum not available")
+            log.exception("ChartLegendAlignment enum not available")
 
     # 6. Background Color
     bg_color = kwargs.get("bg_color")
@@ -324,11 +324,11 @@ def _apply_chart_styling(chart_doc, **kwargs):
                 bg = chart_doc.getPageBackground()
                 bg.setPropertyValue("FillStyle", uno.Enum("com.sun.star.drawing.FillStyle", "SOLID"))
                 bg.setPropertyValue("FillColor", parsed_bg)
-                logger.info("Set chart background color: %s (RGB %d)", bg_color, parsed_bg)
+                log.info("Set chart background color: %s (RGB %d)", bg_color, parsed_bg)
             except Exception:
-                logger.exception("Failed to set chart background color")
+                log.exception("Failed to set chart background color")
         else:
-            logger.warning("Invalid bg_color ignored: '%s'", bg_color)
+            log.warning("Invalid bg_color ignored: '%s'", bg_color)
 
     # 7. Series Colors (one color per series/bar in the chart)
     colors = kwargs.get("colors")
@@ -354,13 +354,13 @@ def _apply_chart_styling(chart_doc, **kwargs):
                                 for prop in ["Color", "FillColor", "LineColor"]:
                                     if s.getPropertySetInfo().hasPropertyByName(prop):
                                         s.setPropertyValue(prop, color_val)
-                                logger.info("Set data series %d color to RGB %d", idx, color_val)
+                                log.info("Set data series %d color to RGB %d", idx, color_val)
                                 series_count += 1
-                    logger.info("Successfully styled %d chart data series with colors %s", series_count, colors)
+                    log.info("Successfully styled %d chart data series with colors %s", series_count, colors)
                 else:
-                    logger.warning("Could not retrieve first diagram using getFirstDiagram")
+                    log.warning("Could not retrieve first diagram using getFirstDiagram")
             except Exception:
-                logger.exception("Failed to set data series colors")
+                log.exception("Failed to set data series colors")
 
     # 8. Programmatic Data Arrays (Writer/Draw)
     headers = kwargs.get("headers")
@@ -377,7 +377,7 @@ def _apply_chart_data_arrays(chart_doc, headers, rows):
     try:
         chart_data = chart_doc.getData()
         if not chart_data:
-            logger.warning("No chart data object found on chart document.")
+            log.warning("No chart data object found on chart document.")
             return
 
         # 1. Process rows to extract categories (row descriptions) and numeric matrix values
@@ -413,10 +413,10 @@ def _apply_chart_data_arrays(chart_doc, headers, rows):
         chart_data.setRowDescriptions(tuple(row_desc))
         chart_data.setColumnDescriptions(col_desc)
         chart_data.setData(tuple(final_values))
-        logger.info("Successfully applied chart data arrays: row_desc=%s, col_desc=%s, data=%s", row_desc, col_desc, final_values)
+        log.info("Successfully applied chart data arrays: row_desc=%s, col_desc=%s, data=%s", row_desc, col_desc, final_values)
 
     except Exception as e:
-        logger.exception("Failed to apply chart data arrays: %s", e)
+        log.exception("Failed to apply chart data arrays: %s", e)
 
 
 
@@ -619,7 +619,7 @@ class GetChartInfo(ToolBaseDummy):
                             pass
 
         except Exception as e:
-            logger.debug("get_chart_info error: %s", e)
+            log.debug("get_chart_info error: %s", e)
 
         return info
 
@@ -717,7 +717,7 @@ class UpsertChart(ToolBaseDummy):
                 return self._tool_error("Unsupported document type for chart creation.")
             except Exception as e:
                 msg = _format_chart_exception_msg(e)
-                logger.exception("Chart creation failed")
+                log.exception("Chart creation failed")
                 raise ToolExecutionError(f"Tool execution failed: {msg}") from e
 
         elif action == "edit":
@@ -742,7 +742,7 @@ class UpsertChart(ToolBaseDummy):
                 _apply_chart_styling(chart_doc, **kwargs)
             except Exception as e:
                 msg = _format_chart_exception_msg(e)
-                logger.exception("Chart edit failed")
+                log.exception("Chart edit failed")
                 raise ToolExecutionError(f"Tool execution failed: {msg}") from e
 
             return {"status": "ok", "name": chart_name, "message": "Chart updated."}
@@ -782,7 +782,7 @@ class UpsertChart(ToolBaseDummy):
             except Exception:
                 pass
 
-        logger.debug("Creating Calc chart: sheet=%s, rect=(%d,%d,%d,%d), range=(%d,%d,%d,%d)",
+        log.debug("Creating Calc chart: sheet=%s, rect=(%d,%d,%d,%d), range=(%d,%d,%d,%d)",
                      sheet.getName(), rect.X, rect.Y, rect.Width, rect.Height,
                      addr.StartColumn, addr.StartRow, addr.EndColumn, addr.EndRow)
 
@@ -814,7 +814,7 @@ class UpsertChart(ToolBaseDummy):
         import time
         doc = ctx.doc
         text = doc.getText()
-        logger.info("Creating Writer chart. Current text length: %d", len(text.getString()))
+        log.info("Creating Writer chart. Current text length: %d", len(text.getString()))
 
         # 1. Resolve cursor position
         try:
@@ -844,7 +844,7 @@ class UpsertChart(ToolBaseDummy):
                  return self._tool_error("Failed to create TextEmbeddedObject instance.")
             
             try:
-                logger.debug("TextEmbeddedObject Implementation: %s", chart_obj.getImplementationName())
+                log.debug("TextEmbeddedObject Implementation: %s", chart_obj.getImplementationName())
             except Exception:
                 pass
 
@@ -859,9 +859,9 @@ class UpsertChart(ToolBaseDummy):
             except Exception:
                 pass
             
-            logger.info("Created and configured TextEmbeddedObject with CLSID: %s", chart_obj.CLSID)
+            log.info("Created and configured TextEmbeddedObject with CLSID: %s", chart_obj.CLSID)
         except Exception as e:
-            logger.debug("Creation/config failed: %s", e)
+            log.debug("Creation/config failed: %s", e)
             return self._tool_error(f"Failed to configure chart object: {e}")
 
         # 3. Insert into document
@@ -875,24 +875,24 @@ class UpsertChart(ToolBaseDummy):
                     pass
 
             text.insertTextContent(cursor, chart_obj, False)
-            logger.info("Successfully inserted chart object into text.")
+            log.info("Successfully inserted chart object into text.")
         except Exception as e:
             # Fallback 1: Try AT_PARAGRAPH
-            logger.debug("First insertion attempt failed (%s). Trying AT_PARAGRAPH anchor...", e)
+            log.debug("First insertion attempt failed (%s). Trying AT_PARAGRAPH anchor...", e)
             try:
                 from com.sun.star.text.TextContentAnchorType import AT_PARAGRAPH
                 chart_obj.AnchorType = AT_PARAGRAPH
                 text.insertTextContent(cursor, chart_obj, False)
-                logger.info("Successfully inserted chart object with AT_PARAGRAPH.")
+                log.info("Successfully inserted chart object with AT_PARAGRAPH.")
             except Exception:
                 # Fallback 2: Try CHART_CLSID_DRAW_OLE
-                logger.debug("Second insertion attempt failed. Trying DRAW_OLE CLSID...")
+                log.debug("Second insertion attempt failed. Trying DRAW_OLE CLSID...")
                 try:
                     chart_obj.CLSID = CHART_CLSID_DRAW_OLE.upper()
                     text.insertTextContent(cursor, chart_obj, False)
-                    logger.info("Successfully inserted chart object with DRAW_OLE CLSID.")
+                    log.info("Successfully inserted chart object with DRAW_OLE CLSID.")
                 except Exception as e3:
-                    logger.exception("All insertion attempts failed for chart object")
+                    log.exception("All insertion attempts failed for chart object")
                     return self._tool_error(f"Failed to insert chart into document: {e3}")
 
         # 4. Configure properties after insertion
@@ -908,14 +908,14 @@ class UpsertChart(ToolBaseDummy):
             # If we didn't already set AT_PARAGRAPH in the catch block, try setting AS_CHARACTER now
             if chart_obj.AnchorType != AT_PARAGRAPH:
                 chart_obj.AnchorType = AS_CHARACTER
-                logger.debug("Set AnchorType to AS_CHARACTER (post-insertion)")
+                log.debug("Set AnchorType to AS_CHARACTER (post-insertion)")
         except Exception as e:
-            logger.debug("Failed to set AnchorType post-insertion: %s", e)
+            log.debug("Failed to set AnchorType post-insertion: %s", e)
 
         try:
             chart_obj.setPropertyValue("Width", rect.Width)
             chart_obj.setPropertyValue("Height", rect.Height)
-            logger.debug("Set size post-insertion: %dx%d", rect.Width, rect.Height)
+            log.debug("Set size post-insertion: %dx%d", rect.Width, rect.Height)
         except Exception:
             try:
                 chart_obj.Width = rect.Width
@@ -928,9 +928,9 @@ class UpsertChart(ToolBaseDummy):
         for i in range(10):
             chart_doc = _chart_document_from_host(chart_obj)
             if chart_doc:
-                logger.info("Obtained chart model on attempt %d", i + 1)
+                log.info("Obtained chart model on attempt %d", i + 1)
                 break
-            logger.debug("Model missing on attempt %d, pumping events...", i + 1)
+            log.debug("Model missing on attempt %d, pumping events...", i + 1)
             _process_events(ctx.ctx)
             time.sleep(0.05)
 
@@ -938,13 +938,13 @@ class UpsertChart(ToolBaseDummy):
             # Last ditch effort: find it in the collection
             try:
                 objects = doc.getEmbeddedObjects()
-                logger.debug("Final attempt: checking EmbeddedObjects collection (count=%d)", objects.getCount())
+                log.debug("Final attempt: checking EmbeddedObjects collection (count=%d)", objects.getCount())
                 if objects.hasByName(name):
                     obj = objects.getByName(name)
-                    logger.debug("Found object in collection by name. Type: %s", type(obj))
+                    log.debug("Found object in collection by name. Type: %s", type(obj))
                     chart_doc = _chart_document_from_host(obj)
             except Exception as e:
-                logger.debug("Last ditch effort failed: %s", e)
+                log.debug("Last ditch effort failed: %s", e)
                 pass
 
         # 5. Configure Diagram
@@ -953,15 +953,15 @@ class UpsertChart(ToolBaseDummy):
                 diagram = chart_doc.createInstance(service)
                 if diagram:
                     chart_doc.setDiagram(diagram)
-                    logger.info("Set chart diagram: %s", service)
+                    log.info("Set chart diagram: %s", service)
                 else:
-                    logger.error("Failed to create diagram instance for service: %s", service)
+                    log.error("Failed to create diagram instance for service: %s", service)
             except Exception:
-                logger.exception("Failed to set chart diagram")
+                log.exception("Failed to set chart diagram")
 
             _apply_chart_styling(chart_doc, **kwargs)
         else:
-            logger.error("Could not obtain chart model after retries. Chart might be empty/invisible.")
+            log.error("Could not obtain chart model after retries. Chart might be empty/invisible.")
 
         # Force a refresh of the chart model using direct UNO calls on the chart document itself.
         if chart_doc:
@@ -969,14 +969,14 @@ class UpsertChart(ToolBaseDummy):
                 # 1. Notify views of model changes (com.sun.star.util.XModifiable)
                 if hasattr(chart_doc, "setModified"):
                     chart_doc.setModified(True)
-                    logger.debug("Called chart_doc.setModified(True) to notify view listeners.")
+                    log.debug("Called chart_doc.setModified(True) to notify view listeners.")
                 
                 # 2. Trigger layout/calculations update (com.sun.star.util.XRefreshable)
                 if hasattr(chart_doc, "refresh"):
                     chart_doc.refresh()
-                    logger.debug("Called chart_doc.refresh() to update chart document.")
+                    log.debug("Called chart_doc.refresh() to update chart document.")
             except Exception as e:
-                logger.debug("Failed direct chart_doc model update: %s", e)
+                log.debug("Failed direct chart_doc model update: %s", e)
 
         _process_events()
         return {"status": "ok", "message": f"Chart '{name}' inserted in Writer.", "name": name}
@@ -1002,7 +1002,7 @@ class UpsertChart(ToolBaseDummy):
             shape.setSize(uno.createUnoStruct("com.sun.star.awt.Size", Width=rect.Width, Height=rect.Height))
             shape.setPosition(uno.createUnoStruct("com.sun.star.awt.Point", X=rect.X, Y=rect.Y))
         except Exception as e:
-            logger.debug("Failed to set Draw shape size/pos: %s", e)
+            log.debug("Failed to set Draw shape size/pos: %s", e)
         shape.CLSID = CHART_CLSID_DRAW_OLE
 
         name = f"Chart_{page.getCount()}"

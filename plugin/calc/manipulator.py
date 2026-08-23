@@ -60,7 +60,7 @@ from plugin.framework.errors import ToolExecutionError, UnoObjectError, safe_jso
 from plugin.framework.uno_context import get_ctx
 
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 
 # ── Helper ─────────────────────────────────────────────────────────────
@@ -172,7 +172,7 @@ def _parse_formula_or_values_string(s: str, *, single_cell_range: bool = False):
                         # Wait, if we return a 2D array, write_formula_range can process it and adjust its target range.
                         return [[val.strip() for val in row] for row in rows]
             except Exception as e:
-                logger.debug("Failed to read sample csv: %s", e)
+                log.debug("Failed to read sample csv: %s", e)
 
     return None
 
@@ -353,15 +353,15 @@ class CellManipulator:
                 self._set_range_style(address_or_range, bold=bold, italic=italic, bg_color=bg_color, font_color=font_color, font_size=font_size, h_align=h_align, v_align=v_align, wrap_text=wrap_text, border_color=border_color)
                 if number_format:
                     self._set_range_number_format(address_or_range, number_format)
-                logger.info("Range %s style updated.", address_or_range.upper())
+                log.info("Range %s style updated.", address_or_range.upper())
             else:
                 cell = self.bridge.get_cell_by_address(address_or_range)
                 self._apply_style_properties(cell, bold, italic, bg_color, font_color, font_size, h_align, v_align, wrap_text, border_color)
                 if number_format:
                     self._set_number_format(address_or_range, number_format)
-                logger.info("Cell %s style updated.", address_or_range.upper())
+                log.info("Cell %s style updated.", address_or_range.upper())
         except Exception as e:
-            logger.exception("Style application failed for %s", address_or_range)
+            log.exception("Style application failed for %s", address_or_range)
             raise ToolExecutionError(str(e)) from e
 
     def _set_range_style(self, range_str, bold=None, italic=None, bg_color=None, font_color=None, font_size=None, h_align=None, v_align=None, wrap_text=None, border_color=None):
@@ -379,7 +379,7 @@ class CellManipulator:
             if language:
                 return locale
         except Exception:
-            logger.debug("CharLocale unavailable; using en-US fallback", exc_info=True)
+            log.debug("CharLocale unavailable; using en-US fallback", exc_info=True)
         return uno.createUnoStruct("com.sun.star.lang.Locale", Language="en", Country="US", Variant="")
 
     @staticmethod
@@ -419,9 +419,9 @@ class CellManipulator:
             cell_range = self.bridge.resolve_range_or_address(range_str)
             # CellFlags: VALUE=1, DATETIME=2, STRING=4, FORMULA=16 -> 23
             cell_range.clearContents(23)
-            logger.info("Range %s cleared.", range_str.upper())
+            log.info("Range %s cleared.", range_str.upper())
         except Exception as e:
-            logger.exception("Range clear failed for %s", range_str)
+            log.exception("Range clear failed for %s", range_str)
             raise ToolExecutionError(str(e)) from e
 
     def merge_cells(self, range_str: str, center: bool = True):
@@ -434,13 +434,13 @@ class CellManipulator:
         try:
             cell_range = self.bridge.resolve_range_or_address(range_str)
             cell_range.merge(True)
-            logger.info("Range %s merged.", range_str.upper())
+            log.info("Range %s merged.", range_str.upper())
 
             if center:
                 cell_range.setPropertyValue("HoriJustify", CENTER)
                 cell_range.setPropertyValue("VertJustify", V_CENTER)
         except Exception as e:
-            logger.exception("Cell merge failed for %s", range_str)
+            log.exception("Cell merge failed for %s", range_str)
             raise ToolExecutionError(str(e)) from e
 
     def sort_range(self, range_str: str, sort_column: int = 0, ascending: bool = True, has_header: bool = True):
@@ -476,10 +476,10 @@ class CellManipulator:
             cell_range.sort(tuple(sort_desc))
 
             direction = "ascending" if ascending else "descending"
-            logger.info("Range %s sorted %s by column %d.", range_str.upper(), direction, sort_column)
+            log.info("Range %s sorted %s by column %d.", range_str.upper(), direction, sort_column)
             return f"Range {range_str} sorted {direction} by column {sort_column}."
         except Exception as e:
-            logger.exception("Sort failed for %s", range_str)
+            log.exception("Sort failed for %s", range_str)
             raise ToolExecutionError(str(e)) from e
 
     def _make_number_formatter(self, doc):
@@ -503,7 +503,7 @@ class CellManipulator:
         try:
             return int(formats.getFormatIndex(43, locale))
         except Exception:
-            logger.debug("getFormatIndex(43) failed; falling back to queryKey", exc_info=True)
+            log.debug("getFormatIndex(43) failed; falling back to queryKey", exc_info=True)
         key = formats.queryKey("[HH]:MM:SS", locale, False)
         if key == -1:
             key = formats.addNew("[HH]:MM:SS", locale)
@@ -548,7 +548,7 @@ class CellManipulator:
             try:
                 serial = duration_serial_from_iso(stripped)
             except Exception as e:
-                logger.debug("Duration convert failed for %r: %s", stripped, e)
+                log.debug("Duration convert failed for %r: %s", stripped, e)
                 meta["kind"] = "text"
                 meta["restore_format"] = True
                 return value, "", meta
@@ -569,7 +569,7 @@ class CellManipulator:
             except Exception as e:
                 # NotNumericException and peers → ordinary text fallback (S4).
                 if "NotNumeric" not in type(e).__name__:
-                    logger.debug("ISO convert failed for %r: %s", stripped, e)
+                    log.debug("ISO convert failed for %r: %s", stripped, e)
                 meta["kind"] = "text"
                 meta["restore_format"] = True
                 return value, "", meta
@@ -855,7 +855,7 @@ class CellManipulator:
                 try:
                     self._apply_temporal_format_runs(sheet, start, decisions)
                 except Exception:
-                    logger.exception("Date/time format pass failed for range %s", range_str)
+                    log.exception("Date/time format pass failed for range %s", range_str)
                     # S30: count cells that needed apply, not preserve-only temporals.
                     apply_n = sum(1 for row_dec in decisions for d in row_dec if isinstance(d, tuple) and d[0] == "apply")
                     if apply_n:
@@ -872,12 +872,12 @@ class CellManipulator:
             n_vals = len(values)
             values_word = "value" if n_vals == 1 else "values"
             msg = f"Range {range_str} filled with {n_vals} {values_word}{detail}{format_warning}."
-            logger.info("%s", msg)
+            log.info("%s", msg)
             return msg
         except Exception as e:
             # UNO often yields str(e) == ""; keep a usable message for the agent.
             msg = str(e) or getattr(e, "Message", None) or type(e).__name__
-            logger.exception("Range formula write failed for %s", range_str)
+            log.exception("Range formula write failed for %s", range_str)
             raise ToolExecutionError(msg) from e
 
     # ── Chart ──────────────────────────────────────────────────────────
@@ -890,10 +890,10 @@ class CellManipulator:
             sheet = self.bridge.get_active_sheet()
             rows = sheet.getRows()
             rows.removeByIndex(row_num - 1, count)
-            logger.info("%d row(s) deleted starting from row %d.", count, row_num)
+            log.info("%d row(s) deleted starting from row %d.", count, row_num)
             return f"{count} row(s) deleted starting from row {row_num}."
         except Exception as e:
-            logger.exception("Row deletion failed")
+            log.exception("Row deletion failed")
             raise ToolExecutionError(str(e)) from e
 
     def delete_columns(self, col_letter: str, count: int = 1):
@@ -903,10 +903,10 @@ class CellManipulator:
             columns = sheet.getColumns()
             col_index = self.bridge._column_to_index(col_letter.upper())
             columns.removeByIndex(col_index, count)
-            logger.info("%d column(s) deleted starting from column %s.", count, col_letter.upper())
+            log.info("%d column(s) deleted starting from column %s.", count, col_letter.upper())
             return f"{count} column(s) deleted starting from column {col_letter.upper()}."
         except Exception as e:
-            logger.exception("Column deletion failed")
+            log.exception("Column deletion failed")
             raise ToolExecutionError(str(e)) from e
 
     def delete_structure(self, structure_type: str, start, count: int = 1):

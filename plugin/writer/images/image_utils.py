@@ -27,8 +27,6 @@ from plugin.framework.config import get_config_int
 
 log = logging.getLogger(__name__)
 
-logger = logging.getLogger(__name__)
-
 TRIM_IMAGES_IN_LOG = True
 
 
@@ -71,7 +69,7 @@ class EndpointImageProvider(ImageProvider):
             messages = [{"role": "user", "content": content}]
         else:
             messages = [{"role": "user", "content": prompt}]
-        logger.info("Requesting image via endpoint: %s", model)
+        log.info("Requesting image via endpoint: %s", model)
 
         fallback_content = ""
 
@@ -96,7 +94,7 @@ class EndpointImageProvider(ImageProvider):
                         return paths, ""
                     return [], "No image data returned from provider"
                 except Exception as e:
-                    logger.exception("OpenRouter dedicated image generation failed")
+                    log.exception("OpenRouter dedicated image generation failed")
                     return [], str(e)
 
             _method, _path, body, _headers = self.client.make_chat_request(messages, max_tokens=1000, model=model)
@@ -144,7 +142,7 @@ class EndpointImageProvider(ImageProvider):
                     return paths, ""
                 return [], "No image data returned from provider"
             except Exception as e:
-                logger.exception("Image generation failed")
+                log.exception("Image generation failed")
                 return [], str(e)
 
         # Fallback: image in content string (some endpoints)

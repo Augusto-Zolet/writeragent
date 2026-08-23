@@ -29,7 +29,7 @@ from plugin.calc.bridge import CalcBridge
 from plugin.calc.inspector import CellInspector
 from plugin.calc.error_detector import ErrorDetector
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 
 class DetectErrors(ToolCalcErrorBase):

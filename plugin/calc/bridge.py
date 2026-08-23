@@ -32,7 +32,7 @@ from plugin.calc.address_utils import (
     split_sheet_prefix,
 )
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 
 class CalcBridge:

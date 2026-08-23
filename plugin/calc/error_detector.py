@@ -39,7 +39,7 @@ except ImportError:
     RESULT_ERROR = cast("Any", 4)
     UNO_AVAILABLE = False
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 # LibreOffice Calc error types and descriptions
 ERROR_TYPES = {
@@ -117,14 +117,14 @@ class ErrorDetector:
                 return ERROR_TYPES[error_code].copy()
             return {"code": f"Err:{error_code}", "name": "Unknown error", "description": f"Unknown error code: {error_code}"}
         except Exception as e:
-            logger.debug("Explain error getError exception: %s", e)
+            log.debug("Explain error getError exception: %s", e)
             try:
                 text = cell.getString()
                 for pattern in ERROR_PATTERNS:
                     if pattern in text:
                         return {"code": pattern, "name": "Formula error", "description": f"'{pattern}' error detected in the cell."}
             except Exception as e2:
-                logger.debug("Explain error getString exception: %s", e2)
+                log.debug("Explain error getString exception: %s", e2)
             return {}
 
     def detect_errors(self, range_str: str | None = None) -> list:
@@ -174,10 +174,10 @@ class ErrorDetector:
                             address = f"{col_str}{addr.Row + 1}"
                             errors.append({"address": address, "formula": cell.getFormula(), "error": error_info})
 
-            logger.info("%d errors detected (range: %s).", len(errors), range_str or "full sheet")
+            log.info("%d errors detected (range: %s).", len(errors), range_str or "full sheet")
             return errors
         except Exception as e:
-            logger.exception("Error detection failed")
+            log.exception("Error detection failed")
             raise ToolExecutionError(str(e)) from e
 
     def explain_error(self, address: str) -> dict:
@@ -221,7 +221,7 @@ class ErrorDetector:
 
                 dependency_chain = fetch_formula_dep_chain(self.bridge.doc, self.ctx, address)
             except Exception as e:
-                logger.debug("FormulaDepChain unavailable for %s: %s", address, e)
+                log.debug("FormulaDepChain unavailable for %s: %s", address, e)
 
             result = {
                 "address": address.upper(),
@@ -234,7 +234,7 @@ class ErrorDetector:
                 result["dependency_chain"] = dependency_chain
             return result
         except Exception as e:
-            logger.exception("Error explanation failed for %s", address)
+            log.exception("Error explanation failed for %s", address)
             raise ToolExecutionError(str(e)) from e
 
     def detect_and_explain(self, range_str: str | None = None) -> dict:
@@ -256,7 +256,7 @@ class ErrorDetector:
             try:
                 detailed.append(self.explain_error(address))
             except Exception as e:
-                logger.warning("Explain errors failed for %s: %s", address, e)
+                log.warning("Explain errors failed for %s: %s", address, e)
                 detailed.append({"address": address, "formula": item.get("formula", ""), "error": item.get("error"), "precedents": [], "suggestion": "Could not explain error; basic info shown."})
 
         return {"range": range_str or "used_area", "error_count": len(detailed), "errors": detailed}

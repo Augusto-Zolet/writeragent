@@ -47,7 +47,7 @@ _READ_CELL_RANGE_TRUNCATED_MSG = (
 from plugin.doc.visual_helpers import parse_color_to_uno_int
 from plugin.framework.deal_shim import deal
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 
 # ── Colour helper ──────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ def _preview_if_large(bridge, range_name: str) -> dict[str, Any] | None:
             "preview_range": _format_sheet_address(range_name, local),
         }
     except Exception:
-        logger.exception("Could not size range %s for read_cell_range cap; reading in full", range_name)
+        log.exception("Could not size range %s for read_cell_range cap; reading in full", range_name)
         return None
 
 

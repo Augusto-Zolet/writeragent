@@ -38,7 +38,7 @@ except ImportError:
     EMPTY, VALUE, TEXT, FORMULA = cast("Any", 0), cast("Any", 1), cast("Any", 2), cast("Any", 3)
     UNO_AVAILABLE = False
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 _FORMULA_REF_RE = re.compile(r"\$?([A-Z]+)\$?(\d+)")
 _CELL_FLAG_DATETIME = 2
@@ -110,7 +110,7 @@ class CellInspector:
         try:
             return cell.getPropertyValue(name)
         except Exception:
-            logger.debug("_safe_prop read failed for %s", name, exc_info=True)
+            log.debug("_safe_prop read failed for %s", name, exc_info=True)
             return default
 
     def _format_meta(self, format_key, formats, cache: dict[int, tuple[str | None, str | None]]) -> tuple[str | None, str | None]:
@@ -173,7 +173,7 @@ class CellInspector:
             if date_cells is not None:
                 date_addresses = tuple(date_cells.getRangeAddresses() or ())
         except Exception:
-            logger.debug("queryContentCells(DATETIME) preflight failed", exc_info=True)
+            log.debug("queryContentCells(DATETIME) preflight failed", exc_info=True)
         if not date_addresses:
             has_formula = any(isinstance(formula, str) and formula.startswith("=") for row in formula_array for formula in row)
             if not has_formula:
@@ -264,10 +264,10 @@ class CellInspector:
                     self._enrich_cell_format(info, cell)
                 except Exception:
                     # Format metadata must never turn a previously valid core read into an error.
-                    logger.exception("Date/time format enrichment failed for cell %s; returning the raw value", address)
+                    log.exception("Date/time format enrichment failed for cell %s; returning the raw value", address)
             return info
         except Exception as e:
-            logger.exception("Cell reading failed for %s", address)
+            log.exception("Cell reading failed for %s", address)
             raise ToolExecutionError(str(e)) from e
 
     def get_cell_details(self, address: str) -> dict:
@@ -320,7 +320,7 @@ class CellInspector:
                 "wrap_text": self._safe_prop(cell, "IsTextWrapped"),
             }
         except Exception as e:
-            logger.exception("Cell detailed reading failed for %s", address)
+            log.exception("Cell detailed reading failed for %s", address)
             raise ToolExecutionError(str(e)) from e
 
     def read_range(self, range_name: str, *, include_format_info: bool = False) -> list[list[dict]]:
@@ -359,7 +359,7 @@ class CellInspector:
                 except Exception:
                     # Some older/embedded Calc builds may not expose format-range queries.
                     # Preserve the old raw response instead of failing read_cell_range.
-                    logger.exception("Date/time format enrichment failed for range %s; returning raw values", range_name)
+                    log.exception("Date/time format enrichment failed for range %s; returning raw values", range_name)
 
             result = []
             for row_idx, row in enumerate(range(addr.StartRow, addr.EndRow + 1)):
@@ -406,7 +406,7 @@ class CellInspector:
 
             return result
         except Exception as e:
-            logger.exception("Range reading failed for %s", range_name)
+            log.exception("Range reading failed for %s", range_name)
             raise ToolExecutionError(str(e)) from e
 
     def get_all_formulas(self, sheet_name: str | None = None) -> list[dict]:
@@ -459,5 +459,5 @@ class CellInspector:
 
             return formulas
         except Exception as e:
-            logger.exception("Formula listing failed")
+            log.exception("Formula listing failed")
             raise ToolExecutionError(str(e)) from e

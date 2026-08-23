@@ -28,7 +28,7 @@ from com.sun.star.awt import Size, Point
 from com.sun.star.beans import PropertyValue
 from plugin.doc import visual_helpers
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 GALLERY_NAME = "writeragent_images"
 GALLERY_IMAGE_DIR = GALLERY_NAME
@@ -88,7 +88,7 @@ def _apply_graphic_properties(graphic, *, width: int, height: int, title: str, d
         _safe_set_property(graphic, "Height", height)
     elif not _safe_set_property(graphic, "Size", size):
         if not _safe_try_method(graphic, "setSize", size):
-            logger.debug("_apply_graphic_properties: could not set size %dx%d", width, height)
+            log.debug("_apply_graphic_properties: could not set size %dx%d", width, height)
     if title:
         _safe_set_property(graphic, "Title", title)
     if description:
@@ -117,7 +117,7 @@ def _graphic_from_provider(ctx: Any, file_url: str) -> Any | None:
         props = (PropertyValue(Name="URL", Value=file_url),)
         return gp.queryGraphic(props)
     except Exception as ex:
-        logger.debug("_graphic_from_provider failed: %s", ex)
+        log.debug("_graphic_from_provider failed: %s", ex)
         return None
 
 
@@ -138,7 +138,7 @@ def _dispatch_insert_linked_graphic(ctx, model, file_url):
         dispatcher.executeDispatch(frame, ".uno:InsertGraphic", "", 0, props)
         return _selection_graphic_object(model)
     except Exception as e:
-        logger.debug("_dispatch_insert_linked_graphic failed: %s", e)
+        log.debug("_dispatch_insert_linked_graphic failed: %s", e)
         return None
 
 
@@ -272,7 +272,7 @@ def _place_view_cursor_at_text_range(model, text_cursor):
         vc = model.CurrentController.ViewCursor
         vc.gotoRange(text_cursor.getStart(), False)
     except Exception as e:
-        logger.debug("_place_view_cursor_at_text_range: %s", e)
+        log.debug("_place_view_cursor_at_text_range: %s", e)
 
 
 def _insert_embedded_at_writer_cursor(
@@ -314,7 +314,7 @@ def _insert_embedded_at_writer_cursor(
         tc = to_text_cursor(view_cursor)
         doc_text.insertTextContent(tc, image, False)
     except Exception as e:
-        logger.debug("_insert_embedded_at_writer_cursor fallback: %s", e)
+        log.debug("_insert_embedded_at_writer_cursor fallback: %s", e)
         view_cursor.jumpToStartOfPage()
         tc = to_text_cursor(view_cursor)
         doc_text.insertTextContent(tc, image, False)
@@ -332,7 +332,7 @@ def _insert_image_to_writer(ctx, model, img_path, width, height, title, descript
         if graphic is not None:
             _apply_graphic_properties(graphic, width=width, height=height, title=title, description=description, inside="writer")
             return
-        logger.debug("_insert_image_to_writer: linked dispatch failed, embedding fallback")
+        log.debug("_insert_image_to_writer: linked dispatch failed, embedding fallback")
 
     _insert_embedded_at_writer_cursor(model, img_path, width, height, title, description, ctx=ctx)
 
@@ -351,7 +351,7 @@ def _insert_frame(ctx, model, img_path, width, height, title, description):
         text_cursor = doc_text.createTextCursorByRange(view_cursor.getStart())
         doc_text.insertTextContent(text_cursor, text_frame, False)
     except Exception as e:
-        logger.debug("_insert_frame insertTextContent fallback: %s", e)
+        log.debug("_insert_frame insertTextContent fallback: %s", e)
         view_cursor.jumpToStartOfPage()
         text_cursor = doc_text.createTextCursorByRange(view_cursor.getStart())
         doc_text.insertTextContent(text_cursor, text_frame, False)
@@ -368,7 +368,7 @@ def _insert_frame(ctx, model, img_path, width, height, title, description):
             if title:
                 frame_text.insertString(frame_cursor, "\n" + title, False)
             return
-        logger.debug("_insert_frame: linked dispatch failed, embedding fallback")
+        log.debug("_insert_frame: linked dispatch failed, embedding fallback")
 
     file_url = _file_url_for_path(img_path)
     image = _create_embedded_graphic(model, "writer", file_url, ctx=ctx)
@@ -411,7 +411,7 @@ def _insert_image_to_drawpage(ctx, model, inside, img_path, width, height, title
                 if hasattr(graphic, "setPosition"):
                     graphic.setPosition(_position_on_draw_page(draw_page, width, height, x_mm, y_mm))
             return
-        logger.debug("_insert_image_to_drawpage: linked dispatch failed, embedding fallback")
+        log.debug("_insert_image_to_drawpage: linked dispatch failed, embedding fallback")
 
     image = _create_embedded_graphic(model, inside, _file_url_for_path(img_path))
     _apply_graphic_properties(image, width=width, height=height, title=title, description=description, inside=inside)
@@ -550,7 +550,7 @@ def replace_image_in_place(ctx, model, img_path, width_px, height_px, title="", 
             return True
         return False
     except Exception:
-        logger.exception("Replace image in place failed")
+        log.exception("Replace image in place failed")
         return False
 
 
@@ -606,7 +606,7 @@ def export_graphic_object_to_bytes(ctx: Any, obj: Any) -> bytes | None:
     try:
         return export_graphic_to_bytes(ctx, graphic)
     except Exception:
-        logger.exception("Failed to export graphic object")
+        log.exception("Failed to export graphic object")
         return None
 
 
@@ -623,14 +623,14 @@ def get_selected_image_base64(model, ctx=None):
         # correctly via supportsService / GraphicURL checks.
         obj = _selection_graphic_object(model)
         if obj is None:
-            logger.debug("get_selected_image_base64: no graphic in selection")
+            log.debug("get_selected_image_base64: no graphic in selection")
             return None
         png_bytes = export_graphic_object_to_bytes(ctx, obj)
         if png_bytes is None:
             return None
         return base64.b64encode(png_bytes).decode("utf-8")
     except Exception:
-        logger.exception("Failed to get selected image")
+        log.exception("Failed to get selected image")
         return None
 
 
@@ -655,4 +655,4 @@ def add_image_to_gallery(ctx, img_path, title):
         theme.insertURLByIndex(uno.systemPathToFileUrl(str(target_path)), -1)
         theme.update()
     except Exception:
-        logger.exception("Failed to add to gallery")
+        log.exception("Failed to add to gallery")

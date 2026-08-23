@@ -170,8 +170,8 @@ def _init_logging() -> None:
 def main() -> None:
     _init_logging()
     import logging
-    logger = logging.getLogger("worker_harness")
-    logger.info("Worker process %d starting up with python %s", os.getpid(), sys.version)
+    log = logging.getLogger("worker_harness")
+    log.info("Worker process %d starting up with python %s", os.getpid(), sys.version)
 
     stdin = sys.stdin.buffer
     stdout = sys.stdout.buffer
@@ -183,14 +183,14 @@ def main() -> None:
             if request is None:
                 break
             req_id = str(request.get("id", ""))
-            logger.debug("Received request id=%s action=%s", req_id, request.get("action") or "execute")
+            log.debug("Received request id=%s action=%s", req_id, request.get("action") or "execute")
             response = _handle_request(request, stdout=stdout)
-            logger.debug("Finished request id=%s, response status=%s", req_id, response.get("status") if response else "none")
+            log.debug("Finished request id=%s, response status=%s", req_id, response.get("status") if response else "none")
         except ValueError as e:
-            logger.warning("Invalid pickle request on request id=%s: %s", req_id, e)
+            log.warning("Invalid pickle request on request id=%s: %s", req_id, e)
             response = {"status": "error", "message": f"Invalid pickle request: {e}"}
         except Exception as e:
-            logger.exception("Exception handling request id=%s", req_id)
+            log.exception("Exception handling request id=%s", req_id)
             response = {"status": "error", "message": str(e)}
 
         if response is None:

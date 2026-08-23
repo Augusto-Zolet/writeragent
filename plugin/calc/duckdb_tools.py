@@ -20,7 +20,7 @@ from plugin.calc.calc_addin_data import check_python_data_size
 if TYPE_CHECKING:
     from plugin.framework.tool import ToolContext
 
-logger = logging.getLogger("writeragent.calc.duckdb")
+log = logging.getLogger("writeragent.calc.duckdb")
 
 
 class QueryFolderSqlTool(ToolCalcAnalysisBase):
@@ -177,7 +177,7 @@ class QueryFolderSqlTool(ToolCalcAnalysisBase):
         except ToolExecutionError as exc:
             return self._tool_error(str(exc), code=getattr(exc, "code", "DUCKDB_SQL_ERROR"))
         except Exception as exc:
-            logger.exception("query_folder_sql execute failed")
+            log.exception("query_folder_sql execute failed")
             return self._tool_error(f"Failed to run folder SQL: {exc}")
 
         if isinstance(result, dict):
@@ -247,7 +247,7 @@ def _read_sibling_office_file_as_grid(ctx: Any, full_path: str, sheet_hint: str 
 
         return tbl_name, grid
     except Exception as e:
-        logger.warning("Failed to read sibling office file %s for DuckDB: %s", full_path, e)
+        log.warning("Failed to read sibling office file %s for DuckDB: %s", full_path, e)
         return None, None
     finally:
         if model is not None and opened_flag:

@@ -27,7 +27,7 @@ from plugin.calc.base import ToolCalcConditionalBase
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.calc_utils import query_interface as _query_interface
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 # LibreOffice ``ConditionOperator`` / ``ConditionOperator2`` code labels (no UNO import).
 _CONDITION_OPERATOR_CODE_NAMES: tuple[str, ...] = ("NONE", "EQUAL", "NOT_EQUAL", "GREATER", "GREATER_EQUAL", "LESS", "LESS_EQUAL", "BETWEEN", "NOT_BETWEEN", "FORMULA", "DUPLICATE", "NOT_DUPLICATE")
@@ -135,7 +135,7 @@ class ListConditionalFormats(ToolCalcConditionalBase):
 
             return {"status": "ok", "range": range_str or "(used area)", "rules": rules, "count": len(rules)}
         except Exception as e:
-            logger.exception("List conditional formats failed")
+            log.exception("List conditional formats failed")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -226,12 +226,12 @@ class AddConditionalFormat(ToolCalcConditionalBase):
             formats.addNew(tuple(props))
             cell_range.setPropertyValue("ConditionalFormat", formats)
 
-            logger.info("Conditional format added to %s.", range_str.upper())
+            log.info("Conditional format added to %s.", range_str.upper())
             count = formats.getCount()
 
             return {"status": "ok", "range": range_str, "rule_count": count}
         except Exception as e:
-            logger.exception("Add conditional format failed")
+            log.exception("Add conditional format failed")
             raise ToolExecutionError(str(e)) from e
 
 
@@ -267,5 +267,5 @@ class RemoveConditionalFormats(ToolCalcConditionalBase):
             return {"status": "ok", "range": range_str, "cleared": True}
 
         except Exception as e:
-            logger.exception("Remove conditional formats failed")
+            log.exception("Remove conditional formats failed")
             raise ToolExecutionError(str(e)) from e

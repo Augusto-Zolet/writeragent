@@ -24,7 +24,7 @@ import logging
 
 from plugin.framework.errors import ToolExecutionError
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 
 class SheetAnalyzer:
@@ -90,7 +90,7 @@ class SheetAnalyzer:
                 result["chart_count"] = charts.getCount()
                 result["charts"] = list(charts.getElementNames())
             except Exception as e:
-                logger.debug("get_sheet_summary charts error: %s", e)
+                log.debug("get_sheet_summary charts error: %s", e)
                 result["chart_count"] = 0
                 result["charts"] = []
 
@@ -98,14 +98,14 @@ class SheetAnalyzer:
             try:
                 result["annotation_count"] = sheet.getAnnotations().getCount()
             except Exception as e:
-                logger.debug("get_sheet_summary annotations error: %s", e)
+                log.debug("get_sheet_summary annotations error: %s", e)
                 result["annotation_count"] = 0
 
             # Merged cells - count via querying
             try:
                 result["has_merges"] = sheet.getPropertyValue("HasMergedCells") if hasattr(sheet, "getPropertyValue") else None
             except Exception as e:
-                logger.debug("get_sheet_summary merged cells error: %s", e)
+                log.debug("get_sheet_summary merged cells error: %s", e)
                 result["has_merges"] = None
 
             # Draw page (shapes on sheet)
@@ -113,10 +113,10 @@ class SheetAnalyzer:
                 dp = sheet.DrawPage
                 result["shape_count"] = dp.getCount()
             except Exception as e:
-                logger.debug("get_sheet_summary shape_count error: %s", e)
+                log.debug("get_sheet_summary shape_count error: %s", e)
                 result["shape_count"] = 0
 
             return result
         except Exception as e:
-            logger.exception("Error creating sheet summary")
+            log.exception("Error creating sheet summary")
             raise ToolExecutionError(str(e)) from e

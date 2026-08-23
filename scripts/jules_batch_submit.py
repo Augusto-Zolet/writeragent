@@ -16,7 +16,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
-logger = logging.getLogger("jules_submitter")
+log = logging.getLogger("jules_submitter")
 
 TASK_DIR = Path("mail_merge_tasks")
 TASK_INDEX = TASK_DIR / "task_index.json"
@@ -28,7 +28,7 @@ def load_status():
             with open(STATUS_FILE, "r") as f:
                 return json.load(f)
         except Exception as e:
-            logger.error(f"Failed to load status file: {e}")
+            log.error(f"Failed to load status file: {e}")
             return {}
     return {}
 
@@ -37,12 +37,12 @@ def save_status(status):
         with open(STATUS_FILE, "w") as f:
             json.dump(status, f, indent=2)
     except Exception as e:
-        logger.error(f"Failed to save status file: {e}")
+        log.error(f"Failed to save status file: {e}")
 
 def run_jules_task(task_id, document_path, dry_run=False):
     """Submits a single task to Jules."""
     if not document_path.exists():
-        logger.warning(f"Skipping task {task_id}: Document not found at {document_path}")
+        log.warning(f"Skipping task {task_id}: Document not found at {document_path}")
         return False
 
     with open(document_path, "r") as f:
@@ -98,7 +98,7 @@ def main():
     args = parser.parse_args()
 
     if not TASK_INDEX.exists():
-        logger.error(f"Task index not found at {TASK_INDEX}. Have you run the mail_merge script?")
+        log.error(f"Task index not found at {TASK_INDEX}. Have you run the mail_merge script?")
         return
 
     with open(TASK_INDEX, "r") as f:
@@ -115,7 +115,7 @@ def main():
         doc_name = task.get("document")
         
         if not doc_name:
-            logger.warning(f"Skipping task {task_id}: No 'document' field found in index.")
+            log.warning(f"Skipping task {task_id}: No 'document' field found in index.")
             continue
             
         doc_path = TASK_DIR / doc_name
@@ -134,7 +134,7 @@ def main():
                 
                 # Sleep between requests to be friendly to the API
                 if submitted_count < args.limit - 1:
-                    logger.info("Waiting 5 seconds before next submission...")
+                    log.info("Waiting 5 seconds before next submission...")
                     time.sleep(5)
             
             submitted_count += 1

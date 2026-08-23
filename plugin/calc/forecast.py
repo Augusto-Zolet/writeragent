@@ -16,7 +16,7 @@ from plugin.scripting.forecast import HELPER_NAMES
 if TYPE_CHECKING:
     from plugin.framework.tool import ToolContext
 
-logger = logging.getLogger("writeragent.calc")
+log = logging.getLogger("writeragent.calc")
 
 _FORECAST_DATA_HELPERS = ", ".join(sorted(HELPER_NAMES))
 
