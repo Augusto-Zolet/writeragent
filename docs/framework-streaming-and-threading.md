@@ -306,6 +306,8 @@ To handle both sync and async tools without freezing the UI, WriterAgent uses an
 
 This sequentializes tool execution while guaranteeing the UI never freezes during network-bound tool operations.
 
+Smolagents (`ToolCallingAgent.process_tool_calls`) uses the same rule: multiple `tool_calls` in one assistant turn run **in list order on the current thread**, not a thread pool.
+
 ### Stop / cancellation
 
 Each sidebar **Send** runs under a **`SendCancellation`** scope ([`plugin/framework/queue_executor.py`](../plugin/framework/queue_executor.py) `agent_session()`). **Stop** calls `scope.cancel()` once.

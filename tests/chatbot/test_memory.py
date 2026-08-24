@@ -177,12 +177,7 @@ class TestMemoryTool(unittest.TestCase):
 '''
 
 class TestMemoryWriteConcurrency(unittest.TestCase):
-    """Regression: parallel upsert_memory calls raced and tore USER.md (2026-08-23).
-
-    Two calls in one model turn (name + favorite color) interleaved their
-    open/write cycles: shorter payload won the head of the file, the longer
-    write's stale tail survived, and the sibling key was lost.
-    """
+    """Two upserts in one turn must merge (tools now run one at a time, not on threads)."""
 
     def setUp(self):
         self.tmp_dir = tempfile.mkdtemp()
@@ -192,25 +187,16 @@ class TestMemoryWriteConcurrency(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
-    def test_parallel_upserts_merge_without_corruption(self):
-        import threading
-
+    def test_sequential_upserts_merge_without_corruption(self):
         from plugin.chatbot.memory import MemoryTool
 
         tool = MemoryTool()
+        res1 = tool.execute(self.ctx, key="name", content="Andre")
+        res2 = tool.execute(self.ctx, key="favorite_colors", content="dark blue")
+        self.assertEqual(res1.get("status"), "ok", res1)
+        self.assertEqual(res2.get("status"), "ok", res2)
 
-        def run(key, content):
-            res = tool.execute(self.ctx, key=key, content=content)
-            assert res.get("status") == "ok", res
-
-        t1 = threading.Thread(target=run, args=("name", "Andre"))
-        t2 = threading.Thread(target=run, args=("favorite_colors", "dark blue"))
-        t1.start()
-        t2.start()
-        t1.join()
-        t2.join()
-
-        data = json.loads(self.store.read("user"))  # must be valid JSON
+        data = json.loads(self.store.read("user"))
         self.assertEqual(data["name"], "Andre")
         self.assertEqual(data["favorite_colors"], "dark blue")
 

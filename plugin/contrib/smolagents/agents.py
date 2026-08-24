@@ -22,8 +22,6 @@ import uuid
 import warnings
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Generator
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from contextvars import copy_context
 from dataclasses import dataclass
 from logging import getLogger
 from typing import TYPE_CHECKING, Any, Literal, Type, TypedDict
@@ -883,9 +881,8 @@ class ToolCallingAgent(MultiStepAgent):
         prompt_templates ([`~agents.PromptTemplates`], *optional*): Prompt templates.
         planning_interval (`int`, *optional*): Interval at which the agent will run a planning step.
         stream_outputs (`bool`, *optional*, default `False`): Whether to stream outputs during execution.
-        max_tool_threads (`int`, *optional*): Maximum number of threads for parallel tool calls.
-            Higher values increase concurrency but resource usage as well.
-            Defaults to `ThreadPoolExecutor`'s default.
+        max_tool_threads (`int`, *optional*): Ignored. WriterAgent always runs tool calls
+            in the current thread, in list order (same as the main-chat pending_tools queue).
         system_prompt_examples (`str`, *optional*): Few-shot Action/Observation examples inserted at `__EXAMPLES_BLOCK__`
             in the default system prompt. Defaults to web-search-style examples from `toolcalling_agent_prompts`.
         **kwargs: Additional keyword arguments.
@@ -922,7 +919,7 @@ class ToolCallingAgent(MultiStepAgent):
             raise ValueError(
                 "`stream_outputs` is set to True, but the model class implements no `generate_stream` method."
             )
-        # Tool calling setup
+        # Kept for constructor compatibility; process_tool_calls is always sequential.
         self.max_tool_threads = max_tool_threads
 
     @property
@@ -1131,25 +1128,14 @@ class ToolCallingAgent(MultiStepAgent):
                 tool_call=tool_call,
             )
 
-        # Process tool calls in parallel
+        # Several tool_calls in one assistant turn: run them one at a time on this
+        # thread (same as main-chat pending_tools). A thread pool here raced
+        # upsert_memory RMW — torn USER.md / lost keys (2026-08-23).
         outputs = {}
-        if len(parallel_calls) == 1:
-            # If there's only one call, process it directly
-            tool_call = list(parallel_calls.values())[0]
+        for tool_call in parallel_calls.values():
             tool_output = process_single_tool_call(tool_call)
             outputs[tool_output.id] = tool_output
             yield tool_output
-        else:
-            # If multiple tool calls, process them in parallel
-            with ThreadPoolExecutor(self.max_tool_threads) as executor:
-                futures = []
-                for tool_call in parallel_calls.values():
-                    ctx = copy_context()
-                    futures.append(executor.submit(ctx.run, process_single_tool_call, tool_call))
-                for future in as_completed(futures):
-                    tool_output = future.result()
-                    outputs[tool_output.id] = tool_output
-                    yield tool_output
 
         memory_step.tool_calls = [parallel_calls[k] for k in sorted(parallel_calls.keys())]
         memory_step.observations = memory_step.observations or ""

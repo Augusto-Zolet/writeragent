@@ -77,8 +77,8 @@ flowchart TB
   FACT --> TCA
 ```
 
-- **Main chat:** registry schemas → wire `tools` → `tool_calls` → `ToolRegistry.execute` → history.
-- **Smol:** `ToolBase` → `SmolToolAdapter` → `ToolCallingAgent` → **`WriterAgentSmolModel`** → `request_with_tools(..., tools=completion_kwargs.get("tools"))` → `ChatMessage.from_dict` → smol steps.
+- **Main chat:** registry schemas → wire `tools` → `tool_calls` → `ToolRegistry.execute` → history. Several calls in one turn go on `pending_tools` and run **one at a time**.
+- **Smol:** `ToolBase` → `SmolToolAdapter` → `ToolCallingAgent` → **`WriterAgentSmolModel`** → `request_with_tools(..., tools=completion_kwargs.get("tools"))` → `ChatMessage.from_dict` → smol steps. The model may still emit several `tool_calls` in one step; **`process_tool_calls` runs them serially on the current thread** (no `ThreadPoolExecutor`). Overlapping upserts used to tear `USER.md`.
 
 **Shared:** [`LlmClient`](../plugin/framework/client/llm_client.py) only—no duplicate strip/shim/parser logic in smol-specific files.
 

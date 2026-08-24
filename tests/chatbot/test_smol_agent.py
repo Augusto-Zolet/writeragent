@@ -923,6 +923,64 @@ class TestSmolMixedToolCalls(unittest.TestCase):
         self.assertTrue(final_outputs[0].is_final_answer)
         self.assertEqual(final_outputs[0].output, "Finished!")
 
+    def test_two_tool_calls_run_in_order_on_one_thread(self):
+        """Several calls in one ChatMessage must not fan out to a thread pool."""
+        import threading
+
+        from plugin.contrib.smolagents.agents import ToolOutput
+        from plugin.contrib.smolagents.models import (
+            ChatMessageToolCall,
+            ChatMessageToolCallFunction,
+        )
+
+        order: list[tuple[str, int]] = []
+
+        class _OrderTool(ToolBase):
+            name = "stub"
+            description = "desc"
+            parameters = {
+                "type": "object",
+                "properties": {"p": {"type": "string", "description": "param"}},
+                "required": ["p"],
+            }
+
+            def execute(self, ctx, **kwargs):
+                order.append((str(kwargs.get("p")), threading.get_ident()))
+                return {"status": "ok", "p": kwargs.get("p")}
+
+        ctx = MagicMock()
+        model = MagicMock()
+        agent = ToolCallingAgent(
+            tools=[SmolToolAdapter(_OrderTool(), ctx, safe=False)],
+            model=model,
+            final_answer_tool_name="reply_to_user",
+        )
+        chat_msg = ChatMessage(
+            role=MessageRole.ASSISTANT,
+            content="",
+            tool_calls=[
+                ChatMessageToolCall(
+                    id="call_a",
+                    type="function",
+                    function=ChatMessageToolCallFunction(name="stub", arguments={"p": "first"}),
+                ),
+                ChatMessageToolCall(
+                    id="call_b",
+                    type="function",
+                    function=ChatMessageToolCallFunction(name="stub", arguments={"p": "second"}),
+                ),
+            ],
+        )
+        model.generate.return_value = chat_msg
+        memory_step = ActionStep(step_number=1, timing=Timing(start_time=time.time()))
+        outputs = list(agent._step_stream(memory_step))
+
+        tool_outputs = [o for o in outputs if isinstance(o, ToolOutput)]
+        self.assertEqual(len(tool_outputs), 2)
+        self.assertEqual([p for p, _tid in order], ["first", "second"])
+        self.assertEqual(len({tid for _p, tid in order}), 1)
+        self.assertEqual(order[0][1], threading.get_ident())
+
 
 class _WebSearchStubTool(ToolBase):
     name = "web_search"
