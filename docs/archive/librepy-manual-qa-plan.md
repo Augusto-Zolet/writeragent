@@ -310,9 +310,11 @@ Source of formulas: [python-in-calc-showcase.md](python-in-calc-showcase.md) and
 |----|-------|---------------|----------------------------------|
 | D1 | Overview | Total Revenue KPI | `$119,142.00` (or `119142`) |
 | D2 | Overview | Avg Profit Margin | `28.4%` |
-| D3 | Overview | Anomalies Flagged | `5 Detected` (or `5`) |
+| D3 | Overview | Anomalies Flagged | `2 Detected` (or `2`) |
 | D4 | Sales_Analytics | Enterprise revenue `=PY` | `81497.5` (matches filter on `Customer Type == Enterprise`) |
 | D5 | Sales_Analytics | Top SKU by revenue | `FURN-3388` (non-empty SKU code) |
+| D5a | Sales_Analytics | High-value threshold (mean plus 2 stdev) | `9711.89` |
+| D5b | Sales_Analytics | High value orders above that threshold | `2` |
 | D6 | Statistics_ML | Pearson r Ad Spend vs Revenue | ~`0.7978` |
 | D7 | Statistics_ML | OLS slope | ~`5.07` |
 | D8 | Statistics_ML | Top ROI channel | `Email Marketing` (one of Search Ads / Social Media / Email Marketing) |

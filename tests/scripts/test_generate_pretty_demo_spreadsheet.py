@@ -49,9 +49,11 @@ def test_showcase_kpi_math(generator_mod):
     )
     assert f"{weighted_margin:.1%}" == "28.4%"
 
-    anomalies = sum(1 for r in sales[1:] if r[7] > 8000)
-    assert anomalies == 5
-    assert f"{anomalies} Detected" == "5 Detected"
+    anomalies_threshold = round(float(np.mean([r[7] for r in sales[1:]]) + 2 * np.std([r[7] for r in sales[1:]])), 2)
+    assert anomalies_threshold == 9711.89
+    anomalies = sum(1 for r in sales[1:] if r[7] > anomalies_threshold)
+    assert anomalies == 2
+    assert f"{anomalies} Detected" == "2 Detected"
 
     fc_target = ts[-1][4] * 1.15
     assert f"${fc_target:,.2f}" == "$349.02"
@@ -84,17 +86,13 @@ def test_showcase_kpi_math(generator_mod):
     assert next_trend == 282.0
     peak_sales = max(r[4] for r in ts[1:])
     assert peak_sales == 303.5
-    spike_month = ts[1:][max(range(len(ts[1:])), key=lambda i: ts[1:][i][4] - ts[1:][i][2] - ts[1:][i][3])][1]
+    spike_month = max(ts[1:], key=lambda r: r[4] - r[2] - r[3])[1]
     assert spike_month == "2023-08-01"
 
     # Optimization
-    highest_ret = ["Equities_US", "Tech_Growth", "Treasury_Bonds", "Real_Estate"][
-        max(range(4), key=lambda c: sum(r[c + 1] for r in port[1:]))
-    ]
+    highest_ret = port[0][1:][max(range(4), key=lambda c: sum(r[c + 1] for r in port[1:]))]
     assert highest_ret == "Tech_Growth"
-    lowest_vol = ["Equities_US", "Tech_Growth", "Treasury_Bonds", "Real_Estate"][
-        min(range(4), key=lambda c: float(np.var([r[c + 1] for r in port[1:]])))
-    ]
+    lowest_vol = port[0][1:][min(range(4), key=lambda c: np.var([r[c + 1] for r in port[1:]]))]
     assert lowest_vol == "Treasury_Bonds"
 
     # Engineering Math
@@ -130,7 +128,13 @@ def test_generator_writes_ods_and_xlsx(generator_mod, tmp_path: Path):
         assert "ORG.EXTENSION.WRITERAGENT.PYTHONFUNCTION.PY" in content_xml
         assert "$119,142.00" in content_xml
         assert "28.4%" in content_xml
-        assert "5 Detected" in content_xml
+        assert "2 Detected" in content_xml
+        assert "np.mean" in content_xml
+        assert "np.std" in content_xml
+        assert "[.F46]" in content_xml
+        assert "[$Sales_Analytics.F47]" in content_xml
+        assert "sum(r[7] &gt; data[1] for r in data[0][1:])" in content_xml
+        assert "r[7] &gt; 8000" not in content_xml
         assert "$349.02" in content_xml
 
     # Verify XLSX contains sheet XMLs and fully-qualified addin functions

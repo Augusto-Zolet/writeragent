@@ -70,6 +70,9 @@ def ods_formula(calc_formula: str) -> str:
     f = re.sub(r'([A-Za-z0-9_]+)\.([A-Z]+)(\d+):([A-Z]+)(\d+)', r'[$\1.\2\3:.\4\5]', f)
     # Convert same-sheet ranges: A5:I40 -> [.A5:.I40]
     f = re.sub(r'(?<=[;,\(\s])(?<!\$)([A-Z]+)(\d+):([A-Z]+)(\d+)', r'[.\1\2:.\3\4]', f)
+    # Single cells after ranges so Sheet.A5:I40 is not split. (?<!$) skips already-converted [$Sheet.A5:.I40].
+    f = re.sub(r'(?<!\$)([A-Za-z0-9_]+)\.([A-Z]+)(\d+)', r'[$\1.\2\3]', f)
+    f = re.sub(r'(?<=[;,\(\s])(?<!\$)([A-Z]+)(\d+)', r'[.\1\2]', f)
     return f"of:={f}"
 
 
@@ -341,7 +344,7 @@ def build_ods_showcase(out_path: Path) -> None:
     rk_vals = TableRow()
     rk_vals.addElement(make_cell("$119,142.00", "KPICardVal", span_cols=2, formula='=PY("f\'${sum(r[7] for r in data[1:]):,.2f}\'"; Sales_Analytics.A5:I40)'))
     rk_vals.addElement(make_cell("28.4%", "KPICardVal", span_cols=2, formula='=PY("f\'{sum(r[7] * (0.28 if r[3]==\'Electronics\' else 0.30 if r[3]==\'Furniture\' else 0.22) for r in data[1:]) / sum(r[7] for r in data[1:]):.1%}\'"; Sales_Analytics.A5:I40)'))
-    rk_vals.addElement(make_cell("5 Detected", "KPICardVal", span_cols=2, formula='=PY("f\'{sum(1 for r in data[1:] if r[7] > 8000)} Detected\'"; Sales_Analytics.A5:I40)'))
+    rk_vals.addElement(make_cell("2 Detected", "KPICardVal", span_cols=2, formula='=PY("f\'{int(data)} Detected\'"; Sales_Analytics.F47)'))
     rk_vals.addElement(make_cell("$349.02", "KPICardVal", span_cols=2, formula='=PY("f\'${data[-1][4] * 1.15:,.2f}\'"; Forecasting.A5:E41)'))
     tab1.addElement(rk_vals)
 
@@ -408,8 +411,9 @@ def build_ods_showcase(out_path: Path) -> None:
     calc_cards_t2 = [
         ("1. Total Enterprise Revenue", "Filters and sums all Enterprise tier sales orders", '=PY("sum(r[7] for r in data[1:] if r[4] == \'Enterprise\')"; A5:I40)'),
         ("2. Top Selling SKU by Revenue", "Finds the highest single order revenue SKU code", '=PY("max(data[1:], key=lambda r: r[7])[8]"; A5:I40)'),
-        ("3. Regional Average Order Size", "Calculates average units purchased per transaction", '=PY("round(sum(r[5] for r in data[1:]) / len(data[1:]), 1)"; A5:I40)'),
-        ("4. Anomalous High-Value Orders (> $8,000)", "Flags order totals exceeding 2 standard deviations", '=PY("sum(1 for r in data[1:] if r[7] > 8000)"; A5:I40)'),
+        ("3. Regional Average Order Size", "Calculates average units purchased per transaction", '=PY("round(np.mean([r[5] for r in data[1:]]), 1)"; A5:I40)'),
+        ("4. High-Value Threshold (mean plus 2 standard deviations)", "Revenue cutoff: mean plus two population standard deviations", '=PY("rev = [r[7] for r in data[1:]]; round(np.mean(rev) + 2 * np.std(rev), 2)"; A5:I40)'),
+        ("5. High Value Orders (above threshold)", "Flags orders more than 2 standard deviations above the mean", '=PY("sum(r[7] > data[1] for r in data[0][1:])"; A5:I40; F46)'),
     ]
     for title, desc, form in calc_cards_t2:
         rc1 = TableRow()
@@ -495,7 +499,7 @@ def build_ods_showcase(out_path: Path) -> None:
         ("1. 36-Month Compound Growth Rate", "Annualized growth rate over the 3-year historical window", '=PY("f\'{((data[-1][4]/data[1][4])**(1/3) - 1):.1%}\'"; A5:E41)'),
         ("2. Next Month Trend Projection (Month 37)", "Linear baseline projection for upcoming month", '=PY("round(data[-1][2] + 4.5, 1)"; A5:E41)'),
         ("3. Peak Historical Sales Value", "Maximum observed monthly sales volume", '=PY("max(r[4] for r in data[1:])"; A5:E41)'),
-        ("4. Residual Anomaly Spike Month", "Detects unusual spike via STL residual analysis", '=PY("data[1:][max(range(len(data[1:])), key=lambda i: data[1:][i][4] - data[1:][i][2] - data[1:][i][3])][1]"; A5:E41)'),
+        ("4. Residual Anomaly Spike Month", "Detects unusual spike via STL residual analysis", '=PY("max(data[1:], key=lambda r: r[4] - r[2] - r[3])[1]"; A5:E41)'),
     ]
     for title, desc, form in ts_cards:
         rc = TableRow()
@@ -535,8 +539,8 @@ def build_ods_showcase(out_path: Path) -> None:
     tab5.addElement(t5_an_title)
 
     opt_cards = [
-        ("1. Highest Return Asset Class", "Identifies asset with highest cumulative 16-month gain", '=PY("[\'Equities_US\',\'Tech_Growth\',\'Treasury_Bonds\',\'Real_Estate\'][max(range(4), key=lambda c: sum(r[c+1] for r in data[1:]))]"; A5:E21)'),
-        ("2. Lowest Volatility Asset (Safety Anchor)", "Finds the asset with minimum variance / drawdown", '=PY("[\'Equities_US\',\'Tech_Growth\',\'Treasury_Bonds\',\'Real_Estate\'][min(range(4), key=lambda c: float(np.var([r[c+1] for r in data[1:]])))]"; A5:E21)'),
+        ("1. Highest Return Asset Class", "Identifies asset with highest cumulative 16-month gain", '=PY("data[0][1:][max(range(4), key=lambda c: sum(r[c+1] for r in data[1:]))]"; A5:E21)'),
+        ("2. Lowest Volatility Asset (Safety Anchor)", "Finds the asset with minimum variance / drawdown", '=PY("data[0][1:][min(range(4), key=lambda c: np.var([r[c+1] for r in data[1:]]))]"; A5:E21)'),
         ("3. Equal-Weight Portfolio Annual Return", "Expected return of a naive 25% equal allocation", '=PY("f\'{sum(sum(r[1:]) for r in data[1:]) / (len(data[1:]) * 4) * 12:.1%}\'"; A5:E21)'),
         ("4. Monte Carlo 10-Yr 95th %ile Wealth ($10k)", "Top quartile outcome simulated across 1,000 runs", '=PY("f\'${10000 * (1 + 0.08)**10 * 1.35:,.0f}\'"; A5:E21)'),
     ]
@@ -756,7 +760,7 @@ def build_xlsx_showcase(out_path: Path) -> None:
     kpi_spans = [
         ("A5:B5", "A6:B6", "TOTAL REVENUE (YTD)", f'={CALC_PYTHON_ADDIN_FN}("f\'${{sum(r[7] for r in data[1:]):,.2f}}\'", Sales_Analytics!A4:I39)'),
         ("C5:D5", "C6:D6", "AVG PROFIT MARGIN", f'={CALC_PYTHON_ADDIN_FN}("f\'{{sum(r[7] * (0.28 if r[3]==\'Electronics\' else 0.30 if r[3]==\'Furniture\' else 0.22) for r in data[1:]) / sum(r[7] for r in data[1:]):.1%}}\'", Sales_Analytics!A4:I39)'),
-        ("E5:F5", "E6:F6", "ANOMALIES FLAGGED", f'={CALC_PYTHON_ADDIN_FN}("f\'{{sum(1 for r in data[1:] if r[7] > 8000)}} Detected\'", Sales_Analytics!A4:I39)'),
+        ("E5:F5", "E6:F6", "ANOMALIES FLAGGED", f'={CALC_PYTHON_ADDIN_FN}("f\'{{int(data)}} Detected\'", Sales_Analytics!F47)'),
         ("G5:H5", "G6:H6", "FORECAST TARGET (Q3)", f'={CALC_PYTHON_ADDIN_FN}("f\'${{data[-1][4] * 1.15:,.2f}}\'", Forecasting!A4:E40)'),
     ]
 
@@ -912,8 +916,9 @@ def build_xlsx_showcase(out_path: Path) -> None:
         [
             ("1. Total Enterprise Sales", "Filters and sums all Enterprise tier sales orders", f'={CALC_PYTHON_ADDIN_FN}("sum(r[7] for r in data[1:] if r[4]==\'Enterprise\')", A4:I39)'),
             ("2. Top Revenue SKU", "Finds the highest single order revenue SKU code", f'={CALC_PYTHON_ADDIN_FN}("max(data[1:], key=lambda r: r[7])[8]", A4:I39)'),
-            ("3. Avg Units per Order", "Calculates average units purchased per transaction", f'={CALC_PYTHON_ADDIN_FN}("round(sum(r[5] for r in data[1:])/len(data[1:]), 1)", A4:I39)'),
-            ("4. High Value Orders (> $8k)", "Flags order totals exceeding 2 standard deviations", f'={CALC_PYTHON_ADDIN_FN}("sum(1 for r in data[1:] if r[7] > 8000)", A4:I39)'),
+            ("3. Avg Units per Order", "Calculates average units purchased per transaction", f'={CALC_PYTHON_ADDIN_FN}("round(np.mean([r[5] for r in data[1:]]), 1)", A4:I39)'),
+            ("4. High-Value Threshold (mean plus 2 standard deviations)", "Revenue cutoff: mean plus two population standard deviations", f'={CALC_PYTHON_ADDIN_FN}("rev = [r[7] for r in data[1:]]; round(np.mean(rev) + 2 * np.std(rev), 2)", A4:I39)'),
+            ("5. High Value Orders (above threshold)", "Flags orders more than 2 standard deviations above the mean", f'={CALC_PYTHON_ADDIN_FN}("sum(r[7] > data[1] for r in data[0][1:])", A4:I39, F46)'),
         ]
     )
 
@@ -941,7 +946,7 @@ def build_xlsx_showcase(out_path: Path) -> None:
             ("1. 3-Yr Compound Annual Growth", "Annualized growth rate over the 3-year historical window", f'={CALC_PYTHON_ADDIN_FN}("f\'{{((data[-1][4]/data[1][4])**(1/3) - 1):.1%}}\'", A4:E40)'),
             ("2. Next Month Trend Projection", "Linear baseline projection for upcoming month", f'={CALC_PYTHON_ADDIN_FN}("round(data[-1][2] + 4.5, 1)", A4:E40)'),
             ("3. Peak Historical Sales Value", "Maximum observed monthly sales volume", f'={CALC_PYTHON_ADDIN_FN}("max(r[4] for r in data[1:])", A4:E40)'),
-            ("4. Residual Anomaly Spike", "Detects unusual spike via STL residual analysis", f'={CALC_PYTHON_ADDIN_FN}("data[1:][max(range(len(data[1:])), key=lambda i: data[1:][i][4] - data[1:][i][2] - data[1:][i][3])][1]", A4:E40)'),
+            ("4. Residual Anomaly Spike", "Detects unusual spike via STL residual analysis", f'={CALC_PYTHON_ADDIN_FN}("max(data[1:], key=lambda r: r[4] - r[2] - r[3])[1]", A4:E40)'),
         ]
     )
 
@@ -952,8 +957,8 @@ def build_xlsx_showcase(out_path: Path) -> None:
         "16-MONTH ASSET CLASS RETURNS MATRIX",
         get_portfolio_dataset(),
         [
-            ("1. Highest Return Asset", "Identifies asset with highest cumulative 16-month gain", f'={CALC_PYTHON_ADDIN_FN}("[\'Equities_US\',\'Tech_Growth\',\'Treasury_Bonds\',\'Real_Estate\'][max(range(4), key=lambda c: sum(r[c+1] for r in data[1:]))]", A4:E20)'),
-            ("2. Minimum Variance Anchor", "Finds the asset with minimum variance / drawdown", f'={CALC_PYTHON_ADDIN_FN}("[\'Equities_US\',\'Tech_Growth\',\'Treasury_Bonds\',\'Real_Estate\'][min(range(4), key=lambda c: float(np.var([r[c+1] for r in data[1:]])))]", A4:E20)'),
+            ("1. Highest Return Asset", "Identifies asset with highest cumulative 16-month gain", f'={CALC_PYTHON_ADDIN_FN}("data[0][1:][max(range(4), key=lambda c: sum(r[c+1] for r in data[1:]))]", A4:E20)'),
+            ("2. Minimum Variance Anchor", "Finds the asset with minimum variance / drawdown", f'={CALC_PYTHON_ADDIN_FN}("data[0][1:][min(range(4), key=lambda c: np.var([r[c+1] for r in data[1:]]))]", A4:E20)'),
             ("3. Equal-Weight Portfolio Annual Return", "Expected return of a naive 25% equal allocation", f'={CALC_PYTHON_ADDIN_FN}("f\'{{sum(sum(r[1:]) for r in data[1:]) / (len(data[1:]) * 4) * 12:.1%}}\'", A4:E20)'),
             ("4. Monte Carlo 10-Yr 95th %ile Wealth", "Top quartile outcome simulated across 1,000 runs", f'={CALC_PYTHON_ADDIN_FN}("f\'${{10000 * (1 + 0.08)**10 * 1.35:,.0f}}\'", A4:E20)'),
         ]
