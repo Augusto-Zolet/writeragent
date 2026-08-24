@@ -187,7 +187,10 @@ def test_run_code_forwards_init_kwargs():
 
 
 def test_workbook_session_id_recursion_off_main_thread(monkeypatch: pytest.MonkeyPatch) -> None:
-    from plugin.scripting.session_manager import workbook_session_id
+    from plugin.scripting.session_manager import clear_active_calc_session, workbook_session_id
+
+    # Reset any cached session from prior test cases
+    clear_active_calc_session()
 
     # Off-main threads must return None without blocking or deadlocking (#402)
     monkeypatch.setattr("plugin.framework.thread_guard.on_main_thread", lambda: False)
@@ -200,6 +203,7 @@ def test_workbook_session_id_recursion_off_main_thread(monkeypatch: pytest.Monke
     ctx = MagicMock()
     res = workbook_session_id(ctx)
     assert res is None
+
 
 
 def test_init_helper_function_in_shared_kernel():

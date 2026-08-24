@@ -108,8 +108,10 @@ def doc_type_title_for_label(label: str | None) -> str:
     }.get(str(label).strip().lower(), "Unknown")
 
 
-@safe_uno_call(default=DocumentType.UNKNOWN)
+# Bugfix: @main_thread_only MUST be the outer decorator here so off-main thread calls
+# raise thread violation errors immediately instead of being swallowed by @safe_uno_call.
 @main_thread_only
+@safe_uno_call(default=DocumentType.UNKNOWN)
 def get_document_type(model: Any) -> DocumentType:
     """Return the DocumentType for the given model."""
     if model is None:
@@ -121,6 +123,7 @@ def get_document_type(model: Any) -> DocumentType:
             return doc_type
 
     return DocumentType.UNKNOWN
+
 
 
 def is_writer(model: Any) -> bool:
