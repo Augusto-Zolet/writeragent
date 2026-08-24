@@ -118,7 +118,7 @@ def _verify_accelerator(fn2d: Any, fn1d: Any) -> bool:
 def load_cython_accelerator() -> None:
     """Attempt to load the Cython accelerator and verify it via a runtime canary test."""
     global fast_flatten_grid_2d, fast_flatten_grid_1d, _CYTHON_ACCELERATOR_DISABLED, _CYTHON_ACCELERATOR_LOCATION
-    if _CYTHON_ACCELERATOR_DISABLED and fast_flatten_grid_2d is None:
+    if fast_flatten_grid_2d is not None or _CYTHON_ACCELERATOR_DISABLED:
         return
 
     # Ensure native binary directories (installed user_config or in-tree repo contrib) are on sys.path
@@ -188,7 +188,7 @@ def load_cython_accelerator() -> None:
             fast_flatten_grid_1d = fn1d
             _CYTHON_ACCELERATOR_LOCATION = loc
             _CYTHON_ACCELERATOR_DISABLED = False
-            log.info("payload_codec: Cython accelerator (%s) verified and loaded", loc)
+            log.debug("payload_codec: Cython accelerator (%s) verified and loaded", loc)
         else:
             _CYTHON_ACCELERATOR_DISABLED = True
             _CYTHON_ACCELERATOR_LOCATION = None
