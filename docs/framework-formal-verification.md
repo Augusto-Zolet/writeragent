@@ -215,6 +215,17 @@ make crosshair-cover-all        # same set; regular budget (25/5s + 120s wall); 
 make crosshair-cover-all-deep   # same set; deep budget (200 iters, no timeout/wall)
 ```
 
+##### GitHub Actions (On-Demand CI Sweeps)
+
+Deep CrossHair sweeps are also available on GitHub Actions via manual dispatch (`workflow_dispatch`):
+- **Workflow**: `.github/workflows/crosshair-deep.yml`
+- **Inputs**:
+  - `target`: `both` (default), `check-all`, or `cover-all`
+  - `deep`: `true` (default: 200 iterations, no per-condition wall) or `false` (regular: 25 iterations / 5s + 120s wall)
+  - `runner_os`: `ubuntu-latest` (default), with support for `windows-latest` and `macos-latest`
+  - `jobs`: worker pool size for cover-all
+- **Artifacts**: Automatically uploads `build/crosshair-check-all.log`, `build/crosshair-cover-all.log`, and `build/crosshair-cover-all-timings.json` on completion or failure.
+
 ##### `make verify` vs `make vhs` vs `make slowtests`
 
 | Target | Hypothesis budget | Scope |
