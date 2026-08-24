@@ -179,7 +179,25 @@ class WriteCellRange(ToolBase):
     """Write formulas or values to a cell range."""
 
     name = "write_formula_range"
-    description = "Writes formulas or values to a cell range(s) efficiently. Single string fills entire range; JSON array must match range size exactly (one value per cell). Use an empty string or empty array to clear contents. Supports lists for non-contiguous areas. Prefer plain values/ISO dates for static cells; use an '=' formula only when the cell must stay live (e.g. TODAY(), computed duration). Dates and times: use ISO 8601 only — YYYY-MM-DD, HH:MM[:SS], or YYYY-MM-DDTHH:MM[:SS]. These become real Calc date/time values. Elapsed/stopwatch values: use PTnHnMnS (e.g. PT30H, PT1H30M); these become duration serials with elapsed formatting. Do not include a timezone offset or Z, and do not use locale forms like 08/05/2026; those are stored as text. Prefix with an apostrophe ('2026-08-08) to force text."
+    description = (
+        'To run Python on sheet data, write =PY("result = …"; DataRange) into one empty cell '
+        "outside DataRange (e.g. J1 for A1:H500, or a new sheet). That cell spills the 2D result "
+        "(values are in the neighbors). A small peek of the origin or headers is enough — do not "
+        "dump the input or full spill into chat; do not write =PY onto DataRange (circular). If "
+        "they asked for in-place unique rows, still land beside/new sheet and say where. "
+        'Tables (headers, mixed types): =PY("result = data.to_pandas().drop_duplicates()"; DataRange). '
+        "np.unique on mixed rows fails — NumPy object arrays cannot compare/hash mixed cell types. "
+        "Writes formulas or values to a cell range(s) efficiently. Single string fills entire range; "
+        "JSON array must match range size exactly (one value per cell); or multiline CSV from a start "
+        "cell. Use an empty string or empty array to clear contents. Supports lists for non-contiguous "
+        "areas. Prefer plain values/ISO "
+        "dates for static cells; use an '=' formula only when the cell must stay live (e.g. TODAY(), "
+        "computed duration). Dates and times: use ISO 8601 only — YYYY-MM-DD, HH:MM[:SS], or "
+        "YYYY-MM-DDTHH:MM[:SS]. These become real Calc date/time values. Elapsed/stopwatch values: "
+        "use PTnHnMnS (e.g. PT30H, PT1H30M); these become duration serials with elapsed formatting. "
+        "Do not include a timezone offset or Z, and do not use locale forms like 08/05/2026; those "
+        "are stored as text. Prefix with an apostrophe ('2026-08-08) to force text."
+    )
     parameters = {
         "type": "object",
         "properties": {
@@ -245,7 +263,11 @@ class InsertCellHtml(ToolBase):
 
     name = "insert_cell_html"
     intent = "edit"
-    description = "Parses HTML with the same filter as Writer and pastes rich text into one cell on the active sheet (e.g. <b>, <i>, <a href>, line breaks). Does not support images or embedded objects. Clears existing cell text."
+    description = (
+        "Parses HTML with the same filter as Writer and pastes rich text into one cell on the "
+        "active sheet (e.g. <b>, <i>, <a href>, line breaks). Does not support images or embedded "
+        "objects. Clears existing cell text. Use set_style for table-wide borders."
+    )
     parameters = {"type": "object", "properties": {"cell": {"type": "string", "description": 'Single cell (e.g. "A1") on the active sheet.'}, "html": {"type": "string", "description": "HTML fragment or small document (UTF-8)."}}, "required": ["cell", "html"]}
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True

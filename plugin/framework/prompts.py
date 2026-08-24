@@ -151,10 +151,7 @@ CALC_CORE_DIRECTIVES: str = f"""When the user wants {DELEGATION_USER_FILE_DATA_H
 - You MUST NOT ask the user where the file is stored, or to upload, paste, or share its contents.
 - You MUST call delegate_to_specialized_calc_toolset(domain="document_research") once with their described file(s) and task in task; nearby files are matched (paths not required).
 When the user wants {DELEGATION_PUBLIC_WEB_HINT}, delegate_to_specialized_calc_toolset(domain="web_research").
-To run Python on sheet data, write_formula_range =PY("result = …"; DataRange) into one empty cell outside DataRange (e.g. J1 for A1:H500, or a new sheet).
-That cell spills the 2D result (values are in the neighbors).
-A small peek of the origin or headers is enough — do not dump the input or full spill into chat; do not write =PY onto DataRange (circular).
-If they asked for in-place unique rows, still land beside/new sheet and say where."""
+Python on sheet data: write_formula_range of =PY (that tool's description)."""
 
 DRAW_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT} (including when the user refers to any other file, document, spreadsheet, or sheet by name or path, e.g. "my spreadsheet", "read cell a9 from PythonInCalc", "summary.odt", etc., or asks to pull, read, search, or reference data from them):
 - You MUST NOT ask the user where the file is stored, how to find it, or to upload, paste, or share its contents.
@@ -905,11 +902,10 @@ def _init_venv_import_policy_strings() -> None:
 Other-sheet refs use a dot (Orders.A1), never Excel bang (Orders!A1 → #NAME?).
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1), =PY("result = …"; Orders.A1:H500)
 - Wrong: =IF(A1>0,"Yes","No"), Orders!A1
-- =PY("result = …"; DataRange) in one cell; a DataFrame/list spills into neighbors (omit DataRange if unused).
+- =PY("result = …"; DataRange) writes Python into a cell (omit DataRange if unused).
 {compact}
 - Example: =PY("result = np.sum(data)"; Orders.A1:H500).
-- {CALC_PYTHON_DATA_SHAPE_LLM_HINT}
-- Tables (headers, mixed types): =PY("result = data.to_pandas().drop_duplicates()"; Orders.A1:H500). np.unique on mixed rows fails — NumPy object arrays cannot compare/hash mixed cell types."""
+- {CALC_PYTHON_DATA_SHAPE_LLM_HINT}"""
     # Phase 6 spreadsheet-import LLM fallback; not a second prompt.
     CALC_PYTHON_FORMULA_LLM_HINT = CALC_FORMULA_SYNTAX
     DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = f"""You are a LibreOffice Calc spreadsheet assistant who creates polished, professional, and colorful spreadsheets.
@@ -928,26 +924,8 @@ CSV DATA: Use comma (,) for write_formula_range.
 CELL LINKS: Reference cells with HTML only, e.g. <a href="cell://B2">B2</a> (users click these in the chat sidebar to jump to the cell).
 Other sheets use the same Calc dot as formulas: <a href="cell://Orders.A1">Orders.A1</a>.
 
-TOOLS (grouped by use):
-
-READ:
-- read_cell_range: Inspection only — keep ranges small (e.g. A1:D10). Dates/times return ISO; elapsed duration is PTnHnMnS (e.g. PT30H).
-- get_sheet_summary: Active sheet size, headers, used range, charts, annotations, merges.
-
-WRITE & FORMAT:
-- write_formula_range: One string fills the range; JSON array must match range size (one value per cell); or multiline CSV from a start cell.
-  Empty string/array clears.
-  Prefer plain values/ISO dates; '=' only when the cell must stay live.
-  Dates/times: ISO (YYYY-MM-DD, HH:MM[:SS], …T…); elapsed PTnHnMnS.
-  No Z/offsets or locale dates like 08/05/2026.
-- set_style: Same formatting on one or more ranges.
-  Fixed properties only (list below)—not mixed rich text in a cell; use insert_cell_html for that.
-- set_style properties (each optional except range_name): range_name (array of addresses/ranges); bold; italic; font_size (points); bg_color; font_color (hex #RRGGBB or names: red, yellow, …); h_align (left|center|right|justify); v_align (top|center|bottom); wrap_text; border_color (outline around the range).
-- insert_cell_html: HTML rich text in one cell (bold, italic, links, breaks).
-  No images. Use set_style for table-wide borders.
-
-- merge_cells: Merge a range (e.g. headers); then write and style with write_formula_range/set_style.
-- delete_structure: Remove rows or columns at specific positions.
+TOOLS: read_cell_range, get_sheet_summary, write_formula_range, set_style, insert_cell_html, merge_cells, delete_structure (see each tool).
+set_style: fixed properties only — not mixed rich text in a cell; use insert_cell_html for that.
 
 {{specialized_delegation}}
 

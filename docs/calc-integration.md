@@ -19,7 +19,7 @@ All planned modules are implemented in `core/` and integrated into the **Chat Si
 - **Dynamic Tool Loading**: `panel.py` detects document type and switches between `WRITER_TOOLS` and `CALC_TOOLS`.
 - **Calc Chat Context**: `get_calc_context_for_chat(model, max_context, ctx)` in `core/document.py` provides a summary of the active sheet and selection. **Requires `ctx`** (component context); callers pass it from the panel or MainJob so we never use `uno.getComponentContext()` in this path.
 - **Robust prompt selection**: `get_chat_system_prompt_for_document(model, additional_instructions)` in `plugin/framework/prompts.py` is the single source of truth for the chat system prompt. It returns `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` for Calc and `DEFAULT_CHAT_SYSTEM_PROMPT` for Writer, so Writer/Calc prompts cannot be mixed. Used by `panel.py` and `main.py` for both sidebar and menu Chat.
-- **Calc System Prompt**: `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` in `plugin/framework/prompts.py` states semicolon formula syntax, a 3-step workflow (sheet summary / small peek → tools → short confirmation), and tools grouped by use (READ / WRITE & FORMAT). Structure inspired by libre_calc_ai `prompt_templates.py` (workflow, grouped tools, “do not explain—do the operation”).
+- **Calc System Prompt**: `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` in `plugin/framework/prompts.py` states semicolon formula syntax, a 3-step workflow (sheet summary / small peek → tools → short confirmation), and a short tool name index (schemas carry the rest). Structure inspired by libre_calc_ai `prompt_templates.py` (workflow, “do not explain—do the operation”).
 - **Menu**: "Chat with Document" for Calc in `main.py` (streams response to "AI Response" sheet; uses same prompt helper and `ctx` for context).
 - **Tests**: `tests/test_calc_address_utils.py` and `core/calc_tests.py`.
 
@@ -100,8 +100,8 @@ All planned modules are implemented in `core/` and integrated into the **Chat Si
   - “Do not explain—do the operation directly using tools” and “Perform as many steps as needed in one turn when possible.”
   - A 3-step **WORKFLOW**: `get_sheet_summary` (and a small `read_cell_range` peek only) → tools → short confirmation (mention cell/range addresses when changing). A large range in chat overloads the model context; pass the A1 address to `=PY` instead.
   - **FORMULA SYNTAX**: Semicolon (;) as argument separator; cross-sheet refs use a **dot** (`Orders.A1`), never Excel `Sheet!A1` (`#NAME?` in Calc). Prompted only — no automatic bang rewrite.
-  - **TOOLS** grouped by use: READ / WRITE & FORMAT (only tools we expose).
-- Structure inspired by libre_calc_ai’s prompt_templates (workflow, grouped tools).
+  - **TOOLS**: name index plus unique leftovers (`set_style` vs rich HTML; CSV commas). `=PY` dest / spill / peek live on `write_formula_range`.
+- Structure inspired by libre_calc_ai’s prompt_templates (workflow, do the operation).
 
 ---
 

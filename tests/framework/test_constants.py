@@ -313,13 +313,29 @@ def test_calc_core_directives_py_formula_not_domains():
     assert 'domain="python"' not in CALC_CORE_DIRECTIVES
     assert 'domain="analysis"' not in CALC_CORE_DIRECTIVES
     assert "write_formula_range" in CALC_CORE_DIRECTIVES
-    assert "J1" in CALC_CORE_DIRECTIVES
-    assert "new sheet" in CALC_CORE_DIRECTIVES
-    assert "circular" in CALC_CORE_DIRECTIVES
-    assert "say where" in CALC_CORE_DIRECTIVES
-    assert "small peek" in CALC_CORE_DIRECTIVES
-    assert "do not dump the input or full spill" in CALC_CORE_DIRECTIVES
-    assert "do not write =PY onto DataRange" in CALC_CORE_DIRECTIVES
+    assert "write_formula_range of =PY" in CALC_CORE_DIRECTIVES
+
+
+def test_write_formula_range_description_owns_py_dest_and_spill():
+    from plugin.calc.cells import WriteCellRange
+
+    desc = WriteCellRange.description
+    assert "J1" in desc
+    assert "new sheet" in desc
+    assert "circular" in desc
+    assert "say where" in desc
+    assert "small peek" in desc
+    assert "do not dump the input or full spill" in desc
+    assert "do not write =PY onto DataRange" in desc
+    assert "data.to_pandas().drop_duplicates()" in desc
+    assert "mixed cell types" in desc
+    assert "multiline CSV from a start cell" in desc
+
+
+def test_insert_cell_html_description_keeps_border_guidance():
+    from plugin.calc.cells import InsertCellHtml
+
+    assert "Use set_style for table-wide borders" in InsertCellHtml.description
 
 
 def test_calc_formula_syntax_sheet_dot_not_excel_bang():
@@ -329,8 +345,6 @@ def test_calc_formula_syntax_sheet_dot_not_excel_bang():
     assert "Orders.A1:H500" in CALC_FORMULA_SYNTAX
     assert "#NAME?" in CALC_FORMULA_SYNTAX
     assert "=PY(\"result = …\"; Orders.A1:H500)" in CALC_FORMULA_SYNTAX
-    assert "data.to_pandas().drop_duplicates()" in CALC_FORMULA_SYNTAX
-    assert "mixed cell types" in CALC_FORMULA_SYNTAX
     assert "always 2D" in CALC_FORMULA_SYNTAX
     assert "not builtin sum" in CALC_FORMULA_SYNTAX
     assert CALC_PYTHON_FORMULA_LLM_HINT is CALC_FORMULA_SYNTAX
@@ -365,7 +379,7 @@ def test_calc_chat_prompt_includes_context_overload_why():
     model.supportsService.side_effect = supportsService
     prompt = get_chat_system_prompt_for_document(model)
     assert "overloads the model context" in prompt
-    assert "do not dump the input or full spill" in prompt
+    assert "write_formula_range of =PY" in prompt
 
 
 def test_core_directives_prohibit_asking_user_to_paste():

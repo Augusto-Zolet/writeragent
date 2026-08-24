@@ -70,7 +70,7 @@ See previous analysis for architecture diagram (StringBackend → DrawJSONBacken
 
 ### F. Calc `=PY()` placement (future — do not implement in the same change as hiding Calc `python`)
 
-**Hypothesis:** a few limitation words on main chat beat a second specialized domain. MIPROv2 can later rewrite only the Calc `=PY` sentences in `CALC_CORE_DIRECTIVES` / `CALC_FORMULA_SYNTAX` (`plugin/framework/prompts.py`).
+**Hypothesis:** a few limitation words on main chat beat a second specialized domain. Dest / spill / peek live on `write_formula_range` (`plugin/calc/cells.py`); MIPROv2 can later rewrite that description plus the remaining `CALC_FORMULA_SYNTAX` / pointer in `CALC_CORE_DIRECTIVES` (`plugin/framework/prompts.py`).
 
 Calc chat no longer delegates `domain="python"`; models must `write_formula_range` of `=PY("result = …"; DataRange)` into an **empty cell outside DataRange**. Future eval rows (not in `dataset.py` yet):
 
