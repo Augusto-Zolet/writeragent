@@ -22,14 +22,17 @@ def test_address_utils():
 
     assert column_to_index("A") == 0
     assert column_to_index("AA") == 26
+    assert column_to_index("ZZZ") == 18277
     assert index_to_column(0) == "A"
     assert index_to_column(26) == "AA"
+    assert index_to_column(18277) == "ZZZ"
     assert parse_address("A1") == (0, 0)
     assert parse_address("B10") == (1, 9)
     assert format_address(0, 0) == "A1"
+    assert format_address(18277, 0) == "ZZZ1"
 
     # Round-trip
-    for addr in ("A1", "B10", "Z1", "AA100"):
+    for addr in ("A1", "B10", "Z1", "AA100", "ZZZ1"):
         col, row = parse_address(addr)
         assert format_address(col, row) == addr
 
@@ -53,6 +56,12 @@ def test_address_utils():
     for non_ascii_invalid in ("A🯰", "Ａ１", "A١"):
         with pytest.raises(pre_err):
             parse_address(non_ascii_invalid)
+
+    # 18278 is past ZZZ; @deal.pre raises when deal is installed (shim is a no-op in LO).
+    with pytest.raises(pre_err):
+        index_to_column(18278)
+    with pytest.raises(pre_err):
+        format_address(18278, 0)
 
     assert parse_range_string("A1:B2") == ((0, 0), (1, 1))
     assert parse_range_string("C3") == ((2, 2), (2, 2))

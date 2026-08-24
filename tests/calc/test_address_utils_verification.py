@@ -26,6 +26,7 @@ from plugin.calc.address_utils import (
     parse_address,
     parse_range_string,
 )
+from plugin.framework.deal_shim import DEAL_MAX_COL_INDEX
 from tests.vhs_budget import vhs_max_examples
 
 CROSSHAIR_MODULE = "plugin/calc/address_utils.py"
@@ -33,7 +34,7 @@ _CROSSHAIR_ERROR_RE = re.compile(r": error:")
 
 # Bound column width so Hypothesis stays fast (Excel max is wider; invariant holds generally).
 _col_letters = st.text(alphabet=st.characters(min_codepoint=ord("A"), max_codepoint=ord("Z")), min_size=1, max_size=3)
-_col_index = st.integers(min_value=0, max_value=26**3 - 1)
+_col_index = st.integers(min_value=0, max_value=DEAL_MAX_COL_INDEX)
 _row_index = st.integers(min_value=0, max_value=10_000)
 
 
@@ -48,8 +49,10 @@ def _find_crosshair() -> str | None:
 
 
 def test_column_index_round_trip_named() -> None:
-    for col in ("A", "Z", "AA", "AB", "ZZ", "abc"):
+    for col in ("A", "Z", "AA", "AB", "ZZ", "ZZZ", "abc"):
         assert index_to_column(column_to_index(col)) == col.upper()
+    assert column_to_index("ZZZ") == 18277
+    assert index_to_column(18277) == "ZZZ"
 
 
 @given(col=_col_letters)
