@@ -16,6 +16,7 @@ Two presets only (same numbers as cover-all; no per-flag budget overrides):
   per-module wall kill so no file dominates the sweep.
 - **deep** (``--deep``): ``--max_uninteresting_iterations=200``, no per-condition
   timeout and no wall — hour-scale exploration (CrossHair's "hundreds" guidance).
+  Speed comes from the short ``WRITERAGENT_CROSSHAIR=1`` deal table, not timeouts.
 
 Wall timeout is exit 0 / not a sweep failure (budget exhaustion). Contract
 ``: error:`` lines and engine crashes still fail the sweep.
@@ -33,6 +34,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,7 +51,7 @@ REGULAR_MAX_UNINTERESTING = 25
 REGULAR_PER_CONDITION_TIMEOUT_SEC = 5
 # Hard stop per module in regular mode (backstop; soft bounds aim to finish earlier).
 REGULAR_MODULE_WALL_TIMEOUT_SEC = 120
-# Deep: CrossHair "hundreds" for multi-hour runs.
+# Deep: CrossHair "hundreds" for multi-hour runs. No per-condition timeout, no module wall.
 DEEP_MAX_UNINTERESTING = 200
 # Regular only: payload_codec has many contracts; same 5s slice, fewer iters.
 PAYLOAD_CODEC_REL = "plugin/scripting/payload_codec.py"
@@ -171,6 +173,11 @@ def main(argv: list[str] | None = None) -> int:
         help="Also analyze CROSSHAIR_CHECK_ALL_SKIP modules (engine-crash hosts)",
     )
     args = parser.parse_args(argv)
+
+    # Child CrossHair processes import deal_shim; set this before any spawn so
+    # they bind the short @deal.pre table. Pytest / make test never set it.
+    # Must match plugin.framework.deal_shim.CROSSHAIR_ENV.
+    os.environ["WRITERAGENT_CROSSHAIR"] = "1"
 
     budget = resolve_check_budget(deep=args.deep)
 
