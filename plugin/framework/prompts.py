@@ -151,10 +151,10 @@ CALC_CORE_DIRECTIVES: str = f"""When the user wants {DELEGATION_USER_FILE_DATA_H
 - You MUST NOT ask the user where the file is stored, or to upload, paste, or share its contents.
 - You MUST call delegate_to_specialized_calc_toolset(domain="document_research") once with their described file(s) and task in task; nearby files are matched (paths not required).
 When the user wants {DELEGATION_PUBLIC_WEB_HINT}, delegate_to_specialized_calc_toolset(domain="web_research").
-To run Python on sheet data, write_formula_range an =PY formula into an empty cell outside DataRange (same-sheet empty column, e.g. unique rows from A1:H500 go in J1, or A1 on a new sheet for a large spill).
-Overwriting the input range in place is circular.
-If the user asks to write back onto that range, put =PY beside it or on a new sheet and say where the output is.
-That formula cell is the result — do not read_cell_range the input or the spill, and do not copy the spill onto DataRange."""
+To run Python on sheet data, write_formula_range =PY("result = …"; DataRange) into one empty cell outside DataRange (e.g. J1 for A1:H500, or a new sheet).
+That cell spills the 2D result (values are in the neighbors).
+A small peek of the origin or headers is enough — do not dump the input or full spill into chat; do not write =PY onto DataRange (circular).
+If they asked for in-place unique rows, still land beside/new sheet and say where."""
 
 DRAW_CORE_DIRECTIVES = f"""When the user wants {DELEGATION_USER_FILE_DATA_HINT} (including when the user refers to any other file, document, spreadsheet, or sheet by name or path, e.g. "my spreadsheet", "read cell a9 from PythonInCalc", "summary.odt", etc., or asks to pull, read, search, or reference data from them):
 - You MUST NOT ask the user where the file is stored, how to find it, or to upload, paste, or share its contents.
@@ -905,7 +905,7 @@ def _init_venv_import_policy_strings() -> None:
 Other-sheet refs use a dot (Orders.A1), never Excel bang (Orders!A1 → #NAME?).
 - Correct: =SUM(A1:A10), =IF(A1>0;B1;C1), =PY("result = …"; Orders.A1:H500)
 - Wrong: =IF(A1>0,"Yes","No"), Orders!A1
-- =PY("result = …"; DataRange) writes Python into a cell (omit DataRange if unused).
+- =PY("result = …"; DataRange) in one cell; a DataFrame/list spills into neighbors (omit DataRange if unused).
 {compact}
 - Example: =PY("result = np.sum(data)"; Orders.A1:H500).
 - {CALC_PYTHON_DATA_SHAPE_LLM_HINT}

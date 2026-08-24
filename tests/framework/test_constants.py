@@ -316,9 +316,10 @@ def test_calc_core_directives_py_formula_not_domains():
     assert "J1" in CALC_CORE_DIRECTIVES
     assert "new sheet" in CALC_CORE_DIRECTIVES
     assert "circular" in CALC_CORE_DIRECTIVES
-    assert "say where the output is" in CALC_CORE_DIRECTIVES
-    assert "do not read_cell_range the input or the spill" in CALC_CORE_DIRECTIVES
-    assert "do not copy the spill onto DataRange" in CALC_CORE_DIRECTIVES
+    assert "say where" in CALC_CORE_DIRECTIVES
+    assert "small peek" in CALC_CORE_DIRECTIVES
+    assert "do not dump the input or full spill" in CALC_CORE_DIRECTIVES
+    assert "do not write =PY onto DataRange" in CALC_CORE_DIRECTIVES
 
 
 def test_calc_formula_syntax_sheet_dot_not_excel_bang():
@@ -364,7 +365,7 @@ def test_calc_chat_prompt_includes_context_overload_why():
     model.supportsService.side_effect = supportsService
     prompt = get_chat_system_prompt_for_document(model)
     assert "overloads the model context" in prompt
-    assert "do not read_cell_range the input or the spill" in prompt
+    assert "do not dump the input or full spill" in prompt
 
 
 def test_core_directives_prohibit_asking_user_to_paste():
