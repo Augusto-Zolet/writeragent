@@ -79,11 +79,18 @@ from plugin.framework.config import get_config, get_current_endpoint
 from plugin.framework.client.model_fetcher import get_text_model, get_image_model, set_image_model, set_text_model
 from plugin.framework.i18n import _
 from plugin.framework.errors import UnoObjectError, suppress_disposed
-from plugin.framework.prompts import get_chat_system_prompt_for_document, get_greeting_for_document, DEFAULT_RESEARCH_GREETING, DEFAULT_DEEP_RESEARCH_GREETING, DEFAULT_BRAINSTORMING_GREETING, DEFAULT_PPT_MASTER_GREETING, DEFAULT_LIBRARIAN_GREETING
+from plugin.framework.prompts import get_chat_system_prompt_for_document, get_greeting_for_document
 from plugin.doc.doc_type import get_document_type, DocumentType
 from plugin.doc.udprops import get_document_property, set_document_property
 
 log = logging.getLogger(__name__)
+
+DEFAULT_RESEARCH_GREETING = "AI: I can do web research to answer any question, or summarize a web page, without seeing or changing your document. Let's chat."
+DEFAULT_DEEP_RESEARCH_GREETING = "AI: Deep Research mode runs a multi-step web investigation (planning, several searches, synthesis) and can insert a formatted report into your document. It takes longer but produces more thorough results."
+DEFAULT_BRAINSTORMING_GREETING = "AI: Let's explore and design your idea together. I'll ask questions, suggest approaches, and help you build an approved spec in your document when you're ready."
+DEFAULT_WRITING_PLAN_GREETING = "AI: Let's draft your document section-by-section. I'll help you create a writing plan outline, and then implement it incrementally with your approval."
+DEFAULT_PPT_MASTER_GREETING = "AI: PPT-Master mode — I'll run the ppt-master workflow in your configured Python venv (scripts + export to Impress). Describe your topic or point me at a project folder."
+DEFAULT_LIBRARIAN_GREETING = "AI: I'm the WriterAgent Librarian — a host who can learn your name, favorite colors, and give a short tour. Pick Chat in the dropdown whenever you want to work on the document."
 
 # XDL path inside the .oxt
 XDL_PATH = "Dialogs/ChatPanelDialog.xdl"
@@ -581,7 +588,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         return sidebar_mode_flags_for_doc_type(doc_type_label_for_enum(get_document_type(model)))
 
     def _greeting_for_sidebar_mode(self, mode, model):
-        from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_BRAINSTORMING, CHAT_MODE_DEEP_RESEARCH, CHAT_MODE_LIBRARIAN, CHAT_MODE_PPT_MASTER, CHAT_MODE_WEB_RESEARCH
+        from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_BRAINSTORMING, CHAT_MODE_DEEP_RESEARCH, CHAT_MODE_LIBRARIAN, CHAT_MODE_PPT_MASTER, CHAT_MODE_WEB_RESEARCH, CHAT_MODE_WRITING_PLAN
 
         if mode == CHAT_MODE_WEB_RESEARCH:
             return _(DEFAULT_RESEARCH_GREETING)
@@ -589,6 +596,8 @@ class ChatPanelElement(unohelper.Base, XUIElement):
             return _(DEFAULT_DEEP_RESEARCH_GREETING)
         if mode == CHAT_MODE_BRAINSTORMING:
             return _(DEFAULT_BRAINSTORMING_GREETING)
+        if mode == CHAT_MODE_WRITING_PLAN:
+            return _(DEFAULT_WRITING_PLAN_GREETING)
         if mode == CHAT_MODE_PPT_MASTER:
             return _(DEFAULT_PPT_MASTER_GREETING)
         if mode == CHAT_MODE_LIBRARIAN:

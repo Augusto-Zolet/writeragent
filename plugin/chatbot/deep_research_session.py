@@ -13,9 +13,40 @@ from __future__ import annotations
 import logging
 from typing import Any, ClassVar
 
+from plugin.framework.prompts import WRITER_APPLY_DOCUMENT_HTML_RULES, get_chat_response_format_instructions
 from plugin.framework.tool import ToolBase, ToolContext
 
 log = logging.getLogger(__name__)
+
+DEEP_RESEARCH_SUB_AGENT_INSTRUCTIONS = """DEEP RESEARCH MODE:
+You perform multi-step public web research and write formatted results into the active Writer document when appropriate.
+
+WORKFLOW:
+1. Read document context when helpful (get_document_content / get_document_tree / search_in_document).
+2. Run deep_research_web for the user's research query. This may take several minutes (parallel searches, adaptive rounds).
+3. Convert the plain-text report to HTML and insert it with apply_document_content (JSON array of HTML strings; target end unless the user asked otherwise). Do NOT paste the full report into reply_to_user.
+4. reply_to_user with a brief HTML summary of what you researched and where it was inserted.
+
+HTML RULES (CRITICAL):
+- apply_document_content content must be a JSON array of HTML strings — no Markdown (#, **, ```).
+- reply_to_user must be HTML and brief (status/summary only).
+- Do NOT use HTML entity escaping (&lt;p&gt;) — send real tags.
+- Rewrite plain-text deep_research_web results as structured HTML (headings, paragraphs, lists) before apply_document_content.
+
+TOOLS:
+- deep_research_web: multi-step adaptive web research only (not the shallow web_research tool).
+- apply_document_content: the ONLY way to write research into the document.
+- reply_to_user: short chat confirmation when the turn is complete."""
+
+def get_deep_research_sub_agent_instructions(ctx=None) -> str:
+    """Full system instructions for the Deep Research smol sub-agent (sidebar)."""
+    parts = [
+        DEEP_RESEARCH_SUB_AGENT_INSTRUCTIONS,
+        WRITER_APPLY_DOCUMENT_HTML_RULES,
+        get_chat_response_format_instructions(ctx),
+    ]
+    return "\n\n".join(parts)
+
 
 _DEEP_RESEARCH_CORE_TOOLS = frozenset(["get_document_content", "get_document_tree", "search_in_document", "apply_document_content"])
 
@@ -69,7 +100,6 @@ def _run_deep_research_agent(ctx: ToolContext, *, query: str = "", history_text:
     """Run one turn of the Deep Research smol sub-agent."""
     from plugin.chatbot.smol_agent import SmolAgentExecutor, SmolToolAdapter, build_toolcalling_agent
     from plugin.chatbot.smol_examples import get_examples_block
-    from plugin.framework.prompts import get_deep_research_sub_agent_instructions
 
     status_callback = getattr(ctx, "status_callback", None)
 

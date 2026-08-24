@@ -14,10 +14,15 @@ from plugin.framework.client.errors import format_error_for_display
 from plugin.framework.client.llm_client import LlmClient
 from plugin.framework.config import get_api_config, get_config_int, get_config_str
 from plugin.framework.client.model_fetcher import get_text_model
-from plugin.framework.prompts import CALC_PROMPT_CELL_SYSTEM_PROMPT
 from plugin.framework.thread_guard import sync_host_dispatch
 
 log = logging.getLogger(__name__)
+
+# Default system prompt for Calc =PROMPT() when systemPrompt arg and extend_selection_system_prompt are empty.
+CALC_PROMPT_CELL_SYSTEM_PROMPT = (
+    "Answer the user's request directly in plain text suitable for a spreadsheet cell. "
+    "Do not use HTML or markdown fences unless the user asks for them."
+)
 
 # Cap diagnostic cell text so Calc stays readable when reasoning excerpts are long.
 _EMPTY_DIAGNOSTIC_MAX_LEN = 500

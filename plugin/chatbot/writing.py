@@ -19,10 +19,45 @@ if TYPE_CHECKING:
 from plugin.doc.document_research import DOC_RESEARCH_DISCOVERY_TOOL_NAMES, filter_document_research_discovery_tools
 from plugin.doc.specialized_base import _field_from_tool_arguments
 from plugin.chatbot.smol_examples import normalize_html_content_array
+from plugin.framework.prompts import WRITER_APPLY_DOCUMENT_HTML_RULES, get_chat_response_format_instructions
 from plugin.framework.tool import ToolBase, ToolContext
 from plugin.writer.specialized_base import ToolWriterSpecialBase
 
 log = logging.getLogger(__name__)
+
+WRITING_SUB_AGENT_INSTRUCTIONS = """WRITING PLAN MODE:
+You help write documents collaboratively using a structured, plan-driven approach.
+
+WORKFLOW (in order):
+1. Explore context: read the active document (get_document_content / get_document_tree) or design spec to understand the user's goal, and search the public web using `writing_research_web` if needed to collect details.
+2. Propose a structured Writing Plan/Outline - ONE outline of sections/headings as HTML. Ask the user if they want to modify the outline.
+3. Keep the outline in the conversation history as a roadmap. Do NOT write the full outline/headings list to the document at the start (as headings will be written with section content and would appear twice).
+4. Implement sections one-by-one:
+   - Generate high-quality content for a single section as HTML (including its heading).
+   - Insert it into the document using `write_document_section`.
+   - Ask the user for approval or feedback on the written section before moving to the next section.
+5. Once all sections are written, call reply_to_user with a handoff answer and writing_plan_finished=true (plan_completed=true if all sections were written).
+
+HTML RULES (CRITICAL):
+- All reply_to_user answer text must be HTML.
+- write_document_section content must be a JSON array of HTML strings — no Markdown (#, **, ```).
+- Do NOT use HTML entity escaping (&lt;p&gt;) — send real tags.
+
+COMPLETION TOOLS:
+- reply_to_user: continue the writing plan conversation (questions, section drafts, summaries).
+- reply_to_user with writing_plan_finished=true: END the session after all sections are completed and reviewed.
+- write_document_section: write content for a section to the document.
+- writing_research_web: search the public web for context or information."""
+
+def get_writing_sub_agent_instructions(ctx=None) -> str:
+    """Full system instructions for the writing plan smol sub-agent."""
+    parts = [
+        WRITING_SUB_AGENT_INSTRUCTIONS,
+        WRITER_APPLY_DOCUMENT_HTML_RULES,
+        get_chat_response_format_instructions(ctx),
+    ]
+    return "\n\n".join(parts)
+
 
 _normalize_html_content_array = normalize_html_content_array
 
@@ -117,7 +152,6 @@ def _run_writing_agent(ctx: ToolContext, *, query: str = "", history_text: str |
     """Run one turn of the writing plan smol sub-agent."""
     from plugin.chatbot.smol_agent import SmolAgentExecutor, SmolToolAdapter, build_toolcalling_agent
     from plugin.chatbot.smol_examples import get_examples_block
-    from plugin.framework.prompts import get_writing_sub_agent_instructions
 
     status_callback = getattr(ctx, "status_callback", None)
     append_thinking_callback = getattr(ctx, "append_thinking_callback", None)

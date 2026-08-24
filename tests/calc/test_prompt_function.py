@@ -8,7 +8,8 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from plugin.calc.prompt_function import _format_empty_prompt_diagnostic, execute_prompt_addin
-from plugin.framework.prompts import CALC_PROMPT_CELL_SYSTEM_PROMPT, CALC_PYTHON_FORMULA_LLM_HINT
+from plugin.calc.prompt_function import CALC_PROMPT_CELL_SYSTEM_PROMPT
+from plugin.framework.prompts import CALC_PYTHON_FORMULA_LLM_HINT
 
 
 @patch("plugin.calc.prompt_function.run_blocking_in_thread")

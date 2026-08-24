@@ -9,7 +9,6 @@ from plugin.framework.prompts import (
     SIDEBAR_VS_DOCUMENT,
     get_greeting_for_document,
     get_chat_system_prompt_for_document,
-    get_writer_eval_chat_system_prompt,
     get_core_directives,
     get_specialized_delegation_for_model,
     python_specialized_sub_agent_hint,
@@ -159,6 +158,8 @@ def test_writer_chat_prompt_research_delegate_to_document():
 
 
 def test_writer_eval_chat_prompt_includes_sidebar_vs_document_routing():
+    from scripts.prompt_optimization.eval_prompts import get_writer_eval_chat_system_prompt
+
     prompt = get_writer_eval_chat_system_prompt()
     assert SIDEBAR_VS_DOCUMENT in prompt
     assert "apply_document_content" in prompt

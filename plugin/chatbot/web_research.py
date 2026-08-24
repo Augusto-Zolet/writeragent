@@ -33,6 +33,13 @@ from plugin.contrib.smolagents.agents import ToolCallingAgent
 
 log = logging.getLogger("writeragent.web_research")
 
+# Web-research sub-agent only (main chat delegate + web-research checkbox). Facts in plain text;
+# main agent applies HTML, memory colors, and apply_document_content when the user wanted a doc edit.
+WEB_RESEARCH_PLAIN_TEXT_FORMAT = """Research output: plain text only in final_answer.
+- Use clear section headings (plain lines) and bullet lists (- item).
+- Include facts, names, dates, ratings, and sources where relevant.
+- No HTML tags, no Markdown (# or **), no JSON."""
+
 
 @dataclass
 class WebAgentRunParams:
@@ -282,7 +289,6 @@ def _run_web_agent(
     from plugin.chatbot.smol_agent import SmolAgentExecutor
     from plugin.chatbot.smol_examples import get_examples_block
     from plugin.contrib.smolagents.default_tools import DuckDuckGoSearchTool, VisitWebpageTool
-    from plugin.framework.prompts import WEB_RESEARCH_PLAIN_TEXT_FORMAT
 
     max_steps = params.max_steps_override if params.max_steps_override else params.max_steps
     base_intro = (
@@ -634,7 +640,6 @@ class WebResearchTool(ToolBase):
             outer_query=query_str,
         )
 
-        from plugin.framework.prompts import WEB_RESEARCH_PLAIN_TEXT_FORMAT
 
         deep = bool(kwargs.get("deep"))
 

@@ -16,16 +16,37 @@ import re
 from typing import Any, cast
 
 from plugin.framework.deal_shim import deal
-from plugin.framework.prompts import LLM_DEV_BUILD_SYSTEM_PREFIX, should_prepend_dev_llm_system_prefix
 
 __all__ = [
+    "LLM_DEV_BUILD_SYSTEM_PREFIX",
     "extract_and_strip_images_from_message",
     "normalize_multimodal_messages",
     "prepend_dev_build_system_prefix_to_messages",
+    "should_prepend_dev_llm_system_prefix",
     "strip_leaked_chat_template_control_tokens",
 ]
 
 log = logging.getLogger(__name__)
+
+# Prepended to the first string `system` message in LlmClient for non-release bundles only
+# (``make build`` includes ``plugin/tests``; ``make release`` / ``--no-tests`` does not).
+# See `should_prepend_dev_llm_system_prefix()`.
+LLM_DEV_BUILD_SYSTEM_PREFIX = (
+    "[WriterAgent development build]\n"
+    "You are running a development version of the WriterAgent extension. The user is a plugin developer. "
+    "If you run into a problem, explain in detail what failed and why so they can improve the extension. "
+    "If they ask detailed questions about tool-calling APIs, prompts, or how the software works, answer helpfully so developers can improve the plugin."
+)
+
+
+def should_prepend_dev_llm_system_prefix() -> bool:
+    """True when this bundle includes test modules (same signal as the optional Debug / in-OXT tests)."""
+    try:
+        import importlib.util
+
+        return importlib.util.find_spec("plugin.tests") is not None
+    except Exception:
+        return False
 
 # Local / Harmony-style models sometimes leak chat-template control tokens.
 _CHAT_TEMPLATE_CONTROL_TOKEN_RE = re.compile(r"<\|[a-zA-Z0-9_]+\|>")

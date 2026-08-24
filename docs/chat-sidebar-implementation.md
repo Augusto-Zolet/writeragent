@@ -53,7 +53,7 @@ Design notes for prompt authors live in this section so the source file stays sc
 
 #### Array wrapper and sub-agents
 
-- Web research returns plain text (`WEB_RESEARCH_PLAIN_TEXT_FORMAT`); the **main** agent formats HTML for `apply_document_content`.
+- Web research returns plain text (`WEB_RESEARCH_PLAIN_TEXT_FORMAT` in [`web_research.py`](../plugin/chatbot/web_research.py)); the **main** agent formats HTML for `apply_document_content`.
 - Librarian uses `reply_to_user` with `CHAT_SIDEBAR_HTML_EXAMPLES` (single HTML string).
 - Do not tell sub-agents to wrap answers in `apply_document_content` JSON arrays — that shape is for the main agent's document tool only.
 
@@ -83,7 +83,7 @@ Do not copy `WRITER_APPLY_DOCUMENT_HTML_RULES` EXAMPLES into sidebar examples; a
 
 ### Writer sub-agent assembly order (differs from main chat)
 
-Brainstorming and writing-plan sub-agents (`get_brainstorming_sub_agent_instructions`, `get_writing_sub_agent_instructions`):
+Brainstorming and writing-plan sub-agents (`get_brainstorming_sub_agent_instructions` in [`brainstorming.py`](../plugin/chatbot/brainstorming.py), `get_writing_sub_agent_instructions` in [`writing.py`](../plugin/chatbot/writing.py)):
 
 1. Mode-specific instructions (`BRAINSTORMING_SUB_AGENT_INSTRUCTIONS` / `WRITING_SUB_AGENT_INSTRUCTIONS`)
 2. `WRITER_APPLY_DOCUMENT_HTML_RULES` (for `save_design_spec` / `write_document_section` array content)

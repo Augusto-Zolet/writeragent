@@ -139,7 +139,7 @@ Tests: [`tests/framework/test_tool_schema_convert.py`](../tests/framework/test_t
 **Workaround** ([`plugin/calc/prompt_function.py`](../plugin/calc/prompt_function.py)):
 - Default `calc_prompt_max_tokens` is **4096** (override via formula 4th arg or `writeragent.json`). Values below 100 (e.g. the old shipped default of 70) are upgraded to 4096 on load.
 - `=PROMPT()` uses `request_with_tools` (full result dict). If content is empty, the cell gets a visible diagnostic (`finish_reason`, token usage, model, short reasoning excerpt when present) instead of a silent blank.
-- Default system prompt is a short plain-text cell instruction (`CALC_PROMPT_CELL_SYSTEM_PROMPT`), not the long `=PY` sandbox hint.
+- Default system prompt is a short plain-text cell instruction (`CALC_PROMPT_CELL_SYSTEM_PROMPT` in [`prompt_function.py`](../plugin/calc/prompt_function.py)), not the long `=PY` sandbox hint.
 
 Tests: [`tests/calc/test_prompt_function.py`](../tests/calc/test_prompt_function.py).
 

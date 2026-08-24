@@ -403,7 +403,7 @@ def main() -> int:
         import json
 
         from llm_chat_eval import run_llm_chat_eval
-        from plugin.framework.prompts import get_writer_eval_chat_system_prompt
+        from eval_prompts import get_writer_eval_chat_system_prompt
 
         if len(examples) > 1 and not args.yes_multi_gold:
             print(
