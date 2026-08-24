@@ -14,6 +14,7 @@ from plugin.framework.config import (
     get_config_bool,
     get_config_int,
     parse_config_json_text,
+    reset_config_for_tests,
     set_config,
 )
 from plugin.framework.errors import ConfigError
@@ -29,6 +30,7 @@ sys.path.insert(0, os.path.dirname(get_plugin_dir()))
 class TestConfigSync(unittest.TestCase):
 
     def setUp(self):
+        reset_config_for_tests()
         self.ctx = MagicMock()
         self.config_data = {}
 
@@ -52,6 +54,8 @@ class TestConfigSync(unittest.TestCase):
         self.set_patcher.stop()
         self.get_mf_patcher.stop()
         self.set_mf_patcher.stop()
+        reset_config_for_tests()
+
 
     def test_set_text_model_writes_and_lru(self):
         self.config_data['text_model'] = ''
