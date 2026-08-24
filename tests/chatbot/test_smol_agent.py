@@ -359,7 +359,11 @@ def test_smol_tool_adapter_unsafe_uses_execute():
     tool = _StubTool()
     tool.execute = MagicMock(return_value={"status": "ok"})
     adapter = SmolToolAdapter(tool, ctx, safe=False, inputs_style="librarian")
-    out = adapter.forward(p="v")
+    with patch("plugin.framework.queue_executor.execute_on_main_thread") as mock_main:
+        mock_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+        out = adapter.forward(p="v")
+    mock_main.assert_called_once()
+    assert mock_main.call_args[0][0] is tool.execute
     tool.execute.assert_called_once()
     assert out["status"] == "ok"
 
@@ -374,7 +378,9 @@ def test_smol_tool_adapter_safe_async_uses_execute_safe():
     tool = AsyncTool()
     tool.execute_safe = MagicMock(return_value={"status": "ok"})
     adapter = SmolToolAdapter(tool, ctx, safe=True, inputs_style="specialized")
-    adapter.forward(p="x")
+    with patch("plugin.framework.queue_executor.execute_on_main_thread") as mock_main:
+        adapter.forward(p="x")
+    mock_main.assert_not_called()
     tool.execute_safe.assert_called_once()
 
 
@@ -384,19 +390,25 @@ def test_smol_tool_adapter_handles_positional_arguments():
     tool.execute = MagicMock(return_value={"status": "ok"})
     adapter = SmolToolAdapter(tool, ctx, safe=False, inputs_style="librarian")
 
-    # Positional string argument should map to the first input key 'p'
-    adapter.forward("positional_value")
-    tool.execute.assert_called_once()
-    _, kwargs = tool.execute.call_args
-    assert kwargs.get("p") == "positional_value"
+    with patch("plugin.framework.queue_executor.execute_on_main_thread") as mock_main:
+        mock_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+        # Positional string argument should map to the first input key 'p'
+        adapter.forward("positional_value")
+        tool.execute.assert_called_once()
+        _, kwargs = tool.execute.call_args
+        assert kwargs.get("p") == "positional_value"
+        mock_main.assert_called_once()
+        assert mock_main.call_args[0][0] is tool.execute
 
-    # Positional dict argument should be merged
-    tool.execute.reset_mock()
-    adapter.forward({"p": "dict_value", "extra": 42})
-    tool.execute.assert_called_once()
-    _, kwargs = tool.execute.call_args
-    assert kwargs.get("p") == "dict_value"
-    assert kwargs.get("extra") == 42
+        # Positional dict argument should be merged
+        tool.execute.reset_mock()
+        mock_main.reset_mock()
+        adapter.forward({"p": "dict_value", "extra": 42})
+        tool.execute.assert_called_once()
+        _, kwargs = tool.execute.call_args
+        assert kwargs.get("p") == "dict_value"
+        assert kwargs.get("extra") == 42
+        mock_main.assert_called_once()
 
 
 def test_smol_tool_adapter_resolves_dynamic_parameters():
@@ -497,9 +509,13 @@ class TestLibrarianSmol(unittest.TestCase):
         self.assertEqual(smol_memory.inputs["key"]["type"], "string")
         self.assertEqual(smol_memory.inputs["content"]["type"], "string")
 
-        # Verify forward call
+        # Verify forward call marshals execute onto the drain thread
         memory_tool.execute = MagicMock(return_value={"status": "ok"})
-        smol_memory.forward(key="favorite_color", content="blue")
+        with patch("plugin.framework.queue_executor.execute_on_main_thread") as mock_main:
+            mock_main.side_effect = lambda fn, *args, **kwargs: fn(*args, **kwargs)
+            smol_memory.forward(key="favorite_color", content="blue")
+        mock_main.assert_called_once()
+        self.assertIs(mock_main.call_args[0][0], memory_tool.execute)
         memory_tool.execute.assert_called_once()
         args, kwargs = memory_tool.execute.call_args
         self.assertEqual(kwargs["key"], "favorite_color")

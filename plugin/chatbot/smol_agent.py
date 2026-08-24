@@ -117,14 +117,14 @@ class SmolToolAdapter(SmolTool):
 
         is_async = getattr(tool, "is_async", lambda: False)()
         if is_async:
-            _spec_log.debug("Specialized agent executing async tool '%s' on worker", self.name)
+            _spec_log.debug("SmolToolAdapter executing async tool '%s' on worker", self.name)
             if not self._safe:
                 return tool.execute(ctx, **kwargs)
             return tool.execute_safe(ctx, **kwargs)
 
         from plugin.framework.queue_executor import execute_on_main_thread
 
-        _spec_log.debug("Specialized agent executing sync tool '%s' on main thread", self.name)
+        _spec_log.debug("SmolToolAdapter executing sync tool '%s' on main thread", self.name)
         if not self._safe:
             return execute_on_main_thread(tool.execute, ctx, **kwargs)
         return execute_on_main_thread(tool.execute_safe, ctx, **kwargs)

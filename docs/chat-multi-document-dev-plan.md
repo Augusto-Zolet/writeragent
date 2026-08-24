@@ -236,7 +236,7 @@ Schema omission alone is insufficient; Phase 0 enforces at execution time:
 | ----- | ------ | --- |
 | Main tool loop | Main | Sync tools via `execute_safe` |
 | Outer smol | Worker ([`DelegateToSpecializedBase.is_async`](../plugin/doc/specialized_base.py)) | List/open via `execute_on_main_thread` or async open tool |
-| Inner smol | Same worker as outer | Read tools via `SmolToolAdapter(..., main_thread_sync=True)` → [`execute_on_main_thread`](../plugin/chatbot/smol_agent.py) |
+| Inner smol | Same worker as outer | Sync read tools via `SmolToolAdapter` (always marshals) → [`execute_on_main_thread`](../plugin/chatbot/smol_agent.py) |
 
 **Phase 0 tests (implemented):**
 
