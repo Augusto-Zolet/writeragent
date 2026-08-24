@@ -7,7 +7,8 @@ from plugin.framework.i18n import _, get_lo_locale
 import plugin.framework.i18n as i18n_module
 import sys
 
-from plugin.framework.config import WriterAgentConfig, _build_validated_config_export
+from plugin.framework.config import _build_validated_config_export
+from plugin.framework.config_schema import WriterAgentConfig
 from plugin.framework.constants import get_locales_dir
 
 # PO-header junk mistakenly saved into config via gettext/translation bugs (i18n + load path)
@@ -79,8 +80,8 @@ class TestI18n(unittest.TestCase):
                 return "GERMAN_HERMES"
             return msg
 
-        with patch("plugin.framework.config.MODULES", mock_modules):
-            with patch("plugin.framework.config._", side_effect=_fake):
+        with patch("plugin.framework.config_schema.MODULES", mock_modules):
+            with patch("plugin.framework.config_schema._", side_effect=_fake):
                 cfg.validate()
         self.assertEqual(cfg._extra_config["agent_backend.backend_id"], "hermes")
 
@@ -106,8 +107,8 @@ class TestI18n(unittest.TestCase):
                 return "GERMAN_HERMES"
             return msg
 
-        with patch("plugin.framework.config.MODULES", mock_modules):
-            with patch("plugin.framework.config._", side_effect=_fake):
+        with patch("plugin.framework.config_schema.MODULES", mock_modules):
+            with patch("plugin.framework.config_schema._", side_effect=_fake):
                 cfg.validate()
         self.assertEqual(cfg._extra_config["backend_id"], "hermes")
 
@@ -127,7 +128,7 @@ class TestI18n(unittest.TestCase):
         cfg = WriterAgentConfig.from_dict(
             {"endpoint": "http://127.0.0.1:11434", "agent_backend.backend_id": "hermes"}
         )
-        with patch("plugin.framework.config.MODULES", mock_modules):
+        with patch("plugin.framework.config_schema.MODULES", mock_modules):
             cfg.validate()
         self.assertEqual(cfg._extra_config["agent_backend.backend_id"], "hermes")
 

@@ -295,7 +295,7 @@ class TestConfigSyncFileIO(unittest.TestCase):
         self.assertEqual(data['calc_prompt_max_tokens'], 150)
 
     def test_writeragent_config_validate_bumps_stale_prompt_tokens(self):
-        from plugin.framework.config import WriterAgentConfig
+        from plugin.framework.config_schema import WriterAgentConfig
 
         cfg = WriterAgentConfig(calc_prompt_max_tokens=70)
         cfg.validate()
@@ -404,6 +404,8 @@ class TestConfigSyncFileIO(unittest.TestCase):
             text = f.read()
         self.assertTrue(text.startswith('//'))
         self.assertIn(CONFIG_SCHEMA_DOC_URL, text)
+        self.assertIn("/blob/master/", CONFIG_SCHEMA_DOC_URL)
+        self.assertNotIn("/blob/main/", CONFIG_SCHEMA_DOC_URL)
 
     def test_parse_config_json_text_strips_schema_comment(self):
         raw = CONFIG_SCHEMA_COMMENT + '{\n    "text_model": "custom-model"\n}\n'
@@ -422,7 +424,7 @@ class TestConfigSyncFileIO(unittest.TestCase):
         self.assertEqual(get_config_int('request_timeout'), 120)
 
     def test_is_default_value_types(self):
-        from plugin.framework.config import is_default_value
+        from plugin.framework.config_schema import is_default_value
 
         self.assertTrue(is_default_value('endpoint', 'http://localhost:11434'))
         self.assertTrue(is_default_value('endpoint', 'http://localhost:11434/'))
@@ -441,7 +443,7 @@ class TestConfigSyncFileIO(unittest.TestCase):
         self.assertFalse(is_default_value('log_level', 'INFO'))
 
     def test_prune_default_values_batch(self):
-        from plugin.framework.config import prune_default_values
+        from plugin.framework.config_schema import prune_default_values
 
         data = {
             'endpoint': 'http://localhost:11434',
@@ -478,7 +480,7 @@ class TestConfigSyncFileIO(unittest.TestCase):
                 }
             }
         }]
-        with patch("plugin.framework.config.MODULES", mock_modules):
+        with patch("plugin.framework.config_schema.MODULES", mock_modules):
             self._reset_config_cache()
             # Because extend_selection_max_tokens was not written to disk, the new default is picked up automatically!
             self.assertEqual(get_config_int('extend_selection_max_tokens'), 2000)
@@ -527,7 +529,7 @@ class TestConfigSyncFileIO(unittest.TestCase):
 class TestRobustNumericParsing(unittest.TestCase):
 
     def test_parse_int_robust(self):
-        from plugin.framework.config import parse_int_robust
+        from plugin.framework.config_schema import parse_int_robust
 
         # Test standard integers
         self.assertEqual(parse_int_robust(8765), 8765)
@@ -572,7 +574,7 @@ class TestRobustNumericParsing(unittest.TestCase):
             parse_int_robust("inf")
 
     def test_parse_float_robust(self):
-        from plugin.framework.config import parse_float_robust
+        from plugin.framework.config_schema import parse_float_robust
 
         # Test standard floats
         self.assertEqual(parse_float_robust(7.5), 7.5)
@@ -600,7 +602,7 @@ class TestRobustNumericParsing(unittest.TestCase):
             parse_float_robust("invalid")
 
     def test_config_validate_type_casting(self):
-        from plugin.framework.config import WriterAgentConfig
+        from plugin.framework.config_schema import WriterAgentConfig
 
         # Test standard dataclass type casting
         config = WriterAgentConfig.from_dict({
@@ -629,7 +631,7 @@ class TestRobustNumericParsing(unittest.TestCase):
                 }
             }
         }]
-        with patch("plugin.framework.config.MODULES", mock_modules):
+        with patch("plugin.framework.config_schema.MODULES", mock_modules):
             config_with_extra = WriterAgentConfig.from_dict({
                 "mcp.mcp_port": "8765,00",  # German locale format
             })
@@ -638,14 +640,14 @@ class TestRobustNumericParsing(unittest.TestCase):
             self.assertEqual(config_with_extra._extra_config.get("mcp.mcp_port"), 8765)
 
     def test_yaml_backed_key_extra_config_type_casting(self):
-        from plugin.framework.config import WriterAgentConfig
+        from plugin.framework.config_schema import WriterAgentConfig
 
         config = WriterAgentConfig.from_dict({"web_cache_max_mb": "50,0"})
         config.validate()
         self.assertEqual(config._extra_config.get("web_cache_max_mb"), 50)
 
     def test_yaml_backed_key_schema_bounds_flat_and_dotted(self):
-        from plugin.framework.config import WriterAgentConfig
+        from plugin.framework.config_schema import WriterAgentConfig
 
         config = WriterAgentConfig.from_dict({
             "extend_selection_max_tokens": "1",
@@ -657,7 +659,7 @@ class TestRobustNumericParsing(unittest.TestCase):
         self.assertEqual(config._extra_config.get("chatbot.edit_selection_max_new_tokens"), 4096)
 
     def test_schema_option_label_canonicalization_from_manifest(self):
-        from plugin.framework.config import WriterAgentConfig
+        from plugin.framework.config_schema import WriterAgentConfig
 
         mock_modules = [{
             "name": "demo",
@@ -677,14 +679,14 @@ class TestRobustNumericParsing(unittest.TestCase):
                 return "Translated Fast"
             return msg
 
-        with patch("plugin.framework.config.MODULES", mock_modules), \
-             patch("plugin.framework.config._", side_effect=fake_gettext):
+        with patch("plugin.framework.config_schema.MODULES", mock_modules), \
+             patch("plugin.framework.config_schema._", side_effect=fake_gettext):
             config.validate()
 
         self.assertEqual(config._extra_config.get("demo.mode"), "fast")
 
     def test_config_validation_constraints(self):
-        from plugin.framework.config import WriterAgentConfig
+        from plugin.framework.config_schema import WriterAgentConfig
         from plugin.framework.errors import ConfigValidationError
 
         # temperature > 1.0
@@ -712,7 +714,7 @@ class TestRobustNumericParsing(unittest.TestCase):
 
     def test_validate_falls_back_when_config_ui_helpers_missing(self):
         """LibrePy omits config_ui_helpers; endpoint still normalizes."""
-        from plugin.framework.config import WriterAgentConfig
+        from plugin.framework.config_schema import WriterAgentConfig
         from plugin.framework.url_utils import normalize_endpoint_url
 
         config = WriterAgentConfig.from_dict({"endpoint": "http://localhost:11434/"})
