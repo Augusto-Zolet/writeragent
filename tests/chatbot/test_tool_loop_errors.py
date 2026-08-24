@@ -18,9 +18,14 @@ from plugin.chatbot.sidebar_state import SidebarCompositeState
 class MockSession:
     def __init__(self):
         self.messages = [{"role": "system", "content": "test"}]
+        self.document_context = ""
 
     def set_system_context(self, base_prompt, doc_text=""):
+        self.document_context = doc_text
         self.messages[0]["content"] = f"{base_prompt}\n\n[DOCUMENT CONTENT]\n{doc_text}\n[END DOCUMENT]"
+
+    def refresh_document_context(self, model, ctx):
+        self.set_system_context("base", "doc text")
 
     def add_user_message(self, text):
         pass
@@ -85,13 +90,11 @@ def test_instance():
     # Mock some configs used in the main logic to avoid full system dependency
     with patch("plugin.chatbot.tool_loop.get_config") as mock_get_config, \
          patch("plugin.chatbot.tool_loop.get_api_config") as mock_get_api_config, \
-         patch("plugin.chatbot.tool_loop.validate_api_config") as mock_validate_api_config, \
-         patch("plugin.chatbot.tool_loop.get_chat_system_prompt_for_document") as mock_get_prompt:
+         patch("plugin.chatbot.tool_loop.validate_api_config") as mock_validate_api_config:
 
         mock_get_config.side_effect = lambda key: "10" if "tokens" in key or "context" in key else "test"
         mock_get_api_config.return_value = {"chat_max_tool_rounds": 1}
         mock_validate_api_config.return_value = (True, "")
-        mock_get_prompt.return_value = "System prompt"
 
         yield instance
 
@@ -154,10 +157,7 @@ def test_tool_execution_error_handling(test_instance, mock_get_tools):
 def test_audio_handling_error(test_instance, mock_get_tools):
     mock_get_tools.get_schemas.return_value = [{"name": "test_tool"}]
 
-    with patch("plugin.chatbot.tool_loop.get_document_context_for_chat") as mock_doc_context, \
-         patch("plugin.chatbot.tool_loop.agent_log"):
-
-        mock_doc_context.return_value = "doc text"
+    with patch("plugin.chatbot.tool_loop.agent_log"):
 
         test_instance.audio_wav_path = "/fake/path/audio.wav"
 
