@@ -134,7 +134,7 @@ def test_load_silence_detector_config_wraps_resolve():
     assert cfg.enabled is True
 
 
-def test_audio_record_main_uses_silence_stop_ms_only():
+def test_audio_record_main_uses_silence_stop_ms_only(tmp_path):
     from unittest.mock import patch
 
     from plugin.scripting.venv.audio_record_main import main
@@ -154,25 +154,27 @@ def test_audio_record_main_uses_silence_stop_ms_only():
         def start(self):
             return None
 
+    out_file = str(tmp_path / "t.wav")
     with patch("plugin.scripting.venv.audio_record_main.record_to_wav", side_effect=fake_record):
         with patch("plugin.scripting.venv.audio_record_main._emit"):
             with patch("plugin.scripting.venv.audio_record_main.threading.Thread", _NoOpThread):
-                rc = main(["--output", "/tmp/t.wav", "--silence-stop-ms", "0"])
+                rc = main(["--output", out_file, "--silence-stop-ms", "0"])
     assert rc == 0
 
 
-def test_monitor_recording_stdout_invokes_auto_stop_callback():
+def test_monitor_recording_stdout_invokes_auto_stop_callback(tmp_path):
     import json
     from io import StringIO
     from unittest.mock import MagicMock
 
     from plugin.scripting.audio_recorder_service import monitor_recording_stdout
 
+    voice_file = str(tmp_path / "voice.wav")
     proc = MagicMock()
     proc.poll.side_effect = [None, None, 0]
     proc.stdout = StringIO(
         json.dumps({"status": "silence_progress", "ms": 500}) + "\n"
-        + json.dumps({"status": "auto_stopped", "path": "/tmp/voice.wav"}) + "\n"
+        + json.dumps({"status": "auto_stopped", "path": voice_file}) + "\n"
     )
     seen: list[str] = []
     progress: list[int] = []
@@ -185,17 +187,19 @@ def test_monitor_recording_stdout_invokes_auto_stop_callback():
     thread.join(timeout=2.0)
     proc.stdout.close()
 
-    assert seen == ["/tmp/voice.wav"]
+    assert seen == [voice_file]
     assert progress == [500]
 
 
-def test_stop_recording_process_uses_fallback_when_child_already_exited():
+def test_stop_recording_process_uses_fallback_when_child_already_exited(tmp_path):
     from io import StringIO
     from unittest.mock import MagicMock
 
     from plugin.scripting.audio_recorder_service import stop_recording_process
 
+    fallback_file = str(tmp_path / "fallback.wav")
     proc = MagicMock()
     proc.poll.return_value = 0
     proc.stdout = StringIO("")
-    assert stop_recording_process(proc, fallback_path="/tmp/fallback.wav") == "/tmp/fallback.wav"
+    assert stop_recording_process(proc, fallback_path=fallback_file) == fallback_file
+

@@ -336,15 +336,17 @@ def test_queue_executor_set_context_invalidates():
     assert qe._async_callback_service is None
     assert qe._callback_instance is None
 
-def test_init_config_sets_default_executor_context(monkeypatch):
+def test_init_config_sets_default_executor_context(monkeypatch, tmp_path):
     from plugin.framework.config import init_config, reset_config_for_tests
     reset_config_for_tests()
     mock_ctx = MagicMock()
-    monkeypatch.setattr("plugin.framework.config._resolve_config_path_from_ctx", lambda _c: "/tmp/mock_config.json")
+    mock_cfg = str(tmp_path / "mock_config.json")
+    monkeypatch.setattr("plugin.framework.config._resolve_config_path_from_ctx", lambda _c: mock_cfg)
 
     init_config(mock_ctx)
     assert default_executor._ctx is mock_ctx
     reset_config_for_tests()
+
 
 def test_get_async_callback_already_init():
     default_executor._initialized = True

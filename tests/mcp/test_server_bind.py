@@ -119,6 +119,7 @@ def test_start_server_stashes_last_start_error(monkeypatch):
             pass
 
     monkeypatch.setattr(mcp_mod, "_shared_http_server", None)
+    monkeypatch.setattr(mcp_mod, "_last_start_error", None)
     monkeypatch.setattr("plugin.mcp.server.HttpServer", _FailingServer)
     monkeypatch.setattr("plugin.mcp.reload_cors_policy_from_config", lambda *_a, **_k: None)
 
@@ -128,6 +129,7 @@ def test_start_server_stashes_last_start_error(monkeypatch):
     assert "localhost:18765" in detail
     assert _PORT_IN_USE_GUIDANCE in detail
     assert mod._start_failure_reportable() is False
+
 
 
 def test_mcp_module_does_not_register_api_config(monkeypatch):

@@ -43,10 +43,13 @@ def mcp_server():
     """Start the HTTP server using McpModule with mocked services."""
     import plugin.mcp as http_mod
 
-    with http_mod._http_peer_lock:
-        http_mod._primary_http_module = None
-        http_mod._shared_registry = None
-        http_mod._shared_http_server = None
+    def _reset_globals():
+        with http_mod._http_peer_lock:
+            http_mod._primary_http_module = None
+            http_mod._shared_registry = None
+            http_mod._shared_http_server = None
+
+    _reset_globals()
 
     services = MagicMock()
 
@@ -75,39 +78,57 @@ def mcp_server():
     services.main_thread = main_thread
     services.get.side_effect = lambda name: getattr(services, name, None)
 
-    port = get_free_port()
-
-    config_svc = MagicMock()
-    config_svc.proxy_for.return_value = {
-        "enabled": True,
-        "mcp_enabled": True,
-        "mcp_port": port,
-        "host": "127.0.0.1",
-        "use_ssl": False,
-    }
-    services.config = config_svc
-
-    http_module = McpModule()
-    http_module.name = "mcp"
-    http_module.initialize(services)
-    http_module.start_background(services)
-
-    url = f"http://127.0.0.1:{port}"
+    http_module = None
+    url = ""
     server_ready = False
-    for _ in range(20):
+
+    for _attempt in range(3):
+        _reset_globals()
+        port = get_free_port()
+
+        config_svc = MagicMock()
+        config_svc.proxy_for.return_value = {
+            "enabled": True,
+            "mcp_enabled": True,
+            "mcp_port": port,
+            "host": "127.0.0.1",
+            "use_ssl": False,
+        }
+        services.config = config_svc
+
+        http_module = McpModule()
+        http_module.name = "mcp"
         try:
-            req = urllib.request.Request(f"{url}/health")
-            with urllib.request.urlopen(req, timeout=1) as response:
-                if response.getcode() == 200:
-                    server_ready = True
-                    break
+            http_module.initialize(services)
+            http_module.start_background(services)
         except Exception:
-            time.sleep(0.5)
+            if http_module:
+                http_module.shutdown()
+            continue
 
-    if not server_ready:
+        url = f"http://127.0.0.1:{port}"
+        for _ in range(20):
+            try:
+                req = urllib.request.Request(f"{url}/health")
+                with urllib.request.urlopen(req, timeout=1) as response:
+                    if response.getcode() == 200:
+                        server_ready = True
+                        break
+            except Exception:
+                time.sleep(0.5)
+
+        if server_ready:
+            break
+
         http_module.shutdown()
-        pytest.fail("Server did not start in time")
 
-    yield url
+    if not server_ready or not http_module:
+        _reset_globals()
+        pytest.fail("Server did not start in time after retries")
 
-    http_module.shutdown()
+    try:
+        yield url
+    finally:
+        http_module.shutdown()
+        _reset_globals()
+

@@ -11,14 +11,15 @@ from unittest.mock import patch
 from plugin.embeddings.venv.embeddings_index_dispatch import dispatch_trusted
 
 
-def test_hybrid_search_trusted_action_dispatches():
+def test_hybrid_search_trusted_action_dispatches(tmp_path):
     fake_hits = {"hits": [{"doc_url": "file:///a.odt", "score": 0.5, "snippet": "dspy"}]}
+    db_path = str(tmp_path / "corpus.db")
     with patch("plugin.embeddings.venv.embeddings_index.hybrid_search", return_value=fake_hits) as mock_search:
         result = dispatch_trusted(
             {
                 "helper": "hybrid_search",
                 "params": {
-                    "db_path": "/tmp/corpus.db",
+                    "db_path": db_path,
                     "query": "dspy",
                     "k": 20,
                     "model": "all-MiniLM-L6-v2",
@@ -29,7 +30,7 @@ def test_hybrid_search_trusted_action_dispatches():
 
     assert result["hits"][0]["doc_url"] == "file:///a.odt"
     mock_search.assert_called_once_with(
-        "/tmp/corpus.db",
+        db_path,
         "dspy",
         20,
         model_name="all-MiniLM-L6-v2",
@@ -39,6 +40,7 @@ def test_hybrid_search_trusted_action_dispatches():
         rerank_model=None,
         search_mode="hybrid",
     )
+
 
 
 def test_warm_embedder_trusted_action():
