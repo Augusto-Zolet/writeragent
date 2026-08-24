@@ -28,8 +28,9 @@ import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Any
+
+from plugin.framework.constants import now_aware
 
 from plugin.framework.errors import ToolExecutionError, format_error_payload
 from plugin.framework.json_utils import safe_json_loads
@@ -333,8 +334,13 @@ def _llm_chat(llm_chat: LlmChatFn, messages: list[dict[str, str]], max_tokens: i
     return llm_chat(messages, max_tokens)
 
 
+def _local_clock_stamp() -> str:
+    """Weekday + ISO date like LlmClient's date line, plus local clock."""
+    return now_aware().strftime("%A, %Y-%m-%d %H:%M:%S")
+
+
 def generate_search_queries(llm_chat: LlmChatFn, query: str, num_queries: int) -> list[dict[str, str]]:
-    today = datetime.now().strftime("%Y-%m-%d")
+    current_time = _local_clock_stamp()
     messages = [
         {
             "role": "system",
@@ -350,7 +356,7 @@ def generate_search_queries(llm_chat: LlmChatFn, query: str, num_queries: int) -
                 "For each query, provide a research goal.\n\n"
                 'Return ONLY a JSON array of objects using this exact schema:\n'
                 '[{"query": "<search query>", "researchGoal": "<research goal>"}]\n\n'
-                f"Today's date is {today}. Prefer recent information; where the topic is fast-changing, "
+                f"Current time: {current_time}. Prefer recent information; where the topic is fast-changing, "
                 "word the queries to surface up-to-date results.\n\n"
                 f"Prompt: {query}"
             ),
@@ -361,7 +367,7 @@ def generate_search_queries(llm_chat: LlmChatFn, query: str, num_queries: int) -
 
 
 def generate_research_plan(llm_chat: LlmChatFn, query: str, search_results: str, num_questions: int = 3) -> list[str]:
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    current_time = _local_clock_stamp()
     messages = [
         {
             "role": "system",

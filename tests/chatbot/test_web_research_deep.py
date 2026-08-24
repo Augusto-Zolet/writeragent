@@ -241,9 +241,14 @@ def test_assess_research_coverage_parses_score():
     assert out["stop"] is True
 
 
-def test_generate_search_queries_includes_today():
-    from datetime import datetime
+def _frozen_clock_stamp():
+    from datetime import datetime, timezone
 
+    frozen = datetime(2026, 8, 24, 19, 14, 5, tzinfo=timezone.utc)
+    return frozen, frozen.strftime("%A, %Y-%m-%d %H:%M:%S")
+
+
+def test_generate_search_queries_includes_local_clock_stamp():
     from plugin.chatbot.web_research_deep import generate_search_queries
 
     captured: dict[str, str] = {}
@@ -252,8 +257,28 @@ def test_generate_search_queries_includes_today():
         captured["user"] = messages[-1]["content"]
         return '[{"query": "q1", "researchGoal": "g1"}, {"query": "q2", "researchGoal": "g2"}]'
 
-    today = datetime.now().strftime("%Y-%m-%d")
-    out = generate_search_queries(fake_llm, "some topic", 2)
+    frozen, stamp = _frozen_clock_stamp()
+    with patch("plugin.chatbot.web_research_deep.now_aware", return_value=frozen):
+        out = generate_search_queries(fake_llm, "some topic", 2)
 
     assert len(out) == 2
-    assert today in captured["user"], f"generated query prompt should include today's date ({today})"
+    assert "up-to-date" in captured["user"]
+    assert f"Current time: {stamp}" in captured["user"]
+    assert "Today's date is" not in captured["user"]
+
+
+def test_generate_research_plan_uses_llm_client_datetime_format():
+    from plugin.chatbot.web_research_deep import generate_research_plan
+
+    captured: dict[str, str] = {}
+
+    def fake_llm(messages, max_tokens):
+        captured["user"] = messages[-1]["content"]
+        return '{"questions": ["q1", "q2"]}'
+
+    frozen, stamp = _frozen_clock_stamp()
+    with patch("plugin.chatbot.web_research_deep.now_aware", return_value=frozen):
+        out = generate_research_plan(fake_llm, "some topic", "snippet", num_questions=2)
+
+    assert len(out) == 2
+    assert f"Current time: {stamp}" in captured["user"]

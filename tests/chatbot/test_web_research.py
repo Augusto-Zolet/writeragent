@@ -472,6 +472,12 @@ def test_apply_override_json_string():
     assert step.arguments == {"query": "edited"}
 
 
+def test_apply_override_json_string_keeps_recency():
+    step = SimpleNamespace(arguments='{"query": "old", "recency": "week"}')
+    assert _apply_web_search_query_override(step, "edited") is True
+    assert step.arguments == {"query": "edited", "recency": "week"}
+
+
 def test_apply_override_invalid_json_string():
     step = SimpleNamespace(arguments="<<<")
     assert _apply_web_search_query_override(step, "only-override") is True
@@ -1020,6 +1026,25 @@ def test_web_search_cache_key_includes_recency():
     assert plain == "any|AI news"
     assert _search_cache_key("AI news", "day") != plain
     assert _search_cache_key("AI news", "week") != _search_cache_key("AI news", "day")
+
+
+def test_web_search_unknown_recency_behaves_as_any():
+    import urllib.parse
+
+    from plugin.contrib.smolagents.default_tools import DuckDuckGoSearchTool, _search_cache_key
+
+    assert _search_cache_key("AI news", "d") == "any|AI news"
+    assert _search_cache_key("AI news", 7) == "any|AI news"
+
+    captured = {}
+
+    def _fake_urlopen(req, timeout=None):
+        captured["params"] = dict(urllib.parse.parse_qsl(req.data.decode("utf-8")))
+        return _FakeUrlopenResponse(b"<html><body>no results</body></html>")
+
+    with patch("urllib.request.urlopen", side_effect=_fake_urlopen):
+        DuckDuckGoSearchTool(cache_max_age_days=30).forward("AI news", recency="recent")
+    assert "df" not in captured["params"]
 
 
 def test_web_search_skips_sponsored_rows():

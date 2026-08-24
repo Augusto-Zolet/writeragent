@@ -266,8 +266,11 @@ _RECENCY_TO_DF = {"day": "d", "week": "w", "month": "m", "year": "y"}
 
 
 def _norm_recency(value):
-    """Normalize a recency input to a cache-key token ('any' when unset)."""
-    return (value or "any").strip().lower()
+    """Normalize recency to a cache-key token. Unknown or unset values are 'any'."""
+    token = str(value or "any").strip().lower()
+    if token in _RECENCY_TO_DF or token == "any":
+        return token
+    return "any"
 
 
 def _search_cache_key(query, recency):

@@ -25,7 +25,6 @@ import logging
 import os
 import threading
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any, Callable
 
 from plugin.framework.tool import ToolBase
@@ -292,9 +291,8 @@ def _run_web_agent(
     from plugin.contrib.smolagents.default_tools import DuckDuckGoSearchTool, VisitWebpageTool
 
     max_steps = params.max_steps_override if params.max_steps_override else params.max_steps
-    today = datetime.now().strftime("%Y-%m-%d")
     base_intro = (
-        f"You are a research assistant. Today's date is {today}. "
+        "You are a research assistant. "
         "Use the conversation context provided below to resolve any ambiguity in the user's query. "
         "Avoid visiting Yelp (yelp.com) links, as Yelp blocks automated requests and returns 403 errors; rely on other sources instead. "
         "For fast-changing topics (news, prices, model releases), prefer recent sources and pass "
@@ -718,11 +716,22 @@ def _web_search_query_from_arguments(arguments: Any) -> str:
 
 
 def _apply_web_search_query_override(step: Any, query_override: str) -> bool:
-    if not isinstance(step.arguments, dict):
-        step.arguments = {"query": query_override}
-        return True
-    step.arguments["query"] = query_override
-    return False
+    if isinstance(step.arguments, dict):
+        step.arguments["query"] = query_override
+        return False
+    if isinstance(step.arguments, str):
+        try:
+            from plugin.framework.errors import safe_json_loads
+
+            data = safe_json_loads(step.arguments)
+            if isinstance(data, dict):
+                data["query"] = query_override
+                step.arguments = data
+                return True
+        except Exception:
+            pass
+    step.arguments = {"query": query_override}
+    return True
 
 
 def _norm_research_query(q: str) -> str:
