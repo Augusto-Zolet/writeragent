@@ -12,23 +12,33 @@ See docs/framework-formal-verification.md §8.1 E for string contract convention
 
 from typing import Any
 
-# Domain caps for string contracts in @deal.pre
+# Domain caps for @deal.pre only. Release OXTs strip @deal.* and LibreOffice
+# uses this shim as a no-op, so these lengths never bind shipped code.
 DEAL_MAX_COL_LETTERS = 3
 DEAL_MAX_CELL_REF = 32
 DEAL_MAX_TOKEN = 64
 DEAL_MAX_ORIGIN = 256
 DEAL_MAX_URL = 2048
 DEAL_MAX_PATH = 4096
-DEAL_MAX_SOURCE = 4096
+DEAL_MAX_SOURCE = 64
 
 
 def ascii_bounded(s: object, max_len: int, min_len: int = 0) -> bool:
     """True iff *s* is an ASCII str with min_len <= len(s) <= max_len.
 
-    Use in ``@deal.pre`` so CrossHair cannot wander on unbounded Unicode.
+    Use in ``@deal.pre`` for closed alphabets (cell refs, tokens, origins).
     max_len is required: pick a domain cap, do not invent a global default.
     """
     return isinstance(s, str) and s.isascii() and min_len <= len(s) <= max_len
+
+
+def str_bounded(s: object, max_len: int, min_len: int = 0) -> bool:
+    """True iff *s* is a str with min_len <= len(s) <= max_len (Unicode allowed).
+
+    Use in ``@deal.pre`` for open text (gettext, HTML, source). Length still
+    caps CrossHair; ``isascii`` would reject real **dev pytest** call sites.
+    """
+    return isinstance(s, str) and min_len <= len(s) <= max_len
 
 deal: Any
 
