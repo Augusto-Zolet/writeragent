@@ -1,0 +1,126 @@
+name: CrossHair Verification (Deep / On-Demand)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Sweep target'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - 'both'
+          - 'check-all'
+          - 'cover-all'
+      deep:
+        description: 'Run in deep mode (200 iters, no per-condition wall)'
+        required: true
+        default: true
+        type: boolean
+      runner_os:
+        description: 'Runner Operating System'
+        required: true
+        default: 'ubuntu-latest'
+        type: choice
+        options:
+          - 'ubuntu-latest'
+          - 'windows-latest'
+          - 'macos-latest'
+      jobs:
+        description: 'Worker count for cover-all process pool (leave blank for default)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  crosshair:
+    name: CrossHair (${{ inputs.target }}, ${{ inputs.runner_os }})
+    runs-on: ${{ inputs.runner_os }}
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          uv sync --dev --extra dev
+
+      - name: Create build directory
+        run: |
+          uv run python -c "import pathlib; pathlib.Path('build').mkdir(exist_ok=True)"
+
+      - name: Run CrossHair check-all
+        if: inputs.target == 'both' || inputs.target == 'check-all'
+        run: |
+          DEEP_FLAG="${{ inputs.deep == true && '--deep' || '' }}"
+          uv run python scripts/crosshair_check_all.py $DEEP_FLAG
+
+      - name: Run CrossHair cover-all
+        if: inputs.target == 'both' || inputs.target == 'cover-all'
+        run: |
+          DEEP_FLAG="${{ inputs.deep == true && '--deep' || '' }}"
+          JOBS_FLAG=""
+          if [ -n "${{ inputs.jobs }}" ]; then
+            JOBS_FLAG="--jobs ${{ inputs.jobs }}"
+          fi
+          uv run python scripts/crosshair_cover_all.py $DEEP_FLAG $JOBS_FLAG
+
+      - name: Generate summary report
+        if: always()
+        run: |
+          uv run python - << 'EOF'
+          import os
+          from pathlib import Path
+
+          summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
+          if not summary_file:
+              exit(0)
+
+          lines = ["### CrossHair Sweep Summary\n"]
+
+          check_log = Path("build/crosshair-check-all.log")
+          if check_log.exists():
+              text = check_log.read_text(encoding="utf-8", errors="replace")
+              if "=== CrossHair CHECK ALL FAIL" in text:
+                  lines.append("❌ **CrossHair check-all**: Failed with errors (see logs / artifact)")
+              elif "=== CrossHair CHECK ALL DONE" in text:
+                  lines.append("✅ **CrossHair check-all**: Completed successfully")
+              else:
+                  lines.append("⚠️ **CrossHair check-all**: Ended unexpectedly")
+
+          cover_log = Path("build/crosshair-cover-all.log")
+          if cover_log.exists():
+              text = cover_log.read_text(encoding="utf-8", errors="replace")
+              if "=== CrossHair COVER ALL FAIL" in text:
+                  lines.append("❌ **CrossHair cover-all**: Failed with engine fatals (see logs / artifact)")
+              elif "=== CrossHair COVER ALL DONE" in text:
+                  lines.append("✅ **CrossHair cover-all**: Completed successfully")
+              else:
+                  lines.append("⚠️ **CrossHair cover-all**: Ended unexpectedly")
+
+          with open(summary_file, "a", encoding="utf-8") as f:
+              f.write("\n".join(lines) + "\n")
+          EOF
+
+      - name: Upload CrossHair logs as artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: crosshair-logs-${{ inputs.runner_os }}-${{ github.run_id }}
+          path: |
+            build/crosshair-check-all.log
+            build/crosshair-cover-all.log
+            build/crosshair-cover-all-timings.json
+          if-no-files-found: ignore
