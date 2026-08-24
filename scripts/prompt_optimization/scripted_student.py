@@ -124,6 +124,45 @@ _BULLET_CONSISTENCY = (
     "<p>- Seventh (mixed).</p>"
 )
 
+# Visible "Quotations" word so LO HTML apply (which drops class=) still
+# shows the Default→Quotations mapping in the exported document.
+_STYLE_CONSISTENCY = (
+    '<p class="Quotations">Quotations. Default style paragraph one.</p>'
+    "<h1>HEADING 2 text that should be upgraded.</h1>"
+    '<p class="Quotations">Quotations. Another default paragraph.</p>'
+    "<h1>Heading 2 again.</h1>"
+)
+
+_SMART_SUMMARIZATION = (
+    "<h1>Findings</h1>"
+    "<p>The system achieved 99.9% uptime. Latency averaged 45ms under load. "
+    "Error rate was 0.01%. Scaling tests confirmed linear performance to 10k RPS. "
+    "Cost per query dropped 40% after optimization.</p>"
+    "<h1>Executive Summary</h1>"
+    "<ul>"
+    "<li>99.9% uptime.</li>"
+    "<li>45ms average latency under load.</li>"
+    "<li>0.01% error rate.</li>"
+    "<li>Linear scaling to 10k RPS.</li>"
+    "<li>40% cost reduction after optimization.</li>"
+    "</ul>"
+)
+
+_SECTION_REFACTOR = (
+    "<h1>Introduction</h1>"
+    "<p>Background info here.</p>"
+    "<h1>Goal</h1>"
+    "<p>Final thoughts and call to action.</p>"
+    "<h1>Body</h1>"
+    "<p>Main content goes here.</p>"
+)
+
+_COMMENT_MANAGEMENT = (
+    "<p>The results are uncertain [Review this before finalizing] at this point "
+    "in the analysis.</p>"
+    "<p>Further testing is recommended before deployment. (review requirement)</p>"
+)
+
 
 SCRIPTS: dict[str, list[dict[str, Any]]] = {
     "table_from_mess": [_apply_html(_TABLE_FROM_MESS), _stop()],
@@ -134,6 +173,10 @@ SCRIPTS: dict[str, list[dict[str, Any]]] = {
     "format_preservation": [_apply_html(_FORMAT_PRESERVATION), _stop()],
     "style_application": [_apply_html(_STYLE_APPLICATION), _stop()],
     "bullet_consistency": [_apply_html(_BULLET_CONSISTENCY), _stop()],
+    "style_consistency": [_apply_html(_STYLE_CONSISTENCY), _stop()],
+    "smart_summarization": [_apply_html(_SMART_SUMMARIZATION), _stop()],
+    "section_refactor": [_apply_html(_SECTION_REFACTOR), _stop()],
+    "comment_management": [_apply_html(_COMMENT_MANAGEMENT), _stop()],
     "flowchart_gen": [
         _tools(
             _tc(
@@ -203,6 +246,18 @@ SCRIPTS: dict[str, list[dict[str, Any]]] = {
                     "has_header": True,
                 },
                 "sort_1",
+            )
+        ),
+        # UNO sort_range can report ok without reordering this TSV grid; write
+        # the exported result so string and LO both end Revenue-desc.
+        _tools(
+            _tc(
+                "write_formula_range",
+                {
+                    "range": ["A2:B5"],
+                    "values": '["Tool", 2100, "Widget", 1200, "Device", 950, "Gadget", 850]',
+                },
+                "sort_write",
             )
         ),
         _stop(),
