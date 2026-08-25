@@ -278,6 +278,16 @@ def reset_notebook_python_session(ctx: Any, doc: Any | None = None) -> None:
         return
 
     res = reset_python_session(ctx, session_id)
+    # Restart Kernel: next In count is 1 even if the worker reset fails (timeout).
+    try:
+        from plugin.notebook.cell_registry import load_registry, save_registry
+
+        state = load_registry(target)
+        if state is not None:
+            state.next_execution_count = 1
+            save_registry(target, state)
+    except Exception:
+        log.debug("notebook reset: could not reset execution counter", exc_info=True)
     if res.get("status") == "ok":
         _msgbox(ctx, _("Notebook Python session reset for this document."))
         return
