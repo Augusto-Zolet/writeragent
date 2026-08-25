@@ -19,7 +19,7 @@ from plugin.calc.excel_py_convert.to_dag import (
     _xl_binding_expr,
 )
 from plugin.calc.spreadsheet_import.preprocess import normalize_lo_formula_for_parse
-from plugin.framework.deal_shim import DEAL_MAX_PLACEHOLDER_INDEX
+from plugin.framework.deal_shim import DEAL_MAX_PLACEHOLDER_INDEX, DEAL_MAX_XL_EXPR
 from tests.strip_bundle import deal_pre_present
 
 
@@ -52,6 +52,7 @@ def test_xl_binding_expr_invariants(idx: int, header_mode: str) -> None:
         assert "headers=True" in expr
     elif header_mode == "false":
         assert "headers=False" in expr
+    assert len(expr) <= DEAL_MAX_XL_EXPR
 
 
 @given(st.text(alphabet=st.characters(blacklist_categories=("Cs",), max_codepoint=127), max_size=64))

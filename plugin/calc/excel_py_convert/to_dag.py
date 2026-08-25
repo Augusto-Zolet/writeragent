@@ -55,7 +55,7 @@ from plugin.calc.excel_py_convert.models import (
     HeaderMode,
 )
 from plugin.calc.excel_py_convert.resolve_refs import ResolvedDep, resolve_deps
-from plugin.framework.deal_shim import DEAL_MAX_PLACEHOLDER_INDEX, DEAL_MAX_SOURCE, DEAL_MAX_TOKEN, str_bounded, deal
+from plugin.framework.deal_shim import DEAL_MAX_PLACEHOLDER_INDEX, DEAL_MAX_SOURCE, DEAL_MAX_XL_EXPR, str_bounded, deal
 
 _P_TOKEN_RE = re.compile(r"^%P(\d+)%$", re.IGNORECASE)
 # Bare Excel placeholder in source (not anchored); same length as ``_Pn_`` sentinel.
@@ -99,7 +99,7 @@ def _placeholder_to_data_index(p_num: int) -> int:
     and result.startswith("xl(")
     and result.endswith(")")
     and '"%P' in result
-    and len(result) <= DEAL_MAX_TOKEN
+    and len(result) <= DEAL_MAX_XL_EXPR
 )
 def _xl_binding_expr(index: int, header_mode: str) -> str:
     """Runnable DAG ``xl("%Pn%", …)`` (quoted token; MS package uses bare ``%Pn%``)."""

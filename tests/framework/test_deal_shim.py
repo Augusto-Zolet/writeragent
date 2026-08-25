@@ -30,6 +30,7 @@ from plugin.framework.deal_shim import (
     DEAL_MAX_SOURCE,
     DEAL_MAX_TOKEN,
     DEAL_MAX_URL,
+    DEAL_MAX_XL_EXPR,
     ascii_bounded,
     deal,
     deal_maxima,
@@ -82,6 +83,7 @@ def test_deal_shim_constants_match_pytest_profile() -> None:
     assert DEAL_MAX_COL_INDEX == wide.col_index == 26 + 26**2 + 26**3 - 1 == 18277
     assert DEAL_MAX_CELL_REF == wide.cell_ref == 32
     assert DEAL_MAX_TOKEN == wide.token == 64
+    assert DEAL_MAX_XL_EXPR == wide.xl_expr == 64
     assert DEAL_MAX_ORIGIN == wide.origin == 256
     assert DEAL_MAX_URL == wide.url == 256
     assert DEAL_MAX_PATH == wide.path == 256
@@ -116,6 +118,7 @@ def test_deal_maxima_crosshair_profile_stays_tiny() -> None:
     assert short.msgid == 1024
     assert short.path == 32
     assert short.token == 16
+    assert short.xl_expr == 32
     assert short.html_chunk == 64
     # Unchanged unless a test-backed reason appears.
     assert short.origin == 256

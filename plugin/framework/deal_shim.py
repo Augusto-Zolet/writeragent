@@ -46,6 +46,7 @@ class DealMaxima(NamedTuple):
     msgid: int
     path: int
     token: int
+    xl_expr: int
     origin: int
     url: int
     retry: int
@@ -84,6 +85,7 @@ def deal_maxima(*, crosshair: bool) -> DealMaxima:
             msgid=1024,  # real UI _() strings run at import; do not shrink
             path=32,
             token=16,
+            xl_expr=32,  # xl("%Pn%",headers=False) is 24; TOKEN=16 is too small
             origin=origin,
             url=url,
             retry=retry,
@@ -105,6 +107,7 @@ def deal_maxima(*, crosshair: bool) -> DealMaxima:
         msgid=1024,  # gettext _(); longest shipped msgid is ~500 chars
         path=256,  # filesystem paths (is_safe_workspace_path); not PATH_MAX
         token=64,
+        xl_expr=64,  # DAG xl("%Pn%",headers=False); CrossHair uses 32
         origin=origin,
         url=url,
         retry=retry,
@@ -129,6 +132,7 @@ DEAL_MAX_SOURCE = _MAXIMA.source
 DEAL_MAX_MSGID = _MAXIMA.msgid
 DEAL_MAX_PATH = _MAXIMA.path
 DEAL_MAX_TOKEN = _MAXIMA.token
+DEAL_MAX_XL_EXPR = _MAXIMA.xl_expr
 DEAL_MAX_ORIGIN = _MAXIMA.origin
 DEAL_MAX_URL = _MAXIMA.url
 DEAL_MAX_RETRY = _MAXIMA.retry

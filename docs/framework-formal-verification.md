@@ -664,6 +664,7 @@ Helpers in [`deal_shim.py`](../plugin/framework/deal_shim.py):
 | Helper | Use when |
 |--------|----------|
 | `ascii_bounded(s, max_len, min_len=0)` | Closed alphabet: column letters, A1 / range strings, error **codes**, CORS origins, stream prefixes, URL suffixes |
+| `DEAL_MAX_XL_EXPR` | DAG ``xl("%Pn%",headers=False)`` length (32 CrossHair / 64 pytest). Do **not** reuse ``DEAL_MAX_TOKEN`` (16 under CrossHair is shorter than that emit) |
 | `str_bounded(s, max_len, min_len=0)` | Open text: gettext `_()` (`DEAL_MAX_MSGID`), HTML, `=PY()` / Excel source (`DEAL_MAX_SOURCE`). Length still bounds CrossHair |
 
 `DEAL_MAX_CELL_REF` is **32** because `parse_address` / `parse_range_string` reject sheet prefixes; the longest legal range is well under that. Do **not** put `isascii` on `_()` (msgids include `"✓ Copied!"`, `"Testing…"`), HTML strippers, or formula source. `_()` uses `DEAL_MAX_MSGID` (**1024** in both profiles) so real UI strings survive import; do not shrink that under CrossHair. Pytest `DEAL_MAX_SOURCE` is **8192** (real `=PY()` / Excel scripts); CrossHair stays **16**.
