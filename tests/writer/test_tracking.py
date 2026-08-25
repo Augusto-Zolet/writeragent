@@ -270,6 +270,15 @@ def test_comment_insert():
     text_mock = view_cursor_mock.getText.return_value
     text_mock.insertTextContent.assert_called_with(view_cursor_mock, anno_mock, True)
 
+
+def test_comment_insert_ok_when_uno_date_struct_missing():
+    # xdist: another test can leave com.sun.star.util without Date; insert must still succeed.
+    ctx, _, _, _ = _create_mock_ctx()
+    with patch("uno.createUnoStruct", side_effect=RuntimeError("no Date struct")):
+        res = TrackChangesCommentInsert().execute(ctx, content="test comment", author="Jules")
+    assert res["status"] == "ok"
+
+
 def test_comment_list():
     ctx, _, _, _ = _create_mock_ctx()
     tool = TrackChangesCommentList()

@@ -890,17 +890,17 @@ basedpyright: manifest basedpyright-run
 pyrefly: manifest pyrefly-run
 
 ty-run: ensure-uno
-	"$(PYTHON)" -m ty check --exclude plugin/contrib/ --exclude plugin/lib/
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py ty "$(PYTHON)" -m ty check --exclude plugin/contrib/ --exclude plugin/lib/
 
 mypy-run: ensure-uno
-	"$(PYTHON)" -m mypy
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py mypy "$(PYTHON)" -m mypy
 
 # Future task: try enabling `reportMissingTypeArgument = true` in pyproject.toml to enforce generic type parameters (dict[str, Any], list[str])
 basedpyright-run: ensure-uno
-	"$(PYTHON)" -m basedpyright
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright "$(PYTHON)" -m basedpyright
 
 pyrefly-run: ensure-uno
-	"$(PYTHON)" -m pyrefly check
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py pyrefly "$(PYTHON)" -m pyrefly check
 
 bandit:
 	"$(PYTHON)" -m bandit -r plugin -c pyproject.toml --severity-level medium
@@ -909,7 +909,7 @@ bandit:
 # Wrapper disables reviewed FP rules; see scripts/run_pyspector.py.
 pyspector:
 	@"$(PYTHON)" -c "import pyspector" 2>/dev/null || (echo "pyspector not found — run: uv sync" && exit 1)
-	"$(PYTHON)" $(SCRIPTS)/run_pyspector.py scan plugin --ai -c pyspector.toml --msg=False
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py pyspector "$(PYTHON)" $(SCRIPTS)/run_pyspector.py scan plugin --ai -c pyspector.toml --msg=False
 
 pyspector-report:
 	@"$(PYTHON)" -c "import pyspector" 2>/dev/null || (echo "pyspector not found — run: uv sync" && exit 1)

@@ -24,7 +24,7 @@ manage_tracked_changes (accept/reject one or all), and track_changes_show.
 import logging
 from plugin.framework.constants import now_aware
 
-from typing import Any
+from typing import Any, cast
 
 from plugin.calc.base import ToolCalcSpecialTracking
 from .specialized_base import WriterAgentSpecialTracking
@@ -376,15 +376,19 @@ class TrackChangesCommentInsert(WriterAgentSpecialTracking):
             annotation.setPropertyValue("Content", str(content))
             annotation.setPropertyValue("Author", str(author))
 
-            # Use current system date
-            now = now_aware()
-            from com.sun.star.util import Date
+            # createUnoStruct, not ``from com.sun.star.util import Date``: under pytest-xdist
+            # another test can replace that module without Date and the whole insert failed.
+            try:
+                import uno
 
-            dt = Date()
-            dt.Year = now.year
-            dt.Month = now.month
-            dt.Day = now.day
-            annotation.setPropertyValue("Date", dt)
+                now = now_aware()
+                dt = cast("Any", uno.createUnoStruct("com.sun.star.util.Date"))
+                dt.Year = now.year
+                dt.Month = now.month
+                dt.Day = now.day
+                annotation.setPropertyValue("Date", dt)
+            except Exception:
+                log.debug("track_changes_comment_insert: Date not set", exc_info=True)
 
             # Insert at current view cursor
             view_cursor = doc.getCurrentController().getViewCursor()

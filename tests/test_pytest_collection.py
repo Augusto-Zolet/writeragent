@@ -70,6 +70,8 @@ def test_makefile_typecheck_runs_checkers_in_parallel() -> None:
     body = block.group(0)
     assert "-j4" in body
     assert "ty-run" in body
+    assert "run_timed.py" in text
+    assert "mypy-run" in body
     assert "mypy-run" in body
     assert "basedpyright-run" in body
     assert "pyspector" in body
