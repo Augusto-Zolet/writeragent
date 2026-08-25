@@ -20,7 +20,7 @@ from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_SOURCE, asci
 CALC_PYTHON_FN = "PY"
 CALC_PYTHON_FN_ALIASES = ("PY", "PYTHON")
 # Longest first so PYTHON is not parsed as PY + "THON".
-_CALC_PYTHON_FN_ALIASES_BY_LEN = tuple(sorted(CALC_PYTHON_FN_ALIASES, key=len, reverse=True))
+_CALC_PYTHON_FN_ALIASES_BY_LEN = ("PYTHON", "PY")
 _MAX_PYTHON_ALIAS_LEN = max(len(a) for a in CALC_PYTHON_FN_ALIASES)
 # Curly/smart quotes Calc sometimes stores in localized formulas.
 _QUOTE_NORMALIZE = str.maketrans({"\u201c": '"', "\u201d": '"', "\u2018": "'", "\u2019": "'"})
@@ -320,8 +320,8 @@ def _rewrite_token_calls_body(code: str, token: str, rewrite_inner: Callable[[st
     and callable(rewrite_inner)
 )
 @deal.post(lambda result: isinstance(result, str))
-def _rewrite_token_calls(code: str, token: str, rewrite_inner: Callable[[str], str]) -> str:
-    """Replace ``token(inner)`` calls; *token* must be alphabetic (not regex metacharacters)."""
+def _rewrite_token_calls(code: str, token: str, rewrite_inner: Callable[[str], str]) -> str:  # pyright: ignore[reportUnusedFunction]
+    """Deal-wrapped rewrite for pytest; sanitize/escape call ``_rewrite_token_calls_body``."""
     # crosshair: off
     return _rewrite_token_calls_body(code, token, rewrite_inner)
 

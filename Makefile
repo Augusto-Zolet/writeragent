@@ -661,7 +661,7 @@ check-ext:
 LO_PYTHON ?= $(shell python3 -c "import uno" 2>/dev/null && echo python3 || (python -c "import uno" 2>/dev/null && echo python || echo python))
 
 typecheck: manifest ruff-for-build
-	@$(MAKE) -j4 ty-run mypy-run basedpyright-run pyspector
+	@$(MAKE) -j4 -Otarget ty-run mypy-run basedpyright-run pyspector
 
 # Unit pytest only: no *_uno.py collection, no testing_runner / live soffice.
 # Exact command: $(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py'
@@ -768,7 +768,7 @@ excel-py-roundtrip:
 
 test:
 	@$(MAKE) typecheck
-	@$(MAKE) -j2 thread-safety-lint opengrep-lint
+	@$(MAKE) -j2 -Otarget thread-safety-lint opengrep-lint
 	@$(MAKE) test-run
 	@$(MAKE) excel-py-roundtrip
 	@$(MAKE) bandit

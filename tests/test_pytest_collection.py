@@ -67,6 +67,7 @@ def test_makefile_typecheck_runs_checkers_in_parallel() -> None:
     assert block is not None, "missing Makefile typecheck: target"
     body = block.group(0)
     assert "-j4" in body
+    assert "-Otarget" in body
     assert "ty-run" in body
     assert "mypy-run" in body
     assert "basedpyright-run" in body
