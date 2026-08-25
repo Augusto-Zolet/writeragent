@@ -55,10 +55,8 @@ def record_to_wav(
     vad = SilenceDetector(silence_config or SilenceDetectorConfig(silence_stop_ms=0), sample_rate=SAMPLE_RATE)
     auto_stopped = False
 
-    wav_file = wave.open(output_path, "wb")
-    wav_file.setnchannels(CHANNELS)
-    wav_file.setsampwidth(SAMPLE_WIDTH)
-    wav_file.setframerate(SAMPLE_RATE)
+    wav_file = None
+    stream = None
 
     def callback(indata, frames, time_info, status):
         nonlocal auto_stopped
@@ -79,8 +77,12 @@ def record_to_wav(
                 on_ipc_emit({"status": "auto_stopped", "path": output_path})
             stop_event.set()
 
-    stream = None
     try:
+        wav_file = wave.open(output_path, "wb")
+        wav_file.setnchannels(CHANNELS)
+        wav_file.setsampwidth(SAMPLE_WIDTH)
+        wav_file.setframerate(SAMPLE_RATE)
+
         stream = sd.RawInputStream(
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
@@ -108,8 +110,9 @@ def record_to_wav(
                 stream.close()
             except Exception:
                 pass
-        try:
-            wav_file.close()
-        except (OSError, ValueError):
-            pass
+        if wav_file is not None:
+            try:
+                wav_file.close()
+            except (OSError, ValueError):
+                pass
     return auto_stopped

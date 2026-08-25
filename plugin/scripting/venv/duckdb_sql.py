@@ -177,18 +177,10 @@ def query_folder_sql(
                     except Exception as flat_err:
                         log.warning("Failed to register flat file table %s from %s: %s", name, path, flat_err)
 
-            if legacy_files or not flat_files:
-                # Legacy path: chdir + filename refs in SQL (for old calls)
-                if base and (validated or legacy_files):
-                    with _scoped_cwd(base):
-                        df = con.execute(sql).df()
-                else:
+            if base and (legacy_files or not flat_files) and (validated or legacy_files):
+                with _scoped_cwd(base):
                     df = con.execute(sql).df()
             else:
-                # Modern path with named tables only
-                df = con.execute(sql).df()
-
-            if 'df' not in locals():
                 df = con.execute(sql).df()
         finally:
             con.close()

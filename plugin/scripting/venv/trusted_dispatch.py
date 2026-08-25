@@ -49,7 +49,7 @@ def _dispatch_spec_data(run_fn: Callable[..., Any], data: dict[str, Any]) -> Any
 
 
 def dispatch_units(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.scripting.venv.units import run_units
 
     spec, _unused, context = _packet_parts(data)
@@ -57,7 +57,7 @@ def dispatch_units(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, An
 
 
 def dispatch_symbolic(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.scripting.venv.symbolic import run_symbolic
 
     spec, _unused, context = _packet_parts(data)
@@ -65,42 +65,42 @@ def dispatch_symbolic(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str,
 
 
 def dispatch_viz(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.scripting.venv.viz import run_viz
 
     return _dispatch_spec_data(run_viz, data)
 
 
 def dispatch_analysis(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.scripting.venv.analysis import run_analysis
 
     return _dispatch_spec_data(run_analysis, data)
 
 
 def dispatch_forecast(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.scripting.venv.forecast import run_forecast
 
     return _dispatch_spec_data(run_forecast, data)
 
 
 def dispatch_optimize(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.scripting.venv.optimize import run_optimize
 
     return _dispatch_spec_data(run_optimize, data)
 
 
 def dispatch_quant(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.scripting.venv.quant import run_quant
 
     return _dispatch_spec_data(run_quant, data)
 
 
 def dispatch_text(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.scripting.venv.text_analytics import run_text_analytics
 
     spec, data_range, context = _packet_parts(data)
@@ -109,7 +109,7 @@ def dispatch_text(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any
 
 
 def dispatch_vision(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.vision.venv.vision import run_vision
 
     spec, _unused, context = _packet_parts(data)
@@ -117,7 +117,7 @@ def dispatch_vision(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, A
 
 
 def dispatch_sql(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.scripting.venv.duckdb_sql import query_folder_sql
 
     return query_folder_sql(
@@ -129,7 +129,7 @@ def dispatch_sql(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]
     )
 
 def dispatch_languagetool(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.writer.locale.languagetool import run_languagetool_check
 
     return run_languagetool_check(
@@ -139,7 +139,7 @@ def dispatch_languagetool(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[
 
 
 def dispatch_vale(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.writer.locale.vale import run_vale_check
 
     return run_vale_check(
@@ -150,7 +150,7 @@ def dispatch_vale(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any
 
 
 def dispatch_embedding(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.embeddings.venv.embeddings_index import embed_texts
 
     model = _require_str(data.get("model"), "model")
@@ -159,7 +159,7 @@ def dispatch_embedding(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str
 
 
 def dispatch_langdetect(data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-    del heartbeat_fn
+    _ = heartbeat_fn
     from plugin.embeddings.venv.langdetect_rpc import detect_lang_batch
 
     texts = _require_str_list(data.get("texts"), "texts")

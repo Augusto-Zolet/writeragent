@@ -104,7 +104,7 @@ def _coerce_cell_basic(value: Any) -> Any:
         return None
     if isinstance(value, bool):
         return value
-    if isinstance(value, int) and not isinstance(value, bool):
+    if isinstance(value, int):
         return value
     if isinstance(value, float):
         return value
@@ -119,7 +119,7 @@ def _coerce_cell_parse_strings(value: Any) -> Any:
         return None
     if isinstance(value, bool):
         return value
-    if isinstance(value, int) and not isinstance(value, bool):
+    if isinstance(value, int):
         return value
     if isinstance(value, float):
         return value

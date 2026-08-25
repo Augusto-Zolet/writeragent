@@ -18,6 +18,7 @@ from plugin.scripting.venv.coerce import (
     missing_package_error as _missing_package_error,
     table_from_df as _table_from_df,
     records_from_df as _records_from_df,
+    _NUMERIC_PROFILE_KEYS,
 )
 
 from plugin.scripting.calc_functions_common import (
@@ -27,14 +28,6 @@ from plugin.scripting.calc_functions_common import (
 )
 
 log = logging.getLogger(__name__)
-
-_NUMERIC_PROFILE_KEYS = (
-    ("mean", "mean"),
-    ("std", "std"),
-    ("min", "min"),
-    ("max", "max"),
-    ("median", "50%"),
-)
 
 # --- Core Helper Implementations (Venv Execution Path) ---
 

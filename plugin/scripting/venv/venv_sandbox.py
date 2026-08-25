@@ -82,14 +82,16 @@ _OPTIONAL_MODULE_LOCK = threading.Lock()
 
 
 def optional_module(name: str) -> Any | None:
+    if name in sys.modules:
+        mod = sys.modules[name]
+        spec = getattr(mod, "__spec__", None)
+        if spec is None or not getattr(spec, "_initializing", False):
+            return mod
     with _OPTIONAL_MODULE_LOCK:
         if name in sys.modules:
             mod = sys.modules[name]
-            # Ensure module is fully initialized
             spec = getattr(mod, "__spec__", None)
-            if spec is not None and getattr(spec, "_initializing", False):
-                pass
-            else:
+            if spec is None or not getattr(spec, "_initializing", False):
                 return mod
         try:
             return importlib.import_module(name)
@@ -612,6 +614,27 @@ def _inject_bindings(executor: LocalPythonExecutor, bindings: dict[str, Any] | N
 
 
 _RESULT_MISSING = object()
+_MPL_AGG_SET = False
+
+
+def _ensure_mpl_agg() -> None:
+    global _MPL_AGG_SET
+    if _MPL_AGG_SET:
+        return
+    _MPL_AGG_SET = True
+    mpl = optional_module("matplotlib")
+    if mpl is not None and hasattr(mpl, "use"):
+        try:
+            mpl.use("Agg")
+        except Exception:
+            pass
+
+
+def _sync_custom_tools(executor: LocalPythonExecutor) -> None:
+    """Sync newly bound user functions from state into custom_tools."""
+    for k, v in executor.state.items():
+        if callable(v) and k not in executor.custom_tools and not (isinstance(k, str) and k.startswith("_")):
+            executor.custom_tools[k] = v
 
 
 def _run_on_executor(executor: LocalPythonExecutor, code: str) -> dict[str, Any]:
@@ -623,7 +646,7 @@ def _run_on_executor(executor: LocalPythonExecutor, code: str) -> dict[str, Any]
     prior_result = executor.state.get("result", _RESULT_MISSING)
     try:
         code_output = executor(code)
-
+        _sync_custom_tools(executor)
 
         current = executor.state.get("result", _RESULT_MISSING)
         if current is not _RESULT_MISSING and current is not prior_result:
@@ -703,12 +726,7 @@ def run_sandboxed_code(
         timeout_sec = python_exec_timeout_default()
 
     # Force non-interactive backend so plt.show() doesn't block in the subprocess.
-    mpl = optional_module("matplotlib")
-    if mpl is not None and hasattr(mpl, "use"):
-        try:
-            mpl.use("Agg")
-        except Exception:
-            pass
+    _ensure_mpl_agg()
 
     init_sid = init_session_id if isinstance(init_session_id, str) and init_session_id.strip() else None
     if init_sid and (init_script or "").strip():
@@ -729,11 +747,6 @@ def run_sandboxed_code(
         executor = _new_executor(timeout_sec)
         if init_sid:
             _seed_executor_from_init(executor, init_sid)
-
-    for k, v in list(executor.state.items()):
-        if callable(v) and k not in executor.custom_tools and not (isinstance(k, str) and k.startswith("_")):
-            executor.custom_tools[k] = v
-
 
     inject_auto_imports(executor, code)
     ranges = _inject_data(executor, data)
