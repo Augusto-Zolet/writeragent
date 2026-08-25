@@ -39,7 +39,7 @@ from plugin.calc.python.formula_edit import (
 )
 from plugin.calc.spreadsheet_import.preprocess import normalize_lo_formula_for_parse
 from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_SOURCE
-from tests.strip_bundle import deal_pre_present, expect_pre_or_body
+from tests.strip_bundle import deal_pre_present, expect_pre_or_body, skip_if_release_build
 from tests.vhs_budget import vhs_max_examples
 
 _CROSSHAIR_ERROR_RE = re.compile(r": error:")
@@ -260,6 +260,7 @@ def test_rewrite_wrappers_dropped_from_check_all_fqns() -> None:
     (deep check-all run 32840960268: Prev 95:09 / 15:20). Range formatters
     stay on — they no longer use regex.
     """
+    skip_if_release_build("scripts/ not in stripped release tree")
     from scripts.crosshair_stream import cover_fqns_for_module
 
     fqns = cover_fqns_for_module(

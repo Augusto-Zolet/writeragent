@@ -8,7 +8,12 @@ from plugin.framework.client.stream_normalizer import (
     _merge_reasoning_details,
     _streaming_replay,
 )
-from tests.strip_bundle import _decorator_header, deal_pre_present, is_release_build
+from tests.strip_bundle import (
+    _decorator_header,
+    deal_pre_present,
+    is_release_build,
+    skip_if_release_build,
+)
 
 
 def test_decorator_header_ignores_body_comment() -> None:
@@ -28,3 +33,10 @@ def test_deal_pre_present_uses_function_source_not_module_comment() -> None:
     assert not deal_pre_present(_streaming_replay)
     # Checkout still has the real decorator; make release strip removes it.
     assert deal_pre_present(_merge_reasoning_details) is not is_release_build()
+
+
+def test_skip_if_release_build_is_noop_in_checkout() -> None:
+    """Checkout still has ``scripts/``; release pytest must skip, not fail, those tests."""
+    if is_release_build():
+        return
+    skip_if_release_build("must not skip unstripped checkout")

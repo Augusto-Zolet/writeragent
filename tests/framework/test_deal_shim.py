@@ -146,14 +146,15 @@ def test_crosshair_env_binds_short_table_and_rejects_pytest_width() -> None:
     assert strip_html_tags("<b>ok</b>") == "ok"
     assert _("✓ Copied!") == "✓ Copied!"
     product_origin = "http://" + ("a" * 200)
-    if deal_pre_present(is_safe_origin):
-        assert len(product_origin) <= DEAL_MAX_ORIGIN
-        is_safe_origin(product_origin)
-        with pytest.raises(deal.PreContractError):
-            is_safe_origin("h" * (DEAL_MAX_ORIGIN + 1))
-        with pytest.raises(deal.PreContractError):
-            strip_html_tags("x" * (DEAL_MAX_HTML_CHUNK + 1))
-        strip_html_tags("x" * 256)
+    if not deal_pre_present(is_safe_origin):
+        return
+    assert len(product_origin) <= DEAL_MAX_ORIGIN
+    is_safe_origin(product_origin)
+    with pytest.raises(deal.PreContractError):
+        is_safe_origin("h" * (DEAL_MAX_ORIGIN + 1))
+    with pytest.raises(deal.PreContractError):
+        strip_html_tags("x" * (DEAL_MAX_HTML_CHUNK + 1))
+    strip_html_tags("x" * 256)
 
     script = textwrap.dedent(
         """
@@ -219,12 +220,13 @@ def test_crosshair_env_rejects_pytest_collection_width() -> None:
     node = ast.Expr(value=ast.Call(func=ast.Name(id="x", ctx=ast.Load()), args=[], keywords=[]))
     assert is_image_payload(five_keys) is False
     assert is_name_call_expr(node, five_names) is False
-    if deal_pre_present(is_image_payload):
-        with pytest.raises(deal.PreContractError):
-            is_image_payload({f"k{i}": i for i in range(DEAL_MAX_SHAPE_DIM + 1)})
-        with pytest.raises(deal.PreContractError):
-            is_name_call_expr(node, frozenset(f"n{i}" for i in range(DEAL_MAX_CMD_ARGS + 1)))
-        is_name_call_expr(node, frozenset({"xl"}))
+    if not deal_pre_present(is_image_payload):
+        return
+    with pytest.raises(deal.PreContractError):
+        is_image_payload({f"k{i}": i for i in range(DEAL_MAX_SHAPE_DIM + 1)})
+    with pytest.raises(deal.PreContractError):
+        is_name_call_expr(node, frozenset(f"n{i}" for i in range(DEAL_MAX_CMD_ARGS + 1)))
+    is_name_call_expr(node, frozenset({"xl"}))
 
     script = textwrap.dedent(
         """
@@ -280,6 +282,9 @@ def test_inverse_ensure_for_is_deal_ensure_under_pytest() -> None:
 
 def test_cover_all_and_check_all_main_set_crosshair_env(tmp_path, monkeypatch) -> None:
     """Both sweep mains set CROSSHAIR_ENV before any CrossHair spawn (--list is enough)."""
+    from tests.strip_bundle import skip_if_release_build
+
+    skip_if_release_build("scripts/ not in stripped release tree")
     from scripts.crosshair_check_all import main as check_all_main
     from scripts.crosshair_cover_all import main as cover_all_main
 
@@ -310,6 +315,9 @@ def test_cover_all_workers_bind_short_deal_table(monkeypatch) -> None:
     import multiprocessing
     from concurrent.futures import ProcessPoolExecutor
 
+    from tests.strip_bundle import skip_if_release_build
+
+    skip_if_release_build("scripts/ not in stripped release tree")
     from scripts.crosshair_cover_all import enable_crosshair_deal_table, worker_deal_maxima
     from scripts.crosshair_stream import CROSSHAIR_DEAL_ENV
 
