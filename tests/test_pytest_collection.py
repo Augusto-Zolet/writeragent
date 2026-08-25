@@ -40,6 +40,8 @@ def test_makefile_pytest_unit_uses_xdist_by_default() -> None:
     text = _makefile_text()
     assert "PYTEST_WORKERS ?= auto" in text
     assert "--dist=loadgroup" in text
+    assert "console_output_style=classic" in text
+    assert "PYTHONUNBUFFERED=1" in text
     pytest_block = re.search(
         r"^pytest:\n(?:\t.*\n)+",
         text,
