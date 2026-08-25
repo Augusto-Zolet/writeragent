@@ -18,7 +18,7 @@ import math
 import operator
 from typing import Any
 
-from plugin.framework.deal_shim import deal
+from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, deal
 
 PAYLOAD_CALC_RANGE = "calc_range"
 
@@ -48,7 +48,7 @@ def ensure_rectangular_2d(grid: Any) -> list[list[Any]]:
     return [list(grid)]
 
 
-@deal.pre(lambda values: isinstance(values, list))
+@deal.pre(lambda values: isinstance(values, list) and len(values) <= DEAL_MAX_SHAPE_DIM)
 @deal.post(lambda result: isinstance(result, list) and all(isinstance(row, list) and len(row) == 1 for row in result))
 @deal.ensure(lambda values, result: len(result) == len(values))
 def column_vector_as_2d(values: list[Any]) -> list[list[Any]]:

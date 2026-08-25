@@ -23,7 +23,11 @@ from plugin.calc.excel_py_convert.resolve_refs import (
     ResolvedDep,
     resolve_dep,
 )
+from plugin.framework.deal_shim import DEAL_MAX_TOKEN
 from plugin.framework.errors import UnoObjectError
+from tests.strip_bundle import deal_pre_present
+
+import deal
 
 
 def test_resolve_sheet_and_cell_parse() -> None:
@@ -56,6 +60,16 @@ def test_resolve_filter_operator_code_valid(op: str) -> None:
 def test_resolve_filter_operator_code_invalid() -> None:
     with pytest.raises(UnoObjectError):
         resolve_filter_operator_code("UNKNOWN_OPERATOR_123")
+
+
+def test_filter_string_overflow_pre_fails_closed() -> None:
+    if not deal_pre_present(resolve_filter_operator_code):
+        pytest.skip("@deal.pre stripped in release bundle")
+    too_long = "A" * (DEAL_MAX_TOKEN + 1)
+    with pytest.raises(deal.PreContractError):
+        resolve_filter_operator_code(too_long)
+    with pytest.raises(deal.PreContractError):
+        filter_connection_code(too_long)
 
 
 def test_parse_sheet_filter_criterion_basic() -> None:

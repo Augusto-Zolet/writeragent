@@ -13,12 +13,17 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+import deal
+import pytest
+
+from plugin.framework.deal_shim import DEAL_MAX_SOURCE
 from plugin.writer.word_diff_split import (
     SplitResult,
     Token,
     split_change,
     tokenize,
 )
+from tests.strip_bundle import deal_pre_present
 from plugin.writer.xhtml_style_postprocess import (
     compact_lo_style_name,
     decode_lo_css_class_suffix,
@@ -50,6 +55,16 @@ def test_hypothesis_tokenize_reconstruction_invariant(text: str) -> None:
     for token in tokens:
         assert isinstance(token, Token)
         assert text[token.start : token.end] == token.text
+
+
+def test_split_change_overflow_pre_fails_closed() -> None:
+    if not deal_pre_present(split_change):
+        pytest.skip("@deal.pre stripped in release bundle")
+    too_long = "x" * (DEAL_MAX_SOURCE + 1)
+    with pytest.raises(deal.PreContractError):
+        split_change(too_long, "a")
+    with pytest.raises(deal.PreContractError):
+        split_change("a", too_long)
 
 
 @given(old=_SAFE_TEXT, new=_SAFE_TEXT)

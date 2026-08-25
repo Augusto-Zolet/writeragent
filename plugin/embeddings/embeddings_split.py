@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from plugin.framework.deal_shim import deal
+from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_SOURCE, str_bounded, deal
 
 CHUNK_SIZE = 512
 CHUNK_OVERLAP = 64
@@ -67,7 +67,11 @@ def split_passage_to_sentences(text: str, locale: str = DEFAULT_SENTENCE_LOCALE)
     return sentences or [(0, len(passage), passage)]
 
 
-@deal.pre(lambda passage, spans, base_meta, *_unused, **__: isinstance(spans, list))
+@deal.pre(
+    lambda passage, spans, base_meta, *_unused, **__: str_bounded(passage, DEAL_MAX_SOURCE)
+    and isinstance(spans, list)
+    and len(spans) <= DEAL_MAX_SHAPE_DIM
+)
 @deal.post(lambda result: isinstance(result, list))
 def _meta_chunks_from_spans(
     passage: str,
@@ -90,7 +94,7 @@ def _sentences_spans_ok(sentences: object) -> bool:
 
     Successive starts must be ``>=`` the previous end (production splitters are sequential).
     """
-    if not isinstance(sentences, list):
+    if not isinstance(sentences, list) or len(sentences) > DEAL_MAX_SHAPE_DIM:
         return False
     prev_end: int | None = None
     for item in sentences:
@@ -121,7 +125,10 @@ def _filter_ordered_sentence_spans(
     return ordered
 
 
-@deal.pre(lambda passage, sentences, *_unused, **__: _sentences_spans_ok(sentences))
+@deal.pre(
+    lambda passage, sentences, *_unused, **__: str_bounded(passage, DEAL_MAX_SOURCE)
+    and _sentences_spans_ok(sentences)
+)
 @deal.post(lambda result: isinstance(result, list) and all(isinstance(s, tuple) and len(s) == 2 and 0 <= s[0] <= s[1] for s in result))
 def _merge_small_sentences_to_spans(
     passage: str,

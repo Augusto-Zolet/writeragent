@@ -10,7 +10,7 @@ import logging
 import re
 from typing import Any, Mapping, cast
 
-from plugin.framework.deal_shim import deal
+from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, deal
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +60,7 @@ def _truncate_reasoning_string(value: str) -> str:
 
 @deal.pre(
     lambda text_parts, meta, delta: isinstance(text_parts, list)
+    and len(text_parts) <= DEAL_MAX_SHAPE_DIM
     and type(meta) is dict
     and (meta.get("source") is None or meta.get("source") in _STREAMING_SOURCE_VALUES)
 )
@@ -109,7 +110,7 @@ def accumulate_streaming_thinking(text_parts: list[str], meta: dict[str, Any], d
             meta["index"] = item.get("index")
 
 
-@deal.pre(lambda entries: isinstance(entries, list))
+@deal.pre(lambda entries: isinstance(entries, list) and len(entries) <= DEAL_MAX_SHAPE_DIM)
 @deal.post(lambda result: isinstance(result, list))
 @deal.ensure(
     lambda entries, result: len(result) <= sum(1 for e in entries if type(e) is dict)

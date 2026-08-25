@@ -187,7 +187,7 @@ class SplitResult:
         )
 
 
-from plugin.framework.deal_shim import deal
+from plugin.framework.deal_shim import DEAL_MAX_SOURCE, str_bounded, deal
 
 
 @deal.post(lambda result: isinstance(result, list))
@@ -218,6 +218,10 @@ def _word_tokens(tokens):
     return [t for t in tokens if t.is_word]
 
 
+@deal.pre(
+    lambda old, new, threshold=0.6: (not isinstance(old, str) or str_bounded(old, DEAL_MAX_SOURCE))
+    and (not isinstance(new, str) or str_bounded(new, DEAL_MAX_SOURCE))
+)
 @deal.post(lambda result: isinstance(result, SplitResult) and 0.0 <= result.fraction_changed <= 1.0)
 def split_change(old, new, threshold=0.6):
     """Decide block-vs-surgical and compute the edits to turn *old* into *new*.

@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-from plugin.framework.deal_shim import DEAL_MAX_SOURCE, ascii_bounded, str_bounded, deal
+from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_SOURCE, ascii_bounded, str_bounded, deal
 
 # Preferred display name for newly built formulas; PYTHON remains a backward-compatible alias.
 CALC_PYTHON_FN = "PY"
@@ -40,6 +40,15 @@ def _quoted_parse_result_ok(s: str, start: int, result: tuple[str, int] | None) 
         return True
     code, end = result
     return isinstance(code, str) and isinstance(end, int) and 0 <= start < end <= len(s)
+
+
+def _deal_data_args_ok(data_args: object) -> bool:
+    """CrossHair domain for =PY() data-arg lists (pytest still allows DEAL_MAX_SHAPE_DIM)."""
+    return (
+        isinstance(data_args, list)
+        and len(data_args) <= DEAL_MAX_SHAPE_DIM
+        and all(str_bounded(x, DEAL_MAX_SOURCE) for x in data_args)
+    )
 
 
 def _parts_result_ok(result: PythonFormulaParts | None) -> bool:
@@ -240,10 +249,12 @@ def _find_matching_paren(s: str, open_idx: int) -> int:
     return -1
 
 
+# Deep check hangs synthesizing rewrite_inner (Callable) + regex loop; sanitize/escape stay on.
 @deal.pre(lambda code, token, rewrite_inner: str_bounded(code, DEAL_MAX_SOURCE) and ascii_bounded(token, 32, min_len=1) and callable(rewrite_inner))
 @deal.post(lambda result: isinstance(result, str))
 def _rewrite_token_calls(code: str, token: str, rewrite_inner: Callable[[str], str]) -> str:
     """Replace ``token(inner)`` calls; *token* must not contain regex metacharacters."""
+    # crosshair: off
     pattern = re.compile(rf"\b{token}\s*\(")
     out: list[str] = []
     pos = 0
@@ -336,6 +347,7 @@ def format_data_binding_display(data_suffix: str) -> str:
     return s
 
 
+@deal.pre(lambda text: str_bounded(text, DEAL_MAX_SOURCE))
 @deal.post(lambda result: isinstance(result, list) and all(isinstance(x, str) and '"' not in x for x in result))
 def parse_data_binding_text(text: str) -> list[str]:
     """Parse editor textbox content into formula data arguments."""
@@ -348,7 +360,7 @@ def parse_data_binding_text(text: str) -> list[str]:
     return [p for p in parts if '"' not in p]
 
 
-@deal.pre(lambda *args, **kwargs: bool(args) and isinstance(args[0], list))
+@deal.pre(lambda *args, **kwargs: bool(args) and _deal_data_args_ok(args[0]))
 @deal.post(lambda result: isinstance(result, str))
 def format_data_binding_text(data_args: list[str]) -> str:
     """Format data args for the editor textbox (comma-separated)."""
@@ -356,6 +368,7 @@ def format_data_binding_text(data_args: list[str]) -> str:
     return ", ".join(cleaned)
 
 
+@deal.pre(lambda range_addr: str_bounded(range_addr, DEAL_MAX_SOURCE))
 @deal.post(lambda result: isinstance(result, str))
 def format_py_data_range(range_addr: str) -> str:
     """Format a range for ``=PY()`` data args (quote sheet names with spaces/special chars)."""
@@ -380,6 +393,7 @@ def format_py_data_range(range_addr: str) -> str:
     return f"{sheet}.{rest}"
 
 
+@deal.pre(lambda range_addr: str_bounded(range_addr, DEAL_MAX_SOURCE))
 @deal.post(lambda result: isinstance(result, str))
 def format_excel_data_range(range_addr: str) -> str:
     """Format a range for Excel OOXML ``=PY()`` data args (``Sheet!A1`` style)."""
@@ -400,7 +414,7 @@ def format_excel_data_range(range_addr: str) -> str:
 
 
 # Defaulted kwargs: deal only forwards provided args + result= (see framework-formal-verification.md §8.1 A).
-@deal.pre(lambda *args, **kwargs: bool(args) and isinstance(args[0], list))
+@deal.pre(lambda *args, **kwargs: bool(args) and _deal_data_args_ok(args[0]))
 @deal.post(lambda result: isinstance(result, str) and result.endswith(")"))
 @deal.ensure(lambda *args, result=None, **kwargs: isinstance(result, str) and result.endswith(")"))
 def build_data_suffix(data_args: list[str], *, separator: str = ";", excel_ranges: bool = False) -> str:
@@ -420,7 +434,7 @@ def build_data_suffix(data_args: list[str], *, separator: str = ";", excel_range
 @deal.pre(
     lambda *args, **kwargs: len(args) >= 2
     and str_bounded(args[0], DEAL_MAX_SOURCE)
-    and isinstance(args[1], list)
+    and _deal_data_args_ok(args[1])
 )
 @deal.post(lambda result: isinstance(result, str) and result.startswith(f"={CALC_PYTHON_FN}("))
 @deal.ensure(lambda *args, result=None, **kwargs: isinstance(result, str) and result.endswith(")"))

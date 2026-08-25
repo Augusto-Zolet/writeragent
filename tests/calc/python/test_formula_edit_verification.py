@@ -30,9 +30,12 @@ from plugin.calc.python.formula_edit import (
     rebuild_python_formula,
     rebuild_python_formula_with_data,
     sanitize_inline_py_code,
+    format_excel_data_range,
+    format_py_data_range,
+    build_data_suffix,
 )
 from plugin.calc.spreadsheet_import.preprocess import normalize_lo_formula_for_parse
-from plugin.framework.deal_shim import DEAL_MAX_SOURCE
+from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_SOURCE
 from tests.strip_bundle import deal_pre_present, expect_pre_or_body
 from tests.vhs_budget import vhs_max_examples
 
@@ -189,6 +192,17 @@ def test_formula_edit_overflow_pre_fails_closed() -> None:
         parse_python_formula(too_long)
     with pytest.raises(deal.PreContractError):
         normalize_lo_formula_for_parse(too_long)
+    with pytest.raises(deal.PreContractError):
+        parse_data_binding_text(too_long)
+    with pytest.raises(deal.PreContractError):
+        format_py_data_range(too_long)
+    with pytest.raises(deal.PreContractError):
+        format_excel_data_range(too_long)
+    too_many = ["A1"] * (DEAL_MAX_SHAPE_DIM + 1)
+    with pytest.raises(deal.PreContractError):
+        format_data_binding_text(too_many)
+    with pytest.raises(deal.PreContractError):
+        build_data_suffix(too_many)
 
 
 @given(suffix=st.text(max_size=30))

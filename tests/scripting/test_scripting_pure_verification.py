@@ -7,8 +7,13 @@
 
 from __future__ import annotations
 
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
+
+import deal
+from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM
+from tests.strip_bundle import deal_pre_present
 
 from plugin.scripting.import_policy import (
     PYTHON_VENV_SANDBOX_CONTEXT_PREFIX,
@@ -32,12 +37,19 @@ from plugin.scripting.calc_range import (
 )
 
 
-@given(vals=st.lists(st.integers()))
+@given(vals=st.lists(st.integers(), max_size=DEAL_MAX_SHAPE_DIM))
 def test_column_vector_as_2d_contracts(vals: list[int]) -> None:
     res = column_vector_as_2d(vals)
     assert isinstance(res, list)
     assert len(res) == len(vals)
     assert all(isinstance(row, list) and len(row) == 1 and row[0] == val for row, val in zip(res, vals))
+
+
+def test_column_vector_overflow_pre_fails_closed() -> None:
+    if not deal_pre_present(column_vector_as_2d):
+        pytest.skip("@deal.pre stripped in release bundle")
+    with pytest.raises(deal.PreContractError):
+        column_vector_as_2d([0] * (DEAL_MAX_SHAPE_DIM + 1))
 
 
 def test_import_policy_contracts() -> None:

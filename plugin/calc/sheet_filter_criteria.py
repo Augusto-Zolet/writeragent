@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from plugin.framework.deal_shim import deal
+from plugin.framework.deal_shim import DEAL_MAX_TOKEN, ascii_bounded, deal
 from plugin.framework.errors import UnoObjectError
 
 _FILTER_OPERATOR2_CODE_NAMES: tuple[str, ...] = (
@@ -63,6 +63,7 @@ _FILTER_OP_NUMERIC_ONLY = frozenset({"TOP_VALUES", "TOP_PERCENT", "BOTTOM_VALUES
 _FILTER_OP_NO_VALUE = frozenset({"EMPTY", "NOT_EMPTY"})
 
 
+@deal.pre(lambda name: name is None or ascii_bounded(name, DEAL_MAX_TOKEN))
 @deal.post(lambda result: result in (0, 1))
 @deal.raises(UnoObjectError)
 def filter_connection_code(name: str | None) -> int:
@@ -74,6 +75,7 @@ def filter_connection_code(name: str | None) -> int:
     raise UnoObjectError(f"Invalid filter connection: {name!r} (use AND or OR).")
 
 
+@deal.pre(lambda operator: ascii_bounded(operator, DEAL_MAX_TOKEN))
 @deal.post(lambda result: isinstance(result, int) and result >= 0)
 @deal.raises(UnoObjectError)
 def resolve_filter_operator_code(operator: str) -> int:

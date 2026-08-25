@@ -399,7 +399,7 @@ def module_has_crosshair_off(source: str) -> bool:
     return bool(_MODULE_CROSSHAIR_OFF.search(source))
 
 
-def cover_fqns_for_module(path: Path) -> list[str]:
+def cover_fqns_for_module(path: Path, *, require_deal: bool = False) -> list[str]:
     """Top-level functions/methods in *path* suitable for ``crosshair cover``, excluding offs.
 
     Upstream ``cover`` walks every top-level callable and ignores ``# crosshair: off``.
@@ -407,6 +407,7 @@ def cover_fqns_for_module(path: Path) -> list[str]:
     sibling pure helpers in the same file still get covered.
 
     A column-0 module ``# crosshair: off`` yields an empty list (same as check skipping the file).
+    ``require_deal=True`` keeps only callables that have ``@deal.`` (check-all).
     """
     try:
         text = path.read_text(encoding="utf-8")
@@ -421,9 +422,18 @@ def cover_fqns_for_module(path: Path) -> list[str]:
     module_fqn = plugin_path_to_module_fqn(path)
     targets: list[str] = []
 
-    def _maybe_add(qual: str, node: ast.AST) -> None:
+    def _has_deal_decorator(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+        for dec in node.decorator_list:
+            dumped = ast.dump(dec)
+            if "deal" in dumped:
+                return True
+        return False
+
+    def _maybe_add(qual: str, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         segment = ast.get_source_segment(text, node)
         if segment is None or source_has_crosshair_off(segment):
+            return
+        if require_deal and not _has_deal_decorator(node):
             return
         targets.append(qual)
 
@@ -498,6 +508,15 @@ def run_crosshair(
     """
     crosshair_path = find_crosshair()
     dest = out if out is not None else sys.stdout
+    # Announce before spawn: CrossHair -v often prints "Analyzing …" only after that
+    # condition finishes, so a hang otherwise looks like the previous post.
+    target = label or (crosshair_args[-1] if crosshair_args else command)
+    start_tag = "COVER START" if mode == "cover" else "CHECK START"
+    dest.write(f"[{start_tag:<22}] {target}\n")
+    dest.flush()
+    # Piped CrossHair otherwise block-buffers debug(); last flushed line is stale.
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
     # New session so timeout can killpg CrossHair + solver children together.
     proc = subprocess.Popen(
         [crosshair_path, command, *crosshair_args],
@@ -506,6 +525,7 @@ def run_crosshair(
         text=True,
         bufsize=1,
         start_new_session=True,
+        env=env,
     )
     assert proc.stdout is not None
     timed_out = False

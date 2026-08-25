@@ -433,6 +433,29 @@ def test_cover_fqns_skip_crosshair_off_callables(tmp_path: Path) -> None:
     assert not any(f.endswith(".Host.run") for f in fqns)
 
 
+def test_cover_fqns_require_deal_drops_bare_helpers(tmp_path: Path) -> None:
+    from scripts.crosshair_stream import cover_fqns_for_module
+
+    mod = tmp_path / "plugin" / "mixed_deal.py"
+    mod.parent.mkdir(parents=True)
+    mod.write_text(
+        "import deal\n"
+        "def bare(x):\n"
+        "    return x\n"
+        "\n"
+        "@deal.post(lambda result: True)\n"
+        "def contracted(x):\n"
+        "    return x\n",
+        encoding="utf-8",
+    )
+    all_fqns = cover_fqns_for_module(mod)
+    deal_fqns = cover_fqns_for_module(mod, require_deal=True)
+    assert any(f.endswith(".bare") for f in all_fqns)
+    assert any(f.endswith(".contracted") for f in all_fqns)
+    assert not any(f.endswith(".bare") for f in deal_fqns)
+    assert any(f.endswith(".contracted") for f in deal_fqns)
+
+
 def test_cover_fqns_all_off_returns_empty(tmp_path: Path) -> None:
     from scripts.crosshair_stream import cover_fqns_for_module
 
@@ -543,6 +566,7 @@ def test_check_all_list_discovers_deal_without_spawning(tmp_path, capsys, monkey
     assert os.environ.get(CROSSHAIR_ENV) == "1"
     out = capsys.readouterr().out
     assert "CrossHair check-all [regular]: 1 module(s)" in out
+    assert "one CrossHair process per FQN" in out
     assert "max_uninteresting=25" in out
     assert "module_wall=120s" in out
     assert "payload_codec.py" in out
@@ -731,7 +755,10 @@ def test_run_crosshair_timeout_kills_and_exits_zero(monkeypatch) -> None:
     assert code == 0
     assert elapsed < 5.0
     text = out.getvalue()
-    assert "[COVER TIMEOUT" in text
+    assert "[COVER START" in text
+    start_at = text.index("[COVER START")
+    timeout_at = text.index("[COVER TIMEOUT")
+    assert start_at < timeout_at
     assert "wall 0.4s exceeded for plugin/fake_slow.py" in text
     assert "=== CrossHair COVER DONE (exit 0) ===" in text
     assert stats.failure_count == 0
@@ -761,6 +788,8 @@ def test_run_crosshair_timeout_check_mode_tag(monkeypatch) -> None:
     assert code == 0
     assert elapsed < 5.0
     text = out.getvalue()
+    assert "[CHECK START" in text
+    assert text.index("[CHECK START") < text.index("[CHECK TIMEOUT")
     assert "[CHECK TIMEOUT" in text
     assert "[COVER TIMEOUT" not in text
     assert "=== CrossHair CHECK DONE (exit 0) ===" in text

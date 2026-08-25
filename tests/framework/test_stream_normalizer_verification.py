@@ -18,6 +18,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM
+from tests.strip_bundle import deal_pre_present
 from plugin.framework.client.stream_normalizer import (
     ThinkTagStreamSplitter,
     _merge_reasoning_details,
@@ -142,6 +144,13 @@ def test_normalize_delta_ignores_non_list_tool_calls() -> None:
     _normalize_delta(delta)
     assert delta["role"] == "assistant"
     assert delta["tool_calls"] == 2
+
+
+def test_merge_reasoning_details_overflow_pre_fails_closed() -> None:
+    if not deal_pre_present(_merge_reasoning_details):
+        pytest.skip("@deal.pre stripped in release bundle")
+    with pytest.raises(deal.PreContractError):
+        _merge_reasoning_details([{"type": "reasoning.text", "text": "a", "index": 0}] * (DEAL_MAX_SHAPE_DIM + 1))
 
 
 def test_merge_reasoning_details_skips_non_dicts() -> None:

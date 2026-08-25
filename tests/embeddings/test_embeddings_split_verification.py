@@ -12,11 +12,15 @@ from __future__ import annotations
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+import deal
+import pytest
+
 from plugin.embeddings.embeddings_split import (
     _merge_small_sentences_to_spans,
     _meta_chunks_from_spans,
 )
-from tests.strip_bundle import expect_pre_or_body
+from plugin.framework.deal_shim import DEAL_MAX_SOURCE
+from tests.strip_bundle import deal_pre_present, expect_pre_or_body
 from tests.vhs_budget import vhs_max_examples
 
 
@@ -26,6 +30,16 @@ def test_merge_small_sentences_rejects_negative_start() -> None:
         lambda: _merge_small_sentences_to_spans("", [(-1, 0, "")], min_chunk=1),
         body_result=[],
     )
+
+
+def test_embeddings_split_overflow_pre_fails_closed() -> None:
+    if not deal_pre_present(_merge_small_sentences_to_spans):
+        pytest.skip("@deal.pre stripped in release bundle")
+    too_long = "x" * (DEAL_MAX_SOURCE + 1)
+    with pytest.raises(deal.PreContractError):
+        _merge_small_sentences_to_spans(too_long, [], min_chunk=1)
+    with pytest.raises(deal.PreContractError):
+        _meta_chunks_from_spans(too_long, [], {})
 
 
 def test_merge_small_sentences_rejects_out_of_order_spans() -> None:

@@ -6,7 +6,8 @@
 
 """Discover ``@deal.`` modules under ``plugin/`` and run CrossHair check (budgeted).
 
-Runs **one file at a time** so a CrossHair engine crash in one module does not abort the rest.
+Runs **one FQN at a time** (same crash isolation as cover-all) and prints
+``[CHECK START]`` *before* each spawn so a hang shows the current callable.
 Errors are printed live and reprinted in a final ``ERRORS TO FIX`` / failed-module summary.
 
 Two presets only (same numbers as cover-all; no per-flag budget overrides):
@@ -36,6 +37,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -43,7 +45,12 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(_REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(_REPO_ROOT))
 
-from scripts.crosshair_stream import _TeeTextIO, discover_deal_plugin_files, run_crosshair
+from scripts.crosshair_stream import (
+    _TeeTextIO,
+    cover_fqns_for_module,
+    discover_deal_plugin_files,
+    run_crosshair,
+)
 
 DEFAULT_LOG = Path("build/crosshair-check-all.log")
 # Regular: short per-condition slices so many callables get poked inside the wall.
@@ -207,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
         else "none"
     )
     print(
-        f"CrossHair check-all [{budget.mode}]: {len(rels)} module(s), one CrossHair process per file "
+        f"CrossHair check-all [{budget.mode}]: {len(rels)} module(s), one CrossHair process per FQN "
         f"(max_uninteresting={budget.max_uninteresting}, "
         f"per_condition_timeout={timeout_desc}, module_wall={wall_desc})",
         flush=True,
@@ -234,31 +241,51 @@ def main(argv: list[str] | None = None) -> int:
             rel = str(path)
             tee.write(f"\n######## [{index}/{len(files)}] {rel} ########\n")
             tee.flush()
+            fqns = cover_fqns_for_module(path, require_deal=True)
+            if not fqns:
+                tee.write(f"[CHECK SKIP            ] all callables off: {rel}\n")
+                tee.flush()
+                continue
             max_uninteresting, per_condition_timeout = module_check_bounds(budget, rel)
-            ch_args = [
-                "-v",
-                f"--max_uninteresting_iterations={max_uninteresting}",
-            ]
-            if per_condition_timeout is not None:
-                ch_args.append(f"--per_condition_timeout={per_condition_timeout}")
-            ch_args.extend(["--report_all", "--analysis_kind=deal", rel])
             wall = (
                 float(REGULAR_MODULE_WALL_TIMEOUT_SEC)
                 if budget.mode == "regular"
                 else None
             )
-            code, stats = run_crosshair(
-                "check",
-                ch_args,
-                "check",
-                args.raw,
-                args.quiet,
-                out=tee,
-                label=rel,
-                timeout_sec=wall,
-            )
+            started = time.perf_counter()
+            deadline = (started + wall) if wall and wall > 0 else None
+            code = 0
+            details: list[str] = []
+            for fqn in fqns:
+                remaining = None
+                if deadline is not None:
+                    remaining = deadline - time.perf_counter()
+                    if remaining <= 0:
+                        tee.write(f"[CHECK TIMEOUT         ] wall {wall:g}s exceeded for {rel}\n")
+                        tee.flush()
+                        break
+                ch_args = [
+                    "-v",
+                    f"--max_uninteresting_iterations={max_uninteresting}",
+                ]
+                if per_condition_timeout is not None:
+                    ch_args.append(f"--per_condition_timeout={per_condition_timeout}")
+                ch_args.extend(["--report_all", "--analysis_kind=deal", fqn])
+                fqn_code, stats = run_crosshair(
+                    "check",
+                    ch_args,
+                    "check",
+                    args.raw,
+                    args.quiet,
+                    out=tee,
+                    label=f"{rel} :: {fqn}",
+                    timeout_sec=remaining,
+                )
+                if stats.error_details:
+                    details.extend(stats.error_details)
+                if fqn_code != 0:
+                    code = fqn_code
             if code != 0:
-                details = list(stats.error_details or [])
                 failed.append((rel, details))
                 tee.write(f"[CHECK ERROR           ] module failed: {rel} (exit {code})\n")
                 tee.flush()
