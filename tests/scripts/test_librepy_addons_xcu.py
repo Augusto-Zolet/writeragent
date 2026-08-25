@@ -193,3 +193,28 @@ def test_librepy_menu_order_matches_writeragent_python_cluster():
     ]
     wa_shared = [a for a in wa_actions if a in set(lp_actions)]
     assert lp_actions == wa_shared
+
+
+def test_librepy_images_section_points_at_python_assets():
+    root = ET.parse(_ADDONS_XCU).getroot()
+    images = None
+    for node in root.iter("node"):
+        if node.get(_OOR_NAME) == "Images":
+            images = node
+            break
+    assert images is not None
+    by_url: dict[str, str] = {}
+    for item in images.findall("node"):
+        url = _prop_text(item, "URL")
+        small = None
+        for child in item.iter("prop"):
+            if child.get(_OOR_NAME) == "ImageSmallURL":
+                value = child.find("value")
+                if value is not None and value.text:
+                    small = value.text.strip()
+        if url and small:
+            by_url[url] = small
+    run_url = "org.extension.librepy:scripting.run_python_dialog"
+    cell_url = "org.extension.librepy:scripting.edit_python_cell"
+    assert by_url[run_url] == "%origin%/assets/python_32.png"
+    assert by_url[cell_url] == "%origin%/assets/python_cell_32.png"

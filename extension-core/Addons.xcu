@@ -134,5 +134,33 @@
         </node>
       </node>
     </node>
+    <node oor:name="Images">
+      <node oor:name="org.extension.librepy.scripting.run_python_dialog.img" oor:op="replace">
+        <prop oor:name="URL">
+          <value>org.extension.librepy:scripting.run_python_dialog</value>
+        </prop>
+        <node oor:name="UserDefinedImages">
+          <prop oor:name="ImageSmallURL">
+            <value>%origin%/assets/python_32.png</value>
+          </prop>
+          <prop oor:name="ImageBigURL">
+            <value>%origin%/assets/python_32.png</value>
+          </prop>
+        </node>
+      </node>
+      <node oor:name="org.extension.librepy.scripting.edit_python_cell.img" oor:op="replace">
+        <prop oor:name="URL">
+          <value>org.extension.librepy:scripting.edit_python_cell</value>
+        </prop>
+        <node oor:name="UserDefinedImages">
+          <prop oor:name="ImageSmallURL">
+            <value>%origin%/assets/python_cell_32.png</value>
+          </prop>
+          <prop oor:name="ImageBigURL">
+            <value>%origin%/assets/python_cell_32.png</value>
+          </prop>
+        </node>
+      </node>
+    </node>
   </node>
 </oor:component-data>
