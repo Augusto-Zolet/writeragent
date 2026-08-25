@@ -40,7 +40,7 @@ def test_makefile_pytest_unit_uses_xdist_by_default() -> None:
     text = _makefile_text()
     assert "PYTEST_WORKERS ?= auto" in text
     assert "--dist=loadgroup" in text
-    assert "console_output_style=classic" in text
+    assert "WRITERAGENT_PYTEST_PROGRESS=1" in text
     assert "PYTHONUNBUFFERED=1" in text
     pytest_block = re.search(
         r"^pytest:\n(?:\t.*\n)+",
@@ -69,7 +69,6 @@ def test_makefile_typecheck_runs_checkers_in_parallel() -> None:
     assert block is not None, "missing Makefile typecheck: target"
     body = block.group(0)
     assert "-j4" in body
-    assert "-Otarget" in body
     assert "ty-run" in body
     assert "mypy-run" in body
     assert "basedpyright-run" in body
@@ -138,6 +137,27 @@ def test_conftest_magicmock_cleanup_is_controller_only() -> None:
     assert root_conftest._is_xdist_worker(worker) is True
     assert root_conftest._is_xdist_worker(controller) is False
     assert callable(root_conftest.pytest_sessionfinish)
+
+
+def test_make_pytest_progress_heartbeat_on_stderr(monkeypatch, capsys) -> None:
+    import importlib.util
+    from types import SimpleNamespace
+
+    spec = importlib.util.spec_from_file_location(
+        "_writeragent_root_conftest_progress",
+        REPO_ROOT / "tests" / "conftest.py",
+    )
+    assert spec is not None and spec.loader is not None
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    monkeypatch.setenv("WRITERAGENT_PYTEST_PROGRESS", "1")
+    monkeypatch.delenv("PYTEST_XDIST_WORKER", raising=False)
+    mod._pytest_progress_done = 0
+    report = SimpleNamespace(when="call", failed=False)
+    for _idx in range(100):
+        mod.pytest_runtest_logreport(report)
+    err = capsys.readouterr().err
+    assert "pytest: 100" in err
 
 
 def test_uno_suffix_files_exist_for_native_runner() -> None:

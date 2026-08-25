@@ -661,11 +661,14 @@ check-ext:
 LO_PYTHON ?= $(shell python3 -c "import uno" 2>/dev/null && echo python3 || (python -c "import uno" 2>/dev/null && echo python || echo python))
 
 typecheck: manifest ruff-for-build
-	@$(MAKE) -j4 -Otarget ty-run mypy-run basedpyright-run pyspector
+	@echo "=== typecheck: ty + mypy + basedpyright + pyspector (parallel) ==="
+	@$(MAKE) -j4 ty-run mypy-run basedpyright-run pyspector
 
 # Unit pytest only: no *_uno.py collection, no testing_runner / live soffice.
 # Exact command: $(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py'
 # Default adds $(PYTEST_XDIST) (-n auto --dist=loadgroup). PYTEST_WORKERS=0 is serial.
+# Progress goes to stderr as full lines: pytest/xdist otherwise use \r rewrites
+# (and classic mode never wraps), so Make/IDE terminals stay blank until exit.
 PYTEST_WORKERS ?= auto
 ifeq ($(PYTEST_WORKERS),0)
 PYTEST_XDIST :=
@@ -674,9 +677,10 @@ PYTEST_XDIST :=
 else
 PYTEST_XDIST := -n $(PYTEST_WORKERS) --dist=loadgroup
 endif
-PYTEST_UNIT = "$(PYTHON)" -m pytest tests -m "not slow and not integration" --ignore-glob="*_uno.py" $(PYTEST_XDIST)
+PYTEST_UNIT = WRITERAGENT_PYTEST_PROGRESS=1 PYTHONUNBUFFERED=1 "$(PYTHON)" -u -m pytest tests -m "not slow and not integration" --ignore-glob="*_uno.py" $(PYTEST_XDIST)
 
 pytest:
+	@echo "=== pytest ==="
 	$(PYTEST_UNIT)
 
 test-run:
@@ -767,10 +771,14 @@ excel-py-roundtrip:
 	fi
 
 test:
+	@echo "=== make test: typecheck ==="
 	@$(MAKE) typecheck
-	@$(MAKE) -j2 -Otarget thread-safety-lint opengrep-lint
+	@echo "=== make test: thread-safety + opengrep ==="
+	@$(MAKE) -j2 thread-safety-lint opengrep-lint
+	@echo "=== make test: pytest + LibreOffice ==="
 	@$(MAKE) test-run
 	@$(MAKE) excel-py-roundtrip
+	@echo "=== make test: bandit ==="
 	@$(MAKE) bandit
 
 CROSSHAIR_MODULE = plugin/scripting/payload_codec.py

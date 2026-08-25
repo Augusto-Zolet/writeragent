@@ -308,6 +308,25 @@ def _repo_magic_mock_dir() -> str:
     return os.path.join(os.path.dirname(os.path.dirname(__file__)), "MagicMock")
 
 
+_pytest_progress_done = 0
+
+
+def _emit_make_pytest_progress(msg: str) -> None:
+    """Full lines on stderr. Pytest/xdist otherwise rewrite one ``\\r`` status line.
+
+    Prefix a newline so the message is not glued onto a row of unwrapped dots
+    when stdout and stderr are merged (Make ``2>&1``, some IDE captures).
+    """
+    sys.stderr.write("\n" + msg + "\n")
+    sys.stderr.flush()
+
+
+def _make_pytest_progress_enabled() -> bool:
+    return os.environ.get("WRITERAGENT_PYTEST_PROGRESS") == "1" and not os.environ.get(
+        "PYTEST_XDIST_WORKER"
+    )
+
+
 def pytest_sessionstart(session):
     """Clean leftover ``MagicMock/`` dirs from accidental mock stringification.
 
@@ -319,9 +338,31 @@ def pytest_sessionstart(session):
         return
     import shutil
 
+    if _make_pytest_progress_enabled():
+        global _pytest_progress_done
+        _pytest_progress_done = 0
+        _emit_make_pytest_progress("pytest: starting (workers collecting…)")
     magic_mock_dir = _repo_magic_mock_dir()
     if os.path.isdir(magic_mock_dir):
         shutil.rmtree(magic_mock_dir, ignore_errors=True)
+
+
+def pytest_collection_finish(session):
+    if _make_pytest_progress_enabled():
+        _emit_make_pytest_progress(f"pytest: collected {len(session.items)} tests")
+
+
+def pytest_runtest_logreport(report):
+    """Heartbeat while xdist runs: dots/percent live on one \\r line and never appear under Make."""
+    global _pytest_progress_done
+    if not _make_pytest_progress_enabled():
+        return
+    if getattr(report, "when", None) != "call":
+        return
+    _pytest_progress_done += 1
+    if report.failed or _pytest_progress_done % 100 == 0:
+        suffix = " FAIL" if report.failed else ""
+        _emit_make_pytest_progress(f"pytest: {_pytest_progress_done}{suffix}")
 
 
 def pytest_sessionfinish(session, exitstatus):
