@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from plugin.tests.testing_utils import setup_uno_mocks
 setup_uno_mocks()
 
@@ -158,6 +160,9 @@ def test_writer_chat_prompt_research_delegate_to_document():
 
 
 def test_writer_eval_chat_prompt_includes_sidebar_vs_document_routing():
+    # Eval prompts live under scripts/, which is not copied into the stripped
+    # make release tree (pytest there uses --ignore=tests/scripts).
+    pytest.importorskip("scripts.prompt_optimization.eval_prompts")
     from scripts.prompt_optimization.eval_prompts import get_writer_eval_chat_system_prompt
 
     prompt = get_writer_eval_chat_system_prompt()

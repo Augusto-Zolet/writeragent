@@ -9,6 +9,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from plugin.librepy.python_sidebar import (
     _CALC_ONLY_IDS,
     _MIN_FLEX_HEIGHT,
@@ -358,6 +360,8 @@ def test_sidebar_xcu_registers_writer():
         root / "extension-core" / "registry" / "org" / "openoffice" / "Office" / "UI" / "Sidebar.xcu",
         root / "extension" / "registry" / "org" / "openoffice" / "Office" / "UI" / "Sidebar.xcu",
     )
+    if not all(path.is_file() for path in paths):
+        pytest.skip("extension trees are not copied into the stripped make release tree")
     for path in paths:
         text = path.read_text(encoding="utf-8")
         assert "LibrePyDeck" in text

@@ -48,10 +48,13 @@ def load_menu_graphic(ctx: Any, icon_filename: str) -> Any:
     """Load a PNG icon from extension assets/ as XGraphic."""
     try:
         from com.sun.star.beans import PropertyValue
-        from plugin.framework.uno_context import get_extension_url, menu_icon_asset_url
+        from plugin.framework.uno_context import (
+            get_extension_url,
+            menu_icon_asset_url,
+            menu_icon_filesystem_paths,
+        )
 
         clean_name = icon_filename.replace("assets/", "").lstrip("/")
-        ext_url = get_extension_url(ctx)
         smgr = getattr(ctx, "getServiceManager", lambda: None)()
         if smgr is None:
             return None
@@ -59,24 +62,32 @@ def load_menu_graphic(ctx: Any, icon_filename: str) -> Any:
         if gp is None:
             return None
 
-        if ext_url:
+        def _from_url(url: str) -> Any:
             pv = PropertyValue()
             pv.Name = "URL"
-            pv.Value = menu_icon_asset_url(ext_url, clean_name)
-            graphic = gp.queryGraphic((pv,))
-            if graphic is not None:
-                return graphic
+            pv.Value = url
+            return gp.queryGraphic((pv,))
+
+        # Package URL is a vnd.sun.star.extension:// fallback when the OXT is
+        # not installed (testing_runner uses a fresh user profile). queryGraphic
+        # then throws; keep going so the filesystem paths below can load the PNG.
+        ext_url = get_extension_url(ctx)
+        if ext_url:
+            try:
+                graphic = _from_url(menu_icon_asset_url(ext_url, clean_name))
+                if graphic is not None:
+                    return graphic
+            except Exception:
+                log.debug("load_menu_graphic package URL failed for %s", icon_filename, exc_info=True)
 
         import os
         import uno
-        from plugin.framework.constants import get_plugin_dir
 
-        dev_path = os.path.join(os.path.dirname(get_plugin_dir()), "extension", "assets", clean_name)
-        if os.path.isfile(dev_path):
-            pv = PropertyValue()
-            pv.Name = "URL"
-            pv.Value = uno.systemPathToFileUrl(dev_path)
-            return gp.queryGraphic((pv,))
+        for path in menu_icon_filesystem_paths(clean_name):
+            if os.path.isfile(path):
+                graphic = _from_url(uno.systemPathToFileUrl(path))
+                if graphic is not None:
+                    return graphic
 
         return None
     except Exception:

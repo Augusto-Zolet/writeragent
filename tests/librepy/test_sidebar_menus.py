@@ -164,3 +164,12 @@ def test_wire_header_no_search_control():
     controls["btn_python"].addActionListener.assert_called()
     controls["btn_hamburger"].addActionListener.assert_called()
     assert controls["btn_latex"].getModel.return_value.ImageURL.endswith("python_cell_32.png")
+
+
+def test_menu_icon_filesystem_paths_include_oxt_and_checkout_layouts():
+    from plugin.framework.uno_context import menu_icon_filesystem_paths
+
+    paths = menu_icon_filesystem_paths("python_32.png")
+    assert paths[0].endswith("assets/python_32.png")
+    assert "extension/assets" not in paths[0].replace("\\", "/")
+    assert paths[1].replace("\\", "/").endswith("extension/assets/python_32.png")

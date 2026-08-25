@@ -57,11 +57,15 @@ def test_address_utils():
         with pytest.raises(pre_err):
             parse_address(non_ascii_invalid)
 
-    # 18278 is past ZZZ; @deal.pre raises when deal is installed (shim is a no-op in LO).
-    with pytest.raises(pre_err):
-        index_to_column(18278)
-    with pytest.raises(pre_err):
-        format_address(18278, 0)
+        # 18278 is past ZZZ; @deal.pre raises when the decorator is still on
+    # the function. After make release strip, the body still formats AAAA.
+    from tests.strip_bundle import deal_pre_present
+
+    if deal_pre_present(index_to_column):
+        with pytest.raises(pre_err):
+            index_to_column(18278)
+        with pytest.raises(pre_err):
+            format_address(18278, 0)
 
     assert parse_range_string("A1:B2") == ((0, 0), (1, 1))
     assert parse_range_string("C3") == ((2, 2), (2, 2))

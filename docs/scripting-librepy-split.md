@@ -550,7 +550,7 @@ Allowlist source of truth: [`scripts/librepy_bundle_paths.py`](../scripts/librep
 | **C — Duplicate (avoid)** | Both extensions register `=PY()` / `PYTHON` or both ship full `plugin/scripting/` → add-in conflict and/or import shadowing | Avoid |
 | **D — WriterAgent only** | Full WriterAgent OXT with its own Python stack (no LibrePy). | **Supported today** — `make deploy`; do **not** leave LibrePy installed at the same time |
 
-**Today:** install **LibrePy xor WriterAgent**, not both. `register-librepy-oxt` removes WriterAgent first. WriterAgent’s `register-built-oxt` only removes its own id. Making WriterAgent register also remove LibrePy is more `unopkg` pain than it is worth — users can install one OXT or the other. Do not chase deploy symmetry unless LibrePy becomes an official extension.
+**Today:** install **LibrePy xor WriterAgent**, not both. `register-librepy-oxt` removes WriterAgent first. `register-built-oxt` / `make release` removes LibrePy first — both OXTs register `org.extension.writeragent.PythonFunction`, and leaving LibrePy installed makes `unopkg add` fail with `enabling: addin.py`.
 
 **Target (not yet):** **B** — core is **standalone**; WriterAgent **assumes LibrePy is installed** and does **not** register `=PY()` or duplicate scientific menus.
 

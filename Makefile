@@ -366,12 +366,13 @@ repack-deploy: repack register-built-oxt
 
 # Stop LibreOffice if running, then unopkg remove + add build/$(EXTENSION_NAME).oxt.
 # Does not start LO (use ``make deploy`` with writer/calc/draw/impress, or ``make lo-start``).
-# Does not remove LibrePy (org.extension.librepy). Dual unopkg xor is a pain;
-# install one OXT or the other. Do not chase symmetry unless LibrePy is official.
+# Also removes LibrePy: both OXTs register org.extension.writeragent.PythonFunction,
+# so leaving LibrePy installed makes unopkg fail with "enabling: addin.py".
 register-built-oxt:
 	@echo "Registering build/$(EXTENSION_NAME).oxt..."
 	$(MAKE) lo-kill
 	@rm -f "$(LO_CONF)/.lock" "$(LO_CONF)/user/.lock"
+	-$(UNOPKG) remove $(LIBREPY_EXTENSION_ID) 2>/dev/null
 	-$(UNOPKG) remove org.extension.writeragent 2>/dev/null
 	@rm -f "$(LO_CONF)/user/extensions/tmp/extensions.pmap"
 	@$(RM_RF) "$(LO_CONF)/user/extensions/tmp/extensions/"*.tmp_

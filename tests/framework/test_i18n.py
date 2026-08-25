@@ -40,6 +40,10 @@ class TestI18n(unittest.TestCase):
         self.assertEqual(_(""), "")
 
     def test_i18n_msgid_rejects_over_deal_max_msgid(self):
+        from tests.strip_bundle import deal_pre_present
+
+        if not deal_pre_present(_):
+            self.skipTest("@deal.pre stripped in release bundle")
         i18n_module._translation = NullTranslations()
         with self.assertRaises(deal.PreContractError):
             _("x" * (DEAL_MAX_MSGID + 1))

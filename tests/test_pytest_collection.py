@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MAKEFILE = REPO_ROOT / "Makefile"
 PYPROJECT = REPO_ROOT / "pyproject.toml"
@@ -21,6 +23,8 @@ PYTEST_UNIT_CMD = (
 
 
 def _makefile_text() -> str:
+    if not MAKEFILE.is_file():
+        pytest.skip("Makefile is not copied into the stripped make release tree")
     return MAKEFILE.read_text(encoding="utf-8")
 
 
@@ -46,6 +50,24 @@ def test_makefile_pytest_target_is_unit_only_no_xdist() -> None:
     assert re.search(r"(^|\s)-n(\s|$)", body) is None
     assert "xdist" not in body
     assert "pytest-xdist" not in text
+
+
+def test_makefile_register_built_oxt_removes_librepy() -> None:
+    """Both OXTs register PythonFunction; dual install fails unopkg on addin.py."""
+    text = _makefile_text()
+    block = re.search(
+        r"^register-built-oxt:\n(?:\t.*\n)+",
+        text,
+        re.MULTILINE,
+    )
+    assert block is not None, "missing Makefile register-built-oxt: target"
+    body = block.group(0)
+    assert "remove $(LIBREPY_EXTENSION_ID)" in body
+    assert "remove org.extension.writeragent" in body
+    librepy_at = body.index("remove $(LIBREPY_EXTENSION_ID)")
+    writeragent_at = body.index("remove org.extension.writeragent")
+    add_at = body.index("unopkg add") if "unopkg add" in body else body.index("$(UNOPKG) add")
+    assert librepy_at < writeragent_at < add_at
 
 
 def test_makefile_test_run_is_pytest_then_serial_testing_runner() -> None:

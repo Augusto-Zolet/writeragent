@@ -35,9 +35,32 @@ def module_source_contains(obj: object, needle: str) -> bool:
     return needle in source
 
 
+def _decorator_header(source: str) -> str:
+    """Decorator lines from ``inspect.getsource`` through the ``def`` line."""
+    header: list[str] = []
+    for line in source.splitlines(keepends=True):
+        header.append(line)
+        stripped = line.lstrip()
+        if stripped.startswith("def ") or stripped.startswith("async def "):
+            break
+    return "".join(header)
+
+
 def deal_pre_present(obj: object) -> bool:
-    """True when ``@deal.pre`` remains in *obj*'s source file (unstripped bundle)."""
-    return module_source_contains(obj, "@deal.pre")
+    """True when ``@deal.pre`` remains on *obj*'s definition (unstripped).
+
+    Must not scan the whole module or function body: a comment that mentions
+    ``@deal.pre`` (e.g. ``stream_normalizer._streaming_replay``) would look
+    like the decorator survived ``strip_code``.
+    """
+    target: object = obj
+    if inspect.isfunction(obj) or inspect.ismethod(obj):
+        target = inspect.unwrap(obj)
+    try:
+        source = inspect.getsource(target)  # type: ignore[arg-type]
+    except (OSError, TypeError):
+        return module_source_contains(obj, "@deal.pre")
+    return "@deal.pre" in _decorator_header(source)
 
 
 def expect_pre_or_body(

@@ -206,6 +206,25 @@ def menu_icon_asset_url(ext_url, icon_filename):
     return "%s/assets/%s" % (ext_url.rstrip("/"), icon_filename)
 
 
+def menu_icon_filesystem_paths(icon_filename: str) -> tuple[str, ...]:
+    """Local PNG paths for menu icons (OXT layout first, then git checkout).
+
+    ``scripts/build_oxt.py`` remaps ``extension/assets/`` to ``assets/`` at the
+    bundle root. ``make release`` pytest/UNO runs against that tree, so looking
+    only under ``extension/assets/`` misses ``python_32.png`` and friends.
+    """
+    import os
+
+    from plugin.framework.constants import get_plugin_dir
+
+    clean = icon_filename.replace("assets/", "").lstrip("/")
+    root = os.path.dirname(get_plugin_dir())
+    return (
+        os.path.join(root, "assets", clean),
+        os.path.join(root, "extension", "assets", clean),
+    )
+
+
 def get_extension_path(ctx=None, extension_id=None):
     """Return the local filesystem path of the extension package."""
     url = get_extension_url(ctx, extension_id)

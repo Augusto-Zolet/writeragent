@@ -95,11 +95,13 @@ def _redline_count(doc):
 @native_test
 @with_native_doc("writer")
 def test_has_agent_changes_gates_on_agent_tokens_uno(ctx, doc):
-    _body(doc, ctx, "Plain paragraph.")
+    # Separate paragraphs: stacking an agent replace on the same range as a user
+    # insert can reuse RedlineIdentifiers, so tagging never sees a "new" redline.
+    _body(doc, ctx, "User paragraph.", "Agent paragraph.")
     assert has_agent_changes(doc) is False, "clean doc has no agent changes"
-    _tracked_replace(doc, "Plain paragraph.", "Edited paragraph.")  # user-style redline, no token
+    _tracked_replace(doc, "User paragraph.", "User edited.")  # user-style redline, no token
     assert has_agent_changes(doc) is False, "the user's own redline must not count as an agent change"
-    _agent_edit(doc, ctx, ("Edited paragraph.", "Agent edited paragraph."))
+    _agent_edit(doc, ctx, ("Agent paragraph.", "Agent edited paragraph."))
     assert has_agent_changes(doc) is True, "an agent (tokened) change must be detected"
 
 
