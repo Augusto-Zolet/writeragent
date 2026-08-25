@@ -37,7 +37,7 @@ _active_locale: str = "en_US"
 _DEFAULT_LOCALE = "en_US"
 
 
-from plugin.framework.deal_shim import DEAL_MAX_SOURCE, str_bounded, deal
+from plugin.framework.deal_shim import DEAL_MAX_MSGID, str_bounded, deal
 
 @deal.post(lambda result: isinstance(result, str) and len(result) > 0)
 def get_active_locale() -> str:
@@ -112,7 +112,8 @@ def init_i18n(ctx=None) -> None:
         log.debug("i18n init: translation_type=%s", type(_translation).__name__)
 
 
-@deal.pre(lambda message: str_bounded(message, DEAL_MAX_SOURCE))
+# Msgids must be <= DEAL_MAX_MSGID (wide in both profiles; SOURCE is 8192/16).
+@deal.pre(lambda message: str_bounded(message, DEAL_MAX_MSGID))
 @deal.post(lambda result: isinstance(result, str))
 def _(message: str) -> str:
     """Translate English msgid *message* via gettext. Must be :class:`str`."""

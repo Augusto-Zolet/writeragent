@@ -3,6 +3,7 @@ import gettext
 from gettext import NullTranslations
 from unittest.mock import MagicMock, patch
 import deal
+from plugin.framework.deal_shim import DEAL_MAX_MSGID
 from plugin.framework.i18n import _, get_lo_locale
 import plugin.framework.i18n as i18n_module
 import sys
@@ -37,6 +38,11 @@ class TestI18n(unittest.TestCase):
         self.assertEqual(_("✓ Copied!"), "✓ Copied!")
         self.assertEqual(_("Testing…"), "Testing…")
         self.assertEqual(_(""), "")
+
+    def test_i18n_msgid_rejects_over_deal_max_msgid(self):
+        i18n_module._translation = NullTranslations()
+        with self.assertRaises(deal.PreContractError):
+            _("x" * (DEAL_MAX_MSGID + 1))
 
     def test_locale_detection_uno(self):
         """Test locale detection uses LibreOffice ooLocale via UNO."""

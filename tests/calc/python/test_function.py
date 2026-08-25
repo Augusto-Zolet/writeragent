@@ -486,7 +486,7 @@ def test_session_key_and_init_kwargs_recursion_off_main_thread(monkeypatch: pyte
 
     ctx = MagicMock()
     key = python_function.session_key(ctx, "print('hello')")
-    assert key == ("", "", "print('hello')")
+    assert key == ("", "", "", "print('hello')")
 
     kwargs = python_function.get_python_init_kwargs(ctx)
     assert kwargs == {}
@@ -709,7 +709,7 @@ def test_function_module_avoids_document_helpers_import() -> None:
 
 
 def test_execute_python_addin_maps_missing_venv_error(monkeypatch) -> None:
-    python_function.MATRIX_SCALAR_SESSIONS.sessions = {}
+    python_function.clear_python_addin_cache()
     monkeypatch.setattr(
         python_function,
         "run_code_in_user_venv",
@@ -728,7 +728,7 @@ def test_execute_python_addin_maps_missing_venv_error(monkeypatch) -> None:
 
 
 def test_execute_python_addin_maps_timeout_error(monkeypatch) -> None:
-    python_function.MATRIX_SCALAR_SESSIONS.sessions = {}
+    python_function.clear_python_addin_cache()
     monkeypatch.setattr(
         python_function,
         "run_code_in_user_venv",
@@ -754,7 +754,7 @@ def _reset_py_pass_stats() -> None:
 
 
 def test_py_timing_off_by_default(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-    python_function.MATRIX_SCALAR_SESSIONS.sessions = {}
+    python_function.clear_python_addin_cache()
     monkeypatch.setattr(python_function, "PYTHON_TIMINGS_LOG", False)
     _reset_py_pass_stats()
     caplog.set_level(logging.DEBUG, logger="plugin.calc.python.function")
@@ -772,7 +772,7 @@ def test_py_timing_off_by_default(monkeypatch: pytest.MonkeyPatch, caplog: pytes
 
 def test_py_timing_logs_ipc_ms_and_pass_totals(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
     """Each =PY() logs its own calculation time; pass_* is wall vs sum, not asctime deltas."""
-    python_function.MATRIX_SCALAR_SESSIONS.sessions = {}
+    python_function.clear_python_addin_cache()
     monkeypatch.setattr(python_function, "PYTHON_TIMINGS_LOG", True)
     _reset_py_pass_stats()
     caplog.set_level(logging.DEBUG, logger="plugin.calc.python.function")
@@ -808,17 +808,18 @@ def test_py_timing_logs_ipc_ms_and_pass_totals(monkeypatch: pytest.MonkeyPatch, 
 
 
 def test_py_timing_cached_matrix_skips_ipc(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-    python_function.MATRIX_SCALAR_SESSIONS.sessions = {}
+    python_function.clear_python_addin_cache()
     monkeypatch.setattr(python_function, "PYTHON_TIMINGS_LOG", True)
     _reset_py_pass_stats()
     caplog.set_level(logging.DEBUG, logger="plugin.calc.python.function")
     ctx = _ctx_with_doc(CalcDocStub())
     code = "result = [1, 2, 3]"
     worker_data = None
-    key = (python_function.session_key(ctx, code), repr(worker_data))
-    python_function.MATRIX_SCALAR_SESSIONS.sessions = {
-        key: python_function.WorkerResultSession([1.0, 2.0, 3.0], [1.0, 2.0, 3.0]),
-    }
+    tid = threading.get_ident()
+    key = (tid, python_function.session_key(ctx, code), repr(worker_data))
+    python_function._MATRIX_SCALAR_SESSIONS[key] = python_function.WorkerResultSession(
+        [1.0, 2.0, 3.0], [1.0, 2.0, 3.0]
+    )
     called: list[int] = []
 
     def _should_not_run(*_a, **_k):

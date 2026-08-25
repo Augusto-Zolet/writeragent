@@ -43,6 +43,7 @@ class DealMaxima(NamedTuple):
     shape_rank: int
     placeholder_index: int
     source: int
+    msgid: int
     path: int
     token: int
     origin: int
@@ -80,6 +81,7 @@ def deal_maxima(*, crosshair: bool) -> DealMaxima:
             shape_rank=2,
             placeholder_index=4,
             source=16,
+            msgid=1024,  # real UI _() strings run at import; do not shrink
             path=32,
             token=16,
             origin=origin,
@@ -99,7 +101,8 @@ def deal_maxima(*, crosshair: bool) -> DealMaxima:
         shape_dim=256,  # 100×100 pack tests fit; CrossHair uses 4
         shape_rank=4,  # ndarray rank; grids are 2-D, pytest uses up to 4
         placeholder_index=64,  # Excel %Pn% deps; f-string of the int
-        source=64,
+        source=8192,  # real =PY() / Excel scripts; CrossHair stays 16
+        msgid=1024,  # gettext _(); longest shipped msgid is ~500 chars
         path=256,  # filesystem paths (is_safe_workspace_path); not PATH_MAX
         token=64,
         origin=origin,
@@ -123,6 +126,7 @@ DEAL_MAX_SHAPE_DIM = _MAXIMA.shape_dim
 DEAL_MAX_SHAPE_RANK = _MAXIMA.shape_rank
 DEAL_MAX_PLACEHOLDER_INDEX = _MAXIMA.placeholder_index
 DEAL_MAX_SOURCE = _MAXIMA.source
+DEAL_MAX_MSGID = _MAXIMA.msgid
 DEAL_MAX_PATH = _MAXIMA.path
 DEAL_MAX_TOKEN = _MAXIMA.token
 DEAL_MAX_ORIGIN = _MAXIMA.origin

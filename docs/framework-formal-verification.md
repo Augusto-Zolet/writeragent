@@ -663,9 +663,9 @@ Helpers in [`deal_shim.py`](../plugin/framework/deal_shim.py):
 | Helper | Use when |
 |--------|----------|
 | `ascii_bounded(s, max_len, min_len=0)` | Closed alphabet: column letters, A1 / range strings, error **codes**, CORS origins, stream prefixes, URL suffixes |
-| `str_bounded(s, max_len, min_len=0)` | Open text: gettext `_()`, HTML, `=PY()` / Excel source. Length still bounds CrossHair |
+| `str_bounded(s, max_len, min_len=0)` | Open text: gettext `_()` (`DEAL_MAX_MSGID`), HTML, `=PY()` / Excel source (`DEAL_MAX_SOURCE`). Length still bounds CrossHair |
 
-`DEAL_MAX_CELL_REF` is **32** because `parse_address` / `parse_range_string` reject sheet prefixes; the longest legal range is well under that. Do **not** put `isascii` on `_()` (msgids include `"✓ Copied!"`, `"Testing…"`), HTML strippers, or formula source.
+`DEAL_MAX_CELL_REF` is **32** because `parse_address` / `parse_range_string` reject sheet prefixes; the longest legal range is well under that. Do **not** put `isascii` on `_()` (msgids include `"✓ Copied!"`, `"Testing…"`), HTML strippers, or formula source. `_()` uses `DEAL_MAX_MSGID` (**1024** in both profiles) so real UI strings survive import; do not shrink that under CrossHair. Pytest `DEAL_MAX_SOURCE` is **8192** (real `=PY()` / Excel scripts); CrossHair stays **16**.
 
 The pytest domain is the product (ZZZ, Calc max row, `CELL_REF=32`); the CrossHair domain is the short table in `deal_maxima(crosshair=True)`; `WRITERAGENT_CROSSHAIR=1` is set only by the check-all runner. Do not grow `DEAL_MAX_COL_INDEX` / `DEAL_MAX_COL_LETTERS` out of sync: `parse_address("ZZZ1")` calls `column_to_index`, and a nested `PreContractError` is a CrossHair error. Nested inverse ensures (`format_address` → `parse_address`, `column_to_index` → `index_to_column`) are skipped under CrossHair via import-time `inverse_ensure`.
 

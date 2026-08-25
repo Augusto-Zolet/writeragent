@@ -24,14 +24,13 @@ def test_prompt_addin_metadata(ctx):
 @native_test
 def test_python_addin_execution(ctx):
     from plugin.calc.python.addin import PythonFunction
-    from plugin.calc.python.function import MATRIX_SCALAR_SESSIONS
+    from plugin.calc.python.function import clear_python_addin_cache
     from plugin.framework.config import set_config
     import unittest.mock
 
     set_config("scripting.python_session_mode", "isolated")
 
-    if hasattr(MATRIX_SCALAR_SESSIONS, "sessions"):
-        MATRIX_SCALAR_SESSIONS.sessions.clear()
+    clear_python_addin_cache()
 
     func = PythonFunction(ctx)
 
@@ -106,5 +105,4 @@ def test_python_addin_execution(ctx):
             assert res == 7919.0
             mock_run.assert_called_with(func.ctx, "[sp.prime(x) for x in range(1000, 1006)]", data=None, session_id=None)
     finally:
-        if hasattr(MATRIX_SCALAR_SESSIONS, "sessions"):
-            MATRIX_SCALAR_SESSIONS.sessions.clear()
+        clear_python_addin_cache()

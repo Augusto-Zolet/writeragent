@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import unittest.mock
 
-from plugin.calc.python.function import MATRIX_SCALAR_SESSIONS, execute_python_addin
+from plugin.calc.python.function import clear_python_addin_cache, execute_python_addin
 from plugin.scripting.payload_codec import is_multi_data
 
 
@@ -13,8 +13,7 @@ class _Ctx:
 
 
 def _clear_sessions() -> None:
-    if hasattr(MATRIX_SCALAR_SESSIONS, "sessions"):
-        MATRIX_SCALAR_SESSIONS.sessions.clear()
+    clear_python_addin_cache()
 
 
 def test_execute_python_addin_multi_range_uses_multi_envelope():

@@ -1636,6 +1636,10 @@ def child_pack_result(
                 # Strict rectangular 2D grid: all rows are lists/tuples. Otherwise fall through to treat as 1D list-of-mixed (supports fancier result strategy).
                 grid = [list(row) for row in result]
                 grid_shape: tuple[int, ...] = (len(grid), max((len(r) for r in grid), default=0))
+            elif result and type(result[0]) in (list, tuple):
+                # Jagged: first item is a row but later items are not (e.g. [[None], None]).
+                packed = [child_pack_result(x, min_cells=min_cells, force=force) for x in result]
+                return type(result)(packed)
             else:
                 grid = list(result)
                 grid_shape = (len(grid),)

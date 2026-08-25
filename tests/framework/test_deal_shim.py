@@ -19,6 +19,7 @@ from plugin.framework.deal_shim import (
     DEAL_MAX_COL_INDEX,
     DEAL_MAX_COL_LETTERS,
     DEAL_MAX_HTML_CHUNK,
+    DEAL_MAX_MSGID,
     DEAL_MAX_ORIGIN,
     DEAL_MAX_PATH,
     DEAL_MAX_PLACEHOLDER_INDEX,
@@ -86,7 +87,8 @@ def test_deal_shim_constants_match_pytest_profile() -> None:
     assert DEAL_MAX_PATH == wide.path == 256
     assert DEAL_MAX_ARGV == wide.argv == 4096
     assert DEAL_MAX_CMD_ARGS == wide.cmd_args == 32
-    assert DEAL_MAX_SOURCE == wide.source == 64
+    assert DEAL_MAX_SOURCE == wide.source == 8192
+    assert DEAL_MAX_MSGID == wide.msgid == 1024
     assert DEAL_MAX_ROW_INDEX == wide.row_index == 1_048_575
     assert DEAL_MAX_PLACEHOLDER_INDEX == wide.placeholder_index == 64
     assert DEAL_MAX_SHAPE_RANK == wide.shape_rank == 4
@@ -111,6 +113,7 @@ def test_deal_maxima_crosshair_profile_stays_tiny() -> None:
     assert short.shape_rank == 2
     assert short.placeholder_index == 4
     assert short.source == 16
+    assert short.msgid == 1024
     assert short.path == 32
     assert short.token == 16
     assert short.html_chunk == 64

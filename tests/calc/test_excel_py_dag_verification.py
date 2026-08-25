@@ -19,7 +19,7 @@ from plugin.calc.excel_py_convert.to_dag import (
     _xl_binding_expr,
 )
 from plugin.calc.spreadsheet_import.preprocess import normalize_lo_formula_for_parse
-from plugin.framework.deal_shim import DEAL_MAX_PLACEHOLDER_INDEX, DEAL_MAX_SOURCE
+from plugin.framework.deal_shim import DEAL_MAX_PLACEHOLDER_INDEX
 from tests.strip_bundle import deal_pre_present
 
 
@@ -54,7 +54,7 @@ def test_xl_binding_expr_invariants(idx: int, header_mode: str) -> None:
         assert "headers=False" in expr
 
 
-@given(st.text(alphabet=st.characters(blacklist_categories=("Cs",), max_codepoint=127), max_size=DEAL_MAX_SOURCE))
+@given(st.text(alphabet=st.characters(blacklist_categories=("Cs",), max_codepoint=127), max_size=64))
 def test_normalize_excel_placeholders_length_invariant(src: str) -> None:
     normalized = _normalize_excel_placeholders(src)
     assert len(normalized) == len(src)
@@ -64,7 +64,7 @@ def test_normalize_excel_placeholders_length_invariant(src: str) -> None:
         assert "_P2_" in normalized
 
 
-@given(st.text(max_size=DEAL_MAX_SOURCE))
+@given(st.text(max_size=64))
 def test_normalize_lo_formula_for_parse_invariants(formula: str) -> None:
     result = normalize_lo_formula_for_parse(formula)
     assert isinstance(result, str)
