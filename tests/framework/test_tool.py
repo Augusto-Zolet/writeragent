@@ -306,11 +306,17 @@ class TestExecute:
         result = reg.execute("fake_tool", ctx, text="hello")
         assert result == {"status": "ok", "text": "hello"}
 
-    def test_unknown_tool_raises(self):
+    def test_unknown_tool_returns_error(self):
+        # Unknown names (including hallucinated ones and the 'unknown' sentinel
+        # from null tool-name calls) must return a structured error so the model
+        # gets actionable feedback rather than an opaque traceback.
         reg = _make_registry()
         ctx = _make_ctx()
-        with pytest.raises(KeyError, match="Unknown tool"):
-            reg.execute("nope", ctx)
+        result = reg.execute("nope", ctx)
+        assert result["status"] == "error"
+        assert result.get("code") == "UNKNOWN_TOOL"
+        assert "nope" in result.get("message", "")
+
 
     def test_incompatible_doc_type_raises(self):
         reg = _make_registry(FakeTool())

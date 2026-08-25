@@ -186,6 +186,8 @@ class WriteCellRange(ToolBase):
         "dump the input or full spill into chat; do not write =PY onto DataRange (circular). If "
         "they asked for in-place unique rows, still land beside/new sheet and say where. "
         'Tables (headers, mixed types): =PY("result = data.to_pandas().drop_duplicates()"; DataRange). '
+        'Always use data.to_pandas() rather than pd.DataFrame(data) because to_pandas() uses row 0 as column headers; '
+        'pd.DataFrame(data) treats headers as data and generates synthetic numeric columns (0..N) that spill as a junk top row. '
         "np.unique on mixed rows fails — NumPy object arrays cannot compare/hash mixed cell types. "
         "Writes formulas or values to a cell range(s) efficiently. Single string fills entire range; "
         "JSON array must match range size exactly (one value per cell); or multiline CSV from a start "

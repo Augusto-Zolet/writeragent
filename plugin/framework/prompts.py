@@ -730,6 +730,7 @@ Other-sheet refs use a dot (Orders.A1), never Excel bang (Orders!A1 → #NAME?).
 - =PY("result = …"; DataRange) writes Python into a cell (omit DataRange if unused).
 {compact}
 - Example: =PY("result = np.sum(data)"; Orders.A1:H500).
+- For tables with headers, use data.to_pandas() instead of pd.DataFrame(data) so row 0 becomes column headers rather than synthetic numeric columns (0..N).
 - {CALC_PYTHON_DATA_SHAPE_LLM_HINT}"""
     # Phase 6 spreadsheet-import LLM fallback; not a second prompt.
     CALC_PYTHON_FORMULA_LLM_HINT = CALC_FORMULA_SYNTAX

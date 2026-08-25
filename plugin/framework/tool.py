@@ -893,7 +893,16 @@ class ToolRegistry:
         try:
             tool = self._tools.get(tool_name)
             if tool is None:
-                raise KeyError(f"Unknown tool: {tool_name}")
+                # Return a structured error instead of raising KeyError so the model
+                # receives actionable feedback ("no tool named X") rather than an
+                # opaque traceback via execute_fn's unexpected-exception handler.
+                # This covers hallucinated names (e.g. 'write_formulas') and the
+                # 'unknown' sentinel from null tool-name tool calls alike.
+                return make_tool_error(
+                    f"No tool named '{tool_name}' is registered. Check the tool name and retry.",
+                    code="UNKNOWN_TOOL",
+                    tool_name=tool_name,
+                )
 
             # Check document compatibility using cached doc_type / UNO services (no live doc probe).
             if not tool_supports_document(
