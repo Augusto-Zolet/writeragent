@@ -28,6 +28,8 @@ def resolve_model_id(model: dict[str, Any], provider):
         The resolved model ID string, or None if the model is not
         available for this provider.
     """
+    # CrossHair TypeError on typing.Literal['a','b','rc'] when proxying ids.get (FV §8.1 D).
+    # crosshair: off
     ids = model.get("ids", {})
     if not isinstance(ids, dict):
         return None

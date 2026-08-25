@@ -326,6 +326,8 @@ def _deal_grid_ok(grid: object) -> bool:
     )
 )
 def _is_multi_data_envelope(envelope: object) -> bool:
+    # CrossHair TypeError on typing.Literal['a','b','rc'] when proxying empty dict (FV §8.1 D).
+    # crosshair: off
     if not isinstance(envelope, dict):
         return False
     env_dict = cast("dict[str, Any]", envelope)
