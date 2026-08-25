@@ -175,7 +175,15 @@ def merge_defaults_for_openrouter(
         oid = ids.get("openrouter")
         if not oid:
             continue
-        catalog_key = resolve_openrouter_catalog_id(str(oid), slim_by_id.keys())
+        oid_s = str(oid)
+        # OpenRouter routing alias, not an Orca /v1/models row.
+        if oid_s == "openrouter/free":
+            continue
+        # Do not pass slim_by_id.keys(). resolve_openrouter_catalog_id's
+        # @deal.pre only allows a small list/tuple/set/frozenset
+        # (len <= DEAL_MAX_SHAPE_DIM); dict_keys of the live catalog fails
+        # both the type check and the size cap. None still strips :nitro.
+        catalog_key = resolve_openrouter_catalog_id(oid_s)
         slim = slim_by_id.get(catalog_key)
         if slim is None:
             msg = (
