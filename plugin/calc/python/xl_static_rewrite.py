@@ -151,6 +151,10 @@ def _find_static_xl_literals(code: str) -> tuple[list[_XlLiteralCall], list[str]
             loc = f"{loc}:{exc.offset}"
         issues.append(f"Python syntax error at {loc}: {exc.msg}")
         return [], issues
+    except (TypeError, ValueError) as exc:
+        # NUL bytes: CPython ValueError. CrossHair symbolic str: TypeError from compile().
+        issues.append(f"Python source is not parseable: {exc}")
+        return [], issues
 
 
     calls: list[_XlLiteralCall] = []

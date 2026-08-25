@@ -87,6 +87,8 @@ def _get_send_label(state: SendButtonState) -> str:
 
 
 # Contract: Send and Stop button states are mutually exclusive (FsmTransition.state / .effects).
+# Pre rejects the illegal pair so CrossHair cannot start from (busy and recording).
+@deal.pre(lambda state, event: not (state.is_busy and state.is_recording))
 @deal.ensure(lambda state, event, result: not (result.state.is_busy and result.state.is_recording))
 @deal.ensure(
     lambda state, event, result: not any(
@@ -183,10 +185,15 @@ def next_state(state: SendButtonState, event: SendEvent) -> FsmTransition[SendBu
         if not state.is_busy:
             return FsmTransition(state, effects)
 
-        # We don't change is_busy yet; the StopSendEffect will trigger the stopping logic
-        # which will eventually dispatch SendCompletedEvent or ErrorOccurredEvent
-        # However, we can update the status text.
-        new_state = state
+        # Keep is_busy until SendCompleted/Error. Clear recording so an illegal
+        # (busy and recording) start cannot be echoed (deal_shim is a no-op in LO).
+        new_state = SendButtonState(
+            is_busy=True,
+            is_recording=False,
+            has_text=state.has_text,
+            has_audio=state.has_audio,
+            audio_supported=state.audio_supported,
+        )
         effects.append(StopSendEffect())
         effects.append(UpdateUIEffect(send_enabled=False, stop_enabled=True, send_label="Send", status_text="Stopping..."))
         return FsmTransition(new_state, effects)

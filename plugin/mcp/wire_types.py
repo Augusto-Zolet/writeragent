@@ -91,6 +91,8 @@ def parse_jsonrpc_request(msg: object) -> ParsedJsonRpcRequest | JsonRpcParseErr
 @deal.post(lambda result: isinstance(result, bool))
 def is_jsonrpc_notification(msg: object) -> bool:
     """True when *msg* is a JSON-RPC notification (no response expected)."""
+    # CrossHair TypeError on typing.Literal['a','b','rc'] (FV §8.1 D).
+    # crosshair: off
     if not isinstance(msg, dict):
         return False
     raw = cast("dict[str, Any]", msg)

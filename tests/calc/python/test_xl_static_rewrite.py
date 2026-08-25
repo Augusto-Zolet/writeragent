@@ -25,6 +25,14 @@ def test_is_static_a1_literal_accepts_common_forms():
     assert is_static_a1_literal("Sheet1!A1:A2")
 
 
+def test_apply_xl_static_rewrite_null_byte_is_issue_not_crash():
+    """CPython rejects NUL in source (ValueError); must not leak TypeError/ValueError."""
+    res = apply_xl_static_rewrite("\x00")
+    assert res.changed is False
+    assert res.issues
+    assert "not parseable" in res.issues[0] or "syntax" in res.issues[0].lower()
+
+
 def test_is_static_a1_literal_rejects_non_addresses():
     assert not is_static_a1_literal("%P2%")
     assert not is_static_a1_literal("Table1")

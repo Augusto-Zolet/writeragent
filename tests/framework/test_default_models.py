@@ -16,6 +16,7 @@ class TestGetProviderDefaults(unittest.TestCase):
         self.assertIsNone(resolve_model_id({"": 0, "ids": ""}, 0))
         self.assertIsNone(resolve_model_id({"ids": None}, "openrouter"))
         self.assertEqual(resolve_model_id({"ids": {"openrouter": "x"}}, "openrouter"), "x")
+        self.assertIsNone(resolve_model_id({"ids": {"release": ()}}, "release"))
 
     def test_minimax_m3_together_catalog(self):
         from plugin.framework.default_models import DEFAULT_MODELS

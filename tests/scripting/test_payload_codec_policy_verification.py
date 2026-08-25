@@ -208,6 +208,7 @@ def test_envelope_detectors_reject_malformed() -> None:
     assert is_multi_data({"__wa_payload__": PAYLOAD_MULTI_DATA, "items": "nope"}) is False
     assert is_image_payload({"__wa_payload__": PAYLOAD_IMAGE, "data": b"x"}) is False
     assert is_dataframe_payload({"__wa_payload__": PAYLOAD_DATAFRAME, "columns": [1], "data": []}) is False
+    assert is_dataframe_payload({"__wa_payload__": PAYLOAD_DATAFRAME, "columns": [""]}) is False
     assert is_calc_range_payload({"__wa_payload__": PAYLOAD_CALC_RANGE, "shape": [1], "data": []}) is False
     assert is_calc_range_payload({"__wa_payload__": PAYLOAD_CALC_RANGE, "shape": [1, 1]}) is False
 

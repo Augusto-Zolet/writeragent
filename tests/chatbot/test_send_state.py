@@ -1,3 +1,6 @@
+import pytest
+
+import deal
 from plugin.chatbot.send_state import (
     SendButtonState,
     SendEvent,
@@ -101,6 +104,17 @@ def test_send_clicked_with_audio_only_starts_send():
     assert tr.state.is_busy is True
     assert tr.state.has_audio is True
     assert any(isinstance(e, StartSendEffect) for e in tr.effects)
+
+
+def test_next_state_rejects_busy_and_recording_pre():
+    """CrossHair found STOP_CLICKED on (busy, recording) violating the ensure."""
+    from tests.strip_bundle import deal_pre_present
+
+    if not deal_pre_present(next_state):
+        pytest.skip("@deal.pre stripped in release bundle")
+    illegal = SendButtonState(True, True, False, False, False)
+    with pytest.raises(deal.PreContractError):
+        next_state(illegal, SendEvent(SendEventKind.STOP_CLICKED))
 
 
 def test_stop_clicked_when_idle_emits_no_stop_send():

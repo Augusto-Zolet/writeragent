@@ -156,6 +156,9 @@ def _streaming_replay(text: str, meta: Mapping[str, Any]) -> dict[str, Any]:
     text = _truncate_reasoning_string(text)
     encrypted_raw = meta.get("encrypted_fragments")
     encrypted_fragments: list[Any] = encrypted_raw if isinstance(encrypted_raw, list) else []
+    # _merge_reasoning_details @deal.pre caps list length (CrossHair shape_dim is 4).
+    if len(encrypted_fragments) > DEAL_MAX_SHAPE_DIM:
+        encrypted_fragments = encrypted_fragments[:DEAL_MAX_SHAPE_DIM]
     merged_encrypted = _merge_reasoning_details(encrypted_fragments)
     source = meta.get("source")
 

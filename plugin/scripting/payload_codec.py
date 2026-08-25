@@ -436,6 +436,9 @@ def _is_dataframe_envelope(envelope: object) -> bool:
     cols = env_dict.get("columns")
     if not isinstance(cols, list) or not all(isinstance(c, str) for c in cols):
         return False
+    # Explicit ``data`` (including None) is required; missing key is not a DF envelope.
+    if "data" not in env_dict:
+        return False
     data = env_dict.get("data")
     # Accept list/tuple/dict (split_grid or nested), None, or ndarray (small numeric DF/Series data left as ndarray
     # by child_pack_result below BINARY_MIN_CELLS per design choice; host unpack tolerates ndarray).

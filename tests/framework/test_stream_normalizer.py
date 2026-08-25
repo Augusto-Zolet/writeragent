@@ -329,3 +329,16 @@ def test_strip_think_tags_unclosed():
     assert thinking == "only thinking here"
 
 
+def test_streaming_replay_truncates_encrypted_fragments_to_shape_dim():
+    from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM
+
+    meta = {
+        "source": "reasoning_details",
+        "encrypted_fragments": [{"type": "reasoning.encrypted", "data": "x", "index": i} for i in range(DEAL_MAX_SHAPE_DIM + 1)],
+    }
+    replay = sn._streaming_replay("", meta)
+    assert isinstance(replay, dict)
+    details = replay.get("reasoning_details", [])
+    assert len(details) == DEAL_MAX_SHAPE_DIM
+
+

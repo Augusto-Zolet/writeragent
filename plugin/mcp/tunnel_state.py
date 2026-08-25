@@ -139,6 +139,27 @@ def compute_backoff_delay(
     return min(delay, float(max_backoff))
 
 
+def _event_int(data: dict[str, Any], key: str, fallback: int) -> int:
+    """Parse an optional int from event data; empty / invalid strings keep *fallback*.
+
+    CrossHair can put ``''`` in ``port`` / ``max_retries``; ``int('')`` raises.
+    """
+    raw = data.get(key, fallback)
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, int):
+        return raw
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return fallback
+        try:
+            return int(text)
+        except ValueError:
+            return fallback
+    return fallback
+
+
 # ── Pure State Transition Function ────────────────────────────────────
 
 
@@ -177,10 +198,10 @@ def next_state(state: TunnelState, event: TunnelEvent) -> FsmTransition[TunnelSt
     effects: List[Any] = []
 
     if event.kind == TunnelEventKind.START_REQUESTED:
-        port = int(event.data.get("port", state.port))
+        port = _event_int(event.data, "port", state.port)
         provider = str(event.data.get("provider", state.provider)).strip().lower()
         provider_token = str(event.data.get("provider_token", ""))
-        max_retries = int(event.data.get("max_retries", state.max_retries))
+        max_retries = _event_int(event.data, "max_retries", state.max_retries)
 
         # Cancel any previous timer / process if re-starting
         effects.append(CancelRetryTimerEffect())

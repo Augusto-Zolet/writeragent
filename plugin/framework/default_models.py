@@ -31,7 +31,9 @@ def resolve_model_id(model: dict[str, Any], provider):
     ids = model.get("ids", {})
     if not isinstance(ids, dict):
         return None
-    return ids.get(provider)
+    resolved = ids.get(provider)
+    # Catalog rows must map provider → str. CrossHair can put () in ids.release.
+    return resolved if isinstance(resolved, str) else None
 
 
 # FIXME, this should be a list, stored with the other endpoint pre-configured params

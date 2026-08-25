@@ -72,6 +72,14 @@ def test_start_requested_transition():
     assert start_eff.provider_token == "secret-tok"
 
 
+def test_start_requested_empty_port_keeps_state_defaults():
+    state = TunnelState(port=18765, max_retries=5)
+    event = TunnelEvent(TunnelEventKind.START_REQUESTED, {"port": "", "max_retries": ""})
+    tr = next_state(state, event)
+    assert tr.state.port == 18765
+    assert tr.state.max_retries == 5
+
+
 def test_url_acquired_transition():
     state = TunnelState(status=TunnelStatus.STARTING, provider="cloudflare", desired_running=True, retry_count=3)
     event = TunnelEvent(TunnelEventKind.URL_ACQUIRED, {"url": "https://quick.trycloudflare.com"})
