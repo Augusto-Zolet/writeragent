@@ -65,10 +65,10 @@ The project already utilizes an `EvalRunner` for benchmarking LLM outputs (Corre
 `make pytest` (and the pytest half of `make test-run`) runs:
 
 ```bash
-$(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py'
+$(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py' -n auto --dist=loadgroup
 ```
 
-Collection must stay clean of live LibreOffice: `--ignore-glob='*_uno.py'` plus pyproject `addopts` (`--ignore=tests/uno`) so this invocation does **not** collect `plugin.testing_runner` / `*_uno.py` / soffice suites. `tests/conftest.py` still drops leftover `@native_test` functions in mixed modules. Do not add `pytest -n` / xdist here; `testing_runner` stays serial.
+`PYTEST_WORKERS=0` (or empty) drops `-n` for a single process. Collection must stay clean of live LibreOffice: `--ignore-glob='*_uno.py'` plus pyproject `addopts` (`--ignore=tests/uno`) so this invocation does **not** collect `plugin.testing_runner` / `*_uno.py` / soffice suites. `tests/conftest.py` still drops leftover `@native_test` functions in mixed modules. Parallel tests may only write under `tmp_path`, the autouse config temp dir, or a `worker_id`-namespaced path; `MagicMock/` cleanup is controller-only. Do not put UNO / `testing_runner` under xdist.
 
 - **`slow`**: CrossHair hooks, large-file / Opengrep full scans, soffice smoke — also via `make slowtests` / `make opengrep-lint` where applicable.
 - **`integration`**: Full subprocess worker IPC / live venv self-check smokes, plus live `--backend lo` eval. Run with `-m integration` when needed.

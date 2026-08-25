@@ -26,6 +26,7 @@ addopts = "--ignore=build --ignore=tests/uno --ignore-glob=*_uno.py --ignore=tes
 markers = [
     "slow: excluded from default pytest; run via make slowtests",
     "integration: full subprocess worker IPC (optional, slower)",
+    "xdist_group(name): serialize tests that share a host path (pytest-xdist loadgroup)",
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:matplotlib.*",
@@ -49,6 +50,7 @@ dev = [
     "snowballstemmer",
     "websockets>=13.0,<16",
     "pytest",
+    "pytest-xdist",
     "pyyaml",
     "sounddevice",
     "mypy",

@@ -956,9 +956,14 @@ def test_libreoffice_import_smoke(tmp_path: Path):
     report = convert_model_to_dag(demo5_melted())
     out = tmp_path / "converted.xlsx"
     write_dag_formulas_xlsx(src, report, out)
+    profile = tmp_path / "lo-profile"
+    profile.mkdir()
     cmd = [
         "soffice",
         "--headless",
+        "--norestore",
+        "--nofirststartwizard",
+        f"-env:UserInstallation={profile.as_uri()}",
         "--convert-to",
         "csv",
         "--outdir",

@@ -215,7 +215,7 @@ help:
 	@echo "  make check-ext              Verify extension is registered"
 	@echo "  make set-config             List all config keys"
 	@echo "  make test                   Run ty, mypy, pyright, pyspector, bandit, pytest + LO tests + excel-py-roundtrip"
-	@echo "  make pytest                 Unit pytest only (no *_uno.py / testing_runner / live soffice)"
+	@echo "  make pytest                 Unit pytest only (xdist -n auto; PYTEST_WORKERS=0 for serial)"
 	@echo "  make excel-py-roundtrip     Excel↔DAG sample fidelity over PythonExcelSamples/"
 	@echo ""
 	@echo "Benchmarks (prompt optimization / eval):"
@@ -242,7 +242,7 @@ help:
 	@echo "  make opengrep-rules-audit   Live registry sweep (p/python; manual triage only)"
 	@echo "  make uno-thread-lint        Alias for make opengrep-lint"
 	@echo "  make opengrep-install       Install Opengrep CLI (~/.local/bin or bin/opengrep)"
-	@echo "  make typecheck              Run ruff-for-build, ty, mypy, basedpyright, pyspector"
+	@echo "  make typecheck              ruff-for-build, then ty/mypy/basedpyright/pyspector in parallel"
 	@echo "  make ensure-uno             Link system UNO into .venv if import uno fails (auto-run by typecheck/test)"
 	@echo "  make fix-uno                Same as ensure-uno with verbose output"
 	@echo "  make mypy / make basedpyright / make pyrefly / make bandit   Single-tool runs (bandit: plugin/, excludes contrib + tests)"
@@ -661,14 +661,20 @@ check-ext:
 LO_PYTHON ?= $(shell python3 -c "import uno" 2>/dev/null && echo python3 || (python -c "import uno" 2>/dev/null && echo python || echo python))
 
 typecheck: manifest ruff-for-build
-	@$(MAKE) ty-run
-	@$(MAKE) mypy-run
-	@$(MAKE) basedpyright-run
-	@$(MAKE) pyspector
+	@$(MAKE) -j4 ty-run mypy-run basedpyright-run pyspector
 
 # Unit pytest only: no *_uno.py collection, no testing_runner / live soffice.
 # Exact command: $(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py'
-PYTEST_UNIT = "$(PYTHON)" -m pytest tests -m "not slow and not integration" --ignore-glob="*_uno.py"
+# Default adds $(PYTEST_XDIST) (-n auto --dist=loadgroup). PYTEST_WORKERS=0 is serial.
+PYTEST_WORKERS ?= auto
+ifeq ($(PYTEST_WORKERS),0)
+PYTEST_XDIST :=
+else ifeq ($(PYTEST_WORKERS),)
+PYTEST_XDIST :=
+else
+PYTEST_XDIST := -n $(PYTEST_WORKERS) --dist=loadgroup
+endif
+PYTEST_UNIT = "$(PYTHON)" -m pytest tests -m "not slow and not integration" --ignore-glob="*_uno.py" $(PYTEST_XDIST)
 
 pytest:
 	$(PYTEST_UNIT)
@@ -762,8 +768,7 @@ excel-py-roundtrip:
 
 test:
 	@$(MAKE) typecheck
-	@$(MAKE) thread-safety-lint
-	@$(MAKE) opengrep-lint
+	@$(MAKE) -j2 thread-safety-lint opengrep-lint
 	@$(MAKE) test-run
 	@$(MAKE) excel-py-roundtrip
 	@$(MAKE) bandit

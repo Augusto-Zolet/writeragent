@@ -36,8 +36,10 @@ def test_makefile_documents_exact_pytest_unit_command() -> None:
     assert '--ignore-glob="*_uno.py"' in text
 
 
-def test_makefile_pytest_target_is_unit_only_no_xdist() -> None:
+def test_makefile_pytest_unit_uses_xdist_by_default() -> None:
     text = _makefile_text()
+    assert "PYTEST_WORKERS ?= auto" in text
+    assert "--dist=loadgroup" in text
     pytest_block = re.search(
         r"^pytest:\n(?:\t.*\n)+",
         text,
@@ -47,9 +49,28 @@ def test_makefile_pytest_target_is_unit_only_no_xdist() -> None:
     body = pytest_block.group(0)
     assert "$(PYTEST_UNIT)" in body
     assert "testing_runner" not in body
-    assert re.search(r"(^|\s)-n(\s|$)", body) is None
-    assert "xdist" not in body
-    assert "pytest-xdist" not in text
+    assert "$(PYTEST_XDIST)" in text
+
+
+def test_pyproject_lists_pytest_xdist() -> None:
+    text = PYPROJECT.read_text(encoding="utf-8")
+    assert "pytest-xdist" in text
+
+
+def test_makefile_typecheck_runs_checkers_in_parallel() -> None:
+    text = _makefile_text()
+    block = re.search(
+        r"^typecheck:.*\n(?:\t.*\n)+",
+        text,
+        re.MULTILINE,
+    )
+    assert block is not None, "missing Makefile typecheck: target"
+    body = block.group(0)
+    assert "-j4" in body
+    assert "ty-run" in body
+    assert "mypy-run" in body
+    assert "basedpyright-run" in body
+    assert "pyspector" in body
 
 
 def test_makefile_register_built_oxt_removes_librepy() -> None:
@@ -81,7 +102,10 @@ def test_makefile_test_run_is_pytest_then_serial_testing_runner() -> None:
     body = test_run.group(0)
     assert "$(MAKE) pytest" in body
     assert "plugin.testing_runner" in body
-    assert re.search(r"(^|\s)-n(\s|$)", body) is None
+    # UNO stays serial: the testing_runner line must not grow pytest -n / xdist.
+    runner_line = [ln for ln in body.splitlines() if "plugin.testing_runner" in ln][0]
+    assert re.search(r"(^|\s)-n(\s|$)", runner_line) is None
+    assert "xdist" not in runner_line
     pytest_at = body.index("$(MAKE) pytest")
     runner_at = body.index("plugin.testing_runner")
     assert pytest_at < runner_at
@@ -91,6 +115,26 @@ def test_pyproject_addopts_ignore_uno_glob() -> None:
     text = PYPROJECT.read_text(encoding="utf-8")
     assert "--ignore-glob=*_uno.py" in text
     assert "--ignore=tests/uno" in text
+
+
+def test_conftest_magicmock_cleanup_is_controller_only() -> None:
+    import importlib.util
+    import types
+
+    # Do not ``import conftest``: under xdist that name can be a nested conftest.
+    spec = importlib.util.spec_from_file_location(
+        "_writeragent_root_conftest",
+        REPO_ROOT / "tests" / "conftest.py",
+    )
+    assert spec is not None and spec.loader is not None
+    root_conftest = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(root_conftest)
+
+    worker = types.SimpleNamespace(config=types.SimpleNamespace(workerinput={"workerid": "gw0"}))
+    controller = types.SimpleNamespace(config=types.SimpleNamespace())
+    assert root_conftest._is_xdist_worker(worker) is True
+    assert root_conftest._is_xdist_worker(controller) is False
+    assert callable(root_conftest.pytest_sessionfinish)
 
 
 def test_uno_suffix_files_exist_for_native_runner() -> None:

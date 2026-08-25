@@ -19,10 +19,13 @@ LIBREPY_POT = _REPO / "build" / "generated" / "librepy.pot"
 FULL_POT = _REPO / "locales" / "writeragent.pot"
 LIBREPY_LOCALES = _REPO / "build" / "generated" / "locales"
 
-pytestmark = pytest.mark.skipif(
-    shutil.which("xgettext") is None or shutil.which("msgfmt") is None,
-    reason="gettext tools (xgettext/msgfmt) required; install gettext (e.g. choco install gettext.install)",
-)
+pytestmark = [
+    pytest.mark.skipif(
+        shutil.which("xgettext") is None or shutil.which("msgfmt") is None,
+        reason="gettext tools (xgettext/msgfmt) required; install gettext (e.g. choco install gettext.install)",
+    ),
+    pytest.mark.xdist_group("serial_build"),
+]
 
 
 def _ensure_manifest_core() -> None:

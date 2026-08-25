@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-import shutil
-import subprocess
 import sys
 import zipfile
 from pathlib import Path
@@ -27,15 +25,8 @@ _BUNDLE = _REPO_ROOT / "build" / "bundle-librepy"
 def test_librepy_smolagents_init_does_not_import_agents():
     init_path = _BUNDLE / "plugin" / "contrib" / "smolagents" / "__init__.py"
     if not init_path.is_file():
-        locales = _REPO_ROOT / "build" / "generated" / "locales"
-        # build_librepy_oxt requires compiled locales; locales need gettext.
-        if not locales.is_dir() and (shutil.which("xgettext") is None or shutil.which("msgfmt") is None):
-            pytest.skip("LibrePy bundle missing and gettext unavailable to build it")
-        subprocess.run(
-            [sys.executable, str(_REPO_ROOT / "scripts" / "build_librepy_oxt.py")],
-            cwd=_REPO_ROOT,
-            check=True,
-        )
+        # Do not write build/bundle-librepy from pytest workers (xdist races).
+        pytest.skip("LibrePy bundle missing (run make build-core)")
     text = init_path.read_text(encoding="utf-8")
     assert "from .agents import" not in text
     assert "local_python_executor only" in text

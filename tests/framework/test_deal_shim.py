@@ -297,6 +297,7 @@ def test_cover_all_and_check_all_main_set_crosshair_env(tmp_path, monkeypatch) -
     os.environ.pop(CROSSHAIR_ENV, None)
     assert check_all_main(["--list", "--plugin-root", str(plugin)]) == 0
     assert os.environ.get(CROSSHAIR_ENV) == "1"
+    os.environ.pop(CROSSHAIR_ENV, None)
 
 
 def test_cover_all_workers_bind_short_deal_table(monkeypatch) -> None:

@@ -297,16 +297,42 @@ def _setup_grammar_persistence_test_env():
 
 
 
-def pytest_sessionstart(session):
-    """Clean up any 'MagicMock' directories created by accidental mock stringification in previous runs.
+def _is_xdist_worker(session) -> bool:
+    """xdist workers have ``config.workerinput``; the controller and plain pytest do not."""
+    return getattr(session.config, "workerinput", None) is not None
 
-    (Belt and suspenders: the autouse config-path isolation above prevents new ones; this sweeps
-    litter left by older runs. tests/conftest.py sits one level below the repo root, so ONE
-    dirname past this file's directory is the repo — the previous triple dirname pointed at the
-    repo's PARENT and never cleaned anything.)"""
-    import os
+
+def _repo_magic_mock_dir() -> str:
+    # tests/conftest.py sits one level below the repo root (older triple dirname
+    # pointed at the parent of the repo and never cleaned anything).
+    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "MagicMock")
+
+
+def pytest_sessionstart(session):
+    """Clean leftover ``MagicMock/`` dirs from accidental mock stringification.
+
+    Autouse config-path isolation prevents new litter. Sweep only on the controller:
+    under xdist every worker also runs this hook, and concurrent rmtree of the same
+    path races.
+    """
+    if _is_xdist_worker(session):
+        return
     import shutil
-    root = os.path.dirname(os.path.dirname(__file__))
-    magic_mock_dir = os.path.join(root, "MagicMock")
+
+    magic_mock_dir = _repo_magic_mock_dir()
     if os.path.isdir(magic_mock_dir):
         shutil.rmtree(magic_mock_dir, ignore_errors=True)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Fail the run if isolation leaked a ``MagicMock/`` tree under the repo root."""
+    if _is_xdist_worker(session):
+        return
+    if os.path.isdir(_repo_magic_mock_dir()):
+        session.exitstatus = 1
+        reporter = session.config.pluginmanager.get_plugin("terminalreporter")
+        if reporter is not None:
+            reporter.write_line(
+                "MagicMock/ exists under the repo root after the suite — config path isolation leaked",
+                red=True,
+            )
