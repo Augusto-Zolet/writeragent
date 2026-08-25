@@ -217,6 +217,12 @@ def test_extract_code_from_py_formula():
         )
         == "import matplotlib.pyplot as plt\nplt.show()"
     )
+    assert (
+        extract_code_from_py_formula(
+            '=ORG.COLLABORAOFFICE.SHEET.ADDIN.PYTHONCOMPUTEFUNCTIONS.GETPY("result = 1")'
+        )
+        == "result = 1"
+    )
     assert extract_code_from_py_formula("=SUM(A1:A10)") is None
     assert extract_code_from_py_formula("") is None
 

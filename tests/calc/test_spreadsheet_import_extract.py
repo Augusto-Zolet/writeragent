@@ -46,6 +46,13 @@ def test_canonicalize_libreoffice_addin_python_prefix():
     assert py_formula_semantics(raw) == py_formula_semantics(norm)
 
 
+def test_canonicalize_collabora_getpy_prefix():
+    raw = '=ORG.COLLABORAOFFICE.SHEET.ADDIN.PYTHONCOMPUTEFUNCTIONS.GETPY("np.sum(data)";A1:A2)'
+    assert canonicalize_py_formula_for_parse(raw) == '=PY("np.sum(data)";A1:A2)'
+    assert is_py_formula_text(raw)
+    assert py_formula_semantics(raw) is not None
+
+
 def test_normalize_python_to_py_prefix():
     formula = '=PYTHON("np.sum(data)",A1:B2)'
     norm = normalize_py_formula(formula)

@@ -856,7 +856,7 @@ Complex returns (DataFrame, dict, class) should show a compact cell label (e.g. 
 
 ## 8. Collabora Online and jail-safe execution
 
-See [scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md) for details on Collabora Online and jail-safe execution of NumPy.
+See [scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md) for Collabora Online / jail-safe NumPy. Desktop LibrePy **reads** Collabora-saved `=PY()` by rewriting `GETPY` OriginalNames on open ([`collabora_formula.py`](../plugin/calc/python/collabora_formula.py)); it does not register Collabora's UNO package.
 
 ---
 

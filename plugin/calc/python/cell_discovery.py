@@ -4,8 +4,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Discover ``=PY()`` / ``=PYTHON()`` formula cells on a Calc sheet.
 
-Used by the LibrePy Python sidebar (cell list + click-to-navigate). Handles both
-short formulas and fully qualified add-in forms from WriterAgent / LibrePy.
+Used by the LibrePy Python sidebar (cell list + click-to-navigate). Handles short
+formulas, WriterAgent / LibrePy fully qualified add-in forms, and Collabora
+``GETPY`` OriginalNames (prefix-rewritten for parse; open-rewrite evaluates them).
 """
 
 from __future__ import annotations
@@ -26,8 +27,8 @@ from plugin.calc.python.formula_edit import (
 log = logging.getLogger(__name__)
 
 # LibreOffice stores registered add-ins as fully qualified names in getFormula().
-# LibrePy's add-in still registers as writeragent.PythonFunction for formula compat;
-# also accept a future librepy-prefixed form.
+# LibrePy still registers as writeragent.PythonFunction (WA/LibrePy file compat).
+# Collabora Online stores pythoncompute GETPY — canonicalize via prefix rewrite.
 _ADDIN_PY_PREFIX_RE = re.compile(
     r"^=\s*ORG\.EXTENSION\.(?:WRITERAGENT|LIBREPY)\.PYTHONFUNCTION\.(?:PYTHON|PY)\s*\(",
     re.IGNORECASE,
@@ -53,7 +54,9 @@ class PythonCellInfo:
 
 def canonicalize_py_formula_for_parse(formula: str) -> str:
     """Map LO add-in formula text to ``=PYTHON(…)`` for ``parse_python_formula``."""
-    raw = normalize_formula_string(formula)
+    from plugin.calc.python.collabora_formula import rewrite_collabora_addin_prefix
+
+    raw = rewrite_collabora_addin_prefix(normalize_formula_string(formula))
     match = _ADDIN_PY_PREFIX_RE.match(raw)
     if match:
         return "=PYTHON(" + raw[match.end() :]

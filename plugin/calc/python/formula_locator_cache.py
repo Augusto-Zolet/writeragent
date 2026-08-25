@@ -18,10 +18,11 @@ log = logging.getLogger(__name__)
 MAX_FORMULAS_PER_DOC = 4096
 DEFAULT_DOC_CACHE_TTL_SECONDS = 300.0  # 5 minutes idle TTL
 
-# Regex to extract code string literal from =PY("...") or =PYTHON("...", ...) formulas.
-# Handles Calc-escaped double-quotes ("") inside string literals and supports optional add-in namespaces.
+# Handles Calc-escaped double-quotes ("") inside string literals and optional add-in
+# OriginalNames (WriterAgent / LibrePy, or Collabora GETPY before open-rewrite).
 _PY_FORMULA_CODE_REGEX = re.compile(
-    r'(?:ORG\.EXTENSION\.[A-Z0-9_.]+\.)?(?:PY|PYTHON)\s*\(\s*"((?:[^"]|"")*)"',
+    r'(?:ORG\.(?:EXTENSION\.[A-Z0-9_.]+|COLLABORAOFFICE\.SHEET\.ADDIN\.PYTHONCOMPUTEFUNCTIONS)\.)?'
+    r'(?:GETPYTHON|GETPY|PYTHON|PY)\s*\(\s*"((?:[^"]|"")*)"',
     re.IGNORECASE,
 )
 

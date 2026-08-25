@@ -6,31 +6,14 @@
 
 from __future__ import annotations
 
-import re
-
+from plugin.calc.python.cell_discovery import canonicalize_py_formula_for_parse
 from plugin.calc.python.formula_edit import (
     format_data_binding_display,
     parse_data_binding_text,
-    normalize_formula_string,
     parse_python_formula,
     rebuild_python_formula_with_data,
 )
 from plugin.calc.spreadsheet_import.models import PyCellExtract, SheetModel
-
-# LibreOffice stores registered add-ins as fully qualified names in getFormula().
-_ADDIN_PY_PREFIX_RE = re.compile(
-    r"^=\s*ORG\.EXTENSION\.(?:WRITERAGENT|LIBREPY)\.PYTHONFUNCTION\.(?:PYTHON|PY)\s*\(",
-    re.IGNORECASE,
-)
-
-
-def canonicalize_py_formula_for_parse(formula: str) -> str:
-    """Map LO add-in formula text to ``=PYTHON(…)`` for ``parse_python_formula``."""
-    raw = normalize_formula_string(formula)
-    match = _ADDIN_PY_PREFIX_RE.match(raw)
-    if match:
-        return "=PYTHON(" + raw[match.end() :]
-    return raw
 
 
 def py_formula_semantics(formula: str) -> tuple[str, list[str]] | None:

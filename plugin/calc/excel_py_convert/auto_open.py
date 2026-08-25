@@ -3,6 +3,8 @@
 
 * **Open** (``OnLoadFinished``): if the ``.xlsx`` on disk still has
   ``pythonScripts.xml`` / ``_xlws.PY``, rewrite in-place to DAG ``=PY`` via UNO.
+  The same event also prefix-rewrites Collabora ``GETPY`` OriginalNames (see
+  ``plugin.calc.python.collabora_formula``).
 * **Save** (``OnSaveDone`` / ``OnSaveAsDone`` / ``OnSaveToDone``): if the open
   Calc doc has DAG ``=PY`` cells and the destination is ``.xlsx``, snapshot
   formulas from memory (UNO) and ZipFile-patch the saved file to native Excel
@@ -222,6 +224,17 @@ def install_excel_py_auto_convert(ctx: Any) -> None:
                         return
                     if name == "OnLoadFinished":
                         maybe_convert_excel_py_document(ctx, doc)
+                        try:
+                            from plugin.calc.python.collabora_formula import (
+                                maybe_rewrite_collabora_py_formulas,
+                            )
+
+                            maybe_rewrite_collabora_py_formulas(doc)
+                        except Exception:
+                            log.warning(
+                                "collabora PY rewrite on open failed",
+                                exc_info=True,
+                            )
                         return
                     if name in _SAVE_DONE_EVENTS:
                         maybe_export_excel_py_on_save(ctx, doc)

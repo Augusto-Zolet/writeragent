@@ -666,6 +666,14 @@ Suggested series:
 - Out-of-kit compute; C++ tip free of NumPy / `split_grid` / Pickle5.
 - `security.python_compute.enable` default `false`; optional `api_key` / `timeout_secs`; `HostUtil::isForbiddenKitHost` when allowlist set.
 - UNO package `org.collaboraoffice.sheet.addin.*` (not `com.sun.star.sheet.addin` for this AddIn).
+
+### File interop with LibrePy / WriterAgent (desktop)
+
+Calc stores add-in formulas as **OriginalName** (`ServiceName.MethodName`), not display `=PY()`. Collabora cells are `ORG.COLLABORAOFFICE.SHEET.ADDIN.PYTHONCOMPUTEFUNCTIONS.GETPY(...)` (IDL `getPy`). LibrePy registers `org.extension.writeragent.PythonFunction` / `py` — a different token — so those files `#NAME?` unless rewritten.
+
+LibrePy **does not** register Collabora's UNO service (that would add a second Function Wizard name and collide with Collabora Office Classic). On `OnLoadFinished` it prefix-rewrites `GETPY`/`GETPYTHON` to `=PY(`/`=PYTHON(` so the existing add-in runs. Code: [`plugin/calc/python/collabora_formula.py`](../plugin/calc/python/collabora_formula.py). New LibrePy cells still **write** writeragent names. Online opening those files still needs a Core alias the other direction.
+
+`XCompatibilityNames` → `PY` is Excel short-name mapping, not two-UNO-identity mapping.
 - Typed dumb-JSON round-trip; Calc range grids emit; **SolarMutex-only** (no extra `std::mutex`); snapshot-then-finish; early spreadsheet emitter; stable multi-view owner; MOBILEAPP compile-out.
 - gbuild / `.component` / IDL for the Collabora Office AddIn.
 

@@ -28,6 +28,13 @@ def test_canonicalize_librepy_addin_prefix():
     assert extract_code_from_formula(raw) == "result = 2"
 
 
+def test_canonicalize_collabora_getpy_prefix():
+    raw = '=ORG.COLLABORAOFFICE.SHEET.ADDIN.PYTHONCOMPUTEFUNCTIONS.GETPY("result = 1")'
+    assert canonicalize_py_formula_for_parse(raw).upper().startswith("=PY(")
+    assert is_py_formula_text(raw)
+    assert extract_code_from_formula(raw) == "result = 1"
+
+
 def test_short_py_formula():
     assert is_py_formula_text('=PY("result = 3")')
     assert extract_code_from_formula('=PY("result = 3")') == "result = 3"
