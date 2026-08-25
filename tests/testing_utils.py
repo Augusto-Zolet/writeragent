@@ -836,6 +836,11 @@ class TestingFactory:
         except Exception:
             pass
         try:
+            import gc
+
+            # Release PyUNO sequences before Calc tears down the document.
+            # Large getDataArray results held across close can abort soffice (glibc double-free).
+            gc.collect()
             if hasattr(doc, "close"):
                 doc.close(True)
             elif hasattr(doc, "dispose"):

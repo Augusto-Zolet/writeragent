@@ -110,6 +110,9 @@ def test_makefile_test_run_is_pytest_then_serial_testing_runner() -> None:
     runner_line = [ln for ln in body.splitlines() if "plugin.testing_runner" in ln][0]
     assert re.search(r"(^|\s)-n(\s|$)", runner_line) is None
     assert "xdist" not in runner_line
+    # UNO output must flush so a soffice abort names the last TEST start line.
+    assert "PYTHONUNBUFFERED=1" in runner_line
+    assert " -u " in runner_line
     pytest_at = body.index("$(MAKE) pytest")
     runner_at = body.index("plugin.testing_runner")
     assert pytest_at < runner_at

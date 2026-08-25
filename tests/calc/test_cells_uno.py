@@ -192,82 +192,134 @@ def test_read_cell_sheet_qualified_address_format(ctx, doc):
 @native_test
 @with_native_doc("calc")
 def test_read_range_format_info_performance(ctx, doc):
-    """Opt-in enrichment must stay cheap for plain numbers and scale with format groups."""
+    """Opt-in enrichment must stay cheap for plain numbers and scale with format groups.
+
+    Uses a 40x40 block (not 100x100) so the default native suite does not copy tens of
+    10k-cell PyUNO arrays. That path has triggered intermittent soffice glibc double-frees.
+    """
+    import gc
     import time
 
     from plugin.calc.bridge import CalcBridge
     from plugin.calc.inspector import CellInspector
 
+    def _a1_col(index: int) -> str:
+        letters = ""
+        n = index + 1
+        while n:
+            n, rem = divmod(n - 1, 26)
+            letters = chr(65 + rem) + letters
+        return letters
+
+    rows = 40
+    cols = 40
+    date_cols = 4  # 10% of columns
+    cell_count = rows * cols
+    plain_start_col = 26  # AA
+    mixed_start_col = 156  # FA
+    date_start_row = 110
+
+    plain_addr = f"{_a1_col(plain_start_col)}1:{_a1_col(plain_start_col + cols - 1)}{rows}"
+    date_addr = (
+        f"{_a1_col(plain_start_col)}{date_start_row + 1}:"
+        f"{_a1_col(plain_start_col + cols - 1)}{date_start_row + rows}"
+    )
+    mixed_addr = f"{_a1_col(mixed_start_col)}1:{_a1_col(mixed_start_col + cols - 1)}{rows}"
+
     active_sheet = doc.getCurrentController().getActiveSheet()
     inspector = CellInspector(CalcBridge(doc))
 
-    def _avg_ms(addr: str, *, include_format_info: bool, rounds: int = 3) -> float:
+    def _avg_ms(addr: str, *, include_format_info: bool, rounds: int = 2) -> float:
         t0 = time.perf_counter()
         for _ in range(rounds):
             inspector.read_range(addr, include_format_info=include_format_info)
         return (time.perf_counter() - t0) * 1000.0 / rounds
 
-    # 100x100 = 10_000 plain numbers starting at AA1 (col 26).
-    plain = active_sheet.getCellRangeByPosition(26, 0, 125, 99)
-    plain.setDataArray(tuple(tuple(float(r * 100 + c) for c in range(100)) for r in range(100)))
+    try:
+        plain = active_sheet.getCellRangeByPosition(
+            plain_start_col, 0, plain_start_col + cols - 1, rows - 1
+        )
+        plain.setDataArray(
+            tuple(tuple(float(r * cols + c) for c in range(cols)) for r in range(rows))
+        )
 
-    # Warm the UNO path (first reads after sheet fill can be anomalously slow).
-    for _ in range(3):
-        inspector.read_range("AA1:DV100")
-        inspector.read_range("AA1:DV100", include_format_info=True)
-    raw_ms = _avg_ms("AA1:DV100", include_format_info=False)
-    plain_enriched_ms = _avg_ms("AA1:DV100", include_format_info=True)
+        # Warm the UNO path (first reads after sheet fill can be anomalously slow).
+        for _ in range(2):
+            inspector.read_range(plain_addr)
+            inspector.read_range(plain_addr, include_format_info=True)
+        raw_ms = _avg_ms(plain_addr, include_format_info=False)
+        plain_enriched_ms = _avg_ms(plain_addr, include_format_info=True)
 
-    # One shared date format on a same-sized block (worst case: every cell is a date).
-    date_rng = active_sheet.getCellRangeByPosition(26, 110, 125, 209)
-    date_rng.setDataArray(tuple(tuple(46200.0 + r for _c in range(100)) for r in range(100)))
-    _set_number_format(doc, date_rng, "YYYY-MM-DD")
-    sample = inspector.read_range("AA111:DV210", include_format_info=True)
-    assert sample[0][0].get("format_category") == "date", sample[0][0]
-    date_enriched_ms = _avg_ms("AA111:DV210", include_format_info=True)
+        date_rng = active_sheet.getCellRangeByPosition(
+            plain_start_col,
+            date_start_row,
+            plain_start_col + cols - 1,
+            date_start_row + rows - 1,
+        )
+        date_rng.setDataArray(
+            tuple(tuple(46200.0 + r for _c in range(cols)) for r in range(rows))
+        )
+        _set_number_format(doc, date_rng, "YYYY-MM-DD")
+        sample = inspector.read_range(date_addr, include_format_info=True)
+        assert sample[0][0].get("format_category") == "date", sample[0][0]
+        date_enriched_ms = _avg_ms(date_addr, include_format_info=True)
 
-    # Realistic mix: 10 of 100 columns (~10% of cells) are dates; the rest stay plain numbers.
-    # Layout at FA1:IV100 (col 156..255). First 10 columns (FA:FJ) get date serials + date format.
-    mixed = active_sheet.getCellRangeByPosition(156, 0, 255, 99)
-    mixed_rows = []
-    for r in range(100):
-        row = []
-        for c in range(100):
-            row.append(46200.0 + r if c < 10 else float(r * 100 + c))
-        mixed_rows.append(tuple(row))
-    mixed.setDataArray(tuple(mixed_rows))
-    date_cols = active_sheet.getCellRangeByPosition(156, 0, 165, 99)
-    _set_number_format(doc, date_cols, "YYYY-MM-DD")
+        mixed = active_sheet.getCellRangeByPosition(
+            mixed_start_col, 0, mixed_start_col + cols - 1, rows - 1
+        )
+        mixed_rows = []
+        for r in range(rows):
+            row = []
+            for c in range(cols):
+                row.append(46200.0 + r if c < date_cols else float(r * cols + c))
+            mixed_rows.append(tuple(row))
+        mixed.setDataArray(tuple(mixed_rows))
+        date_col_rng = active_sheet.getCellRangeByPosition(
+            mixed_start_col, 0, mixed_start_col + date_cols - 1, rows - 1
+        )
+        _set_number_format(doc, date_col_rng, "YYYY-MM-DD")
 
-    mixed_sample = inspector.read_range("FA1:IV100", include_format_info=True)
-    date_hits = sum(1 for row in mixed_sample for cell in row if cell.get("format_category") == "date")
-    plain_hits = sum(1 for row in mixed_sample for cell in row if "format_category" not in cell)
-    assert date_hits == 1000, f"expected 10% date cells (1000), got {date_hits}"
-    assert plain_hits == 9000, f"expected 90% plain cells (9000), got {plain_hits}"
-    assert isinstance(mixed_sample[0][0].get("value"), str) and mixed_sample[0][0].get("type") == "date"
-    assert isinstance(mixed_sample[0][10].get("value"), float)
-    assert "format_category" not in mixed_sample[0][10]
+        mixed_sample = inspector.read_range(mixed_addr, include_format_info=True)
+        date_hits = sum(1 for row in mixed_sample for cell in row if cell.get("format_category") == "date")
+        plain_hits = sum(1 for row in mixed_sample for cell in row if "format_category" not in cell)
+        expected_dates = date_cols * rows
+        expected_plain = cell_count - expected_dates
+        assert date_hits == expected_dates, f"expected 10% date cells ({expected_dates}), got {date_hits}"
+        assert plain_hits == expected_plain, f"expected 90% plain cells ({expected_plain}), got {plain_hits}"
+        assert isinstance(mixed_sample[0][0].get("value"), str) and mixed_sample[0][0].get("type") == "date"
+        assert isinstance(mixed_sample[0][date_cols].get("value"), float)
+        assert "format_category" not in mixed_sample[0][date_cols]
 
-    mixed_enriched_ms = _avg_ms("FA1:IV100", include_format_info=True)
+        mixed_enriched_ms = _avg_ms(mixed_addr, include_format_info=True)
 
-    print(
-        f"[read_range perf] raw={raw_ms:.1f}ms plain_enriched={plain_enriched_ms:.1f}ms "
-        f"mixed_10pct_dates={mixed_enriched_ms:.1f}ms all_dates={date_enriched_ms:.1f}ms "
-        f"(avg of 3 over 10k cells)"
-    )
+        print(
+            f"[read_range perf] raw={raw_ms:.1f}ms plain_enriched={plain_enriched_ms:.1f}ms "
+            f"mixed_10pct_dates={mixed_enriched_ms:.1f}ms all_dates={date_enriched_ms:.1f}ms "
+            f"(avg of 2 over {cell_count} cells)"
+        )
 
-    # Plain-number enrichment should stay near the raw path (preflight finds no date cells
-    # and no formulas). Allow generous headroom for CI variance without accepting a collapse.
-    assert plain_enriched_ms < max(raw_ms * 3.0, raw_ms + 50.0), (
-        f"plain enriched too slow: raw={raw_ms:.1f}ms enriched={plain_enriched_ms:.1f}ms"
-    )
-    # Mixed 10% dates should land between plain and all-dates, not near the all-dates worst case.
-    assert mixed_enriched_ms < max(raw_ms * 6.0, 400.0), (
-        f"mixed 10% dates too slow: raw={raw_ms:.1f}ms mixed={mixed_enriched_ms:.1f}ms"
-    )
-    assert date_enriched_ms < max(raw_ms * 8.0, 500.0), (
-        f"all-dates too slow: raw={raw_ms:.1f}ms all_dates={date_enriched_ms:.1f}ms"
-    )
+        assert plain_enriched_ms < max(raw_ms * 3.0, raw_ms + 50.0), (
+            f"plain enriched too slow: raw={raw_ms:.1f}ms enriched={plain_enriched_ms:.1f}ms"
+        )
+        assert mixed_enriched_ms < max(raw_ms * 6.0, 400.0), (
+            f"mixed 10% dates too slow: raw={raw_ms:.1f}ms mixed={mixed_enriched_ms:.1f}ms"
+        )
+        assert date_enriched_ms < max(raw_ms * 8.0, 500.0), (
+            f"all-dates too slow: raw={raw_ms:.1f}ms all_dates={date_enriched_ms:.1f}ms"
+        )
+    finally:
+        # Drop large PyUNO sequences before @with_native_doc closes the sheet.
+        # Holding getDataArray tuples across close has coincided with soffice double-frees.
+        sample = None
+        mixed_sample = None
+        mixed_rows = None
+        plain = None
+        date_rng = None
+        mixed = None
+        date_col_rng = None
+        inspector = None
+        gc.collect()
+
 
 
 @native_test

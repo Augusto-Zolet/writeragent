@@ -11,13 +11,69 @@
 
 import logging
 import json
+import os
+import sys
 import traceback
 import unittest
 import tempfile
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Sequence
 
 log = logging.getLogger(__name__)
+
+# CLI path/name filters from ``python -m plugin.testing_runner <filter>``.
+# File-path filters select modules; leftover ``test_*`` names select functions.
+_cli_filters: list[str] = []
+
+
+def _progress(msg: str) -> None:
+    """Print a line immediately so soffice aborts still name the last test."""
+    print(msg, file=sys.stderr, flush=True)
+
+
+def _soffice_pids() -> str:
+    """Best-effort soffice.bin PIDs for correlating glibc aborts with this run."""
+    try:
+        import subprocess
+
+        out = subprocess.check_output(
+            ["pgrep", "-x", "soffice.bin"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        )
+        pids = ",".join(out.split())
+        return pids or "-"
+    except Exception:
+        return "-"
+
+
+def _test_function_filters(filters: Sequence[str]) -> list[str]:
+    """Return CLI tokens that name a test function rather than a module path."""
+    names: list[str] = []
+    for token in filters:
+        if "/" in token or "\\" in token or token.endswith(".py"):
+            continue
+        if token.endswith("_uno"):
+            continue
+        if token.startswith("test_"):
+            names.append(token)
+    return names
+
+
+def _module_matches_filters(full_path: str, filename: str, filters: Sequence[str]) -> bool:
+    """True if this UNO file should load given CLI filters (path or ``def test_``)."""
+    if not filters:
+        return True
+    if any(token in full_path or token in filename for token in filters):
+        return True
+    func_filters = _test_function_filters(filters)
+    if not func_filters:
+        return False
+    try:
+        source = Path(full_path).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return any(f"def {name}" in source for name in func_filters)
 
 # Flag to run UNO chart tests with visible window rather than hidden
 show_window: bool = False
@@ -119,6 +175,7 @@ def run_module_suite(ctx, module, name, doc_model=None):
             except Exception as e:
                 return 0, 1, [f"EXCEPTION in {fallback_func_name}: {e}", traceback.format_exc()]
 
+    _progress(f"SUITE start {name} python_pid={os.getpid()} soffice.bin={_soffice_pids()}")
     try:
         if setup_func:
             import inspect
@@ -133,8 +190,12 @@ def run_module_suite(ctx, module, name, doc_model=None):
             else:
                 setup_func()
 
+        name_filters = _test_function_filters(_cli_filters)
         for test_func in test_funcs:
+            if name_filters and not any(token in test_func.__name__ for token in name_filters):
+                continue
             test_line = f"Running test: {test_func.__name__}"
+            _progress(f"TEST start {name}.{test_func.__name__}")
             try:
                 # After suite @setup removal, native tests take ctx (and often doc via
                 # @with_native_doc). Pass ctx when the signature accepts it; no-arg
@@ -152,26 +213,32 @@ def run_module_suite(ctx, module, name, doc_model=None):
                     test_func()
                 total_passed += 1
                 suite_log.append(f"{test_line} — OK")
+                _progress(f"TEST end {name}.{test_func.__name__} OK")
             except ModuleNotFoundError as e:
                 # Some "native" tests attempt to use pytest.skip, but LibreOffice's
                 # Python may not have pytest installed.
                 if getattr(e, "name", None) == "pytest":
                     suite_log.append(f"{test_line} — SKIP (pytest not available)")
+                    _progress(f"TEST end {name}.{test_func.__name__} SKIP")
                     continue
                 total_failed += 1
                 suite_log.append(f"{test_line} — FAIL (ModuleNotFoundError: {e})")
                 suite_log.append(traceback.format_exc())
+                _progress(f"TEST end {name}.{test_func.__name__} FAIL")
             except unittest.SkipTest as e:
                 total_passed += 1
                 suite_log.append(f"{test_line} — OK (skipped) ({e})")
+                _progress(f"TEST end {name}.{test_func.__name__} SKIP")
             except AssertionError as e:
                 total_failed += 1
                 suite_log.append(f"{test_line} — FAIL (AssertionError: {e})")
                 suite_log.append(traceback.format_exc())
+                _progress(f"TEST end {name}.{test_func.__name__} FAIL")
             except Exception as e:
                 total_failed += 1
                 suite_log.append(f"{test_line} — FAIL ({type(e).__name__}: {e})")
                 suite_log.append(traceback.format_exc())
+                _progress(f"TEST end {name}.{test_func.__name__} FAIL")
 
     except Exception as e:
         total_failed += 1
@@ -199,6 +266,7 @@ def run_module_suite(ctx, module, name, doc_model=None):
                     suite_log.append(f"TEARDOWN EXCEPTION: {e}")
                     suite_log.append(traceback.format_exc())
 
+    _progress(f"SUITE end {name} passed={total_passed} failed={total_failed}")
     return total_passed, total_failed, suite_log
 
 
@@ -371,6 +439,8 @@ def run_all_tests(ctx: Any) -> str:
                 plugin.testing_runner.show_window = True
             else:
                 filter_strs.append(arg)
+        global _cli_filters
+        _cli_filters = list(filter_strs)
 
         for root, _dirs, files in os.walk(tests_root):
             for filename in files:
@@ -385,7 +455,7 @@ def run_all_tests(ctx: Any) -> str:
                 is_uno_test = "_uno.py" in filename or "uno" in root.split(os.sep)
                 if is_uno_test:
                     full_path = os.path.join(root, filename)
-                    if not filter_strs or any(f in full_path or f in filename for f in filter_strs):
+                    if _module_matches_filters(full_path, filename, filter_strs):
                         test_candidates.append(full_path)
 
         for module_path in sorted(test_candidates):

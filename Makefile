@@ -334,7 +334,7 @@ release: clean
 	echo "Running tests against stripped bundle..."; \
 	echo "  (grammar_obs call-site tests self-skip via _grammar_obs_call_sites_present; whole modules ignored below)"; \
 	cd "$$RELEASE_TMP" && PYTHONPATH=. "$(abspath $(PYTHON))" -m pytest --ignore=tests/scripts --ignore=tests/compute_service --ignore=tests/test_fix_uno_import.py --ignore=tests/test_merge_module_yaml_into_pot.py --ignore=tests/framework/test_logging.py --ignore=tests/writer/locale/test_grammar_linguistic_xcu.py --ignore=tests/scripting/test_generate_tool_proxies.py --ignore=tests/framework/test_thread_guard.py --ignore=tests/framework/test_thread_affinity.py --ignore=tests/framework/test_thread_token.py --ignore=tests/doc/test_specialized_delegation_threading.py --ignore=tests/writer/locale/test_grammar_obs.py --ignore=tests/writer/locale/test_libreharper_oxt.py -k "not test_sync_tool_marshaled_from_background and not test_execute_on_main_thread_timeout and not test_execute_python_addin_from_background_thread" tests; \
-	cd "$$RELEASE_TMP" && PYTHONPATH=. "$(LO_PYTHON)" -m plugin.testing_runner; \
+	cd "$$RELEASE_TMP" && PYTHONPATH=. PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner; \
 	$(MAKE) -C "$(PROJECT_ROOT)" release-build; \
 	$(MAKE) -C "$(PROJECT_ROOT)" register-built-oxt
 
@@ -686,7 +686,7 @@ pytest:
 test-run:
 	@$(MAKE) pytest
 	@$(MAKE) lo-kill
-	"$(LO_PYTHON)" -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
+	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 
 test-durations:
 	$(PYTEST_UNIT) --durations=40
@@ -721,13 +721,13 @@ vhs:
 		-k hypothesis -s --hypothesis-verbosity=verbose
 
 test-visible:
-	"$(LO_PYTHON)" -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
+	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 
 lo-test-threadguard:
-	WRITERAGENT_UNO_THREAD_GUARD=1 "$(LO_PYTHON)" -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
+	WRITERAGENT_UNO_THREAD_GUARD=1 PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 
 lo-test-threadguard-visible:
-	WRITERAGENT_UNO_THREAD_GUARD=1 "$(LO_PYTHON)" -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
+	WRITERAGENT_UNO_THREAD_GUARD=1 PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 
 opengrep-lint:
 	@test -x "$(OPENGREP)" || (echo "opengrep not found — run: make opengrep-install" && exit 1)

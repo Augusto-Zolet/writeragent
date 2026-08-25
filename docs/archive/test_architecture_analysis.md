@@ -73,7 +73,7 @@ PYTHONUNBUFFERED=1 $(PYTHON) -u -m pytest tests -m "not slow and not integration
 - **`slow`**: CrossHair hooks, large-file / Opengrep full scans, soffice smoke — also via `make slowtests` / `make opengrep-lint` where applicable.
 - **`integration`**: Full subprocess worker IPC / live venv self-check smokes, plus live `--backend lo` eval. Run with `-m integration` when needed.
 
-`make test-run` is: `make pytest`, then `lo-kill`, then `$(LO_PYTHON) -m plugin.testing_runner` (serial UNO; do not parallelize).
+`make test-run` is: `make pytest`, then `lo-kill`, then `PYTHONUNBUFFERED=1 $(LO_PYTHON) -u -m plugin.testing_runner` (serial UNO; do not parallelize). The runner prints flushed `SUITE start` / `TEST start` / `TEST end` lines on stderr so a glibc `soffice.bin` abort still names the last native test. `test_read_range_format_info_performance` uses a 40×40 grid (not 100×100) so the default suite does not copy tens of 10k-cell PyUNO arrays.
 
 Profile hotspots without the LO native suite:
 
