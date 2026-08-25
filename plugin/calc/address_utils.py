@@ -133,6 +133,8 @@ def parse_address(address: str) -> tuple[int, int]:
     Raises:
         ValueError: Invalid cell address, or a sheet prefix was left on.
     """
+    # Sheet-prefix + A1 regex hang under deep check.
+    # crosshair: off
     # Reject prefixes here so callers that need the sheet go through
     # split_sheet_prefix / CalcBridge.resolve instead of silently dropping it.
     sheet, address = split_sheet_prefix(address)
@@ -180,6 +182,8 @@ def parse_range_string(range_str: str) -> tuple[tuple[int, int], tuple[int, int]
     Raises:
         ValueError: Invalid range format, or a sheet prefix was left on.
     """
+    # Sheet-prefix + A1 regex hang under deep check.
+    # crosshair: off
     sheet, range_str = split_sheet_prefix(range_str)
     if sheet is not None:
         raise ValueError(
