@@ -174,7 +174,17 @@ class TestHasNativeAudio(unittest.TestCase):
 
 
 class TestFetchAvailableImageModels(unittest.TestCase):
+    def setUp(self):
+        # Module caches live for the process. Under xdist, another file on this
+        # worker (e.g. is_image_only_model → fetch_available_image_models) may
+        # already have memoized OpenRouter; tearDown-only cleanup is too late.
+        self._clear_model_fetch_caches()
+
     def tearDown(self):
+        self._clear_model_fetch_caches()
+
+    @staticmethod
+    def _clear_model_fetch_caches():
         import plugin.framework.client.model_fetcher as cfg
 
         for k in list(cfg._model_fetch_image_cache):
