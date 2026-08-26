@@ -65,7 +65,7 @@ The project already utilizes an `EvalRunner` for benchmarking LLM outputs (Corre
 `make pytest` (and the pytest half of `make test-run`) runs:
 
 ```bash
-PYTHONUNBUFFERED=1 $(PYTHON) -u -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py' -n auto --dist=loadgroup
+PYTHONUNBUFFERED=1 $(PYTHON) -u -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py' -n -1 --dist=loadgroup
 ```
 
 `PYTEST_WORKERS=0` (or empty) drops `-n` for a single process. `make pytest` sets `WRITERAGENT_PYTEST_PROGRESS=1` so collection/count heartbeats print as full stderr lines (pytest/xdist otherwise rewrite one `\r` status line). Collection must stay clean of live LibreOffice: `--ignore-glob='*_uno.py'` plus pyproject `addopts` (`--ignore=tests/uno`) so this invocation does **not** collect `plugin.testing_runner` / `*_uno.py` / soffice suites. `tests/conftest.py` still drops leftover `@native_test` functions in mixed modules. Parallel tests may only write under `tmp_path`, the autouse config temp dir, or a `worker_id`-namespaced path; `MagicMock/` cleanup is controller-only. Do not put UNO / `testing_runner` under xdist.

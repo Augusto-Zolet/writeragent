@@ -536,6 +536,13 @@ class TestSecurityFix(unittest.TestCase):
 
 class TestSuppressDisposed(unittest.TestCase):
 
+    def test_check_disposed_none_raises_dummy_ok(self):
+        from plugin.framework.errors import UnoObjectError, check_disposed
+
+        with self.assertRaises(UnoObjectError):
+            check_disposed(None, "Document Model")
+        check_disposed(object(), "Document Model")
+
     def test_is_disposed_exception(self):
         from plugin.framework.errors import (
             DocumentDisposedError,

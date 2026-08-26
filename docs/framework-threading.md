@@ -92,7 +92,7 @@ The core chatbot interaction relies heavily on threads to handle streaming LLM r
 *   **`plugin/launcher/__init__.py`:** Spawns a launcher-monitor using `run_in_background` to `wait()` on launched external processes (like Claude or Gemini desktop apps) so the menu status can be updated when the user closes the external app.
 *   **`plugin/framework/logging.py`:** Spawns a background thread (`_watchdog_loop`) to periodically flush status logs or monitor system health without interrupting document flow. Uses `_init_lock` and `_activity_lock` to protect logging state.
 *   **`plugin/chatbot/dialogs.py`:** Spawns a probe update thread (`run_in_background(_probe_update)`) to dynamically update dialog UI elements in the background.
-*   **`plugin/framework/worker_pool.py`:** `run_in_background` is the only allowed birthplace for background work (Opengrep `raw-uno-thread-ban`). Short jobs share a bounded daemon pool; long-lived or joined work passes `dedicated=True` (details in consolidations §3 below).
+*   **`plugin/framework/worker_pool.py`:** `run_in_background` is the only allowed birthplace for background work (Opengrep `raw-uno-thread-ban`). Short jobs share a daemon pool with a fixed worker count (unbounded submit queue); long-lived or joined work passes `dedicated=True` (details in consolidations §3 below).
 *   **`plugin/framework/worker_pool.py` (`AsyncProcess`):** Standardizes how external processes are started and how their `stdout`, `stderr`, and exit callbacks are handled safely without blocking. Stream and wait threads are dedicated.
 
 ---
@@ -119,7 +119,7 @@ run_in_background(func, *args, name=None, error_callback=None, daemon=True, dedi
 
 | `dedicated` | Meaning |
 |---|---|
-| `False` (default) | Queue on the process-wide bounded pool. `daemon` is ignored (pool threads are always daemon). |
+| `False` (default) | Queue on the process-wide pool (fixed worker count, unbounded submit queue). `daemon` is ignored (pool threads are always daemon). |
 | `True` | Spawn one `threading.Thread`. Use for servers, pipe drains, infinite loops, and **any job another thread will `join()`**. `daemon` applies. |
 
 `daemon=False` implies dedicated (a non-daemon thread is a process-lifetime join contract).
@@ -130,7 +130,7 @@ Each job calls `thread_guard.set_background_task(name)` at start and clears it i
 
 #### Pool
 
-CPython `ThreadPoolExecutor` workers are **non-daemon** from 3.9 on and would block soffice exit. The host uses a small stdlib queue plus a fixed set of daemon threads named `wa-bg-0` … (`_DaemonWorkPool`). Load **queues**; it does not spawn extra native threads.
+CPython `ThreadPoolExecutor` workers are **non-daemon** from 3.9 on and would block soffice exit. The host uses an unbounded stdlib queue plus a fixed set of daemon threads named `wa-bg-0` … (`_DaemonWorkPool`). Load **queues**; it does not spawn extra native threads. The pool is bounded in **worker count**, not queue length.
 
 - Size: [`BACKGROUND_POOL_MAX_WORKERS`](../plugin/framework/constants.py) (8), overridable with `WRITERAGENT_BG_POOL_WORKERS`.
 - Lazy singleton. No production `shutdown()` (lifetime = soffice). Tests use `reset_background_pool_for_tests()`.

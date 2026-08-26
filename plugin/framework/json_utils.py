@@ -218,11 +218,14 @@ def repair_json_object(text: str) -> Any:
 def safe_json_loads(text: Any, default: Any = None, strict: bool = False) -> Any:
     """Safely parse a JSON string into a Python object with optional robust repair logic.
 
-    Attempts:
+    Attempts (non-strict / LLM mode; keep this list in sync with the body):
     1. Standard json.loads
     2. json.loads with strict=False (handles raw control chars, per hermes-agent)
-    3. repair_json + json.loads (LLM/Robust mode only)
-    4. ast.literal_eval as final fallback (LLM/Robust mode only)
+    3. ast.literal_eval (single quotes and Python-isms)
+    4. repair_json + json.loads (truncated / malformed JSON)
+
+    Do not swap 3 and 4 to "repair first" without golden tests: literal_eval
+    accepting a truncated fragment is accepted behavior, not a bug.
 
     Args:
         text: The string to parse.

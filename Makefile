@@ -215,7 +215,7 @@ help:
 	@echo "  make check-ext              Verify extension is registered"
 	@echo "  make set-config             List all config keys"
 	@echo "  make test                   Run ty, mypy, pyright, pyspector, bandit, pytest + LO tests + excel-py-roundtrip"
-	@echo "  make pytest                 Unit pytest only (xdist -n auto; PYTEST_WORKERS=0 for serial)"
+	@echo "  make pytest                 Unit pytest only (xdist -n -1; PYTEST_WORKERS=0 for serial)"
 	@echo "  make excel-py-roundtrip     Excel↔DAG sample fidelity over PythonExcelSamples/"
 	@echo ""
 	@echo "Benchmarks (prompt optimization / eval):"
@@ -665,10 +665,10 @@ typecheck: manifest ruff-for-build
 
 # Unit pytest only: no *_uno.py collection, no testing_runner / live soffice.
 # Exact command: $(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py'
-# Default adds $(PYTEST_XDIST) (-n auto --dist=loadgroup). PYTEST_WORKERS=0 is serial.
+# Default adds $(PYTEST_XDIST) (-n -1 --dist=loadgroup: all CPUs minus one). PYTEST_WORKERS=0 is serial.
 # Progress goes to stderr as full lines: pytest/xdist otherwise use \r rewrites
 # (and classic mode never wraps), so Make/IDE terminals stay blank until exit.
-PYTEST_WORKERS ?= auto
+PYTEST_WORKERS ?= -1
 ifeq ($(PYTEST_WORKERS),0)
 PYTEST_XDIST :=
 else ifeq ($(PYTEST_WORKERS),)

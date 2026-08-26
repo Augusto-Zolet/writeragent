@@ -161,6 +161,36 @@ def test_proxy_passthrough_plain_values_when_guard_on(monkeypatch):
         assert prox.plain() == "hello"
 
 
+def test_proxy_eq_and_hash_delegate_to_target():
+    class UnoLike:
+        __module__ = "pyuno"
+
+        def queryInterface(self, *args, **kwargs):
+            return self
+
+    real = UnoLike()
+    prox = tg._UnoThreadGuardProxy(real)
+    other = tg._UnoThreadGuardProxy(real)
+    with patch.object(tg, "assert_main_thread"):
+        assert prox == real
+        assert prox == other
+        assert prox != UnoLike()
+    assert hash(prox) == hash(real)
+
+
+def test_set_background_task_none_clears_violation_ui_thread():
+    tid = threading.get_ident()
+    with tg._violation_ui_lock:
+        tg._violation_ui_threads.add(tid)
+    try:
+        tg.set_background_task(None)
+        with tg._violation_ui_lock:
+            assert tid not in tg._violation_ui_threads
+    finally:
+        with tg._violation_ui_lock:
+            tg._violation_ui_threads.discard(tid)
+
+
 def test_unwrap_roundtrip():
     real = _make_pyuno_like()
     p = tg._UnoThreadGuardProxy(real)

@@ -81,7 +81,27 @@ class EventBus:
         if not subs:
             return
 
-        self._subscribers[event] = [(cb, is_weak) for cb, is_weak in subs if self._resolve(cb, is_weak) is not callback]
+        self._subscribers[event] = [
+            (cb, is_weak) for cb, is_weak in subs if not self._same_callback(self._resolve(cb, is_weak), callback)
+        ]
+
+    @staticmethod
+    def _same_callback(stored, callback):
+        """True if *stored* is the same callable the caller passed.
+
+        Bound methods are new objects on every attribute access
+        (``obj.m is obj.m`` is False), so identity alone never matches
+        ``unsubscribe("e", obj.handler)``. Compare ``__self__``/``__func__``.
+        """
+        if stored is None:
+            return False
+        if stored is callback:
+            return True
+        stored_self = getattr(stored, "__self__", None)
+        other_self = getattr(callback, "__self__", None)
+        if stored_self is None or other_self is None:
+            return False
+        return stored_self is other_self and getattr(stored, "__func__", None) is getattr(callback, "__func__", None)
 
     @deal.post(lambda result: result is None)
     def emit(self, event, **data):

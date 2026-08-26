@@ -123,6 +123,37 @@ def test_multiple_subscribers():
     assert received2 == ["hello"]
 
 
+def test_unsubscribe_bound_method_without_stashing():
+    """Bound methods are new objects each access; unsubscribe must still match."""
+    bus = EventBus()
+    received = []
+
+    class Target:
+        def handler(self, event_data=None):
+            received.append(event_data)
+
+    target = Target()
+    bus.subscribe("test:event", target.handler)
+    bus.unsubscribe("test:event", target.handler)
+    bus.emit("test:event", event_data="hello")
+    assert received == []
+
+
+def test_unsubscribe_weak_bound_method_without_stashing():
+    bus = EventBus()
+    received = []
+
+    class Target:
+        def handler(self, event_data=None):
+            received.append(event_data)
+
+    target = Target()
+    bus.subscribe("test:event", target.handler, weak=True)
+    bus.unsubscribe("test:event", target.handler)
+    bus.emit("test:event", event_data="hello")
+    assert received == []
+
+
 def test_weakref_subscribe_callable():
     bus = EventBus()
     received = []

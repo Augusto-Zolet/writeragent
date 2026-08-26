@@ -30,7 +30,7 @@ import sys
 import threading
 import uuid
 from collections import deque
-from concurrent.futures import Future, TimeoutError as FuturesTimeoutError
+from concurrent.futures import CancelledError, Future, TimeoutError as FuturesTimeoutError
 from typing import Optional, Callable, Any, IO
 
 from plugin.framework.constants import BACKGROUND_POOL_MAX_WORKERS
@@ -89,7 +89,12 @@ class BackgroundHandle:
             fut.result(timeout=timeout)
         except FuturesTimeoutError:
             return
+        except CancelledError:
+            # 3.9+: concurrent.futures.CancelledError is BaseException, not Exception.
+            return
         except Exception:
+            # Do not catch BaseException: KeyboardInterrupt/SystemExit from
+            # fut.set_exception must still escape join().
             return
 
     def is_alive(self) -> bool:
@@ -101,7 +106,11 @@ class BackgroundHandle:
 
 
 class _DaemonWorkPool:
-    """Fixed daemon workers + unbounded queue. ThreadPoolExecutor is non-daemon on 3.9+."""
+    """Fixed daemon workers + unbounded queue. ThreadPoolExecutor is non-daemon on 3.9+.
+
+    SimpleQueue has no maxsize on purpose: a bounded queue would block or drop
+    fire-and-forget UI work. Bound the *worker count*, not the submit queue.
+    """
 
     def __init__(self, max_workers: int) -> None:
         self._max_workers = max(1, max_workers)
@@ -185,10 +194,10 @@ def reset_background_pool_for_tests(max_workers: int | None = None) -> None:
 def run_in_background(func, *args, name=None, error_callback=None, daemon=True, dedicated=False, **kwargs):
     """Run *func* off the caller thread with WorkerPoolError isolation and Layer A tagging.
 
-    Short fire-and-forget work is queued on a bounded daemon pool. Pass
-    ``dedicated=True`` (or ``daemon=False``) for servers, pipe drains, infinite
-    loops, and any job another thread will ``join()`` — those must not occupy
-    a pool slot.
+    Short fire-and-forget work is queued on a daemon pool with a fixed worker
+    count (unbounded submit queue). Pass ``dedicated=True`` (or ``daemon=False``)
+    for servers, pipe drains, infinite loops, and any job another thread will
+    ``join()`` — those must not occupy a pool slot.
 
     :return: A :class:`BackgroundHandle` with ``join`` / ``is_alive``.
     """

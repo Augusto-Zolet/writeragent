@@ -95,25 +95,30 @@ def on_main_thread() -> bool:
     return current is threading.main_thread()
 
 
+# At most one modal alert per job on a given OS thread (proxy can fire on every UNO access).
+_violation_ui_threads: set[int] = set()
+_violation_ui_lock = threading.Lock()
+
+
 def set_background_task(name: str | None) -> None:
     """Tag the current thread as a background worker task (for better diagnostics).
 
     Pass None to clear the name when a pooled worker finishes so the next job
-    is not blamed under a stale task id.
+    is not blamed under a stale task id, and so a reused pool thread can show
+    another violation popup.
     """
     try:
         _bg.task_name = name
     except Exception:
         pass
+    if name is None:
+        tid = threading.get_ident()
+        with _violation_ui_lock:
+            _violation_ui_threads.discard(tid)
 
 
 def get_background_task_name() -> str | None:
     return getattr(_bg, "task_name", None)
-
-
-# At most one modal alert per background thread (proxy can fire on every UNO access).
-_violation_ui_threads: set[int] = set()
-_violation_ui_lock = threading.Lock()
 
 
 def _notify_thread_violation(msg: str) -> None:
@@ -230,6 +235,8 @@ class _UnoThreadGuardProxy:
 
     # --- Attribute access (methods and properties) ---
     def __getattr__(self, name: str) -> Any:
+        # hasattr() uses this path. Off-thread it must raise, not return False —
+        # softening that would hide UNO probes from the guard.
         assert_main_thread(f"UNO.{name}")
         val = getattr(self._target, name)
         return _wrap_uno(val)
@@ -293,6 +300,15 @@ class _UnoThreadGuardProxy:
     def __getitem__(self, key: Any) -> Any:
         assert_main_thread("UNO getitem")
         return _wrap_uno(self._target[key])
+
+    def __eq__(self, other: object) -> bool:
+        # Dev-only proxy must not break ``doc is active``-style equality:
+        # without this, ``proxy == unwrapped`` is False for the same UNO object.
+        assert_main_thread("UNO eq")
+        return self._target == _unwrap_uno(other)
+
+    def __hash__(self) -> int:
+        return hash(self._target)
 
     # Expose the real target for the (rare) cases that need the concrete UNO object under the guard
     @property

@@ -47,7 +47,14 @@ except (ImportError, AttributeError):
 
 
 def is_disposed_exception(exc: BaseException) -> bool:
-    """Return True if exc represents a UNO object disposal or runtime teardown exception."""
+    """Return True if exc represents a UNO object disposal or runtime teardown exception.
+
+    Matching ``RuntimeException`` in the type name is a deliberate heuristic:
+    ``com.sun.star.uno.RuntimeException`` (and name-alikes in mocks) is how
+    bridge teardown often surfaces. Do not narrow this so UI lifecycle can
+    still use :class:`suppress_disposed` without crashing the host. Genuine
+    failures belong outside those blocks, not in a tighter name check here.
+    """
     if isinstance(exc, DocumentDisposedError):
         return True
     if UNO_DISPOSED_EXCEPTIONS and isinstance(exc, UNO_DISPOSED_EXCEPTIONS):
@@ -506,15 +513,15 @@ class AgentParsingError(WriterAgentException):
 
 
 def check_disposed(model, context_name="Object"):
-    """Check if a UNO object is disposed or None. Raises UnoObjectError/DocumentDisposedError if so."""
+    """Raise UnoObjectError if *model* is None.
+
+    This is a null check only (call sites and semgrep expect the name). Live
+    disposal is ``DisposedException``, :func:`is_document_disposed`, or
+    :func:`safe_uno_call` — probing UNO here would change Writer/LibrePy
+    helpers that currently only need a None guard.
+    """
     if model is None:
         raise UnoObjectError(f"{context_name} is null", code="UNO_NULL_OBJECT")
-
-    # Optional disposal check if the model supports it.
-    if hasattr(model, "addEventListener"):
-        # This is a crude heuristic; the definitive way is calling a method and catching DisposedException,
-        # which safe_call handles, but this acts as an early guard if needed.
-        pass
 
 
 def is_document_disposed(doc: Any) -> bool:

@@ -23,7 +23,11 @@ _TOKEN_INSTANCE = MainThreadToken(object())
 
 
 def require_main_thread() -> MainThreadToken:
-    """Assert execution is on the LibreOffice main thread and return a valid MainThreadToken."""
+    """Assert execution is on the LibreOffice main thread and return a valid MainThreadToken.
+
+    When the guard is stubbed off (release OXT), this still returns the token
+    even off the UI thread — it is not proof of main-thread in shipped builds.
+    """
     from plugin.framework.thread_guard import assert_main_thread, on_main_thread
 
     if not on_main_thread():

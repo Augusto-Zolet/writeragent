@@ -259,6 +259,14 @@ def test_pooled_handle_is_alive_and_join():
     assert not handle.is_alive()
 
 
+def test_join_cancelled_future_does_not_raise():
+    from concurrent.futures import Future
+
+    fut = Future()
+    assert fut.cancel()
+    BackgroundHandle(future=fut).join(timeout=0.1)
+
+
 def test_join_does_not_reraise_worker_exception():
     def boom():
         raise RuntimeError("pool boom")
