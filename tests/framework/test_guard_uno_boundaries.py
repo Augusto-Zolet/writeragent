@@ -63,7 +63,7 @@ class TestGuardUnoBoundaries(unittest.TestCase):
         from plugin.mcp.mcp_protocol import MCPProtocolHandler
 
         handler = MCPProtocolHandler(services)
-        handler.queue_executor.execute = lambda fn, *a, **k: fn()
+        handler.queue_executor.execute = lambda fn, *a, **k: fn(*a)
 
         with (
             patch("plugin.mcp.mcp_protocol._real_active_document", return_value=None),

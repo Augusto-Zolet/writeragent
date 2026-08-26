@@ -22,7 +22,7 @@ This is the core concurrency bridge. Because background threads (like the HTTP s
 
 The plugin runs an embedded HTTP server to provide a local API and support the Model Context Protocol (MCP).
 
-*   **`server.py`:** The `HTTPServer` runs in a dedicated daemon thread (`name="http-server"`) via `run_in_background(..., dedicated=True)`. This allows the server to perpetually listen for incoming requests without occupying the bounded background pool.
+*   **`server.py`:** The `HttpServer` wrapper (inner `_ThreadedHTTPServer`) runs in a dedicated daemon thread (`name="http-server"`) via `run_in_background(..., dedicated=True)`. This allows the server to perpetually listen for incoming requests without occupying the bounded background pool.
 *   **`mcp_protocol.py`:** Incoming HTTP requests land on the server's thread. Document resolution and UNO context lookup run on the main thread via `QueueExecutor`; tool bodies that touch the document either run entirely on the main thread (backpressure path) or on the HTTP worker with UNO work marshalled through `execute_on_main_thread` (long-running path).
 
 #### MCP tool execution paths
@@ -51,7 +51,7 @@ flowchart TB
 
 **Why two layers?** The global semaphore keeps fast MCP tools from piling up on the main thread and surfaces `BusyError` (HTTP 429) under overload. Long-running tools (image generation, delegate sub-agents) skip the semaphore so a minutes-long job does not block every other MCP client. That left a hole: parallel long-running mutators could target the same document. The per-document gate closes that without blocking read-only work or work on other documents.
 
-**Per-document gate:** [`_document_mutation_gate`](../plugin/mcp/mcp_protocol.py) serializes mutating MCP runs that share a normalized document key (`X-Document-URL`, `doc.getURL()`, or `RuntimeUID`). Tools opt out via [`ToolBase.requires_document_lock()`](../plugin/framework/tool.py) (defaults to `detects_mutation()`). Delegate gateways return `False` for read-only domains (`document_research`, `web_research`).
+**Per-document gate:** [`_document_mutation_gate`](../plugin/mcp/mcp_protocol.py) serializes mutating MCP runs that share a normalized document key (`X-Document-URL`, `doc.getURL()`, or `RuntimeUID`). Tools opt out via [`ToolBase.requires_document_lock()`](../plugin/framework/tool.py) (defaults to `detects_mutation()`). Delegate gateways return `False` for read-only domains (`document_research`, `web_research`, `vision`).
 
 **UNO thread safety:** All UNO access is marshalled to the LibreOffice main thread. The per-document gate is **logical** serialization — it prevents overlapping mutating MCP tool runs on the same file, not raw cross-thread UNO calls.
 
@@ -64,16 +64,14 @@ flowchart TB
 
 **Related docs:** [MCP protocol — Concurrency](mcp-protocol.md#concurrency-and-parallel-toolscall) (integrator-facing); [ROADMAP](ROADMAP.md) §14 (specialized tool MCP exposure).
 
-### 3. Agent Backends and CLI Management (`plugin/agent_backend/`)
+### 3. Agent Backends and ACP stdio (`plugin/agent_backend/`)
 
-When interacting with external CLI-based agent tools (like Hermes), WriterAgent spawns background processes and needs to monitor their streams asynchronously.
+External agent binaries (Hermes, Claude, Grok, OpenCode, …) speak the Agent Communication Protocol over stdio JSON-RPC. Stdio I/O lives in one place; the `*_simple.py` / `builtin.py` / `registry.py` modules are backends, not extra reader threads.
 
-*   **`cli_backend.py`:** Manages the lifecycle of CLI tools.
-    *   **Threads:** It spawns `_reader_thread` (monitoring `stdout`) and `_stderr_thread` (draining `stderr`) so that the main application isn't blocked reading from pipes.
-    *   **Synchronization:** Uses `threading.Lock` to protect internal state (like the process reference). It uses `threading.Event` (`_reader_ready`, `_response_done`) to signal when the backend is ready to accept input or has finished generating a response.
-*   **`hermes_proxy.py`:** Implements the Actor Context Protocol (ACP) over standard streams.
-    *   **Threads:** Spawns a dedicated daemon thread to continuously parse JSON-RPC messages from the subprocess stdout (ACP over stdio).
-    *   **Synchronization:** Uses a `threading.Lock` to protect the `_pending` requests dictionary. Each outbound request creates a `threading.Event` which the caller waits on until the reader thread receives the corresponding response and sets the event.
+*   **`acp_connection.py` (`ACPConnection`):** Spawns the subprocess, then:
+    *   **Threads:** `run_in_background(..., name="acp-reader", dedicated=True)` parses JSON-RPC from stdout; `start_stderr_drain(..., name=f"acp-stderr-{pid}")` drains stderr so the kernel pipe cannot fill.
+    *   **Synchronization:** `threading.Lock` (`_lock`) guards `_pending` (request id → event + response dict). Each `send_request` waits on its own `threading.Event` until the reader stores the matching response.
+*   **`acp_backend.py`:** ACP client that uses `ACPConnection` for handshake, prompt sessions, and streaming notifications.
 
 ### 4. Chatbot Streaming and Tool Execution (`plugin/chatbot/`)
 
@@ -89,7 +87,6 @@ The core chatbot interaction relies heavily on threads to handle streaming LLM r
 *   **`plugin/framework/async_stream.py`:** Provides an `async_stream` decorator and helper functions that wrap generator functions (like streaming network calls) using `run_in_background`. The worker consumes the stream and periodically calls a main-thread UI update function.
 *   **`plugin/main.py`:** Uses `run_in_background` to pre-load icons into the `ImageManager` (`_update_menu_icons`) and dispatch menu updates (`notify_menu_update`) without freezing the startup or dispatch sequence.
 *   **`plugin/mcp/tunnel.py`:** Optional cloudflared quick tunnel for public MCP access. Uses `AsyncProcess` to parse the `*.trycloudflare.com` URL from subprocess stdout/stderr, with a `threading.Lock()` around process lifecycle.
-*   **`plugin/launcher/__init__.py`:** Spawns a launcher-monitor using `run_in_background` to `wait()` on launched external processes (like Claude or Gemini desktop apps) so the menu status can be updated when the user closes the external app.
 *   **`plugin/framework/logging.py`:** Spawns a background thread (`_watchdog_loop`) to periodically flush status logs or monitor system health without interrupting document flow. Uses `_init_lock` and `_activity_lock` to protect logging state.
 *   **`plugin/chatbot/dialogs.py`:** Spawns a probe update thread (`run_in_background(_probe_update)`) to dynamically update dialog UI elements in the background.
 *   **`plugin/framework/worker_pool.py`:** `run_in_background` is the only allowed birthplace for background work (Opengrep `raw-uno-thread-ban`). Short jobs share a daemon pool with a fixed worker count (unbounded submit queue); long-lived or joined work passes `dedicated=True` (details in consolidations §3 below).
@@ -102,10 +99,10 @@ The core chatbot interaction relies heavily on threads to handle streaming LLM r
 The threading model has recently been refactored to eliminate duplicate concurrency patterns that had evolved independently. 
 
 ### 1. Unified Background Process Monitoring (`AsyncProcess`)
-Multiple modules previously spawned `subprocess.Popen` manually and wrapped them in custom `threading.Thread` implementations to monitor stdout/stderr loops. This has been consolidated into an `AsyncProcess` class in `plugin/framework/worker_pool.py`. It encapsulates process spawning, thread-based stream monitoring (via asynchronous readers), and exit handling. It provides cleaner process lifecycle monitoring in `launcher`, `plugin/mcp/tunnel.py`, and `agent_backend/cli_backend`. Long-lived children that keep `stderr=PIPE` must drain stderr continuously or redirect it — see [Subprocess IPC Pipe Safety & Deadlock Prevention](#subprocess-ipc-pipe-safety--deadlock-prevention) below.
+Multiple modules previously spawned `subprocess.Popen` manually and wrapped them in custom `threading.Thread` implementations to monitor stdout/stderr loops. This has been consolidated into an `AsyncProcess` class in `plugin/framework/worker_pool.py`. It encapsulates process spawning, thread-based stream monitoring (via asynchronous readers), and exit handling. It provides cleaner process lifecycle monitoring in `plugin/mcp/tunnel.py` and other `AsyncProcess` / `start_stderr_drain` call sites. Long-lived children that keep `stderr=PIPE` must drain stderr continuously or redirect it — see [Subprocess IPC Pipe Safety & Deadlock Prevention](#subprocess-ipc-pipe-safety--deadlock-prevention) below.
 
-### 2. Main Thread Execution (`main_thread.py` vs `mcp_protocol.py`)
-Both `mcp_protocol.py` and `main_thread.py` previously contained duplicate logic for pushing execution callbacks back to the LibreOffice UI thread. These have been consolidated: `mcp_protocol` now relies on standard main thread dispatch mechanisms, eliminating redundant `_Future` wait implementations.
+### 2. Main Thread Execution (`queue_executor.py`)
+`mcp_protocol.py` once duplicated its own main-thread wait helper (historically `main_thread.py`). That path is gone: MCP now uses [`plugin/framework/queue_executor.py`](../plugin/framework/queue_executor.py) (`QueueExecutor`, `execute_on_main_thread`, `post_to_main_thread`).
 
 ### 3. Asynchronous Worker Spawning (`run_in_background`)
 
@@ -148,7 +145,7 @@ CPython `ThreadPoolExecutor` workers are **non-daemon** from 3.9 on and would bl
 | `start_stderr_drain` / `AsyncProcess` | `stderr-drain`, `asyncproc-*` |
 | `plugin/framework/logging.py` | `watchdog` |
 | `plugin/embeddings/embeddings_periodic.py` | `embeddings_periodic_indexer` |
-| `plugin/framework/async_stream.py` | stream worker, `blocking-thread` |
+| `plugin/framework/async_stream.py` | `stream-completion`, `stream-async`, `async-worker`, `blocking-thread` |
 | `plugin/chatbot/tool_loop.py` | `llm-worker-*`, `llm-worker-final` |
 | `plugin/chatbot/tool_loop_actions.py` | `tool-async-*` |
 | `plugin/framework/tool.py` `_execute_with_timeout` | `tool-timeout-*` (caller `join(timeout)`) |
@@ -195,12 +192,12 @@ flowchart TD
         Dialogs --> ProcessEvents
     end
 
-    NestedSend[Second Send] -->|reject NestedDrainOwnerError| Send
+    NestedSend[Second Send] -->|reject NestedDrainOwnerError only if owner name differs; same-owner stream nests| Send
 ```
 
 ### Architectural Invariants
 
-1. **One active drain owner per UI session:** [`drain_owner_scope`](../plugin/framework/async_drain_guard.py) marks the active drain stack. Nested sends or nested drain loops are rejected or deferred via `NestedDrainOwnerError`.
+1. **One active drain owner per UI session:** [`drain_owner_scope`](../plugin/framework/async_drain_guard.py) marks the active drain stack. Same-owner `drain_owner_scope("stream")` **nests** (`_drain_depth += 1`). `NestedDrainOwnerError` fires only when the **owner name differs**. Do not treat a second `"stream"` drain as a sentry exception.
 2. **Approved pump entry points only:**
    - [`pump_ui_idle`](../plugin/framework/queue_executor.py): Drains the `QueueExecutor` work queue **then** pumps VCL (only when called by the active owner or when no owner is active).
    - [`process_events_to_idle`](../plugin/framework/uno_context.py): Pumps VCL only when permitted (no active owner or called by owner).

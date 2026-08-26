@@ -665,10 +665,10 @@ typecheck: manifest ruff-for-build
 
 # Unit pytest only: no *_uno.py collection, no testing_runner / live soffice.
 # Exact command: $(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py'
-# Default adds $(PYTEST_XDIST) (-n -1 --dist=loadgroup: all CPUs minus one). PYTEST_WORKERS=0 is serial.
+# Default adds $(PYTEST_XDIST) (-n auto --dist=loadgroup). PYTEST_WORKERS=0 is serial.
 # Progress goes to stderr as full lines: pytest/xdist otherwise use \r rewrites
 # (and classic mode never wraps), so Make/IDE terminals stay blank until exit.
-PYTEST_WORKERS ?= -1
+PYTEST_WORKERS ?= auto
 ifeq ($(PYTEST_WORKERS),0)
 PYTEST_XDIST :=
 else ifeq ($(PYTEST_WORKERS),)

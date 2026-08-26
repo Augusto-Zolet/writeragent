@@ -16,6 +16,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Tests for consolidated plugin.framework.tool."""
 
+import logging
 import pytest
 import threading
 import time
@@ -282,11 +283,17 @@ class TestRegister:
         WriterCls = type("UpsertShape", (ToolBase,), {"name": "shape_upsert", "description": "writer", "execute": _exec})
         WriterCls.__module__ = "plugin.writer.specialized.shapes"
         reg = ToolRegistry(ServiceRegistry())
-        with caplog.at_level("WARNING"):
-            reg.register(DrawCls())
-            reg.register(WriterCls())
-        assert any("plugin.draw.shapes" in r.message and "plugin.writer.specialized.shapes" in r.message for r in caplog.records)
-        assert reg.get("shape_upsert").description == "writer"
+        wa_logger = logging.getLogger("writeragent")
+        old_propagate = wa_logger.propagate
+        wa_logger.propagate = True
+        try:
+            with caplog.at_level("WARNING", logger="writeragent.tools"):
+                reg.register(DrawCls())
+                reg.register(WriterCls())
+            assert any("plugin.draw.shapes" in r.message and "plugin.writer.specialized.shapes" in r.message for r in caplog.records)
+            assert reg.get("shape_upsert").description == "writer"
+        finally:
+            wa_logger.propagate = old_propagate
 
     def test_tool_names(self):
         reg = _make_registry(FakeTool(), AllDocTool())
