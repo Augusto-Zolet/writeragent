@@ -84,6 +84,39 @@ def test_run_stream_drain_loop_error():
     assert isinstance(errors[0], ValueError)
 
 
+def test_run_stream_drain_loop_error_on_error_true_keeps_draining():
+    q = queue.Queue()
+    q.put((StreamQueueKind.ERROR, ValueError("recoverable")))
+    q.put((StreamQueueKind.CHUNK, "after retry"))
+    q.put((StreamQueueKind.STREAM_DONE, None))
+
+    toolkit = DummyToolkit()
+    job_done = [False]
+    applied = []
+    errors = []
+
+    def on_error(e):
+        errors.append(e)
+        return True
+
+    def stream_done(item):
+        return True
+
+    run_stream_drain_loop(
+        q,
+        toolkit,
+        job_done,
+        lambda t, is_thinking: applied.append(t),
+        on_stream_done=stream_done,
+        on_stopped=lambda: None,
+        on_error=on_error,
+    )
+
+    assert job_done[0] is True
+    assert len(errors) == 1
+    assert "after retry" in applied
+
+
 def test_run_stream_drain_loop_stop_checker_mid_batch():
     q = queue.Queue()
     q.put((StreamQueueKind.CHUNK, "first "))

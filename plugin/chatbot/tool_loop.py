@@ -115,7 +115,7 @@ class ToolLoopHost(Protocol):
     def _create_event_from_stream_item(self, item: Any) -> ToolLoopEvent | None: ...
     def _handle_stream_completion(self, item: Any) -> bool: ...
     def _handle_stream_stopped(self) -> None: ...
-    def _handle_stream_error(self, e: Any) -> None: ...
+    def _handle_stream_error(self, e: Any) -> bool | None: ...
     def _on_tool_loop_approval_required(self, item: Any) -> None: ...
     def _execute_effect(self, effect: Any) -> bool: ...
     def _do_send_chat_with_tools(self, query_text: str, model: Any, doc_type_str: str) -> None: ...
@@ -527,30 +527,47 @@ class ToolCallingMixin:
         msg = str(err).lower()
         return "400" in msg and ("input validation" in msg or "bad request" in msg)
 
-    def _handle_stream_error(self: ToolLoopHost, e: Any) -> None:
+    def _handle_stream_error(self: ToolLoopHost, e: Any) -> bool | None:
         current_model = get_text_model()
         current_endpoint = get_current_endpoint()
 
-        # If native audio failed, cache it and try STT fallback
+        # If native audio failed, cache it and retry as text on this drain — do not
+        # re-enter _do_send_chat_with_tools / _start_tool_calling_async (nested drain).
         if self.audio_wav_path and (is_audio_unsupported_error(e) or self._is_400_input_validation(e)):
             log.warning("Model %s failed native audio, caching and falling back to STT" % current_model)
             set_native_audio_support(current_model, current_endpoint, supported=False)
 
             stt_model = get_stt_model()
-            if stt_model:
-                if self.session.messages and self.session.messages[-1]["role"] == "user":
-                    self.session.messages.pop()
-
+            retry_q = self._active_batched_q or self._active_q
+            if stt_model and retry_q is not None and self._active_client is not None:
                 self._append_response("\n[Model does not support audio. Falling back to STT...]\n")
                 try:
                     transcript = self._transcribe_audio(self.audio_wav_path, stt_model)
                     if transcript:
                         combined = (self._active_query_text + "\n" + transcript).strip() if self._active_query_text else transcript
-                        doc_type = getattr(self, "cached_doc_type", None) or "writer"
-                        self._do_send_chat_with_tools(combined, self._active_model, doc_type)
+                        if self.session.messages and self.session.messages[-1].get("role") == "user":
+                            self.session.messages.pop()
+                        self.session.add_user_message(combined)
+                        self._active_query_text = combined
+                        wav_path = self.audio_wav_path
+                        self.audio_wav_path = None
+                        if wav_path:
+                            try:
+                                os.remove(wav_path)
+                            except OSError as rem_err:
+                                log.debug("Failed to remove audio_wav_path after STT fallback: %s", rem_err)
+                        self._spawn_llm_worker(
+                            retry_q,
+                            self._active_client,
+                            self._active_max_tokens,
+                            self._active_tools or [],
+                            self._sm_state.round_num,
+                            query_text=combined,
+                        )
+                        return True
                 except Exception:
-                    pass
-                return
+                    log.exception("STT fallback after native-audio error failed")
+                return None
 
         # If we reached here, it's either not a modality error or STT is not configured
         err_msg = format_error_message(e)
@@ -564,6 +581,7 @@ class ToolCallingMixin:
             except OSError as e:
                 log.debug("Failed to remove audio_wav_path during error handling: %s", e)
             self.audio_wav_path = None
+        return None
 
     def _on_tool_loop_approval_required(self: ToolLoopHost, item: Any) -> None:
         """Main-thread handler: show inline Accept/Reject and unblock the tool worker."""

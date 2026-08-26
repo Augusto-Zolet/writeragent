@@ -11,6 +11,7 @@ from plugin.framework.errors import (
 
 from plugin.chatbot.tool_loop_actions import build_tool_execute_fn
 from plugin.chatbot.tool_loop import ToolCallingMixin
+from plugin.chatbot.tool_loop_state import ToolLoopState
 from plugin.chatbot.audio_recorder_state import AudioRecorderState
 from plugin.chatbot.send_state import SendButtonState
 from plugin.chatbot.sidebar_state import SidebarCompositeState
@@ -28,7 +29,7 @@ class MockSession:
         self.set_system_context("base", "doc text")
 
     def add_user_message(self, text):
-        pass
+        self.messages.append({"role": "user", "content": text})
 
     def add_assistant_message(self, content=None, tool_calls=None, reasoning_replay=None):
         pass
@@ -179,3 +180,46 @@ def test_audio_handling_error(test_instance, mock_get_tools):
             assert test_instance.audio_wav_path is None
             assert any("test" in r for r in test_instance.responses)
             assert test_instance._terminal_status != "Error"
+
+
+def test_stream_error_stt_fallback_does_not_reenter_send(test_instance):
+    import dataclasses
+
+    test_instance.audio_wav_path = "/fake/path/audio.wav"
+    test_instance._active_query_text = "hello"
+    test_instance._active_q = MagicMock()
+    test_instance._active_batched_q = None
+    test_instance._active_client = MagicMock()
+    test_instance._active_max_tokens = 128
+    test_instance._active_tools = []
+    test_instance._active_model = MagicMock()
+    test_instance.session.messages.append({"role": "user", "content": [{"type": "input_audio"}]})
+    test_instance.sidebar_state = dataclasses.replace(
+        test_instance.sidebar_state,
+        tool_loop=ToolLoopState(round_num=0, pending_tools=[], max_rounds=8, status="Thinking..."),
+    )
+    test_instance._spawn_llm_worker = MagicMock()
+    test_instance._do_send_chat_with_tools = MagicMock()
+    test_instance._start_tool_calling_async = MagicMock()
+    test_instance._transcribe_audio = MagicMock(return_value="spoken words")
+
+    with (
+        patch("plugin.chatbot.tool_loop.get_text_model", return_value="chat-model"),
+        patch("plugin.chatbot.tool_loop.get_current_endpoint", return_value="https://example"),
+        patch("plugin.chatbot.tool_loop.get_stt_model", return_value="stt-model"),
+        patch("plugin.chatbot.tool_loop.set_native_audio_support") as mock_cache,
+        patch("plugin.chatbot.tool_loop.os.remove") as mock_remove,
+    ):
+        recovered = test_instance._handle_stream_error("unsupported modality: audio")
+
+    assert recovered is True
+    test_instance._transcribe_audio.assert_called_once_with("/fake/path/audio.wav", "stt-model")
+    test_instance._spawn_llm_worker.assert_called_once()
+    test_instance._do_send_chat_with_tools.assert_not_called()
+    test_instance._start_tool_calling_async.assert_not_called()
+    mock_cache.assert_called_once_with("chat-model", "https://example", supported=False)
+    mock_remove.assert_called_once_with("/fake/path/audio.wav")
+    assert test_instance.audio_wav_path is None
+    assert test_instance.session.messages[-1]["role"] == "user"
+    assert test_instance.session.messages[-1]["content"] == "hello\nspoken words"
+    assert test_instance._spawn_llm_worker.call_args.kwargs["query_text"] == "hello\nspoken words"

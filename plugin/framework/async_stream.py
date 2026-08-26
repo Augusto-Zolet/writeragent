@@ -255,7 +255,7 @@ class _DrainState:
     apply_chunk_fn: Callable[[str, bool], None]
     on_stream_done: Callable[..., Any]
     on_stopped: Callable[[], None]
-    on_error: Callable[[Any], None]
+    on_error: Callable[[Any], Any]
     on_status_fn: Callable[[str], None] | None
     on_approval_required: Callable[..., None] | None
     show_search_thinking: bool
@@ -373,8 +373,9 @@ def _handle_error(state: _DrainState, data: Any, _item: Any) -> None:
     # crosshair: off
     state.flush_buffers()
     state.close_thinking()
-    state.on_error(data)
-    state.job_done[0] = True
+    recovered = state.on_error(data) is True
+    if not recovered:
+        state.job_done[0] = True
 
 
 _DISPATCH: dict[StreamQueueKind, Callable[[_DrainState, Any, Any], None]] = {
@@ -447,7 +448,9 @@ def run_stream_drain_loop(q, toolkit, job_done, apply_chunk_fn, on_stream_done, 
     - (FINAL_DONE, text): Final non-tool response.
     - (APPROVAL_REQUIRED, ...): HITL; call on_approval_required(item).
     - (STOPPED, ignored): Calls on_stopped() (second element unused).
-    - (ERROR, payload): Calls on_error(payload).
+    - (ERROR, payload): Calls on_error(payload). If on_error returns True, the
+      drain keeps running (handler recovered, e.g. STT fallback spawned a new
+      worker on this queue). Any other return value ends the loop.
     - (TOOL_CALL, payload): Agent-backend tool block; shown as text via apply_chunk_fn.
     - (TOOL_RESULT, payload): Agent-backend tool result block; shown as text via apply_chunk_fn.
     """
