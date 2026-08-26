@@ -29,13 +29,14 @@ import threading
 import time
 import uuid
 from contextlib import contextmanager
+from dataclasses import dataclass
 
 from plugin.framework.uno_context import _normalize_doc_url, get_runtime_uid
 from plugin.framework.queue_executor import QueueExecutor
 from plugin.framework.errors import WriterAgentException, safe_json_loads
 from plugin.mcp.cors import send_cors_headers
 from plugin.mcp.http_trace import log_mcp_transport_entry, log_unsupported_protocol_version
-from plugin.mcp.mcp_state import MCPState, MCPStateStr, EventKind, MCPEvent, ParseRequestEffect, ResolveDocumentEffect, ExecuteToolEffect, StreamResponseEffect, SendErrorEffect, next_state
+from plugin.mcp.mcp_state import MCPState, MCPStateStr, EventKind, MCPEvent, ParseRequestEffect, ExecuteToolEffect, StreamResponseEffect, SendErrorEffect, next_state
 from plugin.mcp import wire_types
 
 log = logging.getLogger("writeragent.mcp.protocol")
@@ -60,16 +61,36 @@ def _document_echo_payload(doc):
         return None
 
 
-def _attach_document_echo(result, doc):
+# Chat keeps specialized + mcp off the default list (_DEFAULT_EXCLUDE_TIERS in tool.py).
+# MCP advertise policy is forked: keep mcp-tier tools; hide specialized except in direct_flat.
+MCP_DELEGATE_EXCLUDE_TIERS = frozenset({"specialized", "specialized_control"})
+MCP_DIRECT_FLAT_EXCLUDE_TIERS = frozenset({"specialized_control"})
+
+
+@dataclass
+class _PreparedMcpCall:
+    """Main-thread document resolve + ToolContext. Safe to hand to a worker with precomputed echo."""
+
+    tool: object
+    context: object
+    doc: object
+    doc_key: str
+    needs_gate: bool
+    echo: dict | None
+
+
+def _attach_precomputed_echo(result, echo):
+    if isinstance(result, dict) and echo and "document" not in result:
+        result["document"] = echo
+
+
+def _attach_document_echo(result, doc):  # pyright: ignore[reportUnusedFunction]
     """Echo the resolved target document ({name, uid}) in a tool result. Without an explicit
     document_url the target follows the USER'S window focus and can change between two calls —
     the echo lets the agent detect that instead of silently editing the wrong document.
-    MAIN-THREAD callers only (see _document_echo_payload)."""
-    if "document" in result:
-        return
-    payload = _document_echo_payload(doc)
-    if payload:
-        result["document"] = payload
+    MAIN-THREAD callers only (see _document_echo_payload). Imported by tests.
+    """
+    _attach_precomputed_echo(result, _document_echo_payload(doc))
 
 
 # Pointer to the on-demand manual (T4 / G2 consolidation). The full how-to — editing, editing-html,
@@ -544,9 +565,9 @@ class MCPProtocolHandler:
         # today's core-only list (specialized tools are still callable by name -- via the
         # delegate gateway, or the find_tools discovery tool in direct_discovery).
         if mode == "direct_flat":
-            exclude_tiers = frozenset({"specialized_control"})
+            exclude_tiers = MCP_DIRECT_FLAT_EXCLUDE_TIERS
         else:
-            exclude_tiers = frozenset({"specialized", "specialized_control"})
+            exclude_tiers = MCP_DELEGATE_EXCLUDE_TIERS
 
         def _resolve_and_filter():
             # Runs on the main (VCL) thread. Resolving the document AND filtering tools by
@@ -657,14 +678,7 @@ class MCPProtocolHandler:
                     if event_bus is not None:
                         event_bus.emit("mcp:request", tool=state.tool_name, args=state.arguments, method="tools/call")
 
-                elif isinstance(effect, ResolveDocumentEffect):
-                    # We do not use doc_context/uno_ctx from here since the
-                    # execution methods currently handle context resolution
-                    # themselves (on main thread). We emit DOCUMENT_RESOLVED immediately.
-                    events_to_process.append(MCPEvent(kind=EventKind.DOCUMENT_RESOLVED, data={"doc_context": None, "doc_type": "writer", "uno_ctx": None}))
-
                 elif isinstance(effect, ExecuteToolEffect):
-                    events_to_process.append(MCPEvent(kind=EventKind.TOOL_EXECUTION_STARTED))
                     try:
                         if effect.is_long_running:
                             res = self._execute_long_running(effect.tool_name, effect.arguments, document_url=effect.document_url)
@@ -775,43 +789,30 @@ class MCPProtocolHandler:
         finally:
             _tool_semaphore.release()
 
-    def _execute_long_running(self, tool_name, arguments, document_url=None):
-        """Execute a long-running tool on the current background HTTP thread.
+    def _prepare_mcp_execution(self, tool_name, arguments, document_url=None):
+        """Main-thread only: unknown-tool check, document resolve, ToolContext, precomputed echo.
 
-        Context resolution runs on the main thread. Mutating tools hold the same
-        per-document gate as _execute_tool_on_main; read-only tools skip it.
-        Tool bodies run on the HTTP worker; UNO inside tools uses execute_on_main_thread.
+        Returns ``_PreparedMcpCall`` or a structured error dict.
         """
+        tool = self.tool_registry.get(tool_name)
+        if tool is None:
+            return {"status": "error", "code": "UNKNOWN_TOOL",
+                    "message": "No tool named '%s'. Check tools/list for the exact name (tools are filtered by the open document's type)." % tool_name}
 
-        def _get_context():
+        doc = None
+        doc_type = "writer"
+        try:
             doc_svc = self.services.document
-            doc = None
-            doc_type = "writer"
             if document_url:
                 doc, doc_type = doc_svc.resolve_document_by_url(document_url)
             else:
                 doc = _real_active_document(doc_svc)
                 if doc:
                     doc_type = doc_svc.detect_doc_type(doc)
-            from plugin.doc.doc_type import uno_services_for_document
-            from plugin.framework.uno_context import get_ctx
+        except Exception as e:
+            log.warning("Error resolving context in execution: %s", type(e).__name__)
+            doc = None
 
-            ctx = get_ctx()
-            doc_key = _resolve_mcp_doc_key(document_url, doc)
-            uno_services = uno_services_for_document(doc, doc_type)
-            # Compute the document echo HERE (main thread): reading doc.URL/RuntimeUID from the
-            # HTTP worker after execution would trip the UNO thread guard on the proxied doc.
-            echo = _document_echo_payload(doc)
-            return doc, doc_type, ctx, doc_key, uno_services, echo
-
-        doc, doc_type, ctx, doc_key, uno_services, doc_echo = self.queue_executor.execute(_get_context, timeout=10.0)
-
-        # Document-optional tools (e.g. find_tools) run with no document; an explicit
-        # document_url that doesn't resolve is always an error, though.
-        tool = self.tool_registry.get(tool_name)
-        if tool is None:
-            return {"status": "error", "code": "UNKNOWN_TOOL",
-                    "message": "No tool named '%s'. Check tools/list for the exact name (tools are filtered by the open document's type)." % tool_name}
         if doc is None and document_url:
             return {"status": "error", "code": "DOCUMENT_NOT_FOUND",
                     "message": ("No open document matches document_url '%s'. Call list_open_documents and retry "
@@ -822,86 +823,12 @@ class MCPProtocolHandler:
                     "message": ("No document open in LibreOffice. Ask the user to open or create a document; "
                                 "list_open_documents works in this state to check what is open.")}
 
-        from plugin.framework.tool import ToolContext
-
-        active_page_idx = None
-        if doc_type in ("draw", "impress"):
-            try:
-                from plugin.draw.bridge import DrawBridge
-                active_page_idx = DrawBridge(doc).get_active_page_index()
-            except Exception:
-                pass
-
-        context = ToolContext(
-            doc=doc,
-            ctx=ctx,
-            doc_type=doc_type,
-            services=self.services,
-            caller="mcp",
-            active_page_index=active_page_idx,
-            uno_services_supported=uno_services,
-        )
-
-        # Sub-tools invoked by a delegating tool run in-process (not via this method),
-        # so the gate is not re-entered on the same thread -> no self-deadlock.
-        needs_gate = _tool_needs_document_mutation_gate(tool, arguments)
-        with _document_mutation_gate(doc_key, enabled=needs_gate):
-            t0 = time.perf_counter()
-            result = self.tool_registry.execute(tool_name, context, **arguments)
-            elapsed = time.perf_counter() - t0
-
-        if isinstance(result, dict):
-            result["_elapsed_ms"] = round(elapsed * 1000, 1)
-            # Echo precomputed on the main thread in _get_context — do NOT touch the proxied
-            # doc from this worker thread.
-            if doc_echo and "document" not in result:
-                result["document"] = doc_echo
-
-        return result
-
-    def _execute_tool_on_main(self, tool_name, arguments, document_url=None):
-        """Run a backpressure tool on the main thread; shares _document_mutation_gate with long-running path."""
-        # Same check order as _execute_long_running: a bad tool NAME is diagnosed before any
-        # document concern (both errors are correct, but consistency helps clients branch).
-        tool = self.tool_registry.get(tool_name)
-        if tool is None:
-            return {"status": "error", "code": "UNKNOWN_TOOL",
-                    "message": "No tool named '%s'. Check tools/list for the exact name (tools are filtered by the open document's type)." % tool_name}
-        doc = None
-        doc_type = "writer"
-        try:
-            doc_svc = self.services.document
-            if document_url:
-                doc, doc_type = doc_svc.resolve_document_by_url(document_url)
-                if doc is None:
-                    return {"status": "error", "code": "DOCUMENT_NOT_FOUND",
-                            "message": ("No open document matches document_url '%s'. Call list_open_documents and retry "
-                                        "with one of the returned url or uid values." % (document_url or "")),
-                            "details": {"document_url": document_url}}
-            else:
-                doc = _real_active_document(doc_svc)
-                if doc:
-                    doc_type = doc_svc.detect_doc_type(doc)
-        except Exception as e:
-            log.warning("Error resolving context in execution: %s", type(e).__name__)
-            pass
-
-        # Document-optional tools (e.g. the find_tools discovery meta-tool) run with no
-        # document open; every other tool still requires one. (Unknown tool already rejected
-        # at the top of this method.)
-        if doc is None and getattr(tool, "requires_document", True):
-            return {"status": "error", "code": "NO_DOCUMENT_OPEN",
-                    "message": ("No document open in LibreOffice. Ask the user to open or create a document; "
-                                "list_open_documents works in this state to check what is open.")}
-
         from plugin.doc.doc_type import uno_services_for_document
+        from plugin.framework.tool import ToolContext
         from plugin.framework.uno_context import get_ctx
 
         ctx = get_ctx()
         uno_services = uno_services_for_document(doc, doc_type)
-
-        from plugin.framework.tool import ToolContext
-
         active_page_idx = None
         if doc_type in ("draw", "impress"):
             try:
@@ -919,19 +846,44 @@ class MCPProtocolHandler:
             active_page_index=active_page_idx,
             uno_services_supported=uno_services,
         )
+        return _PreparedMcpCall(
+            tool=tool,
+            context=context,
+            doc=doc,
+            doc_key=_resolve_mcp_doc_key(document_url, doc),
+            needs_gate=_tool_needs_document_mutation_gate(tool, arguments),
+            echo=_document_echo_payload(doc),
+        )
 
-        doc_key = _resolve_mcp_doc_key(document_url, doc)
-        needs_gate = _tool_needs_document_mutation_gate(tool, arguments)
-        with _document_mutation_gate(doc_key, enabled=needs_gate):
+    def _run_prepared_mcp_execute(self, prepared: _PreparedMcpCall, tool_name, arguments):
+        """Gate + registry execute + elapsed/echo. ``prepared.echo`` must already be computed on main."""
+        with _document_mutation_gate(prepared.doc_key, enabled=prepared.needs_gate):
             t0 = time.perf_counter()
-            result = self.tool_registry.execute(tool_name, context, **arguments)
+            result = self.tool_registry.execute(tool_name, prepared.context, **arguments)
             elapsed = time.perf_counter() - t0
-
         if isinstance(result, dict):
             result["_elapsed_ms"] = round(elapsed * 1000, 1)
-            _attach_document_echo(result, doc)
-
+            _attach_precomputed_echo(result, prepared.echo)
         return result
+
+    def _execute_long_running(self, tool_name, arguments, document_url=None):
+        """Execute a long-running tool on the current background HTTP thread.
+
+        Context resolution runs on the main thread. Mutating tools hold the same
+        per-document gate as _execute_tool_on_main; read-only tools skip it.
+        Tool bodies run on the HTTP worker; UNO inside tools uses execute_on_main_thread.
+        """
+        prepared = self.queue_executor.execute(self._prepare_mcp_execution, tool_name, arguments, document_url, timeout=10.0)
+        if not isinstance(prepared, _PreparedMcpCall):
+            return prepared
+        return self._run_prepared_mcp_execute(prepared, tool_name, arguments)
+
+    def _execute_tool_on_main(self, tool_name, arguments, document_url=None):
+        """Run a backpressure tool on the main thread; shares _document_mutation_gate with long-running path."""
+        prepared = self._prepare_mcp_execution(tool_name, arguments, document_url)
+        if not isinstance(prepared, _PreparedMcpCall):
+            return prepared
+        return self._run_prepared_mcp_execute(prepared, tool_name, arguments)
 
     # ── Debug helpers ────────────────────────────────────────────────
 

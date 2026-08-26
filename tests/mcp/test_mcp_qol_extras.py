@@ -58,7 +58,7 @@ def test_multidoc_guidance_reaches_mcp_topic():
 
 
 def test_long_running_precomputes_echo_without_post_execute_doc_access():
-    """Echo is captured once inside _get_context (main-thread marshal); the worker path must not
+    """Echo is captured once inside _prepare_mcp_execution (main-thread marshal); the worker path must not
     call _attach_document_echo or re-read the proxied doc after the tool body runs."""
     from unittest.mock import patch
 

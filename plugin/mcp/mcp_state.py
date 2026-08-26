@@ -11,7 +11,6 @@ from plugin.framework.deal_shim import deal
 class MCPStateStr(Enum):
     IDLE = "idle"
     PARSING_REQUEST = "parsing_request"
-    RESOLVING_DOCUMENT = "resolving_document"
     EXECUTING_TOOL = "executing_tool"
     STREAMING_RESPONSE = "streaming_response"  # Despite name, we send a single JSON-RPC response
     ERROR = "error"
@@ -23,9 +22,6 @@ class MCPState(BaseState):
     tool_name: Optional[str] = None
     arguments: Dict[str, Any] = dataclasses.field(default_factory=dict)
     document_url: Optional[str] = None
-    doc_type: Optional[str] = None
-    doc_context: Any = None  # The resolved document UNO context, if any
-    uno_ctx: Any = None  # The UNO component context, if any
     result: Any = None  # The final result payload
     error_message: Optional[str] = None
     error_code: Optional[str] = None
@@ -36,7 +32,6 @@ class MCPState(BaseState):
 # --- Events ---
 class EventKind(Enum):
     REQUEST_RECEIVED = auto()
-    DOCUMENT_RESOLVED = auto()
     TOOL_EXECUTION_STARTED = auto()
     TOOL_COMPLETED = auto()
     REQUEST_ERROR = auto()
@@ -57,18 +52,11 @@ class ParseRequestEffect:
 
 
 @dataclasses.dataclass(frozen=True)
-class ResolveDocumentEffect:
-    document_url: Optional[str]
-    is_long_running: bool
-
-
-@dataclasses.dataclass(frozen=True)
 class ExecuteToolEffect:
+    """Interpreter runs document resolve + tool body; this effect only names the call."""
+
     tool_name: str
     arguments: Dict[str, Any]
-    doc_context: Any
-    doc_type: str
-    uno_ctx: Any
     is_long_running: bool
     document_url: Optional[str] = None
 
@@ -106,7 +94,6 @@ def next_state(state: MCPState, event: MCPEvent) -> FsmTransition[MCPState]:
     effects: List[Any] = []
 
     if event.kind == EventKind.REQUEST_RECEIVED:
-        # Move to parsing/resolving
         tool_name = event.data.get("tool_name")
         arguments = event.data.get("arguments", {})
         document_url = event.data.get("document_url")
@@ -117,25 +104,25 @@ def next_state(state: MCPState, event: MCPEvent) -> FsmTransition[MCPState]:
             return FsmTransition(dataclasses.replace(state, status=MCPStateStr.ERROR, is_error=True), effects)
 
         effects.append(ParseRequestEffect())
-        effects.append(ResolveDocumentEffect(document_url=document_url, is_long_running=is_long_running))
-        return FsmTransition(dataclasses.replace(state, status=MCPStateStr.RESOLVING_DOCUMENT, tool_name=tool_name, arguments=arguments, document_url=document_url, is_long_running=is_long_running), effects)
-
-    elif event.kind == EventKind.DOCUMENT_RESOLVED:
-        doc_context = event.data.get("doc_context")
-        doc_type = event.data.get("doc_type", "writer")
-        uno_ctx = event.data.get("uno_ctx")
-        error_payload = event.data.get("error_payload")
-
-        if error_payload:
-            # Resolution failed
-            effects.append(StreamResponseEffect(result=error_payload, is_error=True))
-            return FsmTransition(dataclasses.replace(state, status=MCPStateStr.ERROR, is_error=True, result=error_payload), effects)
-
-        # Move to executing tool
-        import typing
-
-        effects.append(ExecuteToolEffect(tool_name=typing.cast("str", state.tool_name), arguments=state.arguments, doc_context=doc_context, doc_type=doc_type, uno_ctx=uno_ctx, is_long_running=state.is_long_running, document_url=state.document_url))
-        return FsmTransition(dataclasses.replace(state, status=MCPStateStr.EXECUTING_TOOL, doc_context=doc_context, doc_type=doc_type, uno_ctx=uno_ctx), effects)
+        effects.append(
+            ExecuteToolEffect(
+                tool_name=tool_name,
+                arguments=arguments,
+                is_long_running=is_long_running,
+                document_url=document_url,
+            )
+        )
+        return FsmTransition(
+            dataclasses.replace(
+                state,
+                status=MCPStateStr.EXECUTING_TOOL,
+                tool_name=tool_name,
+                arguments=arguments,
+                document_url=document_url,
+                is_long_running=is_long_running,
+            ),
+            effects,
+        )
 
     elif event.kind == EventKind.TOOL_EXECUTION_STARTED:
         # Just an informational event, we stay in EXECUTING_TOOL

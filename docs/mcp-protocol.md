@@ -497,7 +497,7 @@ Use **`POST /mcp`** with JSON-RPC 2.0:
 
 - **`initialize`** — protocol handshake; `result.instructions` starts with the host machine's local date/time (zero tool calls), then lean tool-choice guidance (multi-doc targeting, document-type filter on `tools/list`), a mode hint, and a pointer to `get_guidance(topic)`, the on-demand behavioral manual (not the full sidebar system prompt). Sidebar chat date injection is unchanged and separate.
 - **`tools/list`** — core-tier tools for the target document (`X-Document-URL` header or active document). Each tool has `name`, `description`, and `inputSchema`. Specialized domains are documented on **`delegate_to_specialized_{writer|calc|draw}_toolset`** (see [Where delegation guidance lives](#where-delegation-guidance-lives-mcp-vs-sidebar-chat)).
-- **`tools/call`** — run a tool on the LibreOffice main thread.
+- **`tools/call`** — request → execute → JSON-RPC result. Document targeting (`document_url` / active doc) happens inside the executor on the LibreOffice main thread; long-running tool bodies then run on the HTTP worker.
 
 Supporting HTTP routes: **`GET /health`**, **`GET /`** (server info and `mcp_endpoint` when enabled—not agent instructions).
 

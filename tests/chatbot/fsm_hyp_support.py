@@ -195,10 +195,6 @@ def mcp_events(draw):
         if tool is not None:
             data["tool_name"] = tool
         return MCPEvent(kind=kind, data=data)
-    if kind == MCPEventKind.DOCUMENT_RESOLVED:
-        if draw(st.booleans()):
-            return MCPEvent(kind=kind, data={"error_payload": {"status": "error", "message": "no doc"}})
-        return MCPEvent(kind=kind, data={"doc_context": None, "doc_type": "writer", "uno_ctx": None})
     if kind == MCPEventKind.TOOL_COMPLETED:
         return MCPEvent(kind=kind, data={"result": draw(st.sampled_from(({"ok": True}, {"status": "error"})))})
     if kind == MCPEventKind.REQUEST_ERROR:

@@ -38,7 +38,7 @@ MCP `tools/call` routes to one of two handlers in [`mcp_protocol.py`](../plugin/
 flowchart TB
     subgraph backpressure [Backpressure path]
         Sem["_tool_semaphore acquire"]
-        MainRun["_execute_tool_on_main on main thread"]
+        MainRun["_prepare_mcp_execution + execute on main thread"]
         Sem --> MainRun
     end
     subgraph longrun [Long-running path]
