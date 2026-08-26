@@ -601,7 +601,7 @@ def convert_cell_to_dag(
         base.ordering_args = []
         dag_formula = formula_for_converted_cell(base, separator=";", use_script_bank=True)
 
-    base.converted_code = new_code
+    base.converted_code = new_code if isinstance(new_code, str) else original
     base.data_args = data_args
     base.excel_deps = excel_deps
     base.ordering_args = []
