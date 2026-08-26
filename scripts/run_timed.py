@@ -5,8 +5,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Run a command, then print its output as one labeled block plus wall time.
 
-Used by ``make typecheck`` so parallel ty/mypy/basedpyright/pyspector keep
-running concurrently without interleaving progress bars and banners.
+Used by ``make typecheck`` so parallel checkers (ty/mypy/basedpyright/pyspector
+and opengrep/bandit) keep running concurrently without interleaving banners.
 """
 from __future__ import annotations
 

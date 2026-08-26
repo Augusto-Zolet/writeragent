@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import plugin.notebook.notebook_controls as notebook_controls
 from plugin.notebook.notebook_controls import (
     NotebookRunButtonListener,
     get_control_view_for_model,
@@ -12,6 +13,11 @@ from plugin.notebook.notebook_controls import (
 from plugin.tests.testing_utils import setup_uno_mocks
 
 setup_uno_mocks()
+
+
+def setup_function() -> None:
+    notebook_controls._listener_refs = []
+    notebook_controls._wired_keys = set()
 
 
 def test_get_control_view_uses_gettypebyname_for_xcontrolaccess():
@@ -84,3 +90,22 @@ def test_notebook_run_button_listener_calls_runner():
     with patch("plugin.notebook.notebook_runner.run_cell_for_doc_hex") as run:
         listener.on_action_performed(MagicMock())
     run.assert_called_once_with(ctx, doc, "deadbeef")
+
+
+def test_notebook_run_button_listener_untitled_resolves_by_runtime_uid():
+    """Hidden / non-current untitled docs are not getCurrentComponent; URL is empty."""
+    ctx = MagicMock()
+    doc = MagicMock()
+    found = MagicMock()
+    doc.getURL.return_value = ""
+    doc.getRuntimeUID.return_value = "uid-hidden-nb"
+    listener = NotebookRunButtonListener(ctx, doc, "cafebabecafebabecafebabecafebabe")
+    listener._doc_weak = None
+    with (
+        patch("plugin.framework.uno_context.resolve_document_by_url", return_value=(found, "writer")) as resolve,
+        patch("plugin.framework.uno_context.get_active_document", return_value=None),
+        patch("plugin.notebook.notebook_runner.run_cell_for_doc_hex") as run,
+    ):
+        listener.on_action_performed(MagicMock())
+    resolve.assert_called_with(ctx, "uid-hidden-nb")
+    run.assert_called_once_with(ctx, found, "cafebabecafebabecafebabecafebabe")

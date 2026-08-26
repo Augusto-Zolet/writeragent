@@ -68,13 +68,15 @@ def test_makefile_typecheck_runs_checkers_in_parallel() -> None:
     )
     assert block is not None, "missing Makefile typecheck: target"
     body = block.group(0)
-    assert "-j4" in body
+    assert "-j7" in body
     assert "ty-run" in body
     assert "run_timed.py" in text
     assert "mypy-run" in body
-    assert "mypy-run" in body
     assert "basedpyright-run" in body
     assert "pyspector" in body
+    assert "opengrep-lint" in body
+    assert "thread-safety-lint" in body
+    assert "bandit" in body
 
 
 def test_makefile_register_built_oxt_removes_librepy() -> None:
@@ -105,14 +107,13 @@ def test_makefile_test_runs_static_gates_before_test_run() -> None:
     assert block is not None, "missing Makefile test: target"
     body = block.group(0)
     assert "typecheck" in body
-    assert "thread-safety-lint" in body
-    assert "opengrep-lint" in body
-    assert "bandit" in body
     assert "$(MAKE) test-run" in body
-    assert body.index("bandit") < body.index("$(MAKE) test-run")
-    # Bandit is not a second pass after tests.
-    after_run = body[body.index("$(MAKE) test-run") :]
-    assert "bandit" not in after_run
+    assert body.index("typecheck") < body.index("$(MAKE) test-run")
+    # SAST lives inside typecheck, not a second wave after tests.
+    after_typecheck = body[body.index("typecheck") + len("typecheck") :]
+    assert "opengrep-lint" not in after_typecheck
+    assert "thread-safety-lint" not in after_typecheck
+    assert "bandit" not in after_typecheck
 
 
 def test_makefile_test_run_is_pytest_then_serial_testing_runner() -> None:

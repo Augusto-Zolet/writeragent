@@ -236,13 +236,13 @@ help:
 	@echo "  make crosshair-cover-all-deep  Same sweep, deep mode (200 iters, no per-condition timeout / wall). START_AT=42 resumes from module 42"
 	@echo "  make test-visible           Run LO chart + grep UNO tests visibly (GUI) for processEventsToIdle / OLE queue"
 	@echo "  make lo-test-threadguard    Run full in-LO suite with WRITERAGENT_UNO_THREAD_GUARD=1 (Layer B)"
-	@echo "  make opengrep-lint          Opengrep UNO + security rules (ERROR; part of make test)"
+	@echo "  make opengrep-lint          Opengrep UNO + security rules (ERROR; part of make typecheck / make test)"
 	@echo "  make opengrep-lint-advisory Same rules including WARNING-level nudges"
 	@echo "  make opengrep-rules-sync    Refresh vendored third-party Opengrep rules"
 	@echo "  make opengrep-rules-audit   Live registry sweep (p/python; manual triage only)"
 	@echo "  make uno-thread-lint        Alias for make opengrep-lint"
 	@echo "  make opengrep-install       Install Opengrep CLI (~/.local/bin or bin/opengrep)"
-	@echo "  make typecheck              ruff-for-build, then ty/mypy/basedpyright/pyspector in parallel"
+	@echo "  make typecheck              ruff-for-build, then ty/mypy/basedpyright/pyspector/opengrep/thread-safety/bandit in parallel"
 	@echo "  make ensure-uno             Link system UNO into .venv if import uno fails (auto-run by typecheck/test)"
 	@echo "  make fix-uno                Same as ensure-uno with verbose output"
 	@echo "  make mypy / make basedpyright / make pyrefly / make bandit   Single-tool runs (bandit: plugin/, excludes contrib + tests)"
@@ -313,7 +313,7 @@ build-no-recording: ty ruff-for-build preview-translations vendor manifest compi
 	"$(PYTHON)" $(SCRIPTS)/build_oxt.py --no-recording --output build/$(EXTENSION_NAME).oxt
 	@echo "Done: build/$(EXTENSION_NAME).oxt  (bundle in build/bundle/)"
 
-# Full verification: typecheck, bandit, then a stripped-with-tests tree in /tmp
+# Full verification: typecheck (includes bandit), then a stripped-with-tests tree in /tmp
 # (tmpfs: faster compileall / pytest bytecode) so stripping doesn't break logic,
 # then build the clean release oxt in build/.
 schema-docs:
@@ -322,7 +322,6 @@ schema-docs:
 release: clean
 	@$(MAKE) schema-docs
 	@$(MAKE) typecheck
-	@$(MAKE) bandit
 	@echo "Building stripped bundle for verification in a temp dir..."
 	@set -e; \
 	RELEASE_TMP=$$("$(PYTHON)" -c "import tempfile; print(tempfile.mkdtemp(prefix='writeragent-release-'))"); \
@@ -661,8 +660,8 @@ check-ext:
 LO_PYTHON ?= $(shell python3 -c "import uno" 2>/dev/null && echo python3 || (python -c "import uno" 2>/dev/null && echo python || echo python))
 
 typecheck: manifest ruff-for-build
-	@echo "=== typecheck: ty + mypy + basedpyright + pyspector (parallel) ==="
-	@$(MAKE) -j4 ty-run mypy-run basedpyright-run pyspector
+	@echo "=== typecheck: ty + mypy + basedpyright + pyspector + opengrep + thread-safety + bandit (parallel) ==="
+	@$(MAKE) -j7 ty-run mypy-run basedpyright-run pyspector opengrep-lint thread-safety-lint bandit
 
 # Unit pytest only: no *_uno.py collection, no testing_runner / live soffice.
 # Exact command: $(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py'
@@ -732,7 +731,7 @@ lo-test-threadguard-visible:
 opengrep-lint:
 	@test -x "$(OPENGREP)" || (echo "opengrep not found — run: make opengrep-install" && exit 1)
 	@test -f $(OPENGREP_DIR)/third_party/SOURCES.json || (echo "vendored Opengrep rules missing — run: make opengrep-rules-sync" && exit 1)
-	$(OPENGREP_ENV) "$(OPENGREP)" scan $(OPENGREP_SCAN_FLAGS) $(foreach c,$(OPENGREP_CONFIGS),-c $(c)) plugin
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py opengrep env SEMGREP_SEND_METRICS=off "$(OPENGREP)" scan $(OPENGREP_SCAN_FLAGS) $(foreach c,$(OPENGREP_CONFIGS),-c $(c)) plugin
 
 thread-safety-lint:
 	"$(PYTHON)" scripts/lint_thread_safety.py plugin/calc/python plugin/scripting
@@ -773,8 +772,6 @@ excel-py-roundtrip:
 test:
 	@echo "=== make test: typecheck ==="
 	@$(MAKE) typecheck
-	@echo "=== make test: thread-safety + opengrep + bandit ==="
-	@$(MAKE) -j3 thread-safety-lint opengrep-lint bandit
 	@echo "=== make test: pytest + LibreOffice ==="
 	@$(MAKE) test-run
 	@$(MAKE) excel-py-roundtrip
@@ -905,7 +902,7 @@ pyrefly-run: ensure-uno
 	@"$(PYTHON)" $(SCRIPTS)/run_timed.py pyrefly "$(PYTHON)" -m pyrefly check
 
 bandit:
-	"$(PYTHON)" -m bandit -r plugin -c pyproject.toml --severity-level medium
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py bandit "$(PYTHON)" -m bandit -r plugin -c pyproject.toml --severity-level medium
 
 # Cross-file / AI-agent SAST (part of make typecheck / make test; not build/release).
 # Wrapper disables reviewed FP rules; see scripts/run_pyspector.py.

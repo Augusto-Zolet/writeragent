@@ -51,7 +51,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 
 | Command | When to use |
 |---------|-------------|
-| `make typecheck` | After edits (required with targeted tests). Checker details: [docs/framework-type-checking.md](docs/framework-type-checking.md) |
+| `make typecheck` | After edits (required with targeted tests). ty/mypy/basedpyright/pyspector plus opengrep, thread-safety lint, and bandit. Details: [docs/framework-type-checking.md](docs/framework-type-checking.md) |
 | `make deploy` | WriterAgent OXT: build + install/cache sync; **restart LibreOffice** (or `make deploy writer/calc/draw/impress` to launch) |
 | `make deploy-core` | LibrePy OXT only (`build/LibrePy.oxt`); **removes WriterAgent**. Install one OXT at a time. |
 | `make pytest` | Unit pytest only: `-m "not slow and not integration" --ignore-glob='*_uno.py'` plus xdist (`-n auto`; `PYTEST_WORKERS=0` for serial). No live soffice. |

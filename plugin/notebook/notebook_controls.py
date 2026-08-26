@@ -125,6 +125,13 @@ class NotebookRunButtonListener(BaseActionListener):
             self._doc_url = str(doc.getURL() or "")
         except Exception:
             self._doc_url = ""
+        from plugin.framework.uno_context import get_runtime_uid
+
+        # Untitled Writer docs have an empty URL. Hidden native tests (and a
+        # notebook that is not Desktop.getCurrentComponent) then failed
+        # get_active_document; PyUNO wrappers usually cannot be weakref'd, so
+        # ▶ looked wired but actionPerformed returned "document gone".
+        self._runtime_uid = get_runtime_uid(doc) or ""
         try:
             import weakref
 
@@ -133,10 +140,21 @@ class NotebookRunButtonListener(BaseActionListener):
             self._doc_weak = None
 
     def _resolve_doc(self) -> Any | None:
-        if self._doc_url:
-            from plugin.framework.uno_context import resolve_document_by_url
+        from plugin.framework.uno_context import resolve_document_by_url
 
+        if self._doc_url:
             doc, _doc_type = resolve_document_by_url(self._ctx, self._doc_url)
+            if doc is not None:
+                return doc
+        # Prefer a live wrapper before enumerating the desktop (unit tests and
+        # prune_dead_listeners). PyUNO often cannot weakref; then use UID.
+        weak = getattr(self, "_doc_weak", None)
+        if callable(weak):
+            ref_doc = weak()
+            if ref_doc is not None:
+                return ref_doc
+        if self._runtime_uid:
+            doc, _doc_type = resolve_document_by_url(self._ctx, self._runtime_uid)
             if doc is not None:
                 return doc
         from plugin.framework.uno_context import get_active_document
@@ -144,11 +162,6 @@ class NotebookRunButtonListener(BaseActionListener):
         active = get_active_document(self._ctx)
         if active is not None and _doc_key(active) == self._doc_key_val:
             return active
-        weak = getattr(self, "_doc_weak", None)
-        if callable(weak):
-            ref_doc = weak()
-            if ref_doc is not None:
-                return ref_doc
         return None
 
     def on_action_performed(self, rEvent: Any) -> None:
