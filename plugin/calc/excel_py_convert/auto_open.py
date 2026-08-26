@@ -236,6 +236,10 @@ def install_excel_py_auto_convert(ctx: Any) -> None:
                             # Calc OnLoadFinished, rewrite never ran).
                             execute_on_main_thread(maybe_rewrite_collabora_py_formulas, doc)
                         except Exception:
+                            # FIXME: this swallows marshal/rewrite failures (e.g. TypeError
+                            # from a mis-wired execute_on_main_thread) so UNO tests still
+                            # pass; only the log shows it. Narrow or re-raise after the
+                            # listener is proven not to abort OnLoadFinished.
                             log.warning(
                                 "collabora PY rewrite on open failed",
                                 exc_info=True,
