@@ -203,8 +203,16 @@ def test_formula_edit_overflow_pre_fails_closed() -> None:
     if not deal_pre_present(rebuild_python_formula_with_data):
         pytest.skip("@deal.pre stripped in release bundle")
     too_long = "x" * (DEAL_MAX_SOURCE + 1)
+    # rebuild_* / sanitize / escape allow DEAL_MAX_SOURCE+256 slack (dtype=float growth).
+    rebuild_too_long = "x" * (DEAL_MAX_SOURCE + 256 + 1)
     with pytest.raises(deal.PreContractError):
-        rebuild_python_formula_with_data(too_long, [])
+        rebuild_python_formula_with_data(rebuild_too_long, [])
+    with pytest.raises(deal.PreContractError):
+        sanitize_inline_py_code(rebuild_too_long)
+    with pytest.raises(deal.PreContractError):
+        escape_code_for_formula(rebuild_too_long)
+    with pytest.raises(deal.PreContractError):
+        rebuild_python_formula(PythonFormulaParts("=PY(", "x", ")"), rebuild_too_long)
     with pytest.raises(deal.PreContractError):
         format_data_binding_display(too_long)
     with pytest.raises(deal.PreContractError):

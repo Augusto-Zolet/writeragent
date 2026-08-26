@@ -35,8 +35,11 @@ def _describe_empty_response_content(content: Any) -> str:
 
 @deal.pre(
     lambda tool_calls, *_unused, **__: tool_calls is None
-    or not isinstance(tool_calls, list)
-    or len(tool_calls) <= DEAL_MAX_CMD_ARGS
+    or (
+        isinstance(tool_calls, list)
+        and len(tool_calls) <= DEAL_MAX_CMD_ARGS
+        and all(isinstance(item, dict) and len(item) <= DEAL_MAX_CMD_ARGS for item in tool_calls)
+    )
 )
 def _describe_empty_response_tool_calls(tool_calls: Any) -> str:
     if tool_calls is None:

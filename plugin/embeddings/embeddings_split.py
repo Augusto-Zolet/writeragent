@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_SOURCE, str_bounded, deal
+from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_SOURCE, DEAL_MAX_TOKEN, ascii_bounded, str_bounded, deal
 
 CHUNK_SIZE = 512
 CHUNK_OVERLAP = 64
@@ -38,6 +38,10 @@ def _import_splitter() -> Any:
     )
 
 
+@deal.pre(
+    lambda text, locale=DEFAULT_SENTENCE_LOCALE, *_unused, **__: str_bounded(text, DEAL_MAX_SOURCE)
+    and (locale == DEFAULT_SENTENCE_LOCALE or ascii_bounded(locale, DEAL_MAX_TOKEN))
+)
 def split_passage_to_sentences(text: str, locale: str = DEFAULT_SENTENCE_LOCALE) -> list[tuple[int, int, str]]:
     """Split *text* into ``(char_start, char_end, sentence)`` relative to *text*."""
     passage = str(text or "")
@@ -187,6 +191,7 @@ def _merge_small_sentences_to_spans(
     return spans
 
 
+@deal.pre(lambda passage, *_unused, **__: str_bounded(passage, DEAL_MAX_SOURCE))
 def _split_passage_whitespace_to_sentences(passage: str) -> list[tuple[int, int, str]]:
     from plugin.writer.locale.grammar_proofread_locale import GRAMMAR_WHITESPACE_RUN_RE, split_sentence_chunks_by_separator_regex
 
@@ -197,6 +202,10 @@ def _split_passage_whitespace_to_sentences(passage: str) -> list[tuple[int, int,
     return sentences or [(0, len(passage), passage)]
 
 
+@deal.pre(
+    lambda passage, locale_bcp47=None, *_unused, **__: str_bounded(passage, DEAL_MAX_SOURCE)
+    and (locale_bcp47 is None or ascii_bounded(locale_bcp47, DEAL_MAX_TOKEN))
+)
 def _split_prose_passage_to_spans(passage: str, locale_bcp47: str | None = None) -> list[tuple[int, int]]:
     from plugin.writer.locale.grammar_proofread_locale import (
         bcp47_to_icu_sentence_breaker_locale,
@@ -219,6 +228,7 @@ def _split_prose_passage_to_spans(passage: str, locale_bcp47: str | None = None)
     return _merge_small_sentences_to_spans(passage, sentences)
 
 
+@deal.pre(lambda passage, *_unused, **__: str_bounded(passage, DEAL_MAX_SOURCE))
 def _split_non_prose_passage_to_spans(passage: str) -> list[tuple[int, int]]:
     if len(passage) <= CHUNK_SIZE:
         return [(0, len(passage))]

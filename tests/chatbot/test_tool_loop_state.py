@@ -1,4 +1,8 @@
+import pytest
+
+import deal
 from plugin.chatbot.tool_loop_state import (
+    _describe_empty_response_tool_calls,
     ToolLoopState,
     ToolLoopEvent,
     EventKind,
@@ -506,3 +510,20 @@ def test_empty_and_delegate_formatters_dropped_from_check_all_fqns():
     fqns = cover_fqns_for_module(Path("plugin/chatbot/tool_loop_state.py"), require_deal=True)
     assert not any(f.endswith(".format_empty_model_response_debug") for f in fqns)
     assert not any(f.endswith(".format_delegate_running_chat_line") for f in fqns)
+
+
+def test_describe_empty_response_tool_calls_pre_rejects_non_list() -> None:
+    """Vacuous ``not list`` pre let CrossHair explore arbitrary objects (~5s / 5753 lines)."""
+    from plugin.framework.deal_shim import DEAL_MAX_CMD_ARGS
+    from tests.strip_bundle import deal_pre_present
+
+    if not deal_pre_present(_describe_empty_response_tool_calls):
+        pytest.skip("@deal.pre stripped in release bundle")
+    assert _describe_empty_response_tool_calls(None) == "none"
+    assert _describe_empty_response_tool_calls([{"id": 1}]) == "1"
+    with pytest.raises(deal.PreContractError):
+        _describe_empty_response_tool_calls("not-a-list")
+    with pytest.raises(deal.PreContractError):
+        _describe_empty_response_tool_calls([{"k": 1}] * (DEAL_MAX_CMD_ARGS + 1))
+    with pytest.raises(deal.PreContractError):
+        _describe_empty_response_tool_calls(["not-a-dict"])

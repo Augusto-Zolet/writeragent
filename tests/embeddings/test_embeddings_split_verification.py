@@ -18,6 +18,10 @@ import pytest
 from plugin.embeddings.embeddings_split import (
     _merge_small_sentences_to_spans,
     _meta_chunks_from_spans,
+    _split_non_prose_passage_to_spans,
+    _split_passage_whitespace_to_sentences,
+    _split_prose_passage_to_spans,
+    split_passage_to_sentences,
 )
 from plugin.framework.deal_shim import DEAL_MAX_SOURCE
 from tests.strip_bundle import deal_pre_present, expect_pre_or_body
@@ -40,6 +44,14 @@ def test_embeddings_split_overflow_pre_fails_closed() -> None:
         _merge_small_sentences_to_spans(too_long, [], min_chunk=1)
     with pytest.raises(deal.PreContractError):
         _meta_chunks_from_spans(too_long, [], {})
+    with pytest.raises(deal.PreContractError):
+        split_passage_to_sentences(too_long)
+    with pytest.raises(deal.PreContractError):
+        _split_passage_whitespace_to_sentences(too_long)
+    with pytest.raises(deal.PreContractError):
+        _split_prose_passage_to_spans(too_long)
+    with pytest.raises(deal.PreContractError):
+        _split_non_prose_passage_to_spans(too_long)
 
 
 def test_merge_small_sentences_rejects_out_of_order_spans() -> None:

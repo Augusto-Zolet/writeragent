@@ -12,14 +12,20 @@ import pytest
 from hypothesis import given, strategies as st
 
 import deal
+from plugin.calc.excel_py_convert.models import ExcelPyCell, ExcelWorkbookModel
 from plugin.calc.excel_py_convert.to_dag import (
+    _find_xl_calls,
     _normalize_bindings,
     _normalize_excel_placeholders,
     _placeholder_to_data_index,
+    _skip_string,
     _xl_binding_expr,
+    convert_cell_to_dag,
+    convert_model_to_dag,
+    rewrite_excel_code,
 )
 from plugin.calc.spreadsheet_import.preprocess import normalize_lo_formula_for_parse
-from plugin.framework.deal_shim import DEAL_MAX_PLACEHOLDER_INDEX, DEAL_MAX_XL_EXPR
+from plugin.framework.deal_shim import DEAL_MAX_CMD_ARGS, DEAL_MAX_PLACEHOLDER_INDEX, DEAL_MAX_SOURCE, DEAL_MAX_XL_EXPR
 from tests.strip_bundle import deal_pre_present
 
 
@@ -83,3 +89,37 @@ def test_placeholder_index_overflow_pre_fails_closed() -> None:
         _xl_binding_expr(DEAL_MAX_PLACEHOLDER_INDEX + 1, "omit")
     assert _placeholder_to_data_index(2 + DEAL_MAX_PLACEHOLDER_INDEX) == DEAL_MAX_PLACEHOLDER_INDEX
     assert '"%P' in _xl_binding_expr(DEAL_MAX_PLACEHOLDER_INDEX, "omit")
+
+
+def test_dag_wrapper_overflow_pre_fails_closed() -> None:
+    """Callee bounds do not stop CrossHair covering wrappers; wrappers must pre themselves."""
+    if not deal_pre_present(_find_xl_calls):
+        pytest.skip("@deal.pre stripped in release bundle")
+    too_long = "x" * (DEAL_MAX_SOURCE + 1)
+    with pytest.raises(deal.PreContractError):
+        _find_xl_calls(too_long)
+    with pytest.raises(deal.PreContractError):
+        rewrite_excel_code(too_long, num_deps=0)
+    with pytest.raises(deal.PreContractError):
+        rewrite_excel_code("x", num_deps=DEAL_MAX_CMD_ARGS + 1)
+    with pytest.raises(deal.PreContractError):
+        _skip_string("ab", -1)
+    with pytest.raises(deal.PreContractError):
+        _skip_string("ab", 2)
+    with pytest.raises(deal.PreContractError):
+        convert_model_to_dag(
+            ExcelWorkbookModel(scripts=["x"] * (DEAL_MAX_CMD_ARGS + 1), cells=[])
+        )
+
+
+def test_convert_cell_to_dag_script_index_oor_fail_closed() -> None:
+    """Pre must not require in-range script_index; body returns unconverted cell."""
+    model = ExcelWorkbookModel(scripts=["df = 1"], cells=[])
+    cell = ExcelPyCell(sheet="S", cell="A1", script_index=9, return_type=0, deps=[])
+    converted = convert_cell_to_dag(model, cell)
+    assert converted.converted is False
+    assert "out of range" in (converted.issues or [""])[0]
+    cell_neg = ExcelPyCell(sheet="S", cell="A1", script_index=-1, return_type=0, deps=[])
+    converted_neg = convert_cell_to_dag(model, cell_neg)
+    assert converted_neg.converted is False
+    assert "out of range" in (converted_neg.issues or [""])[0]

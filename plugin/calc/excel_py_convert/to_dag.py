@@ -60,11 +60,36 @@ from plugin.framework.deal_shim import (
     DEAL_MAX_PLACEHOLDER_INDEX,
     DEAL_MAX_SOURCE,
     DEAL_MAX_XL_EXPR,
+    UNDER_CROSSHAIR,
     ascii_bounded,
     inverse_ensure,
     str_bounded,
     deal,
 )
+
+# Identifier / placeholder / xl() alphabet. Pytest keeps Unicode ``str_bounded``
+# so real Excel scripts stay legal; CrossHair's unrestricted Unicode of length 16
+# is how regular cover synthesized ~193 junk examples of ``_normalize_excel_placeholders``.
+_EXCEL_PLACEHOLDER_CHARS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    "%_#'\" \t\n\\()=,.:+-[]{}"
+)
+
+
+def _deal_excel_src_ok_pytest(src: object) -> bool:
+    return str_bounded(src, DEAL_MAX_SOURCE)
+
+
+def _deal_excel_src_ok_crosshair(src: object) -> bool:
+    return (
+        isinstance(src, str)
+        and len(src) <= DEAL_MAX_SOURCE
+        and all(c in _EXCEL_PLACEHOLDER_CHARS for c in src)
+    )
+
+
+# Import-time only — do not branch inside ``@deal.pre`` lambdas.
+_deal_excel_src_ok = _deal_excel_src_ok_crosshair if UNDER_CROSSHAIR else _deal_excel_src_ok_pytest
 
 _P_TOKEN_RE = re.compile(r"^%P(\d+)%$", re.IGNORECASE)
 # Bare Excel placeholder in source (not anchored); same length as ``_Pn_`` sentinel.
@@ -133,6 +158,11 @@ def _header_mode_from_keywords(node: ast.Call) -> HeaderMode:
     return "omit"
 
 
+@deal.pre(
+    lambda src, i, *_unused, **__: str_bounded(src, DEAL_MAX_SOURCE)
+    and type(i) is int
+    and 0 <= i < len(src)
+)
 def _skip_string(src: str, i: int) -> int:
     """Return index just past a string literal starting at *i* (quote char)."""
     quote = src[i]
@@ -157,7 +187,7 @@ def _skip_string(src: str, i: int) -> int:
     return n
 
 
-@deal.pre(lambda src, *_unused, **__: str_bounded(src, DEAL_MAX_SOURCE))
+@deal.pre(lambda src, *_unused, **__: _deal_excel_src_ok(src))
 @inverse_ensure(lambda *args, result="", **kwargs: len(result) == len(args[0]))
 def _normalize_excel_placeholders(src: str) -> str:
     """Rewrite bare ``%Pn%`` to equal-length ``_Pn_`` so ``ast.parse`` accepts Excel scripts.
@@ -214,6 +244,7 @@ def _p_num_from_arg(arg0: ast.AST) -> tuple[int | None, str | None, bool]:
     return None, None, True
 
 
+@deal.pre(lambda code, *_unused, **__: str_bounded(code or "", DEAL_MAX_SOURCE))
 def _find_xl_calls(code: str) -> tuple[list[_XlCall], list[str]]:
     """Locate direct ``xl(...)`` call expressions via AST after placeholder normalization."""
     issues: list[str] = []
@@ -305,6 +336,25 @@ def ast_source_offset(src: str, lineno: int, col: int) -> int:
     return line_start + len(raw[:col].decode("utf-8"))
 
 
+@deal.pre(
+    lambda code, num_deps, index_map=None, *_unused, **__: str_bounded(code or "", DEAL_MAX_SOURCE)
+    and type(num_deps) is int
+    and 0 <= num_deps <= DEAL_MAX_CMD_ARGS
+    and (
+        index_map is None
+        or (
+            isinstance(index_map, dict)
+            and len(index_map) <= DEAL_MAX_CMD_ARGS
+            and all(
+                type(k) is int
+                and type(v) is int
+                and 0 <= k <= DEAL_MAX_CMD_ARGS
+                and 0 <= v <= DEAL_MAX_CMD_ARGS
+                for k, v in index_map.items()
+            )
+        )
+    )
+)
 def rewrite_excel_code(
     code: str,
     *,
@@ -453,7 +503,7 @@ def _normalize_bindings(
     and len(model.scripts) <= DEAL_MAX_CMD_ARGS
     and all(isinstance(s, str) and str_bounded(s, DEAL_MAX_SOURCE) for s in model.scripts)
     and type(cell.script_index) is int
-    and 0 <= cell.script_index < len(model.scripts)
+    # Body fail-closes on OOR / negative index; a range pre here would hide that path.
     and isinstance(cell.deps, list)
     and len(cell.deps) <= DEAL_MAX_CMD_ARGS
     and all(isinstance(d, str) and ascii_bounded(d, DEAL_MAX_SOURCE) for d in cell.deps)
@@ -564,6 +614,13 @@ def convert_cell_to_dag(
     return base
 
 
+@deal.pre(
+    lambda model, *_unused, **__: isinstance(model.scripts, list)
+    and len(model.scripts) <= DEAL_MAX_CMD_ARGS
+    and all(isinstance(s, str) and str_bounded(s, DEAL_MAX_SOURCE) for s in model.scripts)
+    and isinstance(model.cells, list)
+    and len(model.cells) <= DEAL_MAX_CMD_ARGS
+)
 def convert_model_to_dag(model: ExcelWorkbookModel, *, best_effort: bool = False) -> ConversionReport:
     """Convert every PY cell in *model* to DAG-style ``=PY`` formulas."""
     report = ConversionReport(direction="dag", source_path=model.source_path)
