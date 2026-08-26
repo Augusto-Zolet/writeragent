@@ -530,24 +530,6 @@ class ToolBaseDummy:
         """
         return make_tool_error(message, code=code, **details)
 
-    def get_collection(self, doc, getter_name, missing_msg=None):
-        """Helper to safely fetch a named collection from a document."""
-        if not hasattr(doc, getter_name):
-            msg = missing_msg or f"Document does not support {getter_name}."
-            return self._tool_error(msg, code="UNO_OBJECT_ERROR", getter_name=getter_name)
-        return getattr(doc, getter_name)()
-
-    def get_item(self, doc, getter_name, item_name, missing_msg=None, not_found_msg=None):
-        """Helper to fetch a specific item from a document's collection."""
-        collection = self.get_collection(doc, getter_name, missing_msg)
-        if isinstance(collection, dict):
-            return collection
-        if not collection.hasByName(item_name):
-            available = list(collection.getElementNames())
-            msg = not_found_msg or f"Item '{item_name}' not found."
-            return self._tool_error(msg, code="UNO_OBJECT_ERROR", item_name=item_name, getter_name=getter_name, available=available)
-        return collection.getByName(item_name)
-
 
 def _is_specialized_domain_tool(t: Any, active_domain: str) -> bool:
     """True if *t* is a Writer/Calc/Draw specialized tool for *active_domain*."""
@@ -672,12 +654,8 @@ class ToolRegistry:
             try:
                 module = importlib.import_module(full_module_name)
                 self.auto_discover(module)
-            except ImportError:
-                log.exception("Failed to import module %s for tool discovery", full_module_name)
-            except AttributeError:
-                log.exception("Module attribute error during tool discovery in %s", full_module_name)
             except Exception:
-                log.exception("Unexpected error during tool discovery in %s", full_module_name)
+                log.exception("Failed to import module %s for tool discovery", full_module_name)
 
     def auto_discover(self, module):
         """Automatically discover and register ToolBase subclasses in a module."""
@@ -694,10 +672,6 @@ class ToolRegistry:
                 try:
                     tool_instance = obj()
                     self.register(tool_instance)
-                except TypeError:
-                    log.exception("Failed to instantiate tool %s (TypeError)", obj.__name__)
-                except ValueError:
-                    log.exception("Failed to instantiate tool %s (ValueError)", obj.__name__)
                 except Exception:
                     log.exception("Failed to instantiate tool %s", obj.__name__)
 
