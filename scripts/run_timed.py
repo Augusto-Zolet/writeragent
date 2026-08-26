@@ -3,10 +3,10 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Run a command and print ``=== LABEL: N.Ns ===`` wall time afterward.
+"""Run a command, then print its output as one labeled block plus wall time.
 
-Used by ``make typecheck`` so parallel ty/mypy/basedpyright/pyspector each
-report how long they took even when their logs interleave.
+Used by ``make typecheck`` so parallel ty/mypy/basedpyright/pyspector keep
+running concurrently without interleaving progress bars and banners.
 """
 from __future__ import annotations
 
@@ -21,9 +21,15 @@ def main(argv: list[str]) -> int:
         return 2
     label, cmd = argv[0], argv[1:]
     t0 = time.monotonic()
-    rc = subprocess.call(cmd)
-    print(f"=== {label}: {time.monotonic() - t0:.1f}s ===", flush=True)
-    return rc
+    proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    body = proc.stdout or ""
+    if body and not body.endswith("\n"):
+        body += "\n"
+    elapsed = time.monotonic() - t0
+    # One write so a finishing sibling cannot splice into this block.
+    sys.stdout.write(f"=== {label} ===\n{body}=== {label}: {elapsed:.1f}s ===\n")
+    sys.stdout.flush()
+    return int(proc.returncode)
 
 
 if __name__ == "__main__":

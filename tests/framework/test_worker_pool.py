@@ -14,6 +14,7 @@ from plugin.framework.worker_pool import (
     run_in_background,
     AsyncProcess,
     start_stderr_drain,
+    _get_pool,
 )
 from plugin.framework.errors import ToolExecutionError
 
@@ -321,8 +322,13 @@ def test_pool_bounds_native_thread_count():
             handles.append(run_in_background(job, name=f"bound-{i}"))
 
         assert two_running.wait(2)
-        wa_bg = [t for t in threading.enumerate() if t.name.startswith("wa-bg-")]
-        assert len(wa_bg) == 2
+        pool = _get_pool()
+        assert len(pool._threads) == 2
+        assert all(t.is_alive() for t in pool._threads)
+        # Live pool workers only — retired threads from a prior larger pool
+        # keep running until their current job ends and must not count here.
+        live = [t for t in threading.enumerate() if t.name.startswith("wa-bg-") and not t.name.startswith("wa-bg-retired-")]
+        assert len(live) == 2
         release.set()
         for h in handles:
             h.join(timeout=3)

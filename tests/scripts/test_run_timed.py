@@ -16,15 +16,41 @@ _SCRIPT = _REPO / "scripts" / "run_timed.py"
 
 def test_run_timed_prints_label_and_seconds() -> None:
     proc = subprocess.run(
-        [sys.executable, str(_SCRIPT), "demo", sys.executable, "-c", "pass"],
+        [sys.executable, str(_SCRIPT), "demo", sys.executable, "-c", "print('hello')"],
         cwd=_REPO,
         capture_output=True,
         text=True,
         check=False,
     )
     assert proc.returncode == 0
-    assert "=== demo:" in proc.stdout
+    assert proc.stdout.startswith("=== demo ===\n")
+    assert "hello\n" in proc.stdout
+    hello_at = proc.stdout.index("hello\n")
+    header_at = proc.stdout.index("=== demo ===\n")
+    timer_at = proc.stdout.index("=== demo:")
+    assert header_at < hello_at < timer_at
     assert "s ===" in proc.stdout
+
+
+def test_run_timed_merges_stderr_into_block() -> None:
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(_SCRIPT),
+            "demo",
+            sys.executable,
+            "-c",
+            "import sys; print('out'); print('err', file=sys.stderr)",
+        ],
+        cwd=_REPO,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert proc.returncode == 0
+    assert "out\n" in proc.stdout
+    assert "err\n" in proc.stdout
+    assert proc.stderr == ""
 
 
 def test_run_timed_preserves_command_exit_code() -> None:

@@ -27,6 +27,7 @@ storing a ctx reference from ``initialize()``.
 """
 
 import logging
+import os
 from contextlib import contextmanager
 from typing import Any, cast
 
@@ -213,7 +214,6 @@ def menu_icon_filesystem_paths(icon_filename: str) -> tuple[str, ...]:
     bundle root. ``make release`` pytest/UNO runs against that tree, so looking
     only under ``extension/assets/`` misses ``python_32.png`` and friends.
     """
-    import os
 
     from plugin.framework.constants import get_plugin_dir
 
@@ -316,6 +316,8 @@ def process_events_to_idle(ctx, rounds: int = 1, force: bool = False) -> bool:
     from plugin.framework.queue_executor import _note_suppressed_vcl_pump, _pump_vcl_events, get_drain_owner
 
     if not force:
+        if os.environ.get("WRITERAGENT_TESTING") == "1":
+            return False
         owner = get_drain_owner()
         if owner is not None:
             _note_suppressed_vcl_pump(owner)

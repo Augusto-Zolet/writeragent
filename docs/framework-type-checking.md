@@ -10,7 +10,7 @@ WriterAgent uses [Astral’s `ty`](https://docs.astral.sh/ty/) on the `plugin/` 
 |--------|--------|
 | Initial | On the order of **1000+** diagnostics before scoping (including vendored `plugin/contrib` and noisy test-only code). |
 | After narrowing | Excluding **`plugin/contrib`**, **`plugin/lib`** (vendored wheels / pip `--target` trees), and **`plugin/tests`** via `pyproject.toml` focused work on application code; one documented pass fixed on the order of **~141** categorized issues in that scope. |
-| Final | **`ty check`** reports **no errors** for the configured include set. **`make typecheck`** runs **`ruff-for-build`**, then **`ty`**, **`mypy`**, **`basedpyright`**, and **`pyspector`** in parallel; **`make test`** runs those five, then pytest and LO tests (types and SAST before tests). **`make release`** calls **`make test`** first, then the release bundle (see **`Makefile`**). |
+| Final | **`ty check`** reports **no errors** for the configured include set. **`make typecheck`** runs **`ruff-for-build`**, then **`ty`**, **`mypy`**, **`basedpyright`**, and **`pyspector`** in parallel; **`scripts/run_timed.py`** buffers each tool’s stdout/stderr and prints one labeled block when that tool finishes so progress bars do not interleave. **`make test`** runs those five, then thread-safety / opengrep / **bandit** together, then pytest and LO tests (all type and SAST gates before tests). **`make release`** calls **`make test`** first, then the release bundle (see **`Makefile`**). |
 
 Static checking does **not** prove LibreOffice runtime behavior: UNO remains highly dynamic. The goal is consistent annotations, usable stubs, and fewer accidental mistakes in Python code.
 
@@ -51,7 +51,7 @@ Static checking does **not** prove LibreOffice runtime behavior: UNO remains hig
 
 ## Basedpyright vs `ty` and mypy (what differed in practice)
 
-All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plugin/`** scope (contrib, lib, and tests excluded). **`make typecheck`** runs **`ruff-for-build`**, then **`ty`**, **`mypy`**, **`basedpyright`**, and **`pyspector`** in parallel. **`make test`** runs **`typecheck`**, then tests. **`make release`** runs **`make test`** (same gate) before building the release **`.oxt`**. A full Basedpyright pass still finds **real issues and strictness gaps** that **`ty`** (and **`mypy`**) often did not report on the same codebase, or reported much less loudly.
+All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plugin/`** scope (contrib, lib, and tests excluded). **`make typecheck`** runs **`ruff-for-build`**, then **`ty`**, **`mypy`**, **`basedpyright`**, and **`pyspector`** in parallel. **`make test`** runs **`typecheck`**, then thread-safety / opengrep / bandit, then tests. **`make release`** runs **`make test`** (same gate) before building the release **`.oxt`**. A full Basedpyright pass still finds **real issues and strictness gaps** that **`ty`** (and **`mypy`**) often did not report on the same codebase, or reported much less loudly.
 
 ### Optional and `None` narrowing
 

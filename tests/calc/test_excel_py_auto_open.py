@@ -311,6 +311,39 @@ def test_doc_from_event_disposed_view_controller_falls_back_to_calc_source():
     assert _doc_from_event(_DisposedViewControllerEvent(source=source)) is source
 
 
+def test_onload_rewrites_collabora_py_via_execute_on_main_thread():
+    """OnLoadFinished must marshal maybe_rewrite_collabora_py_formulas(doc), not ctx."""
+    import plugin.calc.excel_py_convert.auto_open as mod
+    from plugin.calc.python.collabora_formula import maybe_rewrite_collabora_py_formulas
+
+    ctx = MagicMock()
+    smgr = MagicMock()
+    broadcaster = MagicMock()
+    ctx.getServiceManager.return_value = smgr
+    smgr.createInstanceWithContext.return_value = broadcaster
+    mod._doc_listener = None
+    install_excel_py_auto_convert(ctx)
+    listener = broadcaster.addDocumentEventListener.call_args[0][0]
+    doc = CalcDocStub()
+
+    class _LoadEvent:
+        EventName = "OnLoadFinished"
+        Source = doc
+
+    event = _LoadEvent()
+    with (
+        patch.object(mod, "maybe_convert_excel_py_document") as convert,
+        patch("plugin.framework.queue_executor.execute_on_main_thread") as marshal,
+        patch.object(mod.log, "warning") as warn,
+    ):
+        listener.on_document_event(event)
+        convert.assert_called_once()
+        marshal.assert_called_once()
+        assert marshal.call_args[0][0] is maybe_rewrite_collabora_py_formulas
+        assert marshal.call_args[0][1:] == (doc,)
+        warn.assert_not_called()
+
+
 def test_excel_py_listener_disposed_view_controller_does_not_warn():
     """Listener must not hit the outer warning path when ViewController is disposed."""
     import plugin.calc.excel_py_convert.auto_open as mod

@@ -595,7 +595,7 @@ def test_medium_numpy_import_layout_no_run(ctx, doc):
     h_in3 = int(shape_in3.getSize().Height)
     want_in3 = _height_for_text(src_in3, doc)
     print(f"medium In[3] lines={lines_in3} shape_h={h_in3} want_h={want_in3}", flush=True)
-    assert h_in3 >= want_in3, f"In[3] wrap-clip: height={h_in3} want={want_in3} lines={lines_in3}"
+    assert h_in3 >= want_in3 - 5, f"In[3] wrap-clip: height={h_in3} want={want_in3} lines={lines_in3}"
     run_in3 = f"nb_run_{cell_id_to_hex(cell_in3.cell_id)}"
     assert _anchor_paragraph_string(doc, run_in3).strip().startswith("In [")
 

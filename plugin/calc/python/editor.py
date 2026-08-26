@@ -47,7 +47,7 @@ from plugin.scripting.editor_host import (
     set_active_session,
 )
 from plugin.framework.config import get_config
-from plugin.scripting.editor_ipc import failure_message
+from plugin.scripting.editor_ipc import exception_traceback, failure_message
 
 log = logging.getLogger("writeragent.scripting")
 

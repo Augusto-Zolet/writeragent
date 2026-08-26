@@ -137,6 +137,12 @@ class _DaemonWorkPool:
 
     def shutdown(self, *, wait: bool = True, cancel_futures: bool = True) -> None:
         self._shutdown = True
+        # Drop the live pool prefix so tests (and diagnostics) do not count
+        # retiring workers as the new pool. Happened when a prior 8-worker
+        # pool's join timed out and a leftover ``wa-bg-3`` sat next to a
+        # 2-worker reset pool's ``wa-bg-0`` / ``wa-bg-1``.
+        for i, t in enumerate(self._threads):
+            t.name = f"wa-bg-retired-{i}"
         if cancel_futures:
             pending: list[tuple[Callable[[], None], Future[Any]]] = []
             while True:

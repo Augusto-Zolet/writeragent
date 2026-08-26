@@ -228,8 +228,13 @@ def install_excel_py_auto_convert(ctx: Any) -> None:
                             from plugin.calc.python.collabora_formula import (
                                 maybe_rewrite_collabora_py_formulas,
                             )
+                            from plugin.framework.queue_executor import execute_on_main_thread
 
-                            maybe_rewrite_collabora_py_formulas(doc)
+                            # First arg is the callable; passing ctx here made
+                            # execute_on_main_thread treat the UNO context as fn
+                            # (TypeError: 'pyuno' object is not callable on every
+                            # Calc OnLoadFinished, rewrite never ran).
+                            execute_on_main_thread(maybe_rewrite_collabora_py_formulas, doc)
                         except Exception:
                             log.warning(
                                 "collabora PY rewrite on open failed",

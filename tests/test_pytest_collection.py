@@ -95,6 +95,26 @@ def test_makefile_register_built_oxt_removes_librepy() -> None:
     assert librepy_at < writeragent_at < add_at
 
 
+def test_makefile_test_runs_static_gates_before_test_run() -> None:
+    text = _makefile_text()
+    block = re.search(
+        r"^test:\n(?:\t.*\n)+",
+        text,
+        re.MULTILINE,
+    )
+    assert block is not None, "missing Makefile test: target"
+    body = block.group(0)
+    assert "typecheck" in body
+    assert "thread-safety-lint" in body
+    assert "opengrep-lint" in body
+    assert "bandit" in body
+    assert "$(MAKE) test-run" in body
+    assert body.index("bandit") < body.index("$(MAKE) test-run")
+    # Bandit is not a second pass after tests.
+    after_run = body[body.index("$(MAKE) test-run") :]
+    assert "bandit" not in after_run
+
+
 def test_makefile_test_run_is_pytest_then_serial_testing_runner() -> None:
     text = _makefile_text()
     test_run = re.search(

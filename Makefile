@@ -773,13 +773,11 @@ excel-py-roundtrip:
 test:
 	@echo "=== make test: typecheck ==="
 	@$(MAKE) typecheck
-	@echo "=== make test: thread-safety + opengrep ==="
-	@$(MAKE) -j2 thread-safety-lint opengrep-lint
+	@echo "=== make test: thread-safety + opengrep + bandit ==="
+	@$(MAKE) -j3 thread-safety-lint opengrep-lint bandit
 	@echo "=== make test: pytest + LibreOffice ==="
 	@$(MAKE) test-run
 	@$(MAKE) excel-py-roundtrip
-	@echo "=== make test: bandit ==="
-	@$(MAKE) bandit
 
 CROSSHAIR_MODULE = plugin/scripting/payload_codec.py
 
