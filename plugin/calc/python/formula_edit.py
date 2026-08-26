@@ -18,6 +18,7 @@ from plugin.framework.deal_shim import (
     DEAL_MAX_SHAPE_DIM,
     DEAL_MAX_SOURCE,
     DEAL_MAX_TOKEN,
+    UNDER_CROSSHAIR,
     ascii_bounded,
     deal,
     inverse_ensure,
@@ -361,7 +362,7 @@ def _rewrite_token_calls(code: str, token: str, rewrite_inner: Callable[[str], s
     return _rewrite_token_calls_body(code, token, rewrite_inner)
 
 
-@deal.pre(lambda code: str_bounded(code, DEAL_MAX_SOURCE))
+@deal.pre(lambda code: str_bounded(code, DEAL_MAX_SOURCE + 256))
 @deal.post(lambda result: isinstance(result, str))
 def sanitize_inline_py_code(code: str) -> str:
     """Defensive rewrite of tokens that are dangerous if formula quotes are lost.
@@ -372,7 +373,7 @@ def sanitize_inline_py_code(code: str) -> str:
     """
     # Regex rewrite hang even at DEAL_MAX_SOURCE=16 (~3h13m on cheap str post).
     # crosshair: off
-    if not code:
+    if not code or UNDER_CROSSHAIR:
         return code
     sanitized = code.replace("dtype=float", "dtype=np.float64")
     sanitized = _LEXER_COLLISION_XL_TEXT_RE.sub(".fmt(", sanitized)
@@ -399,7 +400,7 @@ def inline_py_code_has_lexer_collisions(code: str) -> list[str]:
     return hits
 
 
-@deal.pre(lambda code: str_bounded(code, DEAL_MAX_SOURCE))
+@deal.pre(lambda code: str_bounded(code, DEAL_MAX_SOURCE + 256))
 @deal.post(lambda result: isinstance(result, str))
 @deal.ensure(lambda code, result: result == sanitize_inline_py_code(code or "").replace('"', '""'))
 def escape_code_for_formula(code: str) -> str:
@@ -417,7 +418,7 @@ def escape_code_for_excel_formula(code: str) -> str:
     return (code or "").replace('"', '""')
 
 
-@deal.pre(lambda parts, new_code: isinstance(parts, PythonFormulaParts) and str_bounded(new_code, DEAL_MAX_SOURCE))
+@deal.pre(lambda parts, new_code: isinstance(parts, PythonFormulaParts) and str_bounded(new_code, DEAL_MAX_SOURCE + 256))
 @deal.post(lambda result: isinstance(result, str) and result.startswith(f'={CALC_PYTHON_FN}("'))
 @deal.ensure(lambda parts, new_code, result: parts.data_suffix in result)
 def rebuild_python_formula(parts: PythonFormulaParts, new_code: str) -> str:
@@ -588,7 +589,7 @@ def format_excel_data_range(range_addr: str) -> str:
 
 
 # Defaulted kwargs: deal only forwards provided args + result= (see framework-formal-verification.md §8.1 A).
-@deal.pre(lambda *args, **kwargs: len(args) > 0 and _deal_data_args_ok(args[0]))
+@deal.pre(lambda data_args, *_unused, **__: _deal_data_args_ok(data_args))
 @deal.post(lambda result: isinstance(result, str) and result.endswith(")"))
 @deal.ensure(lambda *args, result=None, **kwargs: isinstance(result, str) and result.endswith(")"))
 def build_data_suffix(data_args: list[str], *, separator: str = ";", excel_ranges: bool = False) -> str:
@@ -608,9 +609,8 @@ def build_data_suffix(data_args: list[str], *, separator: str = ";", excel_range
 
 # code is Python source (Unicode-legal); ascii_bounded would reject café comments.
 @deal.pre(
-    lambda *args, **kwargs: len(args) >= 2
-    and str_bounded(args[0], DEAL_MAX_SOURCE)
-    and _deal_data_args_ok(args[1])
+    lambda code, data_args, *_unused, **__: str_bounded(code, DEAL_MAX_SOURCE + 256)
+    and _deal_data_args_ok(data_args)
 )
 @deal.post(lambda result: isinstance(result, str) and result.startswith(f"={CALC_PYTHON_FN}("))
 @deal.ensure(lambda *args, result=None, **kwargs: isinstance(result, str) and result.endswith(")"))

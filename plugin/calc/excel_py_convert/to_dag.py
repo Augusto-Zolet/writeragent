@@ -60,6 +60,7 @@ from plugin.framework.deal_shim import (
     DEAL_MAX_PLACEHOLDER_INDEX,
     DEAL_MAX_SOURCE,
     DEAL_MAX_XL_EXPR,
+    ascii_bounded,
     inverse_ensure,
     str_bounded,
     deal,
@@ -223,12 +224,15 @@ def _find_xl_calls(code: str) -> tuple[list[_XlCall], list[str]]:
     normalized = _normalize_excel_placeholders(src)
     try:
         tree = ast.parse(normalized)
-    except SyntaxError as exc:
+    except (SyntaxError, TypeError, MemoryError, RecursionError) as exc:
         # Fail closed — do not guess call sites with a hand-rolled scanner.
-        loc = f"line {exc.lineno}" if exc.lineno is not None else "unknown line"
-        if exc.offset is not None:
-            loc = f"{loc}:{exc.offset}"
-        issues.append(f"Python syntax error at {loc}: {exc.msg}")
+        msg = getattr(exc, "msg", str(exc))
+        lineno = getattr(exc, "lineno", None)
+        offset = getattr(exc, "offset", None)
+        loc = f"line {lineno}" if lineno is not None else "unknown line"
+        if offset is not None:
+            loc = f"{loc}:{offset}"
+        issues.append(f"Python syntax error at {loc}: {msg}")
         return [], issues
 
 
@@ -447,10 +451,12 @@ def _normalize_bindings(
 @deal.pre(
     lambda model, cell, *_unused, **__: isinstance(model.scripts, list)
     and len(model.scripts) <= DEAL_MAX_CMD_ARGS
+    and all(isinstance(s, str) and str_bounded(s, DEAL_MAX_SOURCE) for s in model.scripts)
     and type(cell.script_index) is int
-    and -1 <= cell.script_index <= len(model.scripts) + 1
+    and 0 <= cell.script_index < len(model.scripts)
     and isinstance(cell.deps, list)
     and len(cell.deps) <= DEAL_MAX_CMD_ARGS
+    and all(isinstance(d, str) and ascii_bounded(d, DEAL_MAX_SOURCE) for d in cell.deps)
 )
 def convert_cell_to_dag(
     model: ExcelWorkbookModel,
