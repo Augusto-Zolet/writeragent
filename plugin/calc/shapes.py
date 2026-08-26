@@ -20,20 +20,25 @@ _CALC_DRAW_SHAPE_DOCS = list(SHAPE_TOOL_UNO_SERVICES)
 class UpsertShape(DrawUpsertShape, ToolCalcShapeBase):
     name = "shape_upsert"
     uno_services = _CALC_DRAW_SHAPE_DOCS
+    doc_types = ["writer", "calc", "draw", "impress"]
     tier = "specialized"
 
 class DeleteShape(DrawDeleteShape, ToolCalcShapeBase):
     name = "shape_delete"
     uno_services = _CALC_DRAW_SHAPE_DOCS
+    doc_types = ["writer", "calc", "draw", "impress"]
 
 class GetDrawSummary(DrawGetDrawSummary, ToolCalcShapeBase):
     name = "shape_summary"
     uno_services = _CALC_DRAW_SHAPE_DOCS
+    doc_types = ["writer", "calc", "draw", "impress"]
 
 class ConnectShapes(DrawConnectShapes, ToolCalcShapeBase):
     name = "shape_connect"
     uno_services = _CALC_DRAW_SHAPE_DOCS
+    doc_types = ["writer", "calc", "draw", "impress"]
 
 class GroupShapes(DrawGroupShapes, ToolCalcShapeBase):
     name = "shape_group"
     uno_services = _CALC_DRAW_SHAPE_DOCS
+    doc_types = ["writer", "calc", "draw", "impress"]

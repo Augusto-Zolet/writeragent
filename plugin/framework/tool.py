@@ -636,11 +636,18 @@ class ToolRegistry:
             existing_tool = self._tools[tool.name]
             if type(existing_tool) is type(tool):
                 return
-            # Normal repeated imports during auto-discovery can re-register the
-            # same-named tool class from different module instances.
-            # Only warn when the *class name* differs to avoid noise.
-            if type(existing_tool).__name__ != type(tool).__name__:
-                log.warning("Tool '%s' already registered (class %s), replacing with class %s", tool.name, type(existing_tool).__name__, type(tool).__name__)
+            # Same class object (re-import of the same module): skip silently.
+            # Same __name__ from a *different* module is last-wins (Writer/Calc/Draw
+            # wrappers for shape_upsert / manage_charts) — log so registration order is visible.
+            if type(existing_tool).__name__ != type(tool).__name__ or type(existing_tool).__module__ != type(tool).__module__:
+                log.warning(
+                    "Tool '%s' already registered (class %s from %s), replacing with class %s from %s",
+                    tool.name,
+                    type(existing_tool).__name__,
+                    type(existing_tool).__module__,
+                    type(tool).__name__,
+                    type(tool).__module__,
+                )
         self._tools[tool.name] = tool
 
     def register_many(self, tools: list[ToolBase]):

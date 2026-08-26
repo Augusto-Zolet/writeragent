@@ -491,9 +491,11 @@ The current `create_shape` implementation handles both cases with conditional lo
 ### 8.3 Bridge Pattern
 
 The `DrawBridge` class (`plugin/draw/bridge.py`) provides a unified interface for:
-- Page/slide management
+- Page/slide management (Draw/Impress `getDrawPages`)
 - Shape creation
 - Document navigation
+
+For **shape tools**, the same bridge also wraps Writer `getDrawPage()` and the active Calc sheet `getDrawPage()` as a one-page collection. Slide insert/delete/duplicate still require a real Draw/Impress `XDrawPages`.
 
 This pattern could be extended to other domains.
 

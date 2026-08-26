@@ -273,6 +273,21 @@ class TestRegister:
         assert reg.get("fake_tool") is not None
         assert reg.get("missing") is None
 
+    def test_register_warns_same_class_name_different_module(self, caplog):
+        def _exec(self, ctx, **kwargs):
+            return {"status": "ok"}
+
+        DrawCls = type("UpsertShape", (ToolBase,), {"name": "shape_upsert", "description": "draw", "execute": _exec})
+        DrawCls.__module__ = "plugin.draw.shapes"
+        WriterCls = type("UpsertShape", (ToolBase,), {"name": "shape_upsert", "description": "writer", "execute": _exec})
+        WriterCls.__module__ = "plugin.writer.specialized.shapes"
+        reg = ToolRegistry(ServiceRegistry())
+        with caplog.at_level("WARNING"):
+            reg.register(DrawCls())
+            reg.register(WriterCls())
+        assert any("plugin.draw.shapes" in r.message and "plugin.writer.specialized.shapes" in r.message for r in caplog.records)
+        assert reg.get("shape_upsert").description == "writer"
+
     def test_tool_names(self):
         reg = _make_registry(FakeTool(), AllDocTool())
         assert set(reg.tool_names) == {"fake_tool", "universal_tool"}

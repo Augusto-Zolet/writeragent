@@ -141,3 +141,32 @@ def test_manage_charts_error_handling():
         assert "not found" in res_edit_nf["message"]
 
 
+def test_manage_charts_schema_impress_strips_calc_fields():
+    from plugin.calc.charts import ManageCharts
+
+    mc = ManageCharts()
+    impress = mc.get_parameters("impress")["properties"]
+    assert "data_range" not in impress
+    assert "sheet" not in impress
+    assert "has_header" not in impress
+    assert "headers" in impress
+    calc = mc.get_parameters("calc")["properties"]
+    assert "data_range" in calc
+    assert "headers" not in calc
+    assert "rows" not in calc
+
+
+def test_manage_charts_validate_create_requires_data_or_arrays():
+    from plugin.calc.charts import ManageCharts
+
+    mc = ManageCharts()
+    ok, err = mc.validate(doc_type="writer", action="create", chart_type="column")
+    assert ok is False
+    assert "headers" in err
+    ok, err = mc.validate(doc_type="calc", action="create", chart_type="column")
+    assert ok is False
+    assert "data_range" in err
+    ok, err = mc.validate(doc_type="writer", action="create", chart_type="column", headers=["A"], rows=[["x", 1]])
+    assert ok is True
+
+

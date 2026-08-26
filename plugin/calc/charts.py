@@ -138,6 +138,17 @@ def _chart_document_from_host(host: Any):
     return None
 
 
+def _strip_chart_schema_for_doc_type(properties: dict[str, Any], doc_type: str | None) -> None:
+    """Drop fields that are invalid for *doc_type* (in-place)."""
+    if doc_type == "calc":
+        properties.pop("headers", None)
+        properties.pop("rows", None)
+    elif doc_type in ("writer", "draw", "impress"):
+        properties.pop("data_range", None)
+        properties.pop("sheet", None)
+        properties.pop("has_header", None)
+
+
 CHART_SERVICE_MAP = {
     "bar": "com.sun.star.chart.BarDiagram",
     "column": "com.sun.star.chart.BarDiagram",
@@ -655,11 +666,7 @@ class UpsertChart(ToolBaseDummy):
         if not params or "properties" not in params:
             return params
         properties = cast("dict[str, Any]", params["properties"])
-        if doc_type == "calc":
-            properties.pop("headers", None)
-            properties.pop("rows", None)
-        elif doc_type in ("writer", "draw"):
-            properties.pop("data_range", None)
+        _strip_chart_schema_for_doc_type(properties, doc_type)
         return params
 
     def validate(self, *, doc_type: str | None = None, **kwargs) -> tuple[Literal[False], str] | tuple[Literal[True], None]:
@@ -1195,12 +1202,14 @@ class ManageCharts(ToolCalcChartBase):
         if not params or "properties" not in params:
             return params
         properties = cast("dict[str, Any]", params["properties"])
-        if doc_type == "calc":
-            properties.pop("headers", None)
-            properties.pop("rows", None)
-        elif doc_type in ("writer", "draw"):
-            properties.pop("data_range", None)
+        _strip_chart_schema_for_doc_type(properties, doc_type)
         return params
+
+    def validate(self, *, doc_type: str | None = None, **kwargs) -> tuple[Literal[False], str] | tuple[Literal[True], None]:
+        ok, err = super().validate(doc_type=doc_type, **kwargs)
+        if not ok:
+            return False, err or "invalid parameters"
+        return UpsertChart().validate(doc_type=doc_type, **kwargs)
 
     def execute(self, ctx, **kwargs) -> dict[str, Any]:
         action = kwargs.get("action")

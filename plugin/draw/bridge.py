@@ -16,7 +16,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """In-process UNO bridge for LibreOffice Draw."""
 
+from __future__ import annotations
+
 import logging
+from typing import Any
 
 from plugin.doc import text_helpers as _text_helpers
 from plugin.framework.errors import UnoObjectError, check_disposed, safe_call
@@ -25,14 +28,55 @@ from plugin.framework.thread_guard import main_thread_only
 log = logging.getLogger(__name__)
 
 
+class _SingleDrawPageContainer:
+    """Writer/Calc expose one ``XDrawPage``, not ``XDrawPages``. Shape tools still use getCount/getByIndex."""
+
+    def __init__(self, page):
+        self._page = page
+
+    def getCount(self):
+        return 1
+
+    def getByIndex(self, index):
+        if index != 0:
+            raise IndexError("Page index %s out of range." % index)
+        return self._page
+
+
+def _draw_page_container(doc):
+    """Return an ``XDrawPages``-like object, or None if *doc* has no draw page."""
+    if hasattr(doc, "getDrawPages"):
+        return doc.getDrawPages()
+    if hasattr(doc, "getDrawPage"):
+        try:
+            page = doc.getDrawPage()
+        except Exception:
+            page = None
+        if page is not None:
+            return _SingleDrawPageContainer(page)
+    if hasattr(doc, "getSheets"):
+        try:
+            from plugin.calc.bridge import CalcBridge
+
+            sheet = CalcBridge(doc).get_active_sheet()
+            page = sheet.getDrawPage() if sheet is not None and hasattr(sheet, "getDrawPage") else None
+        except Exception:
+            page = None
+        if page is not None:
+            return _SingleDrawPageContainer(page)
+    return None
+
+
 class DrawBridge:
     def __init__(self, doc):
         self.doc = doc
-        if not hasattr(doc, "getDrawPages"):
-            raise RuntimeError("Provided document is not a Draw/Impress document.")
+        pages = _draw_page_container(doc)
+        if pages is None:
+            raise RuntimeError("Provided document has no draw page (Draw/Impress, Writer, or Calc).")
+        self._pages: Any = pages
 
     def get_pages(self):
-        return self.doc.getDrawPages()
+        return self._pages
 
     def get_active_page(self):
         controller = self.doc.getCurrentController()
