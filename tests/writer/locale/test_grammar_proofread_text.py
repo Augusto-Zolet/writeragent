@@ -540,6 +540,44 @@ def test_filter_sentence_spans_for_thresholds() -> None:
     assert filtered[2][2] == "This is an incomplete but very long fragment"
 
 
+def test_active_spans_from_paragraph_n_start_zero_keeps_all() -> None:
+    """Paragraph-scale pass ignores suggested end (do not naive-overlap)."""
+    text = "Sentence one. Sentence two. Sentence three."
+    ctx = None
+    loc = "en-US"
+    paragraph = gt.filter_sentence_spans_for_thresholds(
+        gt.candidate_sentence_spans_for_proofreading(ctx, loc, text, 0, len(text))
+    )
+    assert len(paragraph) == 3
+    active = gt.active_spans_from_paragraph(paragraph, text, 0, 10)
+    assert active == list(paragraph)
+
+
+def test_filter_sentence_spans_for_overlap_matches_incremental_candidate() -> None:
+    text = "Sentence one. Sentence two. Sentence three."
+    ctx = None
+    loc = "en-US"
+    paragraph = gt.candidate_sentence_spans_for_proofreading(ctx, loc, text, 0, len(text))
+    nlen = len(text)
+    for n_start, n_end in ((15, 20), (10, 15), (-5, 5), (100, 110)):
+        expected = gt.candidate_sentence_spans_for_proofreading(ctx, loc, text, n_start, n_end)
+        got = gt.filter_sentence_spans_for_overlap(paragraph, n_start, n_end, nlen)
+        assert got == expected
+
+
+def test_active_spans_overlap_after_threshold_drops_short_fragments() -> None:
+    spans = [
+        (0, 14, "Sentence one. "),
+        (14, 24, "The quick"),  # incomplete + short → dropped by threshold
+        (24, 40, "Sentence three."),
+    ]
+    filtered = gt.filter_sentence_spans_for_thresholds(spans)
+    assert [t for _s, _e, t in filtered] == ["Sentence one. ", "Sentence three."]
+    text = "x" * 40
+    active = gt.active_spans_from_paragraph(filtered, text, 14, 30)
+    assert [t for _s, _e, t in active] == ["Sentence three."]
+
+
 def test_merge_dialogue_basic() -> None:
     sents = [(0, '"Fire! '), (7, 'Fire!" he yelled.')]
     merged = gt.merge_dialogue_sentences(sents)

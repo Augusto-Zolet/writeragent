@@ -227,9 +227,36 @@ def candidate_sentence_spans_for_proofreading(
     # Incremental mode (n_start_lo != 0): only sentences overlapping [n_start_lo, n_suggested_behind_end).
     if n_start_lo == 0:
         return spans
-    lo = max(0, min(n_start_lo, nlen))
-    hi = max(lo, min(n_suggested_behind_end, nlen))
+    return filter_sentence_spans_for_overlap(spans, n_start_lo, n_suggested_behind_end, nlen)
+
+
+def filter_sentence_spans_for_overlap(
+    spans: Sequence[tuple[int, int, str]],
+    n_start: int,
+    n_suggested_end: int,
+    nlen: int,
+) -> list[tuple[int, int, str]]:
+    """Keep spans whose ``[start, end)`` overlaps the clamped active window."""
+    lo = max(0, min(n_start, nlen))
+    hi = max(lo, min(n_suggested_end, nlen))
     return [(s, e, t) for s, e, t in spans if span_overlaps_range(s, e, lo, hi)]
+
+
+def active_spans_from_paragraph(
+    paragraph_spans: Sequence[tuple[int, int, str]],
+    a_text: str,
+    n_start: int,
+    n_suggested_end: int,
+) -> list[tuple[int, int, str]]:
+    """Active-window sentences from an already-split paragraph.
+
+    ``n_start == 0`` is a paragraph-scale pass: return every span and ignore
+    the suggested end (LibreOffice's end hint is not a clip). Incremental
+    calls (``n_start != 0``) keep only spans overlapping the active range.
+    """
+    if n_start == 0:
+        return list(paragraph_spans)
+    return filter_sentence_spans_for_overlap(paragraph_spans, n_start, n_suggested_end, len(a_text))
 
 
 def filter_sentence_spans_for_thresholds(spans: Sequence[tuple[int, int, str]]) -> list[tuple[int, int, str]]:

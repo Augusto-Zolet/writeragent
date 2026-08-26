@@ -290,17 +290,19 @@ class GrammarWorkQueue:
 
     def _ensure_workers(self, ctx: Any) -> None:
         desired = grammar_proofread_locale.grammar_max_in_flight(ctx)
-        with self._lock:
-            while self._worker_count < desired:
+        while True:
+            with self._lock:
+                if self._worker_count >= desired:
+                    return
                 i = self._worker_count
-                if i > 0:
-                    # Stagger extra drain threads (same 50 ms pacing as LlmClient HTTP sends).
-                    from plugin.framework.client.request_controls import LLM_MIN_REQUEST_INTERVAL_SEC
-
-                    time.sleep(LLM_MIN_REQUEST_INTERVAL_SEC)
                 self._worker_count += 1
-                t = threading.Thread(target=self._drain_loop, name=f"writeragent-grammar-queue-{i}", daemon=True)
-                t.start()
+            if i > 0:
+                # Stagger extra drain threads; do not hold _lock across sleep.
+                from plugin.framework.client.request_controls import LLM_MIN_REQUEST_INTERVAL_SEC
+
+                time.sleep(LLM_MIN_REQUEST_INTERVAL_SEC)
+            t = threading.Thread(target=self._drain_loop, name=f"writeragent-grammar-queue-{i}", daemon=True)
+            t.start()
 
     def _drain_loop(self) -> None:
         """Block-dequeue, batch-drain pending items, deduplicate, process one batch.

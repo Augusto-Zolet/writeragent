@@ -443,6 +443,19 @@ class TestTypingIntegration:
         assert len(enqueued_items) == 1
         assert enqueued_items[0].text == s2
 
+    def test_do_proofreading_splits_paragraph_once(
+        self, mock_config_fixture, mock_locale_fixture, mock_queue_fixture
+    ) -> None:
+        pr = _make_proofreader()
+        paragraph = "Sentence one. Sentence two. Sentence three."
+        with patch.object(
+            proofreader,
+            "candidate_sentence_spans_for_proofreading",
+            wraps=proofreader.candidate_sentence_spans_for_proofreading,
+        ) as mock_split:
+            pr.doProofreading("test-doc", paragraph, mock_locale_fixture, 0, 10, ())
+        assert mock_split.call_count == 1
+
     def test_do_proofreading_exception_returns_empty_result(
         self, mock_config_fixture, mock_locale_fixture, mock_queue_fixture
     ) -> None:

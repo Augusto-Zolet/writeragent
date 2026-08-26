@@ -35,6 +35,21 @@ def bare_code_for_persistence(rule_identifier: str, prefix: str) -> str:
     return parse_prefixed_rule_identifier(rule_identifier, prefix) or rule_identifier
 
 
+def canonical_rule_keys(rule_identifier: str) -> tuple[str, ...]:
+    """Document-set keys for ``rule_identifier`` (prompt filter + persistence).
+
+    Session-global ignore still stores the full prefixed id. Membership tests
+    both this tuple against the doc set and the raw id against the global set.
+    """
+    if rule_identifier.startswith(WA_G_RULE_PREFIX):
+        return (normalize_reason(rule_identifier[len(WA_G_RULE_PREFIX) :]),)
+    for prefix in STABLE_RULE_PREFIXES:
+        code = parse_prefixed_rule_identifier(rule_identifier, prefix)
+        if code is not None:
+            return (code,)
+    return (normalize_reason(rule_identifier),)
+
+
 def is_prefixed_rule_ignored(rule_identifier: str, prefix: str, doc_ignored: set[str], global_ignored: set[str]) -> bool:
     """Match ignore lists for stable prefixed rule ids (bare code in doc; full id in session global)."""
     code = parse_prefixed_rule_identifier(rule_identifier, prefix)
@@ -45,13 +60,11 @@ def is_prefixed_rule_ignored(rule_identifier: str, prefix: str, doc_ignored: set
 
 def is_rule_ignored(rule_identifier: str, doc_ignored: set[str], global_ignored: set[str]) -> bool:
     """Return True when ``rule_identifier`` matches document or global ignore lists."""
-    if rule_identifier.startswith(WA_G_RULE_PREFIX):
-        norm_reason = normalize_reason(rule_identifier[len(WA_G_RULE_PREFIX) :])
-        return norm_reason in doc_ignored or rule_identifier in global_ignored
-    for prefix in STABLE_RULE_PREFIXES:
-        if is_prefixed_rule_ignored(rule_identifier, prefix, doc_ignored, global_ignored):
-            return True
-    return rule_identifier in doc_ignored or rule_identifier in global_ignored
+    if rule_identifier in global_ignored:
+        return True
+    if rule_identifier in doc_ignored:
+        return True
+    return any(key in doc_ignored or key in global_ignored for key in canonical_rule_keys(rule_identifier))
 
 
 def doc_ignored_rules(ctx: Any, doc_id: str) -> set[str]:
@@ -66,20 +79,8 @@ def collect_ignored_reasons(ctx: Any, doc_id: str) -> set[str]:
     """Document + global ignored grammar rules, normalized for prompt-side filtering.
 
     Not the same as ``is_rule_ignored`` (membership test vs set of canonical keys).
-    Future (plan C10): one ``rule_id → canonical keys`` helper shared by both.
     """
     ignored_reasons = doc_ignored_rules(ctx, doc_id)
     for rule_id in ignored_rules_snapshot():
-        if rule_id.startswith(WA_G_RULE_PREFIX):
-            ignored_reasons.add(normalize_reason(rule_id[len(WA_G_RULE_PREFIX) :]))
-            continue
-        bare_code = None
-        for prefix in STABLE_RULE_PREFIXES:
-            if rule_id.startswith(prefix):
-                bare_code = parse_prefixed_rule_identifier(rule_id, prefix)
-                break
-        if bare_code:
-            ignored_reasons.add(bare_code)
-        else:
-            ignored_reasons.add(normalize_reason(rule_id))
+        ignored_reasons.update(canonical_rule_keys(rule_id))
     return ignored_reasons

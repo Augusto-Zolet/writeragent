@@ -72,6 +72,7 @@ from plugin.writer.locale.grammar_proofread_locale import (
 )
 from plugin.writer.locale.grammar_proofread_text import (
     NormalizedProofError,
+    active_spans_from_paragraph,
     calculate_covered_span_end,
     candidate_sentence_spans_for_proofreading,
     filter_sentence_spans_for_thresholds,
@@ -124,29 +125,11 @@ def _ignore_rule_on_main(ctx: Any, doc_id: str | None, rule_identifier: str) -> 
     p = get_persistence(ctx, doc_id) if doc_id else None
     if not p:
         return
-    from .grammar_ignore_rules import (
-        STABLE_RULE_PREFIXES,
-        WA_G_RULE_PREFIX,
-        bare_code_for_persistence,
-    )
-    from .grammar_proofread_locale import normalize_reason
+    from .grammar_ignore_rules import canonical_rule_keys
 
-    if rule_identifier.startswith(WA_G_RULE_PREFIX):
-        reason = rule_identifier[len(WA_G_RULE_PREFIX) :]
-        norm_reason = normalize_reason(reason)
-        _add_doc_ignored_rule(p, norm_reason)
-        log.debug("[grammar] ignoreRule added: '%s' (normalized: '%s') to doc_id=%s", reason, norm_reason, doc_id)
-        return
-
-    for prefix in STABLE_RULE_PREFIXES:
-        if rule_identifier.startswith(prefix):
-            stored = bare_code_for_persistence(rule_identifier, prefix)
-            _add_doc_ignored_rule(p, stored)
-            log.debug("[grammar] ignoreRule added stable rule: '%s' to doc_id=%s", stored, doc_id)
-            return
-
-    norm_reason = normalize_reason(rule_identifier)
-    _add_doc_ignored_rule(p, norm_reason)
+    stored = canonical_rule_keys(rule_identifier)[0]
+    _add_doc_ignored_rule(p, stored)
+    log.debug("[grammar] ignoreRule added: '%s' (stored: '%s') to doc_id=%s", rule_identifier, stored, doc_id)
 
 
 def _reset_ignore_rules_on_main(ctx: Any, doc_id: str | None) -> None:
@@ -463,12 +446,31 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
         grammar_obs("do_proofreading_entry", doc_id=a_doc_id, len_aText=len(a_text), n_start_lo=n_start, n_suggested_behind_end=n_suggested_end, grammar_bcp47=grammar_bcp47, locale_raw=loc_raw, text_preview=slice_preview_debug(a_text))
         return grammar_bcp47
 
-    def _resolve_work_spans(self, a_doc_id: str, loc_key: str, a_text: str, n_start: int, n_suggested_end: int) -> list[tuple[int, int, str]]:
-        """Find and filter sentence spans to check."""
-        raw_spans = candidate_sentence_spans_for_proofreading(self.ctx, loc_key, a_text, n_start, n_suggested_end)
-        work_spans = filter_sentence_spans_for_thresholds(raw_spans)
+    def _resolve_work_spans(
+        self,
+        a_doc_id: str,
+        loc_key: str,
+        a_text: str,
+        n_start: int,
+        n_suggested_end: int,
+        paragraph_spans: list[tuple[int, int, str]],
+    ) -> list[tuple[int, int, str]]:
+        """Active-window spans from the already-split, threshold-filtered paragraph.
+
+        One BreakIterator pass happens in ``doProofreading``; this only overlap-filters
+        (or returns all spans when ``n_start == 0``). ``raw_candidates`` is the
+        post-threshold paragraph count.
+        """
+        work_spans = active_spans_from_paragraph(paragraph_spans, a_text, n_start, n_suggested_end)
         if not work_spans:
-            grammar_obs("do_proofreading_skip", reason="no_eligible_sentences_or_incomplete_short", doc_id=a_doc_id, n_start_lo=n_start, raw_candidates=len(raw_spans), grammar_bcp47=loc_key)
+            grammar_obs(
+                "do_proofreading_skip",
+                reason="no_eligible_sentences_or_incomplete_short",
+                doc_id=a_doc_id,
+                n_start_lo=n_start,
+                raw_candidates=len(paragraph_spans),
+                grammar_bcp47=loc_key,
+            )
             return []
         return work_spans
 
@@ -520,14 +522,19 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             if not loc_key:
                 return a_res
 
-            # 1. Resolve all sentences in the paragraph to check the cache for any existing errors
+            # 1. One BreakIterator + dialogue-merge pass for the whole paragraph.
             paragraph_spans = candidate_sentence_spans_for_proofreading(self.ctx, loc_key, aText, 0, len(aText))
             paragraph_spans = filter_sentence_spans_for_thresholds(paragraph_spans)
 
-            # 2. Active window (LibreOffice's current request). This re-runs BreakIterator +
-            # dialogue merge. Future (plan C9): derive active_spans by overlap-filtering
-            # paragraph_spans instead — only if n_start/n_end does not apply extra filters.
-            active_spans = self._resolve_work_spans(aDocumentIdentifier, loc_key, aText, nStartOfSentencePosition, nSuggestedBehindEndOfSentencePosition)
+            # 2. Active window: overlap-filter those spans (n_start==0 keeps all).
+            active_spans = self._resolve_work_spans(
+                aDocumentIdentifier,
+                loc_key,
+                aText,
+                nStartOfSentencePosition,
+                nSuggestedBehindEndOfSentencePosition,
+                paragraph_spans,
+            )
             if not active_spans:
                 grammar_obs(
                     "do_proofreading_result_window",

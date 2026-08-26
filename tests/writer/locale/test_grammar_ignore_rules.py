@@ -13,6 +13,7 @@ from plugin.writer.locale.grammar_ignore_rules import (
     LANGUAGETOOL_RULE_PREFIX,
     STABLE_RULE_PREFIXES,
     WA_G_RULE_PREFIX,
+    canonical_rule_keys,
     collect_ignored_reasons,
     doc_ignored_rules,
     is_rule_ignored,
@@ -40,6 +41,14 @@ class TestGrammarIgnoreRules(unittest.TestCase):
 
     def test_is_rule_ignored_legacy_doc_match(self) -> None:
         self.assertTrue(is_rule_ignored("legacy-rule-id", {"legacy-rule-id"}, set()))
+
+    def test_is_rule_ignored_bare_id_matches_normalized_doc_key(self) -> None:
+        """Ignore stores normalize_reason(bare); membership must use the same key."""
+        raw = "Legacy Bare Rule!"
+        stored = canonical_rule_keys(raw)[0]
+        self.assertEqual(stored, normalize_reason(raw))
+        self.assertTrue(is_rule_ignored(raw, {stored}, set()))
+        self.assertFalse(is_rule_ignored(raw, {"unrelated"}, set()))
 
     def test_is_rule_ignored_not_ignored(self) -> None:
         rule = f"{WA_G_RULE_PREFIX}Use 'an' instead of 'a'."
@@ -77,6 +86,18 @@ class TestGrammarIgnoreRules(unittest.TestCase):
             reasons = collect_ignored_reasons(ctx, "doc-x")
         self.assertIn("SpellCheck", reasons)
         self.assertNotIn("harper spellcheck", reasons)
+
+    def test_collect_ignored_reasons_bare_global_uses_normalized_key(self) -> None:
+        ctx = MagicMock()
+        dp = MagicMock()
+        dp._ignored_rules = set()
+        raw = "Legacy Bare Rule!"
+        with (
+            patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=dp),
+            patch("plugin.writer.locale.grammar_ignore_rules.ignored_rules_snapshot", return_value={raw}),
+        ):
+            reasons = collect_ignored_reasons(ctx, "doc-x")
+        self.assertIn(normalize_reason(raw), reasons)
 
     def test_doc_ignored_rules_empty_when_no_persistence(self) -> None:
         with patch("plugin.writer.locale.grammar_persistence.get_persistence", return_value=None):
@@ -175,6 +196,11 @@ class TestGrammarIgnoreRules(unittest.TestCase):
 
             pr.resetIgnoreRules()
             self.assertEqual(len(dp._ignored_rules), 0)
+
+            pr.ignoreRule("Legacy Bare Rule!", None)
+            stored = canonical_rule_keys("Legacy Bare Rule!")[0]
+            self.assertIn(stored, dp._ignored_rules)
+            self.assertTrue(is_rule_ignored("Legacy Bare Rule!", dp._ignored_rules, set()))
 
 
 @pytest.mark.parametrize("prefix,ignored_code,other_code", _STABLE_PREFIX_CASES)

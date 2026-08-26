@@ -381,9 +381,12 @@ def test_ensure_workers_spawns_up_to_config() -> None:
         mock_t.start = MagicMock()
         return mock_t
 
+    def sleep_unlocked(_sec: float) -> None:
+        assert not q._lock.locked()
+
     with patch("plugin.writer.locale.grammar_proofread_locale.grammar_max_in_flight", return_value=3), \
          patch("plugin.writer.locale.grammar_work_queue.threading.Thread", side_effect=track_thread), \
-         patch("plugin.writer.locale.grammar_work_queue.time.sleep") as sleep_mock:
+         patch("plugin.writer.locale.grammar_work_queue.time.sleep", side_effect=sleep_unlocked) as sleep_mock:
         q._ensure_workers(ctx)
     assert sleep_mock.call_count == 2
     assert q._worker_count == 3

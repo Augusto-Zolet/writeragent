@@ -783,14 +783,15 @@ def _worker_build_chunks(
         locales_in_use = _get_cached_document_locales(ctx, valid_items[0][0].doc_id)
         detect_lang_instruction = f" Choose from the following locales currently used in the document, or provide a new one if none match: {', '.join(locales_in_use)}."
 
+    truncated: list[tuple[GrammarWorkItem, str]] = [
+        (item, text[:max_chars] if len(text) > max_chars else text) for item, text in valid_items
+    ]
     chunks: list[list[tuple[GrammarWorkItem, str]]] = []
-    if len(valid_items) > 1 and batch_size > 1:
-        for i in range(0, len(valid_items), batch_size):
-            chunks.append(valid_items[i : i + batch_size])
+    if len(truncated) > 1 and batch_size > 1:
+        for i in range(0, len(truncated), batch_size):
+            chunks.append(truncated[i : i + batch_size])
     else:
-        for item, text in valid_items:
-            if len(text) > max_chars:
-                text = text[:max_chars]
+        for item, text in truncated:
             chunks.append([(item, text)])
     return chunks, detect_lang_instruction
 

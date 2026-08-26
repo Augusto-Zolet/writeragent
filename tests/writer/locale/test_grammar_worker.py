@@ -12,6 +12,7 @@ from unittest.mock import ANY, MagicMock, patch
 from plugin.writer.locale.grammar_worker import (
     GrammarWorkerContext,
     LangRequeueAction,
+    _worker_build_chunks,
     build_grammar_system_prompt,
     call_grammar_llm,
     decide_grammar_completion,
@@ -57,6 +58,48 @@ def _ec(client: MagicMock | None = None, *, detect_lang_mode: str = "llm") -> Ma
     ec.detect_lang_mode = detect_lang_mode
     ec.grammar_bcp47 = "en-US"
     return ec
+
+
+def test_worker_build_chunks_truncates_batch_and_single() -> None:
+    long_a = "A" * 100
+    long_b = "B" * 80
+    batch_items = [
+        (_item(long_a, seq=1, inflight_key="a"), long_a),
+        (_item(long_b, seq=2, inflight_key="b"), long_b),
+    ]
+    chunks, _instr = _worker_build_chunks(
+        batch_items, MagicMock(), batch_size=8, max_chars=10, detect_lang_enabled=False
+    )
+    assert len(chunks) == 1 and len(chunks[0]) == 2
+    assert chunks[0][0][1] == "A" * 10
+    assert chunks[0][1][1] == "B" * 10
+
+    single_chunks, _instr = _worker_build_chunks(
+        [(_item(long_a), long_a)], MagicMock(), batch_size=8, max_chars=10, detect_lang_enabled=False
+    )
+    assert len(single_chunks) == 1
+    assert single_chunks[0][0][1] == "A" * 10
+
+    short = "Hi."
+    short_chunks, _instr = _worker_build_chunks(
+        [(_item(short), short), (_item("Bye.", inflight_key="k2"), "Bye.")],
+        MagicMock(),
+        batch_size=8,
+        max_chars=50,
+        detect_lang_enabled=False,
+    )
+    assert short_chunks[0][0][1] == "Hi."
+    assert short_chunks[0][1][1] == "Bye."
+
+
+def test_worker_build_chunks_detect_prefilter_before_truncate() -> None:
+    long_partial = "x" * 100
+    items = [(_item(long_partial, partial_sentence=True), long_partial)]
+    chunks, instr = _worker_build_chunks(
+        items, MagicMock(), batch_size=8, max_chars=10, detect_lang_enabled=True
+    )
+    assert chunks == []
+    assert instr == ""
 
 
 def test_build_grammar_system_prompt_batch_vs_single() -> None:
