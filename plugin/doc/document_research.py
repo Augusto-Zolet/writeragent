@@ -145,7 +145,7 @@ def filter_document_research_discovery_tools(tools: list[ToolBase], ctx) -> list
     """Hide cross-file search tools that do not apply to the current folder_search_mode; list/delegate always kept."""
     from plugin.framework.constants import folder_search_enabled
 
-    hidden: set[str] = {"search_embeddings"}
+    hidden: set[str] = set()
     if folder_search_enabled():
         hidden.add("grep_nearby_files")
     else:

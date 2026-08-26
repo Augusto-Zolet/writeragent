@@ -497,7 +497,7 @@ Smells worth remembering, with **designs we are not doing**. Smaller follow-ups 
 |---|---|---|
 | `ConfigService._config_path` ifs in get/set/remove | `ConfigBackingStore` interface | tiny file-read/write helpers |
 | `MODULES is _DEFAULT_MODULES` dual dotted-key paths | delete the loop path without a dedicated test pass | rebuild dicts only in `set_manifest_modules` later |
-| `ToolBaseDummy` copies `get_collection` / `get_item` | mixin / second ABC | drop those methods if Dummy never uses them |
+| `ToolBaseDummy` copies `get_collection` / `get_item` | mixin / second ABC | **done:** Dummy no longer copies those helpers (`_tool_error` stays) |
 | `SafeLogger` vs `safe_log_exception` vs `log_exception` | merge into one wrapper | leave; fallbacks differ |
 | `to_mcp_schema` name switches | `postprocess_mcp_schema` on every tool | move only `write_formula_range`/`values`; keep generic `range` string\|array in the converter |
 | `ToolContext` many constructor fields | frozen dataclass + `ToolCallbacks` | keyword-only `__init__` if caller churn is acceptable |
