@@ -59,10 +59,9 @@ _VENV_COMMON_BLOCKED: tuple[str, ...] = (
 )
 
 PYTHON_VENV_SANDBOX_CONTEXT_PREFIX = (
-    "PYTHON VENV SANDBOX: You are running in a powerful Python sandbox with access to many "
-    "scientific and stdlib modules (NumPy, pandas, SciPy, and "
-    "more). This sandbox has no networking, no filesystem or process escape, and no direct document "
-    "access. Pass inputs via data/data_range; assign outputs (any type: string, list, NumPy array, "
+    "PYTHON VENV SANDBOX: You are running in a Python sandbox (AST import whitelist) inside a "
+    "same-user venv subprocess — not a second OS account, and not LibreOffice/UNO. "
+    "Pass inputs via data/data_range; assign outputs (any type: string, list, NumPy array, "
     "or dictionary with structured keys) to the 'result' variable. Prefer NumPy arrays in 'result' for faster serialization. "
     "Note: While the sandboxed venv has NumPy/Pandas, the LibreOffice host environment does not. "
     "Therefore, the specialized_workflow_finished tool API only accepts basic Python types (strings, lists, numbers, dicts)."
@@ -70,8 +69,7 @@ PYTHON_VENV_SANDBOX_CONTEXT_PREFIX = (
 
 INPROCESS_SANDBOX_CONTEXT_PREFIX = (
     "PYTHON IN-PROCESS SANDBOX: You are running in LibreOffice's embedded stdlib-only Python sandbox "
-    "(not the user venv). This sandbox has no NumPy/pandas and no networking or host escape. "
-    "Helpers lp/set_range read and write sheet cells."
+    "(not the user venv). Helpers lp/set_range read and write sheet cells; imports are stdlib-only."
 )
 
 

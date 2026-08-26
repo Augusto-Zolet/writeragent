@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import io
 import os
+import pickle
 import subprocess
 from unittest.mock import MagicMock
 
@@ -24,6 +25,23 @@ from plugin.scripting.ipc import (
     write_json_line,
     write_pickle_frame,
 )
+
+
+def test_pickle_frame_roundtrip_with_bytes():
+    buf = io.BytesIO()
+    write_pickle_frame(buf, {"status": "ok", "buffer": b"\x00\x01split"})
+    buf.seek(0)
+    assert read_pickle_frame(buf, require_dict=True) == {"status": "ok", "buffer": b"\x00\x01split"}
+
+
+def test_unpack_rejects_reduce_gadget():
+    class Boom:
+        def __reduce__(self):
+            return (eval, ("1+1",))
+
+    payload = pickle.dumps(Boom(), protocol=5)
+    with pytest.raises(ValueError, match="not allowed"):
+        unpack_pickle_frame(payload)
 
 
 def test_pickle_frame_roundtrip():

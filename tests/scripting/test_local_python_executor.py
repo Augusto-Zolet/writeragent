@@ -104,3 +104,35 @@ def test_local_python_executor_does_not_import_tools():
             mods.extend(alias.name for alias in node.names)
     assert ".tools" not in mods
     assert "tools" not in mods
+
+
+def test_direct_import_os_still_forbidden():
+    executor = LocalPythonExecutor(additional_authorized_imports=["platform"])
+    executor.send_tools({})
+    try:
+        executor("import os")
+    except InterpreterError as err:
+        assert "os" in str(err).lower() or "not allowed" in str(err).lower()
+    else:
+        raise AssertionError("import os must stay unauthorized")
+
+
+def test_platform_os_is_not_the_os_module():
+    """Allowed platform must not re-export raw os (get_safe_module used to return os as-is)."""
+    executor = LocalPythonExecutor(additional_authorized_imports=["platform"])
+    executor.send_tools({})
+    try:
+        executor("import platform\nresult = platform.os")
+    except (InterpreterError, AttributeError):
+        return
+    raise AssertionError("platform.os must not resolve to a live os module")
+
+
+def test_writeragent_sys_is_not_the_sys_module():
+    executor = LocalPythonExecutor(additional_authorized_imports=["writeragent"])
+    executor.send_tools({})
+    try:
+        executor("import writeragent\nresult = writeragent.sys")
+    except (InterpreterError, AttributeError):
+        return
+    raise AssertionError("writeragent.sys must not resolve to a live sys module")

@@ -9,8 +9,6 @@
 from __future__ import annotations
 
 from plugin.framework.prompts import (
-    PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE,
-    PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE,
     python_specialized_sub_agent_hint,
 )
 from plugin.scripting.import_policy import (
@@ -51,12 +49,12 @@ def test_sandbox_prefix_uses_sandbox_twice():
 def test_venv_policy_prefix_before_module_lists():
     policy = format_venv_import_policy_for_prompt(compact=False)
     assert policy.startswith("PYTHON VENV SANDBOX:")
-    assert policy.index("Allowed stdlib") > policy.index("This sandbox")
+    assert policy.index("Allowed stdlib") > policy.index("PYTHON VENV SANDBOX")
 
 
 def test_venv_policy_compact_mentions_blocked_categories():
     policy = format_venv_import_policy_for_prompt(compact=True)
-    assert "no networking" in policy
+    assert "networking" in policy
     assert "host escape" in policy
     assert "DO NOT import numpy" in policy
     assert "calc" in policy
@@ -90,8 +88,11 @@ def test_python_specialized_sub_agent_hint_includes_full_policy():
 
 
 def test_tool_note_includes_sandbox_prefix():
-    assert PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE.startswith("PYTHON VENV SANDBOX:")
-    assert PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE in PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
+    import plugin.framework.prompts as prompts
+
+    prompts._ensure_venv_import_policy_strings()
+    assert prompts.PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE.startswith("PYTHON VENV SANDBOX:")
+    assert prompts.PYTHON_VENV_AUTO_IMPORTS_PROMPT_LINE in prompts.PYTHON_VENV_AUTO_IMPORTS_TOOL_NOTE
 
 
 def test_matplotlib_plot_hint_calc():

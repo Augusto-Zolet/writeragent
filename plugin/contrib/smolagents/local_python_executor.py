@@ -1300,18 +1300,31 @@ def evaluate_with(
             context.__exit__(None, None, None)
 
 
+def _dangerous_module_name(name: str) -> bool:
+    """True for os/sys/subprocess and the rest of DANGEROUS_MODULES (including nested posix.os)."""
+    if not name:
+        return False
+    root = name.split(".", 1)[0]
+    return name in DANGEROUS_MODULES or root in DANGEROUS_MODULES
+
+
 def get_safe_module(raw_module, authorized_imports, visited=None):
     """Creates a safe copy of a module or returns the original if it's a function"""
     # If it's a function or non-module object, return it directly
     if not isinstance(raw_module, ModuleType):
         return raw_module
 
+    name = getattr(raw_module, "__name__", "") or ""
+    # Never return raw os/sys (or wrap them — a copy of os still has os.system).
+    if _dangerous_module_name(name):
+        return ModuleType(name)
+
     # BUGFIX: Deep-copying/scanning heavy third-party packages or standard library packages that are not user-defined
     # can trigger complex lazy/dynamic imports or C-extension initialization inside background thread-pools
     # (specifically under pytest / LocalPythonExecutor). For instance, numpy 2.x's __dir__ lists 'f2py', and getattr()
     # triggers its import, which can crash with SIGILL (Illegal Instruction) or cause massive performance delays.
     # We bypass wrapping/scanning for well-known heavy libraries or standard modules.
-    name = getattr(raw_module, "__name__", "")
+    # os/sys must not be in this set — they are stripped as nested attrs below.
     if name and (
         name.startswith(
             (
@@ -1334,7 +1347,7 @@ def get_safe_module(raw_module, authorized_imports, visited=None):
                 "plugin.vision.venv",
             )
         )
-        or name in ("math", "random", "datetime", "re", "collections", "itertools", "functools", "json", "time", "os", "sys")
+        or name in ("math", "random", "datetime", "re", "collections", "itertools", "functools", "json", "time")
     ):
         return raw_module
 
@@ -1363,6 +1376,9 @@ def get_safe_module(raw_module, authorized_imports, visited=None):
             continue
         # Recursively process nested modules, passing visited set
         if isinstance(attr_value, ModuleType):
+            nested = getattr(attr_value, "__name__", "") or ""
+            if _dangerous_module_name(nested):
+                continue
             attr_value = get_safe_module(attr_value, authorized_imports, visited=visited)
 
         setattr(safe_module, attr_name, attr_value)

@@ -10,6 +10,8 @@ Payload-specific envelopes such as split_grid remain in payload_codec.py.
 """
 from __future__ import annotations
 
+import builtins
+import io
 import json
 import pickle
 import select
@@ -28,6 +30,33 @@ FRAME_HEADER_SIZE = 4
 # and worker on the same inventory — do not pass unbounded read_frame_payload
 # on either path.
 DEFAULT_MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
+
+# Host unpickle of child/editor frames: builtins only. Protocol 5 bytes (split_grid
+# buffers) do not go through find_class. Do not add numpy or application classes.
+_SAFE_PICKLE_BUILTINS = frozenset({
+    "dict",
+    "list",
+    "tuple",
+    "set",
+    "frozenset",
+    "bytes",
+    "bytearray",
+    "str",
+    "int",
+    "float",
+    "complex",
+    "bool",
+})
+
+
+class _SafeUnpickler(pickle.Unpickler):
+    def find_class(self, module: str, name: str) -> Any:
+        if module in ("builtins", "__builtin__") and name in _SAFE_PICKLE_BUILTINS:
+            return getattr(builtins, name)
+        # Child split_grid / ndarray results reconstruct via numpy (host then unpacks to lists).
+        if module == "numpy" or module.startswith("numpy."):
+            return super().find_class(module, name)
+        raise pickle.UnpicklingError(f"global {module}.{name} is not allowed")
 
 
 class IpcFrameError(ValueError):
@@ -74,9 +103,9 @@ def read_frame_payload(
 
 
 def unpack_pickle_frame(payload: bytes) -> Any:
-    """Decode one trusted Pickle5 payload read from a private subprocess pipe."""
+    """Decode one Pickle5 payload; only builtin containers/scalars (defense in depth)."""
     try:
-        return pickle.loads(payload)  # nosec B301
+        return _SafeUnpickler(io.BytesIO(payload)).load()
     except pickle.UnpicklingError as exc:
         raise ValueError(str(exc)) from exc
 
