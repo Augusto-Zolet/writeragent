@@ -31,6 +31,8 @@ _DOWNLOAD_MAX_BYTES = 20 * 1024 * 1024
 _DOWNLOAD_TIMEOUT_SEC = 120
 _RELEASE_CHECK_INTERVAL_SEC = 7 * 24 * 3600
 _RELEASE_CACHE_FILENAME = "harper-ls.release.json"
+# In-process latest-release memo. Unlocked: Harper install/lookup runs on the
+# single Harper drain thread. Add a lock if that ever changes.
 _release_cache: dict[str, tuple[float, HarperReleaseAsset]] = {}
 
 
@@ -85,6 +87,8 @@ def _parse_github_digest(digest: str | None) -> str:
 def _github_api_request(url: str) -> dict:
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "application/vnd.github+json"})
     with urllib.request.urlopen(request, timeout=30) as response:
+        # 1 MB is enough for the current latest-release JSON. Future (plan C11):
+        # read fully with a larger cap if the payload ever truncates.
         body = response.read(1024 * 1024)
     payload = json.loads(body.decode("utf-8"))
     if not isinstance(payload, dict):

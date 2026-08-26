@@ -337,6 +337,9 @@ Two tables: **product / hardening** (user-visible or systemic improvements) and 
 | C6 | Regex audit | **Shipped:** Audited hot path in [`grammar_proofread_locale.py`](../plugin/writer/locale/grammar_proofread_locale.py) and [`grammar_proofread_text.py`](../plugin/writer/locale/grammar_proofread_text.py); hoisted `_ABBREV_VOWELS` to module-level `frozenset` and eliminated regex intermediate list allocations in `count_nonspace_chars`. |
 | C7 | Logging discipline | Structured events, avoid duplicate levels, DEBUG vs INFO boundaries. |
 | C8 | ProofreadingResult helpers / hints | **Shipped:** Improved type annotations and structure creation in `ai_grammar_proofreader.py`. |
+| C9 | Avoid double sentence-split in `doProofreading` | `candidate_sentence_spans_for_proofreading` runs twice per call (full paragraph + active window). Derive `active_spans` by overlap-filtering `paragraph_spans` if the n_start/n_end path has no extra filters. Hot path — own change + tests in `test_grammar_proofread_text.py` / `test_ai_grammar_proofreader.py`. |
+| C10 | Shared ignore-rule canonical keys | `is_rule_ignored` vs `collect_ignored_reasons` duplicate prefix/normalization. Share a `rule_id → canonical keys` helper; do not merge the two APIs (membership vs prompt filter set). |
+| C11 | Harper GitHub release JSON read cap | `_github_api_request` reads 1 MB. Fine today; raise the cap or read fully if `json.loads` ever fails on truncated payload. |
 
 ---
 

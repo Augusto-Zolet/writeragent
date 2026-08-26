@@ -63,7 +63,11 @@ def doc_ignored_rules(ctx: Any, doc_id: str) -> set[str]:
 
 
 def collect_ignored_reasons(ctx: Any, doc_id: str) -> set[str]:
-    """Document + global ignored grammar rules, normalized for prompt-side filtering."""
+    """Document + global ignored grammar rules, normalized for prompt-side filtering.
+
+    Not the same as ``is_rule_ignored`` (membership test vs set of canonical keys).
+    Future (plan C10): one ``rule_id → canonical keys`` helper shared by both.
+    """
     ignored_reasons = doc_ignored_rules(ctx, doc_id)
     for rule_id in ignored_rules_snapshot():
         if rule_id.startswith(WA_G_RULE_PREFIX):

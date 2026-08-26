@@ -566,7 +566,9 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             paragraph_spans = candidate_sentence_spans_for_proofreading(self.ctx, loc_key, aText, 0, len(aText))
             paragraph_spans = filter_sentence_spans_for_thresholds(paragraph_spans)
 
-            # 2. Resolve the active spans that LibreOffice is currently requesting/editing
+            # 2. Active window (LibreOffice's current request). This re-runs BreakIterator +
+            # dialogue merge. Future (plan C9): derive active_spans by overlap-filtering
+            # paragraph_spans instead — only if n_start/n_end does not apply extra filters.
             active_spans = self._resolve_work_spans(aDocumentIdentifier, loc_key, aText, nStartOfSentencePosition, nSuggestedBehindEndOfSentencePosition)
             if not active_spans:
                 grammar_obs(
@@ -664,11 +666,7 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
         from plugin.framework.i18n import _
 
         # Keep the product brand untranslated; only localize the role label.
-        try:
-            return f"WriterAgent {_('AI Grammar')}"
-        except Exception as e:
-            log.warning("[grammar] getServiceDisplayName: %s", e, exc_info=True)
-            return f"WriterAgent {_('AI Grammar')}"
+        return f"WriterAgent {_('AI Grammar')}"
 
 
 try:

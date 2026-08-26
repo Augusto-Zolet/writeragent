@@ -68,6 +68,8 @@ def _harper_lsp_settings(bcp47: str, user_config_dir: str) -> dict:
     return {"harper-ls": settings}
 
 
+# One LSP client per binary path. Unlocked: Harper is capped to one drain thread
+# (grammar_max_in_flight is LLM-only). Add a lock if that ever changes.
 _HARPER_CLIENT_CACHE: dict[str, HarperLSClient] = {}
 
 

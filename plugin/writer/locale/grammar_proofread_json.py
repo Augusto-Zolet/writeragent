@@ -83,6 +83,20 @@ def _coerce_json_object(content: str) -> Mapping[str, Any] | None:
     return cast("Mapping[str, Any]", data)
 
 
+def _parse_error_item(row: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Map one LLM error object to ``wrong``/``correct``/``type``/``reason``, or None if incomplete."""
+    wrong = row.get("wrong")
+    correct = row.get("correct")
+    if wrong is None or correct is None:
+        return None
+    return {
+        "wrong": str(wrong),
+        "correct": str(correct),
+        "type": str(row.get("type", "grammar")),
+        "reason": str(row.get("reason", "")),
+    }
+
+
 def parse_grammar_json(content: str) -> list[dict[str, Any]]:
     """Parse assistant message into a list of error dicts (wrong, correct, type, reason)."""
     root = _coerce_json_object(content)
@@ -95,17 +109,9 @@ def parse_grammar_json(content: str) -> list[dict[str, Any]]:
     for item in raw:
         if not isinstance(item, Mapping):
             continue
-        row = cast("Mapping[str, Any]", item)
-        wrong = row.get("wrong")
-        correct = row.get("correct")
-        if wrong is None or correct is None:
-            continue
-        out.append({
-            "wrong": str(wrong),
-            "correct": str(correct),
-            "type": str(row.get("type", "grammar")),
-            "reason": str(row.get("reason", "")),
-        })
+        parsed = _parse_error_item(cast("Mapping[str, Any]", item))
+        if parsed is not None:
+            out.append(parsed)
     return out
 
 
@@ -132,17 +138,9 @@ def parse_grammar_batch_json(content: str) -> list[list[dict[str, Any]]]:
         for item in errors:
             if not isinstance(item, Mapping):
                 continue
-            row = cast("Mapping[str, Any]", item)
-            wrong = row.get("wrong")
-            correct = row.get("correct")
-            if wrong is None or correct is None:
-                continue
-            sent_errors.append({
-                "wrong": str(wrong),
-                "correct": str(correct),
-                "type": str(row.get("type", "grammar")),
-                "reason": str(row.get("reason", "")),
-            })
+            parsed = _parse_error_item(cast("Mapping[str, Any]", item))
+            if parsed is not None:
+                sent_errors.append(parsed)
         out.append(sent_errors)
     return out
 

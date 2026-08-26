@@ -21,12 +21,14 @@ from .grammar_proofread_locale import (
 )
 
 def cache_clear(ctx: Any | None = None, doc_id: str | None = None) -> None:
-    """Clear proofreading cache (e.g. tests)."""
+    """Clear the in-memory proofreading cache (tests / reset).
+
+    Always ``clear_all``: a follow-up ``get_persistence(doc_id)`` would register a
+    fresh model-less ``DocumentPersistence``. Per-document teardown is
+    ``grammar_registry.clear_for_doc``. ``doc_id`` is unused (kept for old call sites).
+    """
+    del doc_id
     grammar_registry.clear_all(ctx)
-    if doc_id and ctx:
-        p = get_persistence(ctx, doc_id)
-        if p:
-            p.clear()
 
 
 def ignore_rules_clear() -> None:
@@ -149,13 +151,8 @@ def cache_get_sentence(locale_key: str, sentence: str, ctx: Any | None = None, d
     if result is not None:
         if ctx and doc_id:
             p = get_persistence(ctx, doc_id)
-            if p and hasattr(p, "_session_accessed"):
-                lock = getattr(p, "_lock", None)
-                if lock is not None:
-                    with lock:
-                        p._session_accessed.add(fp)
-                else:
-                    p._session_accessed.add(fp)
+            if p:
+                p.mark_accessed(fp)
         return result
 
     if ctx and doc_id:

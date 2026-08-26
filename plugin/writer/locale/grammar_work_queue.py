@@ -125,7 +125,7 @@ def deduplicate_grammar_batch(batch: list[GrammarWorkItem]) -> list[GrammarWorkI
         if should_replace_for_key(prev, item):
             best_by_key[item.inflight_key] = item
         else:
-            log.info("[grammar] queue dedup: dropped older same-key item seq=%s key=%s (newer seq=%s kept)", item.enqueue_seq, item.inflight_key, prev.enqueue_seq if prev else None)
+            log.debug("[grammar] queue dedup: dropped older same-key item seq=%s key=%s (newer seq=%s kept)", item.enqueue_seq, item.inflight_key, prev.enqueue_seq if prev else None)
     return list(best_by_key.values())
 
 
@@ -321,7 +321,11 @@ class GrammarWorkQueue:
                 t.start()
 
     def _drain_loop(self) -> None:
-        """Block-dequeue, batch-drain pending items, deduplicate, process one batch."""
+        """Block-dequeue, batch-drain pending items, deduplicate, process one batch.
+
+        ``None`` is a poison-pill; nothing enqueues it today. A real shutdown must
+        put one ``None`` per drain thread, or extra workers block forever.
+        """
         while True:
             first = self._q.get()
             if first is None:

@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 from plugin.writer.locale import grammar_proofread_cache as gc
 from plugin.writer.locale.grammar_proofread_cache import _normalize_for_sentence_cache
 
@@ -256,4 +256,13 @@ def test_l1_hit_records_session_accessed_for_doc() -> None:
         assert got == []
         fp = gc.sentence_identity_fp("Track me.")
         assert fp in dp._session_accessed
+
+
+def test_cache_clear_does_not_register_empty_persistence() -> None:
+    """clear_all must not be followed by get_persistence, which would register a model-less instance."""
+    from plugin.writer.locale.grammar_persistence import grammar_registry
+
+    ctx = MagicMock()
+    gc.cache_clear(ctx, doc_id="phantom-doc")
+    assert "phantom-doc" not in grammar_registry.doc_persistence_instances
 

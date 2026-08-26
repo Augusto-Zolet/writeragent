@@ -125,7 +125,11 @@ def emit_harper_worker_status(sentence_text: str, message: str) -> None:
 
 
 def play_diagnostic_beep() -> None:
-    """Asynchronously play a short system sound to indicate when error sentences are sent."""
+    """Play a short system sound when sentences are sent (debug only).
+
+    Intentionally unused in production. Call from enqueue/send paths when tracing
+    worker traffic; do not delete this hook.
+    """
     import os
     import subprocess
 

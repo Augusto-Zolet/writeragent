@@ -118,11 +118,15 @@ grammar_registry = GrammarRegistry()
 
 
 def get_document_model_for_id(ctx: Any, doc_id: str) -> Any | None:
-    """Return the Writer model for a proofreading document id, if already bound via get_persistence."""
+    """Return the Writer model for a proofreading document id, if already bound via get_persistence.
+
+    ``ctx`` is unused; kept so callers can pass the UNO context they already hold.
+    """
     del ctx
-    p = grammar_registry.doc_persistence_instances.get(doc_id)
-    if p is not None and p._model is not None:
-        return p._model
+    with grammar_registry.lock:
+        p = grammar_registry.doc_persistence_instances.get(doc_id)
+        if p is not None and p._model is not None:
+            return p._model
     return None
 
 
@@ -134,6 +138,11 @@ class GrammarPersistence(ABC):
         self._session_accessed: set[str] = set()
         self._ignored_rules: set[str] = set()
         self._lock = threading.Lock()
+
+    def mark_accessed(self, fp: str) -> None:
+        """Record that this fingerprint was used this session (udprop save filter)."""
+        with self._lock:
+            self._session_accessed.add(fp)
 
     def _persist_to_udprops(self) -> None:
         pass

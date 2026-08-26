@@ -8,15 +8,17 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 
 from . import grammar_proofread_cache, grammar_proofread_json, grammar_proofread_locale, grammar_persistence, grammar_proofread_text
 from .grammar_obs import emit_grammar_status, grammar_obs
+from .grammar_persistence import get_cached_document_locales as _get_cached_document_locales
 from .grammar_proofread_locale import grammar_bcp47_tags_match, normalize_detected_bcp47
 from .grammar_proofread_text import slice_preview_debug
+from .grammar_work_queue import GrammarWorkItem, GrammarWorkQueue, next_enqueue_seq, grammar_queue
 
-from plugin.framework import queue_executor
+from plugin.framework import config, queue_executor
 
 log = logging.getLogger("writeragent.grammar")
 
@@ -624,11 +626,6 @@ def decide_grammar_completion(
         return GrammarCompletionDecision(requeue_all=True, apply_locale_after_success=False)
     apply_locale = bool(original_bcp47 and not grammar_bcp47_tags_match(original_bcp47, bcp47))
     return GrammarCompletionDecision(requeue_all=False, apply_locale_after_success=apply_locale)
-from .grammar_work_queue import GrammarWorkItem, GrammarWorkQueue, next_enqueue_seq, grammar_queue
-from dataclasses import replace
-from plugin.framework import config
-from .grammar_persistence import get_cached_document_locales as _get_cached_document_locales
-
 
 
 @dataclass(frozen=True)

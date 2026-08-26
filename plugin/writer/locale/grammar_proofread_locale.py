@@ -86,11 +86,13 @@ def _clamped_int_config(key: str, default: int, lo: int, hi: int, *, warn_name: 
 def grammar_max_in_flight(ctx: Any = None) -> int:
     """Clamp ``doc.grammar_proofreader_max_in_flight`` to [1, GRAMMAR_MAX_IN_FLIGHT].
 
+    ``ctx`` unused; kept so call sites can pass the UNO context they already hold.
     Local providers (Harper, LanguageTool, Vale) always use 1 worker; parallel
     drain threads and HTTP slots apply only when the grammar provider is LLM.
     """
     from plugin.framework import config
 
+    del ctx
     n = _clamped_int_config("doc.grammar_proofreader_max_in_flight", default=1, lo=1, hi=GRAMMAR_MAX_IN_FLIGHT)
     if config.get_grammar_provider() != "llm":
         return 1
@@ -100,8 +102,10 @@ def grammar_max_in_flight(ctx: Any = None) -> int:
 def grammar_batch_sentences(ctx: Any = None) -> int:
     """Clamp ``doc.grammar_proofreader_batch_sentences`` to [1, GRAMMAR_BATCH_MAX_SENTENCES].
 
+    ``ctx`` unused; kept so call sites can pass the UNO context they already hold.
     Logs a warning and clamps if the value is out of bounds or malformed.
     """
+    del ctx
     return _clamped_int_config(
         "doc.grammar_proofreader_batch_sentences",
         default=1,
@@ -112,7 +116,11 @@ def grammar_batch_sentences(ctx: Any = None) -> int:
 
 
 def grammar_max_tokens(ctx: Any = None) -> int:
-    """Return max output tokens for LLM grammar response, clamped to [256, 16384]."""
+    """Return max output tokens for LLM grammar response, clamped to [256, 16384].
+
+    ``ctx`` unused; kept so call sites can pass the UNO context they already hold.
+    """
+    del ctx
     return _clamped_int_config(
         "doc.grammar_proofreader_max_tokens",
         default=GRAMMAR_PROOFREAD_MAX_RESPONSE_TOKENS,
@@ -122,7 +130,11 @@ def grammar_max_tokens(ctx: Any = None) -> int:
 
 
 def grammar_max_chars(ctx: Any = None) -> int:
-    """Return max sentence character limit, clamped to [512, 65536]."""
+    """Return max sentence character limit, clamped to [512, 65536].
+
+    ``ctx`` unused; kept so call sites can pass the UNO context they already hold.
+    """
+    del ctx
     return _clamped_int_config(
         "doc.grammar_proofreader_max_chars",
         default=GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS,
