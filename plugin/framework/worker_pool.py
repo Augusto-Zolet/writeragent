@@ -193,7 +193,15 @@ def reset_background_pool_for_tests(max_workers: int | None = None) -> None:
         _pool_size_override = max_workers
 
 
-def run_in_background(func, *args, name=None, error_callback=None, daemon=True, dedicated=False, **kwargs):
+def run_in_background(
+    func: Callable[..., Any],
+    *args: Any,
+    name: str | None = None,
+    error_callback: Callable[[WorkerPoolError], None] | None = None,
+    daemon: bool = True,
+    dedicated: bool = False,
+    **kwargs: Any,
+) -> BackgroundHandle:
     """Run *func* off the caller thread with WorkerPoolError isolation and Layer A tagging.
 
     Short fire-and-forget work is queued on a daemon pool with a fixed worker
@@ -342,14 +350,21 @@ class AsyncProcess:
     streams and providing a callback mechanism for output and exit.
     """
 
-    def __init__(self, args, stdout_cb: Optional[Callable[[str], None]] = None, stderr_cb: Optional[Callable[[str], None]] = None, on_exit_cb: Optional[Callable[[int], None]] = None, **popen_kwargs):
+    def __init__(
+        self,
+        args: str | list[str],
+        stdout_cb: Optional[Callable[[str], None]] = None,
+        stderr_cb: Optional[Callable[[str], None]] = None,
+        on_exit_cb: Optional[Callable[[int], None]] = None,
+        **popen_kwargs: Any,
+    ) -> None:
         self.args = args
         self.stdout_cb = stdout_cb
         self.stderr_cb = stderr_cb
         self.on_exit_cb = on_exit_cb
-        self.process: Optional[subprocess.Popen] = None
+        self.process: Optional[subprocess.Popen[str]] = None
 
-        self._popen_kwargs = popen_kwargs
+        self._popen_kwargs: dict[str, Any] = popen_kwargs
         if sys.platform == "win32":
             self._popen_kwargs.setdefault("creationflags", subprocess.CREATE_NO_WINDOW)
         self._popen_kwargs.setdefault("stdout", subprocess.PIPE)
@@ -357,15 +372,15 @@ class AsyncProcess:
         self._popen_kwargs.setdefault("text", True)
         self._popen_kwargs.setdefault("bufsize", 1)  # Line buffered
 
-        self._stdout_thread = None
-        self._stderr_thread = None
-        self._wait_thread = None
+        self._stdout_thread: BackgroundHandle | None = None
+        self._stderr_thread: BackgroundHandle | None = None
+        self._wait_thread: BackgroundHandle | None = None
 
     @property
-    def is_running(self):
+    def is_running(self) -> bool:
         return self.process is not None and self.process.poll() is None
 
-    def start(self):
+    def start(self) -> None:
         """Starts the process and its monitoring threads."""
         try:
             self.process = subprocess.Popen(self.args, **self._popen_kwargs)
