@@ -112,9 +112,8 @@ class ServiceRegistry:
         for _name, obj in inspect.getmembers(module, inspect.isclass):
             if issubclass(obj, ServiceBase) and obj is not ServiceBase and obj.__module__ == module.__name__ and not inspect.isabstract(obj) and getattr(obj, "name", None):
                 try:
-                    # Instantiate by passing the registry itself as 'services'
-                    # We check if __init__ is overridden; if so, we pass self (the registry).
-                    # Otherwise we call the default constructor.
+                    # Contract: override __init__ → __init__(self, registry); else no-arg.
+                    # Do not use inspect.signature (UNO/C types). TypeError is logged and skipped.
                     if obj.__init__ is not object.__init__:
                         svc_instance = cast("Any", obj)(self)
                     else:
@@ -140,14 +139,21 @@ class ServiceRegistry:
         return name in self._services
 
     def initialize_all(self, ctx):
-        """Call ``initialize(ctx)`` on every service that supports it."""
+        """Call ``initialize(ctx)`` on every service that supports it.
+
+        ``register()`` accepts arbitrary objects, not only ServiceBase, so
+        getattr+callable is required (ServiceBase already defines no-op methods).
+        """
         for svc in self._services.values():
             init = getattr(svc, "initialize", None)
             if callable(init):
                 init(ctx)
 
     def shutdown_all(self):
-        """Call ``shutdown()`` on every service that supports it."""
+        """Call ``shutdown()`` on every service that supports it.
+
+        Same getattr guard as initialize_all: non-ServiceBase registrations.
+        """
         for name, svc in self._services.items():
             shutdown = getattr(svc, "shutdown", None)
             if callable(shutdown):

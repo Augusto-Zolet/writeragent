@@ -140,6 +140,8 @@ class _DaemonWorkPool:
             try:
                 fn()
             except BaseException as exc:
+                # Pool workers must complete the Future even on SystemExit/KeyboardInterrupt.
+                # Dedicated run_in_background threads catch Exception only (those must unwind).
                 fut.set_exception(exc)
             else:
                 fut.set_result(None)
@@ -216,6 +218,8 @@ def run_in_background(func, *args, name=None, error_callback=None, daemon=True, 
             log.debug(f"Task {task_id} completed successfully")
             return result
         except Exception as e:
+            # Not BaseException: SystemExit/KeyboardInterrupt must still unwind on
+            # dedicated threads. Pool _run catches BaseException to finish the Future.
             error_id = str(uuid.uuid4())
             log.exception(f"Task {task_id} failed", extra={"task_id": task_id, "task_name": task_name, "error_id": error_id, "error_type": type(e).__name__})
 

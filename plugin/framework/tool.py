@@ -867,7 +867,11 @@ class ToolRegistry:
         worker_thread.join(timeout=timeout)
 
         if worker_thread.is_alive():
-            return {"status": "error", "code": "TOOL_TIMEOUT", "message": f"Tool timed out after {timeout} seconds"}
+            return make_tool_error(
+                f"Tool timed out after {timeout} seconds",
+                code="TOOL_TIMEOUT",
+                tool_name=tool_name,
+            )
 
         result_type, result = result_queue.get()
         if result_type == "error":
@@ -910,6 +914,9 @@ class ToolRegistry:
                 doc_type=ctx.doc_type,
                 uno_services_supported=getattr(ctx, "uno_services_supported", None),
             ):
+                # Schema/registry bug: this tool should not have been advertised for
+                # this document. Raise (not UNKNOWN_TOOL) so callers see a programmer
+                # error. Hallucinated names already return make_tool_error(..., UNKNOWN_TOOL).
                 raise ValueError(f"Tool {tool_name} does not support the current document")
 
             # Restrict kwargs to this tool's schema so extra keys (e.g. image_model
@@ -934,7 +941,7 @@ class ToolRegistry:
             # Validate parameters
             ok, err = tool.validate(doc_type=ctx.doc_type, **kwargs)
             if not ok:
-                return {"status": "error", "code": "VALIDATION_ERROR", "message": err, "details": common_details}
+                return make_tool_error(err, code="VALIDATION_ERROR", **common_details)
 
             if getattr(ctx, "read_only_target", False) and tool.detects_mutation():
                 # Use the central factory (all tool errors now go through make_tool_error).
@@ -992,8 +999,6 @@ class ToolRegistry:
 
             return result
 
-        except KeyError:
-            raise
         except ValueError:
             raise
         except Exception as e:
@@ -1002,7 +1007,13 @@ class ToolRegistry:
             log.exception("Tool execution failed: %s", tool_name)
             if bus:
                 bus.emit("tool:failed", name=tool_name, error=str(e), caller=ctx.caller)
-            return {"status": "error", "code": "TOOL_REGISTRY_ERROR", "message": f"Failed to execute tool '{tool_name}'", "details": {"tool_name": tool_name, "error": str(e), "type": type(e).__name__}}
+            return make_tool_error(
+                f"Failed to execute tool '{tool_name}'",
+                code="TOOL_REGISTRY_ERROR",
+                tool_name=tool_name,
+                error=str(e),
+                type=type(e).__name__,
+            )
 
     @property
     def tool_names(self):

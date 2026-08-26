@@ -540,7 +540,14 @@ def is_document_disposed(doc: Any) -> bool:
 
 
 def safe_uno_call(default=None):
-    """Decorator to safely call UNO methods with automatic error handling, returning default on failure (disposal exceptions re-raised)."""
+    """Decorator to safely call UNO methods with automatic error handling, returning default on failure (disposal exceptions re-raised).
+
+    Unlike :func:`handle_errors` / :func:`safe_call`, a UNO ``RuntimeException``
+    is *not* treated as disposal here: probes (e.g. ``doc_type``) must fall back
+    to ``default``. Re-raise only ``DisposedException`` / ``DocumentDisposedError``.
+    See ``docs/framework-uno-thread-safety.md`` and
+    ``test_safe_uno_call_returns_default_on_runtime_error``.
+    """
 
     def decorator(func):
         from functools import wraps
@@ -551,6 +558,7 @@ def safe_uno_call(default=None):
                 return func(*args, **kwargs)
             except Exception as e:
                 e_name = type(e).__name__
+                # Do not add "RuntimeException": that is a probe failure, not disposal.
                 if "DisposedException" in e_name or isinstance(e, DocumentDisposedError):
                     raise DocumentDisposedError(
                         f"UNO object disposed during {func.__name__}",
@@ -586,6 +594,8 @@ def handle_errors(context_name):
                 # We catch Exception here because pyuno bridge exceptions don't always inherit from Python's standard Exception cleanly in all builds,
                 # but catching Exception is the standard way to grab them. We immediately wrap it.
                 e_name = type(e).__name__
+                # Real operations: UNO RuntimeException usually means the object is gone.
+                # Contrast safe_uno_call, which returns default for that name (probes).
                 if "DisposedException" in e_name or "RuntimeException" in e_name:
                     raise DocumentDisposedError(f"UNO object disposed during {context_name}", object_type=context_name, details={"original_error": str(e)}) from e
                 else:
@@ -601,7 +611,7 @@ def safe_call(fn, context_name, *args, **kwargs):
     try:
         return fn(*args, **kwargs)
     except Exception as e:
-        # Catch potential DisposedException and RuntimeException from UNO bridge
+        # Real UNO calls: RuntimeException ≈ disposed. safe_uno_call does not.
         e_name = type(e).__name__
         if "DisposedException" in e_name or "RuntimeException" in e_name:
             raise DocumentDisposedError(f"UNO object disposed during {context_name}", object_type=context_name, details={"original_error": str(e)}) from e

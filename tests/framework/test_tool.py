@@ -316,6 +316,7 @@ class TestExecute:
         assert result["status"] == "error"
         assert result.get("code") == "UNKNOWN_TOOL"
         assert "nope" in result.get("message", "")
+        assert result.get("details", {}).get("tool_name") == "nope"
 
 
     def test_incompatible_doc_type_raises(self):
@@ -329,7 +330,9 @@ class TestExecute:
         ctx = _make_ctx("writer")
         result = reg.execute("fake_tool", ctx)  # missing 'text'
         assert result["status"] == "error"
+        assert result.get("code") == "VALIDATION_ERROR"
         assert "Missing required" in result.get("error", result.get("message", ""))
+        assert result.get("details", {}).get("tool_name") == "fake_tool"
 
     def test_execution_failure_returns_error(self):
         reg = _make_registry(FailingTool())
@@ -589,6 +592,7 @@ class TestToolIsolation:
         result = registry.execute("test_slow", DummyContext())
         assert result["status"] == "error"
         assert result["code"] == "TOOL_TIMEOUT"
+        assert result.get("details", {}).get("tool_name") == "test_slow"
 
 
 class TestToolRegistryMainThreadMarshal:
