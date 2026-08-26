@@ -353,6 +353,7 @@ Config keys: `last_python_script_name_writer`, `last_python_script_name_calc`, `
 | [`plugin/framework/uno_context.py`](../plugin/framework/uno_context.py) | `get_ctx`, `get_desktop` |
 | [`plugin/framework/worker_pool.py`](../plugin/framework/worker_pool.py) | Via `dialogs.py` |
 | [`plugin/framework/appearance.py`](../plugin/framework/appearance.py) | LO light/dark → Monaco theme |
+| [`plugin/doc/__init__.py`](../plugin/doc/__init__.py) | Package marker. WriterAgent `CommonModule` (embeddings / document-research tool discovery) lives in unbundled [`common_module.py`](../plugin/doc/common_module.py); LibrePy import of the package is inert. |
 | [`plugin/doc/doc_type.py`](../plugin/doc/doc_type.py) | `is_writer` / `is_calc` / `is_draw` / `DocumentType` (no analyzer) |
 | [`plugin/doc/udprops.py`](../plugin/doc/udprops.py) | Document user-defined properties (session id, spill registry) |
 | [`plugin/doc/text_helpers.py`](../plugin/doc/text_helpers.py) | Linebreaks, tracked-deletion reads, heading tree, document path |

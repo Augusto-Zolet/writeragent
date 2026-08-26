@@ -3,40 +3,14 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this
 # file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-"""Common tools for all document types."""
+"""Doc package marker (LibrePy: type/text/udprop helpers only).
 
-from plugin.framework.module_base import ModuleBase
+WriterAgent ``load_modules`` looks for a ``ModuleBase`` subclass on this
+package. ``common_module.py`` is omitted from the LibrePy OXT, so the
+import fails there and the package stays inert (no embeddings / chat tools).
+"""
 
-
-class CommonModule(ModuleBase):
-    """Provides generic document tools (info, save, export)."""
-
-    def initialize(self, services):
-        self.services = services
-
-        from . import (
-            diagnostics,
-            document_research_grep_tool,
-            document_research_specialized,
-            document_research_tools,
-            find_tools_tool,
-            print_doc,
-            undo,
-        )
-        from plugin.embeddings import (
-            document_research_fts_tool,
-        )
-
-        discovery_modules = (
-            diagnostics,
-            document_research_tools,
-            document_research_grep_tool,
-            document_research_fts_tool,
-            document_research_specialized,
-            find_tools_tool,
-            print_doc,
-            undo,
-        )
-
-        for module in discovery_modules:
-            services.tools.auto_discover(module)
+try:
+    from .common_module import CommonModule as CommonModule
+except ImportError:
+    pass

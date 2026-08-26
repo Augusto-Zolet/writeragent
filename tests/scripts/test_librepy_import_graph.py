@@ -176,6 +176,7 @@ def test_unbundled_plugin_modules_are_strictly_excluded():
     assert len(unbundled) > 100
     # Spot-check essential unbundled modules (automatically forbidden by allowlist complement)
     assert "plugin/doc/document_helpers.py" in unbundled
+    assert "plugin/doc/common_module.py" in unbundled
     assert "plugin/framework/client/llm_client.py" in unbundled
     assert "plugin/framework/prompts.py" in unbundled
     assert "plugin/framework/tool.py" in unbundled
@@ -267,12 +268,8 @@ def test_librepy_shipped_function_level_imports_are_safe():
     known_special_cases = {
         # Vendored upstream smolagents helper (unused in LibrePy runtime; executor uses AST helpers)
         "plugin/contrib/smolagents/utils.py",
-        # CommonModule tool discovery (WriterAgent main.py only; not loaded by main_core.py)
-        "plugin/doc/__init__.py",
         # WriterAgent-only API helper in config (get_api_config for LlmClient)
         "plugin/framework/config.py",
-        # WriterAgent-only VCL drain pump and grammar gate
-        "plugin/framework/queue_executor.py",
         # Venv worker trusted dispatch for domains only registered in WriterAgent
         "plugin/scripting/venv/trusted_dispatch.py",
         "plugin/scripting/venv/worker_harness.py",

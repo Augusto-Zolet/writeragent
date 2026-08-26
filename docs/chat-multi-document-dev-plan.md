@@ -216,7 +216,7 @@ Document research is **cross-app**: active Writer may read a Calc `.ods` budget.
 | `delegate_read_document` | `specialized` | `document_research` | Spawns inner smol; outer only |
 | Inner read tools | — | — | **Not** a separate domain on main registry; allowlist inside `delegate_read_document` |
 
-Gateway enum discovery: marker subclasses with `specialized_domain = "document_research"` on each app base — `ToolWriterDocumentResearchBase`, `ToolCalcDocumentResearchBase`, `ToolDrawDocumentResearchBase` in [`writer/specialized_base.py`](../plugin/writer/specialized_base.py), [`calc/base.py`](../plugin/calc/base.py), [`draw/base.py`](../plugin/draw/base.py). Tools register once in [`plugin/doc/__init__.py`](../plugin/doc/__init__.py) via `auto_discover(nearby_tools, nearby_specialized)`.
+Gateway enum discovery: marker subclasses with `specialized_domain = "document_research"` on each app base — `ToolWriterDocumentResearchBase`, `ToolCalcDocumentResearchBase`, `ToolDrawDocumentResearchBase` in [`writer/specialized_base.py`](../plugin/writer/specialized_base.py), [`calc/base.py`](../plugin/calc/base.py), [`draw/base.py`](../plugin/draw/base.py). Tools register once in [`plugin/doc/common_module.py`](../plugin/doc/common_module.py) via `auto_discover(nearby_tools, nearby_specialized)`.
 
 ---
 
@@ -359,7 +359,7 @@ flowchart LR
 
 - `FileEntry`, `NEARBY_FILE_EXTENSIONS`, `get_document_directory`, `get_work_directory`, `resolve_listing_directory`, `list_nearby_files`, `resolve_path_or_name`, `open_document_for_read`, `guess_doc_type_from_path`.
 
-**Module wiring:** [`plugin/doc/__init__.py`](../plugin/doc/__init__.py) `auto_discover` for `nearby_tools` and `nearby_specialized`. No new keys in [`module.yaml`](../plugin/doc/module.yaml).
+**Module wiring:** [`plugin/doc/common_module.py`](../plugin/doc/common_module.py) `auto_discover` for `nearby_tools` and `nearby_specialized`. No new keys in [`module.yaml`](../plugin/doc/module.yaml).
 
 **Out of scope Phase 0:** config directories, `[NEARBY FILES]` prompt injection, `@` UI, headless, metadata cache, write-back to siblings.
 
@@ -544,7 +544,7 @@ Use these to validate design and tests (Phase 0 targets #1–#5):
 | Outer tools | [`plugin/doc/document_research_tools.py`](../plugin/doc/document_research_tools.py) — `list_nearby_files`, `grep_nearby_files` |
 | Grep library | [`plugin/doc/document_research_grep.py`](../plugin/doc/document_research_grep.py) |
 | Inner + `delegate_read_document` | [`plugin/doc/document_research_specialized.py`](../plugin/doc/document_research_specialized.py) |
-| Module `auto_discover` | [`plugin/doc/__init__.py`](../plugin/doc/__init__.py) |
+| Module `auto_discover` | [`plugin/doc/common_module.py`](../plugin/doc/common_module.py) |
 | Domain enum markers | [`plugin/writer/specialized_base.py`](../plugin/writer/specialized_base.py) (`ToolWriterDocumentResearchBase`), [`plugin/calc/base.py`](../plugin/calc/base.py), [`plugin/draw/base.py`](../plugin/draw/base.py) |
 | Delegate gateway + document_research guard | [`plugin/doc/specialized_base.py`](../plugin/doc/specialized_base.py) |
 | `read_only_target` + registry guard | [`plugin/framework/tool.py`](../plugin/framework/tool.py) |
