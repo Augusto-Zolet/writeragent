@@ -15,6 +15,10 @@ dictionary is empty, NumPy in the child process ingests that via C-speed ``fromb
 transpositions or Base64 decoding overhead.
 
 Adjust thresholds below if product policy changes; bench and production share this module.
+
+Do not split pack/unpack without serialization A/B tests
+(docs/scripting-numpy-serialization.md). Do not move ``_deal_*`` scaffolding
+to test-support: the contracts live on the pack functions.
 """
 from __future__ import annotations
 
@@ -143,7 +147,9 @@ def load_cython_accelerator() -> None:
     fn1d = None
     loc = "none"
 
-    # Search import targets in priority order:
+    # Search import targets in priority order. These four layouts are real
+    # (checkout, audio_binaries, bare sys.path, legacy plugin.contrib). Skip
+    # unifying with native_binaries.py — easy to drop the accelerator.
     # 1. contrib.vec_pack (in-tree repository checkout)
     try:
         import contrib.vec_pack as _vp  # type: ignore
@@ -539,7 +545,7 @@ def _is_calc_range_envelope(envelope: object) -> bool:
     )
 )
 def is_calc_range_payload(obj: Any) -> bool:
-    # Codec wire guard (calc_range.py has a parallel detector used by pack helpers).
+    # Canonical wire guard. calc_range.py re-exports this; do not add a second copy.
     return _is_calc_range_envelope(obj)
 
 

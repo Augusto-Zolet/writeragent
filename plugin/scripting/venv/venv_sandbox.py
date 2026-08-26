@@ -60,7 +60,11 @@ _INIT_STATE_SKIP_KEYS = frozenset(
 
 
 def is_module_imported(code_str: str, module_name: str) -> bool:
-    """Check if ``module_name`` is imported in any form in ``code_str``."""
+    """Check if ``module_name`` is imported in any form in ``code_str``.
+
+    Skip reusing sandbox_cache's parsed AST: cache misses and mutated trees
+    make that easy to get wrong, and parse cost is noise compared with exec.
+    """
     try:
         tree = ast.parse(code_str)
     except SyntaxError:

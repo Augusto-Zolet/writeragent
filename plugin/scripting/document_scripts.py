@@ -215,6 +215,7 @@ def get_calc_document_from_ctx(ctx: Any) -> Any | None:
                         has_more = enum.hasMoreElements()
                     except Exception:
                         break
+                    # Local enumeration stop for MagicMock (always-truthy hasMoreElements).
                     if type(has_more).__name__ in ("Mock", "MagicMock") or not has_more:
                         break
                     elem = enum.nextElement()

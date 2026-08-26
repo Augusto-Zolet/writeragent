@@ -12,6 +12,7 @@ selection; Calc writes values from the active selection; Draw/Impress shows a
 message only.
 """
 
+import html as html_mod
 import logging
 import time
 from typing import Any
@@ -39,6 +40,17 @@ from plugin.scripting.helper_domain import (
 log = logging.getLogger("writeragent.scripting")
 
 
+def _html_insert_text(value: Any) -> str:
+    """Escape a script result so it stays text after Writer/Calc HTML insert.
+
+    ``insert_content_at_position`` and ``insert_cell_html_rich`` call
+    ``html.unescape`` before the StarWriter HTML filter, so a single
+    ``html.escape`` is undone and ``<`` becomes markup again. Double-escape
+    so a literal ``<`` survives as text (``&amp;lt;`` → ``&lt;`` → ``<``).
+    """
+    return html_mod.escape(html_mod.escape(str(value)))
+
+
 def _format_list_to_table(data: list, *, headers: list | None = None) -> str:
     """Internal helper to convert a list (of dicts or lists) to an HTML table.
     If *headers* is provided, they are used for the thead (for dataframe egress).
@@ -52,18 +64,18 @@ def _format_list_to_table(data: list, *, headers: list | None = None) -> str:
     if headers:
         parts.append('<table border="1"><thead><tr>')
         for h in headers:
-            parts.append(f"<th>{h}</th>")
+            parts.append(f"<th>{_html_insert_text(h)}</th>")
         parts.append("</tr></thead><tbody>")
         # data may be list of lists (2d) or flat list (1-col series-like)
         if data and isinstance(data[0], (list, tuple)):
             for row in data:
                 parts.append("<tr>")
                 for cell in row:
-                    parts.append(f"<td>{cell}</td>")
+                    parts.append(f"<td>{_html_insert_text(cell)}</td>")
                 parts.append("</tr>")
         else:
             for v in data:
-                parts.append(f"<tr><td>{v}</td></tr>")
+                parts.append(f"<tr><td>{_html_insert_text(v)}</td></tr>")
         parts.append("</tbody></table>")
         return "".join(parts)
 
@@ -72,13 +84,13 @@ def _format_list_to_table(data: list, *, headers: list | None = None) -> str:
         keys = list(data[0].keys())
         parts.append('<table border="1"><thead><tr>')
         for key in keys:
-            parts.append(f"<th>{key}</th>")
+            parts.append(f"<th>{_html_insert_text(key)}</th>")
         parts.append("</tr></thead><tbody>")
         for row in data:
             parts.append("<tr>")
             for key in keys:
                 val = row.get(key, "")
-                parts.append(f"<td>{val}</td>")
+                parts.append(f"<td>{_html_insert_text(val)}</td>")
             parts.append("</tr>")
         parts.append("</tbody></table>")
         return "".join(parts)
@@ -89,13 +101,13 @@ def _format_list_to_table(data: list, *, headers: list | None = None) -> str:
         for row in data:
             parts.append("<tr>")
             for cell in row:
-                parts.append(f"<td>{cell}</td>")
+                parts.append(f"<td>{_html_insert_text(cell)}</td>")
             parts.append("</tr>")
         parts.append("</table>")
         return "".join(parts)
 
     # Fallback: list of primitives
-    return "<br>".join(str(x) for x in data)
+    return "<br>".join(_html_insert_text(x) for x in data)
 
 
 
@@ -135,20 +147,19 @@ def format_result_for_writer(result: Any) -> str:
             if isinstance(val, list) and val:
                 table = _format_list_to_table(val)
                 if table:
-                    html_parts.append(f"<h3>{key}</h3>")
+                    html_parts.append(f"<h3>{_html_insert_text(key)}</h3>")
                     html_parts.append(table)
             else:
-                escaped = str(val).replace("\n", "<br>")
+                escaped = _html_insert_text(val).replace("\n", "<br>")
                 lower_key = str(key).lower()
                 if lower_key in priority_keys:
                     html_parts.append(f"<p><b>{escaped}</b></p>")
                 else:
-                    html_parts.append(f"<p><b>{key}:</b> {escaped}</p>")
+                    html_parts.append(f"<p><b>{_html_insert_text(key)}:</b> {escaped}</p>")
         
         return "\n".join(html_parts)
 
-    # Fallback to string
-    return str(result)
+    return _html_insert_text(result).replace("\n", "<br>")
 
 
 def insert_result_into_calc(doc: Any, uno_ctx: Any, result: Any) -> None:

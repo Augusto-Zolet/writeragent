@@ -20,21 +20,25 @@ import uuid
 from typing import Any, IO, Mapping
 
 from plugin.framework.deal_shim import DEAL_MAX_SOURCE, str_bounded, deal
-from plugin.scripting.ipc import IpcFrameError, pack_pickle_frame, read_frame_payload, unpack_pickle_frame
+from plugin.scripting.ipc import (
+    DEFAULT_MAX_PAYLOAD_BYTES,
+    IpcFrameError,
+    pack_pickle_frame,
+    read_frame_payload,
+    unpack_pickle_frame,
+)
 
 EDITOR_DEFAULT_TITLE = " "
 
 # JSON-safe identity keys on every session message (omit empties).
 _TARGET_KEYS = ("cell_address", "script_name", "script_origin", "doc_url", "resource")
 
-# Cap payloads to avoid accidental OOM from a corrupted length header.
-_MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
-
-
 def read_message(stream: IO[bytes]) -> dict[str, Any] | None:
     """Read one pickle-framed message from *stream*. Returns None on clean EOF."""
     # crosshair: off
-    payload = read_frame_payload(stream, max_payload_bytes=_MAX_PAYLOAD_BYTES, frame_label="editor message")
+    payload = read_frame_payload(
+        stream, max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES, frame_label="editor message"
+    )
     if payload is None:
         return None
     try:
@@ -50,7 +54,7 @@ def write_message(stream: IO[bytes], message: dict[str, Any]) -> None:
     """Write one dict to *stream* as pickle protocol 5 with a 4-byte big-endian length prefix."""
     # crosshair: off
     try:
-        frame = pack_pickle_frame(message, max_payload_bytes=_MAX_PAYLOAD_BYTES)
+        frame = pack_pickle_frame(message, max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES)
     except IpcFrameError as exc:
         raise ValueError("Editor message exceeds maximum payload size") from exc
     stream.write(frame)

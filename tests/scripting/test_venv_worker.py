@@ -22,10 +22,12 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from plugin.scripting.config_limits import WARM_WORKER_TIMEOUT_SEC
-from plugin.scripting.ipc import pack_pickle_frame, read_pickle_frame
+from plugin.scripting.ipc import DEFAULT_MAX_PAYLOAD_BYTES, IpcFrameError, pack_pickle_frame, read_pickle_frame
 from plugin.scripting.venv_worker import (
     PythonWorkerManager,
+    _worker_error,
     _worker_error_message,
+    reset_python_session,
     run_code_in_user_venv,
     scrub_subprocess_env,
     warm_venv_worker,
@@ -1107,4 +1109,33 @@ def test_venv_worker_error_codes_and_context():
         mgr._terminate_worker()
 
 
+def test_worker_error_shape():
+    err = _worker_error("WORKER_IPC_ERROR", "No code provided.")
+    assert err == {
+        "status": "error",
+        "code": "WORKER_IPC_ERROR",
+        "message": "No code provided.",
+        "details": {},
+    }
+
+
+def test_run_code_and_reset_session_missing_inputs_include_code():
+    empty_code = run_code_in_user_venv(MagicMock(), "   ")
+    assert empty_code["status"] == "error"
+    assert empty_code["code"] == "WORKER_IPC_ERROR"
+    assert empty_code["message"] == "No code provided."
+    assert "details" in empty_code
+
+    empty_sid = reset_python_session(MagicMock(), "  ")
+    assert empty_sid["status"] == "error"
+    assert empty_sid["code"] == "WORKER_IPC_ERROR"
+    assert empty_sid["message"] == "No session_id provided."
+    assert "details" in empty_sid
+
+
+def test_worker_read_rejects_oversize_length_prefix():
+    mgr = PythonWorkerManager(sys.executable, {"PATH": os.environ.get("PATH", "")})
+    too_big = struct.pack("!I", DEFAULT_MAX_PAYLOAD_BYTES + 1)
+    with pytest.raises(IpcFrameError, match="venv worker frame"):
+        mgr._read_frame_bytes(io.BytesIO(too_big), read_exact=lambda n: too_big[:n])
 

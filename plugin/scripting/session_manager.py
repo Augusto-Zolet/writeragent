@@ -84,6 +84,9 @@ def _find_document_by_predicate(ctx: Any, predicate: Any) -> Any | None:
                     has_more = enum.hasMoreElements()
                 except Exception:
                     break
+                # MagicMock.hasMoreElements() is always truthy; this is a local
+                # enumeration stop, not a general is_mock helper. Skip extracting
+                # to deal_shim unless more call sites grow the same check.
                 if type(has_more).__name__ in ("Mock", "MagicMock") or not has_more:
                     break
                 elem = enum.nextElement()
@@ -195,7 +198,9 @@ def _workbook_session_key(doc: Any) -> str:
         return new_id
     except Exception:
         pass
-    return f"unsaved:{id(raw_doc)}"
+    # Do not use id(raw_doc): CPython recycles ids after GC, so two unsaved
+    # docs opened in sequence could collide on a stale worker session.
+    return f"unsaved:{uuid.uuid4()}"
 
 
 def calc_workbook_base_session_id(doc: Any) -> str:

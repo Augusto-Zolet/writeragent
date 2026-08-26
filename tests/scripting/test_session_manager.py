@@ -68,6 +68,24 @@ def test_find_document_by_predicate_fallback() -> None:
         assert doc is not None
 
 
+def test_workbook_session_key_unsaved_uses_uuid_not_id() -> None:
+    from unittest.mock import MagicMock, patch
+    import uuid as uuid_mod
+
+    mock_doc = MagicMock()
+    mock_doc.getURL.return_value = ""
+
+    with (
+        patch("plugin.scripting.session_manager.get_document_property", return_value=""),
+        patch("plugin.scripting.session_manager.set_document_property", side_effect=RuntimeError("no props")),
+    ):
+        key = session_manager._workbook_session_key(mock_doc)
+    assert key.startswith("unsaved:")
+    rest = key[len("unsaved:") :]
+    uuid_mod.UUID(rest)
+    assert rest != str(id(mock_doc))
+
+
 def test_workbook_session_id_with_explicit_doc() -> None:
     """Explicit doc argument avoids desktop lookups and works regardless of thread affinity."""
     from unittest.mock import MagicMock, patch

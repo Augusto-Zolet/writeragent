@@ -128,6 +128,12 @@ def try_rps_post_venv(
 
 
 # --- Declarative Domain registry wiring ---
+# Three tables on purpose: WIRING_TABLE (RPS insert order), POST_VENV_DOMAIN_ORDER
+# (is_result scan order), PICKER_WIRING (script-picker UI). Do not collapse them
+# or add a fourth registry. Drift is caught by test_domain_registry (same members
+# for wiring vs post-venv; picker is not 1:1 — sql is picker-only, text is not).
+# Later: build_rps_spec uses module.attr while picker/_resolve_module_attr and
+# trusted_action_registry use module:attr. Unify on colon and grep every string.
 
 @dataclass(frozen=True)
 class DomainWiring:

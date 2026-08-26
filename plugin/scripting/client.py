@@ -338,7 +338,7 @@ def run_languagetool_check(ctx: Any, text: str, bcp47: str) -> dict[str, Any]:
         params={},
         data_range=None,
         context=None,
-        timeout_sec=15,
+        timeout_sec=15,  # later: config_limits next to VISION_WORKER_TIMEOUT_SEC
         error_code="LANGUAGETOOL_ERROR",
         error_label="LanguageTool",
         additional_data={"text": text, "bcp47": bcp47},
@@ -360,7 +360,7 @@ def run_vale_check(ctx: Any, text: str, config_dir: str, styles: str) -> dict[st
         params={},
         data_range=None,
         context=None,
-        timeout_sec=25,
+        timeout_sec=25,  # later: config_limits next to VISION_WORKER_TIMEOUT_SEC
         error_code="VALE_ERROR",
         error_label="Vale Linter",
         additional_data={"text": text, "config_dir": config_dir, "styles": styles},

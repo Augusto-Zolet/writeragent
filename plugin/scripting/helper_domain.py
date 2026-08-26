@@ -143,7 +143,8 @@ def parse_run_import_call_spec(code: str, *, run_name: str) -> dict[str, Any] | 
         return None
     import sys
 
-    # Symbolic ``ast.parse`` → CrossHair engine exit; concrete pytest covers real parses.
+    # CrossHair timing/contract switch, not a test leak. Optional later:
+    # deal_shim.is_crosshair_running() if more sites grow this probe.
     if "crosshair" in sys.modules:
         return None
     try:

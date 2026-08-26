@@ -34,6 +34,14 @@ class TestPythonRunnerFormatting(unittest.TestCase):
         self.assertEqual(format_result_for_writer("hello"), "hello")
         self.assertEqual(format_result_for_writer(123), "123")
 
+    def test_format_escapes_html_specials_for_insert_unescape(self):
+        # Double-escape so html.unescape in insert_content_at_position still
+        # leaves entities the StarWriter filter will render as text.
+        self.assertEqual(format_result_for_writer("<b>&</b>"), "&amp;lt;b&amp;gt;&amp;amp;&amp;lt;/b&amp;gt;")
+        table = format_result_for_writer([["<td>", "a&b"]])
+        self.assertIn("<td>&amp;lt;td&amp;gt;</td>", table)
+        self.assertIn("<td>a&amp;amp;b</td>", table)
+
     def test_format_zero(self):
         self.assertEqual(format_result_for_writer(0), "0")
         self.assertEqual(format_result_for_writer(0.0), "0.0")
@@ -88,7 +96,7 @@ class TestPythonRunnerFormatting(unittest.TestCase):
         self.assertIn("<p><b>12345</b></p>", res)
         self.assertIn("<p><b>99.9</b></p>", res)
         self.assertIn("<p><b>True</b></p>", res)
-        self.assertIn("<p><b>{'nested': 'value'}</b></p>", res)
+        self.assertIn("<p><b>{&amp;#x27;nested&amp;#x27;: &amp;#x27;value&amp;#x27;}</b></p>", res)
         self.assertNotIn("<b>title:</b>", res)
         self.assertNotIn("<b>summary:</b>", res)
         self.assertNotIn("<b>message:</b>", res)

@@ -1114,8 +1114,9 @@ def test_host_cython_status_line_report_only_by_default() -> None:
     ],
 )
 def test_is_calc_range_payload_matches_calc_range_module(value: object) -> None:
-    """Codec wire guard and calc_range pack helper must stay identical."""
+    """calc_range re-exports the codec detector (same object, same answers)."""
     from plugin.scripting.calc_range import is_calc_range_payload as calc_range_is
 
+    assert calc_range_is is payload_codec.is_calc_range_payload
     assert payload_codec.is_calc_range_payload(value) is calc_range_is(value)
 

@@ -8,7 +8,12 @@ from __future__ import annotations
 import sys
 from typing import Any, BinaryIO, Callable
 
-from plugin.scripting.ipc import read_frame_payload, unpack_pickle_frame, write_pickle_frame
+from plugin.scripting.ipc import (
+    DEFAULT_MAX_PAYLOAD_BYTES,
+    read_frame_payload,
+    unpack_pickle_frame,
+    write_pickle_frame,
+)
 
 FRAME_HEARTBEAT = "heartbeat"
 FRAME_RESULT = "result"
@@ -39,7 +44,12 @@ def write_result_frame(stream: BinaryIO, response: dict[str, Any]) -> None:
 def read_frame(stream: BinaryIO, *, deadline: float, read_exact: Callable[[BinaryIO, int, float], bytes]) -> bytes | None:
     """Read one length-prefixed frame before *deadline*; return None on timeout/EOF."""
 
-    return read_frame_payload(stream, read_exact=lambda nbytes: read_exact(stream, nbytes, deadline))
+    return read_frame_payload(
+        stream,
+        read_exact=lambda nbytes: read_exact(stream, nbytes, deadline),
+        max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES,
+        frame_label="venv worker frame",
+    )
 
 
 def parse_frame(frame_bytes: bytes) -> dict[str, Any]:

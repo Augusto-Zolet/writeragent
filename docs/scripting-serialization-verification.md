@@ -39,7 +39,7 @@ This is the reference implementation for Tier-0 (pure Python) contract + CrossHa
 12. `is_multi_data` / `_is_multi_data_envelope`
 13. `is_image_payload` / `_is_image_payload_envelope`
 14. `is_dataframe_payload` / `_is_dataframe_envelope`
-15. `is_calc_range_payload` / `_is_calc_range_envelope` (codec copy; `calc_range.py` has a parallel detector)
+15. `is_calc_range_payload` / `_is_calc_range_envelope` (canonical in the codec; `calc_range.py` re-exports)
 16. `_is_any_payload_envelope`
 
 **Pack / unpack**

@@ -23,6 +23,12 @@ from typing import Any, Callable, IO
 PICKLE_PROTOCOL = 5
 FRAME_HEADER_SIZE = 4
 
+# Shared cap for editor IPC and the venv-worker host read path. A corrupt 4-byte
+# length prefix without this bound can OOM the LibreOffice process. Keep editor
+# and worker on the same inventory — do not pass unbounded read_frame_payload
+# on either path.
+DEFAULT_MAX_PAYLOAD_BYTES = 16 * 1024 * 1024
+
 
 class IpcFrameError(ValueError):
     """Raised when a framed IPC message has an invalid length or payload."""

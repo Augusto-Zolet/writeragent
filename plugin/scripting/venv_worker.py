@@ -32,7 +32,12 @@ from plugin.scripting.config_limits import (
     python_exec_timeout_default,
     resolve_python_exec_timeout,
 )
-from plugin.scripting.ipc import pack_pickle_frame, read_frame_payload, unpack_pickle_frame
+from plugin.scripting.ipc import (
+    DEFAULT_MAX_PAYLOAD_BYTES,
+    pack_pickle_frame,
+    read_frame_payload,
+    unpack_pickle_frame,
+)
 from plugin.scripting.payload_codec import host_unpack_data
 from plugin.scripting.sandbox import (
     optimize_popen_pipes,
@@ -45,6 +50,16 @@ from plugin.scripting.sandbox import (
 log = logging.getLogger(__name__)
 
 _TIMEOUT_AFTER = " timed out after "
+
+
+def _worker_error(code: str, message: str, *, details: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Host-constructed error dict. Child payloads still go through ``_normalize_response``."""
+    return {
+        "status": "error",
+        "code": code,
+        "message": message,
+        "details": details or {},
+    }
 
 
 class _NonReplayableIpcWriteTimeout(RuntimeError):
@@ -196,6 +211,8 @@ class PythonWorkerManager:
         }
         if timeout_sec is not None:
             request["timeout_sec"] = timeout_sec
+        # Later: action and code branches both set data/session_id — fold common
+        # keys if editing this function.
         if action:
             request["action"] = action
             if session_id:
@@ -312,22 +329,20 @@ class PythonWorkerManager:
                     # User code / C-extension hung: killing and replaying would double the wait.
                     log.warning("Python worker read timed out: %s", e)
                     self._terminate_worker()
-                    return {
-                        "status": "error",
-                        "code": "VENV_TIMEOUT",
-                        "message": _worker_error_message(e),
-                        "details": {"timeout_sec": timeout_sec, "exe": self.exe},
-                    }
+                    return _worker_error(
+                        "VENV_TIMEOUT",
+                        _worker_error_message(e),
+                        details={"timeout_sec": timeout_sec, "exe": self.exe},
+                    )
                 return self._normalize_response(response)
             except _NonReplayableIpcWriteTimeout as e:
                 log.warning("Python worker failed without replay: %s", e)
                 self._terminate_worker()
-                return {
-                    "status": "error",
-                    "code": "WORKER_IPC_ERROR",
-                    "message": f"Python worker failed: {e}",
-                    "details": {"exe": self.exe},
-                }
+                return _worker_error(
+                    "WORKER_IPC_ERROR",
+                    f"Python worker failed: {e}",
+                    details={"exe": self.exe},
+                )
             except (BrokenPipeError, ValueError, RuntimeError, subprocess.TimeoutExpired, OSError) as e:
                 # TimeoutExpired here is an initial stdin write timeout only; retry once on a
                 # fresh worker. Host read timeouts return above without replay.
@@ -335,13 +350,12 @@ class PythonWorkerManager:
                 self._terminate_worker()
                 if attempt == 1:
                     code_val = "VENV_TIMEOUT" if isinstance(e, subprocess.TimeoutExpired) else "WORKER_IPC_ERROR"
-                    return {
-                        "status": "error",
-                        "code": code_val,
-                        "message": _worker_error_message(e),
-                        "details": {"exe": self.exe, "attempt": attempt + 1},
-                    }
-        return {"status": "error", "code": "WORKER_IPC_ERROR", "message": "Python worker failed", "details": {"exe": self.exe}}
+                    return _worker_error(
+                        code_val,
+                        _worker_error_message(e),
+                        details={"exe": self.exe, "attempt": attempt + 1},
+                    )
+        return _worker_error("WORKER_IPC_ERROR", "Python worker failed", details={"exe": self.exe})
 
 
     def execute(
@@ -402,10 +416,10 @@ class PythonWorkerManager:
         try:
             import plugin.ppt_master  # noqa: F401  # pyright: ignore[reportUnusedImport]
         except ImportError:
-            return {
-                "status": "error",
-                "message": "PPT-Master is not available in this extension build.",
-            }
+            return _worker_error(
+                "WORKER_IPC_ERROR",
+                "PPT-Master is not available in this extension build.",
+            )
         with self._io_lock:
             warm_err = self._ensure_warmed_unlocked()
             if warm_err is not None:
@@ -434,7 +448,7 @@ class PythonWorkerManager:
         label: str,
     ) -> None:
         """Serialize one frame, then bound only the potentially blocking pipe write."""
-        frame = pack_pickle_frame(message)
+        frame = pack_pickle_frame(message, max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES)
         self._write_bytes_with_timeout(stdin, frame, timeout_sec=timeout_sec, label=label)
 
     def _write_bytes_with_timeout(
@@ -445,7 +459,12 @@ class PythonWorkerManager:
         timeout_sec: float,
         label: str,
     ) -> None:
-        """Write and flush bytes without allowing a stalled child to hold ``_io_lock`` forever."""
+        """Write and flush bytes without allowing a stalled child to hold ``_io_lock`` forever.
+
+        Skip a reusable writer thread: this per-write daemon is how a stalled child
+        cannot hold ``_io_lock``. Thread creation is cheap vs a venv round-trip;
+        a pooled writer adds shutdown races on Windows pipes. Measure before changing.
+        """
         errors: list[Exception] = []
 
         def _writer() -> None:
@@ -491,14 +510,13 @@ class PythonWorkerManager:
         tb = response.get("traceback")
         if tb and isinstance(tb, str):
             msg = f"{msg}\n{tb.strip()}"
-        out: dict[str, Any] = {
-            "status": "error",
-            "code": response.get("code") or "VENV_EXEC_ERROR",
-            "message": str(msg),
-            "stdout": (response.get("stdout") or "").strip(),
-            "traceback": str(tb or ""),
-            "details": response.get("details") or {},
-        }
+        out = _worker_error(
+            response.get("code") or "VENV_EXEC_ERROR",
+            str(msg),
+            details=response.get("details") or {},
+        )
+        out["stdout"] = (response.get("stdout") or "").strip()
+        out["traceback"] = str(tb or "")
         return out
 
 
@@ -529,8 +547,11 @@ class PythonWorkerManager:
 
     def _read_response_bytes(self, stdout: IO[bytes], timeout_sec: float | int) -> bytes:
         assert self._proc is not None
-        # Windows select.select() only supports sockets, not pipes (raises
-        # WinError 10038).  Use a thread-based blocking read there instead.
+        # Do not merge this with ipc.read_pickle_frame_with_timeout: the worker
+        # path also poll()-short-circuits a dead child and (on the heartbeat
+        # path) resets the deadline. Unifying those is a hang-regression risk
+        # for =PY(). Windows select.select() only supports sockets, not pipes
+        # (WinError 10038); use a thread-based blocking read there instead.
         if sys.platform == "win32":
             return self._read_response_bytes_threaded(stdout, timeout_sec)
         return self._read_response_bytes_select(stdout, timeout_sec)
@@ -556,7 +577,15 @@ class PythonWorkerManager:
                     break
             return bytes(buf)
 
-        return read_frame_payload(stdout, read_exact=_read_exact) or b""
+        return (
+            read_frame_payload(
+                stdout,
+                read_exact=_read_exact,
+                max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES,
+                frame_label="venv worker frame",
+            )
+            or b""
+        )
 
     def _read_response_bytes_threaded(self, stdout: IO[bytes], timeout_sec: float | int) -> bytes:
         """Windows path: blocking read in a daemon thread with join-timeout."""
@@ -565,7 +594,14 @@ class PythonWorkerManager:
 
         def _reader() -> None:
             try:
-                result[0] = read_frame_payload(stdout) or b""
+                result[0] = (
+                    read_frame_payload(
+                        stdout,
+                        max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES,
+                        frame_label="venv worker frame",
+                    )
+                    or b""
+                )
             except Exception as exc:
                 error[0] = exc
 
@@ -639,7 +675,15 @@ class PythonWorkerManager:
                 return frame_bytes
 
     def _read_frame_bytes(self, stdout: IO[bytes], read_exact: Callable[[int], bytes]) -> bytes:
-        return read_frame_payload(stdout, read_exact=read_exact) or b""
+        return (
+            read_frame_payload(
+                stdout,
+                read_exact=read_exact,
+                max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES,
+                frame_label="venv worker frame",
+            )
+            or b""
+        )
 
     def _drain_stderr(self) -> str:
         """Return bounded stderr captured by the live drain thread (crash diagnostics)."""
@@ -702,44 +746,36 @@ def _resolve_worker_python(
 
     if pool == WORKER_POOL_EMBEDDINGS:
         if not venv_dir:
-            return None, {
-                "status": "error",
-                "code": "VENV_NOT_FOUND",
-                "message": (
-                    "Embeddings require a configured Python venv (Settings → Python). "
-                    "LibreOffice embedded Python cannot run sentence-transformers or langgraph."
-                ),
-            }
+            return None, _worker_error(
+                "VENV_NOT_FOUND",
+                "Embeddings require a configured Python venv (Settings → Python). "
+                "LibreOffice embedded Python cannot run sentence-transformers or langgraph.",
+            )
         exe = resolve_venv_python(venv_dir)
         if not exe:
-            return None, {
-                "status": "error",
-                "code": "VENV_NOT_FOUND",
-                "message": f"Embeddings venv not configured or invalid: {venv_dir!r}",
-            }
+            return None, _worker_error(
+                "VENV_NOT_FOUND",
+                f"Embeddings venv not configured or invalid: {venv_dir!r}",
+            )
         log.debug("run_venv_code: using embeddings venv interpreter under %s", venv_dir)
         return exe, None
 
     if venv_dir:
         exe = resolve_venv_python(venv_dir)
         if not exe:
-            return None, {
-                "status": "error",
-                "code": "VENV_NOT_FOUND",
-                "message": f"No python executable found under configured venv: {venv_dir!r}",
-            }
+            return None, _worker_error(
+                "VENV_NOT_FOUND",
+                f"No python executable found under configured venv: {venv_dir!r}",
+            )
         log.debug("run_venv_code: using venv interpreter under %s", venv_dir)
         return exe, None
     exe = resolve_libreoffice_python()
     if not exe:
-        return None, {
-            "status": "error",
-            "code": "VENV_NOT_FOUND",
-            "message": (
-                "Could not resolve a Python interpreter (sys.executable missing, not a file, or not executable). "
-                "Set scripting.python_venv_path in Settings → Python for a dedicated venv, or fix the LibreOffice install."
-            ),
-        }
+        return None, _worker_error(
+            "VENV_NOT_FOUND",
+            "Could not resolve a Python interpreter (sys.executable missing, not a file, or not executable). "
+            "Set scripting.python_venv_path in Settings → Python for a dedicated venv, or fix the LibreOffice install.",
+        )
 
     log.debug("run_venv_code: using process interpreter %s (no venv path set)", exe)
     return exe, None
@@ -789,7 +825,7 @@ def run_code_in_user_venv(
     """
     del active_domain, python_tool_domain  # deferred — see docs/enabling_numpy_in_libreoffice.md §7
     if not action and not (code or "").strip():
-        return {"status": "error", "message": "No code provided."}
+        return _worker_error("WORKER_IPC_ERROR", "No code provided.")
 
     manager, err = _worker_manager_for_ctx(uno_ctx, pool=worker_pool)
     if err is not None:
@@ -818,7 +854,7 @@ def run_code_in_user_venv(
 def reset_python_session(uno_ctx: Any, session_id: str, *, timeout_sec: int | None = None) -> Dict[str, Any]:
     """Drop the shared-kernel executor for *session_id* in the warm worker."""
     if not (session_id or "").strip():
-        return {"status": "error", "message": "No session_id provided."}
+        return _worker_error("WORKER_IPC_ERROR", "No session_id provided.")
 
     manager, err = _worker_manager_for_ctx(uno_ctx)
     if err is not None:

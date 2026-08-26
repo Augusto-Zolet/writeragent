@@ -22,7 +22,11 @@ def make_getattr(
     *,
     fallback: Callable[[str], Any] | None = None,
 ) -> Callable[[str], Any]:
-    """Return a PEP 562 ``__getattr__`` that lazy-loads *exports* from a venv submodule."""
+    """Return a PEP 562 ``__getattr__`` that lazy-loads *exports* from a venv submodule.
+
+    Later: add ``__dir__`` / ``__all__`` from *exports* so ``dir()``/``hasattr``
+    work without eager-importing the venv module.
+    """
 
     def __getattr__(name: str) -> Any:
         if name in exports:

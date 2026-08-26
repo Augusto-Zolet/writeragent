@@ -10,6 +10,8 @@ from unittest.mock import patch
 
 from plugin.scripting.domain_registry import (
     POST_VENV_DOMAIN_ORDER,
+    WIRING_TABLE,
+    _RUN_IMPORT_DATA_BINDING,
     get_picker_domains,
     get_post_venv_domains,
     get_rps_domains,
@@ -41,6 +43,22 @@ def test_rps_domains_have_post_venv_hooks():
 def test_post_venv_order_matches_constant():
     ids = [s.id for s in get_post_venv_domains()]
     assert ids == list(POST_VENV_DOMAIN_ORDER)
+
+
+def test_wiring_and_post_venv_and_run_import_binding_agree():
+    """Same domain ids in WIRING_TABLE and POST_VENV_DOMAIN_ORDER; calc_only flags match.
+
+    Picker is not 1:1 (sql is picker-only; text is wiring-only) — do not assert that.
+    Order of the two wiring lists is intentionally different; only membership is shared.
+    """
+    wiring_ids = {w.id for w in WIRING_TABLE}
+    assert set(POST_VENV_DOMAIN_ORDER) == wiring_ids
+    by_id = {w.id: w for w in WIRING_TABLE}
+    for run_name, cfg in _RUN_IMPORT_DATA_BINDING.items():
+        assert run_name.startswith("run_")
+        domain_id = run_name[len("run_") :]
+        assert domain_id in by_id
+        assert cfg.get("calc_only") is by_id[domain_id].post_venv_calc_only
 
 
 def test_script_header_needs_data_binding_on_calc_domains():

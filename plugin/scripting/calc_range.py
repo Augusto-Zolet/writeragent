@@ -19,8 +19,7 @@ import operator
 from typing import Any
 
 from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_TOKEN, str_bounded, deal
-
-PAYLOAD_CALC_RANGE = "calc_range"
+from plugin.scripting.payload_codec import PAYLOAD_CALC_RANGE, is_calc_range_payload
 
 
 @deal.post(lambda result: isinstance(result, list))
@@ -54,21 +53,6 @@ def ensure_rectangular_2d(grid: Any) -> list[list[Any]]:
 def column_vector_as_2d(values: list[Any]) -> list[list[Any]]:
     """Wrap a flat column vector as ``[[v], …]`` (N×1)."""
     return [[v] for v in values]
-
-
-@deal.post(lambda result: isinstance(result, bool))
-def is_calc_range_payload(obj: Any) -> bool:
-    # crosshair: off
-    if not isinstance(obj, dict):
-        return False
-    if obj.get("__wa_payload__") != PAYLOAD_CALC_RANGE:
-        return False
-    shape = obj.get("shape")
-    if not isinstance(shape, list) or len(shape) != 2:
-        return False
-    if not all(isinstance(d, int) and d >= 0 for d in shape):
-        return False
-    return "data" in obj
 
 
 @deal.post(lambda result: isinstance(result, dict) and is_calc_range_payload(result))

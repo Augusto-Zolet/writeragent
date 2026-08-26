@@ -23,6 +23,8 @@ class TrustedActionWiring:
     supports_heartbeat: bool = False
 
     def dispatch(self, data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
+        # Later: same module:attr as domain_registry._resolve_module_attr; RPS
+        # wiring still uses module.attr — unify on colon and grep every string.
         mod_name, attr_name = self.handler.rsplit(":", 1)
         mod = importlib.import_module(mod_name)
         fn = getattr(mod, attr_name)
