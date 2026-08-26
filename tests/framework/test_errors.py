@@ -131,6 +131,9 @@ class TestErrorHandling(unittest.TestCase):
         msg_sandbox = format_error_message(SandboxSecurityError("Import os forbidden"))
         self.assertIn("Script execution blocked by sandbox policy", msg_sandbox)
 
+        msg_generic_venv = format_error_message(RuntimeError("venv not found at /tmp/x"))
+        self.assertIn("Python venv not found", msg_generic_venv)
+
     def test_writeragent_exception_subclasses_and_details_unification(self):
         from plugin.framework.errors import (
             AgentParsingError,

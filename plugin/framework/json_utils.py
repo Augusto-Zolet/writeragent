@@ -24,7 +24,7 @@ import json
 import re
 from typing import Any
 
-from plugin.framework.deal_shim import deal
+from plugin.framework.deal_shim import UNDER_CROSSHAIR, deal
 
 _LATEX_CLASH_WORDS = [
     # \a (Bell)
@@ -146,10 +146,8 @@ for _word in _LATEX_CLASH_WORDS:
 
 def _repair_latex_clashes(text: str) -> str:
     """Escape backslashes for LaTeX commands that conflict with JSON escapes."""
-    import sys
-
     # CrossHair: regex + large clash tables explode the SMT heap; identity is enough for contracts.
-    if "crosshair" in sys.modules:
+    if UNDER_CROSSHAIR:
         return text
     # 1. Handle properly escaped but single-slash clashes (e.g. \\nabla -> \\\\nabla)
     text = _LATEX_CLASH_RE.sub(r"\\\\\1", text)
@@ -185,10 +183,8 @@ def repair_json(text: str) -> str:
     if not repaired:
         return repaired
 
-    import sys
-
     # json_repair under symbolic strings → CrossHairInternal; keep identity for cover/check.
-    if "crosshair" in sys.modules:
+    if UNDER_CROSSHAIR:
         return repaired
 
     import json_repair
@@ -204,9 +200,7 @@ def repair_json_object(text: str) -> Any:
     if not stripped:
         return stripped
 
-    import sys
-
-    if "crosshair" in sys.modules:
+    if UNDER_CROSSHAIR:
         return {}
     import json_repair  # lazy: vendored in plugin/lib or vendor/
 
@@ -262,8 +256,7 @@ def safe_json_loads(text: Any, default: Any = None, strict: bool = False) -> Any
     stripped = _repair_latex_clashes(stripped)
 
     # 1. Standard attempt
-    import sys
-    if "crosshair" in sys.modules:
+    if UNDER_CROSSHAIR:
         if stripped.startswith("{") and stripped.endswith("}"):
             return {}
         return default

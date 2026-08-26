@@ -24,6 +24,7 @@ from abc import ABC
 from typing import Any, cast
 
 from plugin.framework.constants import get_plugin_dir
+from plugin.framework.errors import ConfigError
 
 log = logging.getLogger("writeragent.module_base")
 
@@ -148,19 +149,28 @@ class ModuleLoader:
                 provides[svc] = m["name"]
 
         visited = set()
+        visiting = set()
         order = []
 
         def visit(name):
             if name in visited:
                 return
-            visited.add(name)
+            if name in visiting:
+                raise ConfigError(
+                    f"Cyclic module requires graph at {name!r}",
+                    code="MODULE_CYCLE",
+                )
+            visiting.add(name)
             m = by_name.get(name)
             if m is None:
+                visiting.discard(name)
                 return
             for req in m.get("requires", []):
                 provider = provides.get(req, req)
                 if provider in by_name:
                     visit(provider)
+            visiting.discard(name)
+            visited.add(name)
             order.append(m)
 
         if "core" in by_name:

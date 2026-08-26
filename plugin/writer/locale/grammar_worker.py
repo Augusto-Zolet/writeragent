@@ -378,7 +378,7 @@ def call_grammar_llm(
         max_tokens = ec.max_tok
 
     request_start = time.monotonic()
-    with queue_executor.grammar_llm_request_gate(ec.ctx):
+    with queue_executor.grammar_llm_request_gate(grammar_proofread_locale.grammar_max_in_flight(ec.ctx)):
         content = grammar_llm_sync(ec, messages, max_tokens)
     elapsed_ms = int((time.monotonic() - request_start) * 1000)
 
@@ -470,7 +470,7 @@ def _detect_via_llm_batch(
     detect_max_tok = grammar_proofread_locale.GRAMMAR_LANGUAGE_DETECT_MAX_TOKENS_PER_BATCH_ITEM * len(chunk)
 
     emit_grammar_status("request", f"Batch of {len(chunk)}", result="Detecting language")
-    with queue_executor.grammar_llm_request_gate(ec.ctx):
+    with queue_executor.grammar_llm_request_gate(grammar_proofread_locale.grammar_max_in_flight(ec.ctx)):
         detect_content = language_detect_llm_sync(ec, detect_messages, detect_max_tok)
 
     parsed_langs = grammar_proofread_json.parse_language_detect_batch_json(detect_content or "")
@@ -510,7 +510,7 @@ def _detect_via_llm_single(
     detect_messages = [{"role": "system", "content": detect_prompt}, {"role": "user", "content": text}]
 
     emit_grammar_status("request", text, result="Detecting language")
-    with queue_executor.grammar_llm_request_gate(ec.ctx):
+    with queue_executor.grammar_llm_request_gate(grammar_proofread_locale.grammar_max_in_flight(ec.ctx)):
         detect_content = language_detect_llm_sync(
             ec,
             detect_messages,

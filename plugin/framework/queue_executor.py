@@ -196,11 +196,13 @@ def llm_request_lane(timeout: float = 60.0) -> Generator[None, None, None]:
 
 
 @contextmanager
-def grammar_llm_request_gate(ctx: Any, timeout: float = 60.0) -> Generator[None, None, None]:
-    """Gate grammar proofreader HTTP: limit=1 uses global lane; limit>1 allows N parallel grammar calls."""
-    from plugin.writer.locale.grammar_proofread_locale import grammar_max_in_flight
+def grammar_llm_request_gate(max_in_flight: int, timeout: float = 60.0) -> Generator[None, None, None]:
+    """Gate grammar proofreader HTTP: limit=1 uses global lane; limit>1 allows N parallel grammar calls.
 
-    limit = grammar_max_in_flight(ctx)
+    Callers resolve the limit (Writer ``grammar_max_in_flight(ctx)``) and pass it in —
+    this module must not import ``plugin.writer``.
+    """
+    limit = max_in_flight
     if limit <= 1:
         with llm_request_lane(timeout=timeout):
             yield
@@ -300,7 +302,9 @@ class QueueExecutor:
 
                 assert ctx is not None, "UNO component context is required for AsyncCallback"
                 ctx_any = cast("Any", ctx)
-                smgr = _unwrap_uno(getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)()))
+                from plugin.framework.uno_context import get_service_manager
+
+                smgr = _unwrap_uno(get_service_manager(ctx_any))
                 assert smgr is not None, "ServiceManager unavailable on UNO context"
                 self._async_callback_service = cast("Any", smgr).createInstanceWithContext(
                     "com.sun.star.awt.AsyncCallback", ctx_any

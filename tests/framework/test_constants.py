@@ -345,6 +345,9 @@ def test_insert_cell_html_description_keeps_border_guidance():
 
 
 def test_calc_formula_syntax_sheet_dot_not_excel_bang():
+    from plugin.framework.prompts import _ensure_venv_import_policy_strings
+
+    _ensure_venv_import_policy_strings()
     from plugin.framework.prompts import CALC_FORMULA_SYNTAX, CALC_PYTHON_FORMULA_LLM_HINT
 
     assert "never Excel bang" in CALC_FORMULA_SYNTAX

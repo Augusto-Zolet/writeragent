@@ -489,6 +489,21 @@ When deciding whether a robustness proposal belongs in this roadmap, ask:
 
 If the answer to most of these is no, it probably belongs in the deferred section instead of the main roadmap.
 
+## 10. Deferred framework hygiene
+
+Smells worth remembering, with **designs we are not doing**. Smaller follow-ups only if a real change already touches the file.
+
+| Smell | Do not do | Smaller if ever |
+|---|---|---|
+| `ConfigService._config_path` ifs in get/set/remove | `ConfigBackingStore` interface | tiny file-read/write helpers |
+| `MODULES is _DEFAULT_MODULES` dual dotted-key paths | delete the loop path without a dedicated test pass | rebuild dicts only in `set_manifest_modules` later |
+| `ToolBaseDummy` copies `get_collection` / `get_item` | mixin / second ABC | drop those methods if Dummy never uses them |
+| `SafeLogger` vs `safe_log_exception` vs `log_exception` | merge into one wrapper | leave; fallbacks differ |
+| `to_mcp_schema` name switches | `postprocess_mcp_schema` on every tool | move only `write_formula_range`/`values`; keep generic `range` string\|array in the converter |
+| `ToolContext` many constructor fields | frozen dataclass + `ToolCallbacks` | keyword-only `__init__` if caller churn is acceptable |
+| `load_modules` MRO `__name__` | `issubclass(attr, ModuleBase)` | keep string MRO (duplicate classes on LO `sys.path`) |
+| Named test hooks (`_force_marshal_mode`, `_designated_main_thread`) | DI for tests | leave named hooks |
+
 ## Conclusion
 
 WriterAgent does not need elaborate reliability theater. It needs dependable behavior on the failure modes it actually sees: stale UNO objects, flaky network calls, malformed streamed data, persistence fallbacks, and occasional hangs.

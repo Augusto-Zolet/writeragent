@@ -144,13 +144,25 @@ def get_ctx():
 from plugin.framework.errors import check_disposed, safe_call, UnoObjectError
 
 
+def get_service_manager(ctx: Any) -> Any | None:
+    """Return the UNO ServiceManager from *ctx*, or None."""
+    if ctx is None:
+        return None
+    ctx_any = cast("Any", ctx)
+    smgr = getattr(ctx_any, "ServiceManager", None)
+    if smgr is None:
+        getter = getattr(ctx_any, "getServiceManager", None)
+        smgr = getter() if callable(getter) else None
+    return smgr
+
+
 @main_thread_only
 def get_desktop(ctx=None):
     """Return the UNO Desktop instance."""
     ctx = ctx or get_ctx()
     assert ctx is not None
     ctx_any = cast("Any", ctx)
-    smgr = getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)())
+    smgr = get_service_manager(ctx_any)
     assert smgr is not None
     desktop = cast("Any", smgr).createInstanceWithContext("com.sun.star.frame.Desktop", ctx_any)
     return _wrap_uno(desktop)
@@ -247,7 +259,7 @@ def get_toolkit(ctx=None):
         from typing import cast
 
         ctx_any = cast("Any", ctx)
-        smgr = getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)())
+        smgr = get_service_manager(ctx_any)
         if smgr is None:
             return None
         tk = cast("Any", smgr).createInstanceWithContext("com.sun.star.awt.Toolkit", ctx_any)
@@ -410,11 +422,7 @@ def resolve_document_by_url(ctx, url):
                     uid = get_runtime_uid(model)
                     if (doc_url and doc_url == target) or (uid and uid == target):
                         doc_type_enum = _doc_type.get_document_type(model)
-                        doc_type = "writer"
-                        if doc_type_enum == _doc_type.DocumentType.CALC:
-                            doc_type = "calc"
-                        elif doc_type_enum in (_doc_type.DocumentType.DRAW, _doc_type.DocumentType.IMPRESS):
-                            doc_type = "draw"
+                        doc_type = _doc_type.doc_type_label_for_enum(doc_type_enum, impress_as_draw=True)
                         return (_wrap_uno(model), doc_type)
             except Exception as e:
                 logging.getLogger(__name__).debug("resolve_document_by_url element error: %s", type(e).__name__)

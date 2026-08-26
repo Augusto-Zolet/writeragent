@@ -169,4 +169,6 @@ class EventBusService(ServiceBase, EventBus):
 
     def __init__(self):
         ServiceBase.__init__(self)
+        # Share the process-wide subscriber dict; do not reassign this attribute
+        # or the service would silently desync from global_event_bus.
         self._subscribers = global_event_bus._subscribers

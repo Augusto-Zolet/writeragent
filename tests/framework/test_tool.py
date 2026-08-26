@@ -676,6 +676,46 @@ def test_tool_supports_document_uses_cached_services():
     assert tool_supports_document(tool, doc_type="calc", uno_services_supported=frozenset({"com.sun.star.sheet.SpreadsheetDocument"})) is False
 
 
+def test_tool_supports_document_unrestricted_and_doc_types():
+    from plugin.framework.tool import ToolBase, tool_supports_document
+
+    class Open(ToolBase):
+        name = "open"
+        description = "x"
+        parameters = {"type": "object", "properties": {}}
+
+        def execute(self, ctx, **kwargs):
+            return {"status": "ok"}
+
+    class WriterLabel(ToolBase):
+        name = "writer_label"
+        description = "x"
+        parameters = {"type": "object", "properties": {}}
+        doc_types = ["writer"]
+
+        def execute(self, ctx, **kwargs):
+            return {"status": "ok"}
+
+    class WriterServicesAndLabel(ToolBase):
+        name = "both"
+        description = "x"
+        parameters = {"type": "object", "properties": {}}
+        uno_services = ["com.sun.star.text.TextDocument"]
+        doc_types = ["writer"]
+
+        def execute(self, ctx, **kwargs):
+            return {"status": "ok"}
+
+    open_tool = Open()
+    assert tool_supports_document(open_tool, doc_type="calc", uno_services_supported=None) is True
+    label_only = WriterLabel()
+    assert tool_supports_document(label_only, doc_type="writer", uno_services_supported=None) is True
+    assert tool_supports_document(label_only, doc_type="calc", uno_services_supported=None) is False
+    both = WriterServicesAndLabel()
+    calc_svcs = frozenset({"com.sun.star.sheet.SpreadsheetDocument"})
+    assert tool_supports_document(both, doc_type="writer", uno_services_supported=calc_svcs) is True
+
+
 def test_execute_async_delegate_skips_uno_doc_probe(monkeypatch):
     from plugin.framework.thread_guard import guard_uno
     from plugin.writer.specialized_base import DelegateToSpecializedWriter

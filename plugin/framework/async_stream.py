@@ -32,7 +32,7 @@ from enum import Enum
 from typing import Any, TypeAlias, Callable, cast
 
 from plugin.framework.worker_pool import run_in_background
-from plugin.framework.deal_shim import DEAL_MAX_TOKEN, ascii_bounded, deal
+from plugin.framework.deal_shim import DEAL_MAX_TOKEN, UNDER_CROSSHAIR, ascii_bounded, deal
 from plugin.framework.errors import format_error_payload
 from plugin.framework.queue_executor import (
     NestedDrainOwnerError,
@@ -78,9 +78,7 @@ def _format_agent_tool_stream_line(prefix: str, data: Any) -> str:
     # data: Any (json.dumps / str) is an unbounded payload; prefix is already capped.
     # crosshair: off
     try:
-        import sys
-
-        if "crosshair" in sys.modules:
+        if UNDER_CROSSHAIR:
             body = str(data)
         elif isinstance(data, (dict, list)):
             body = json.dumps(data, ensure_ascii=False)

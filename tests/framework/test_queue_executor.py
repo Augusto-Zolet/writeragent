@@ -72,36 +72,32 @@ def _reset_default_executor_state() -> None:
 
 
 def test_grammar_llm_request_gate_limit_1_uses_global_lane() -> None:
-    ctx = MagicMock()
-    with patch("plugin.writer.locale.grammar_proofread_locale.grammar_max_in_flight", return_value=1), \
-         patch.object(lc, "llm_request_lane") as lane:
+    with patch.object(lc, "llm_request_lane") as lane:
         lane.return_value.__enter__ = MagicMock()
         lane.return_value.__exit__ = MagicMock(return_value=False)
-        with lc.grammar_llm_request_gate(ctx):
+        with lc.grammar_llm_request_gate(1):
             pass
         lane.assert_called_once()
 
 
 def test_grammar_llm_request_gate_limit_2_allows_parallel() -> None:
-    ctx = MagicMock()
     entered = threading.Barrier(2)
     inside: list[int] = []
     lock = threading.Lock()
 
     def worker() -> None:
-        with lc.grammar_llm_request_gate(ctx):
+        with lc.grammar_llm_request_gate(2):
             entered.wait(timeout=2.0)
             with lock:
                 inside.append(lc._GRAMMAR_INFLIGHT_COUNT)
             time.sleep(0.05)
 
-    with patch("plugin.writer.locale.grammar_proofread_locale.grammar_max_in_flight", return_value=2):
-        t1 = threading.Thread(target=worker)
-        t2 = threading.Thread(target=worker)
-        t1.start()
-        t2.start()
-        t1.join(timeout=3.0)
-        t2.join(timeout=3.0)
+    t1 = threading.Thread(target=worker)
+    t2 = threading.Thread(target=worker)
+    t1.start()
+    t2.start()
+    t1.join(timeout=3.0)
+    t2.join(timeout=3.0)
     assert t1.is_alive() is False and t2.is_alive() is False
     assert max(inside) == 2
 

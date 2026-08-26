@@ -511,13 +511,15 @@ def _watchdog_loop(status_control):
         msg = "WATCHDOG: no activity for %ds; phase=%s round=%s tool=%s" % (int(elapsed), phase, round_num, tool_name if tool_name else "")
         log.debug(f"[Chat] {msg}")
         if status_control:
+            hung_text = "Hung: %s round %s" % (phase, round_num)
+            if tool_name:
+                hung_text += " %s" % tool_name
             try:
-                hung_text = "Hung: %s round %s" % (phase, round_num)
-                if tool_name:
-                    hung_text += " %s" % tool_name
-                status_control.setText(hung_text)
+                from plugin.framework.queue_executor import post_to_main_thread
+
+                post_to_main_thread(status_control.setText, hung_text)
             except Exception:
-                pass  # UNO from background thread may be unsafe; ignore
+                log.debug("watchdog: failed to post Hung status to main thread", exc_info=True)
 
 
 def start_watchdog_thread(ctx, status_control=None):

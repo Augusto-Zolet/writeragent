@@ -17,9 +17,11 @@ CELL_REF=32). CrossHair binds the short table only when
 process-pool workers), and ``scripts/crosshair_stream.py run`` set before
 spawning CrossHair. Do not sniff ``sys.modules["crosshair"]`` or
 ``is_tracing()``, and do not branch inside ``@deal.pre`` lambdas — CrossHair
-would explore both branches. Nested inverse ``@deal.ensure`` (format_address
-→ parse_address, column_to_index → index_to_column) is skipped under CrossHair
-via ``inverse_ensure``; cheap ``@deal.post`` still runs.
+would explore both branches. Production mock-outs (errors, JSON repair, UNO
+walks) use ``UNDER_CROSSHAIR`` (same import-time env), not ``sys.modules``.
+Nested inverse ``@deal.ensure`` (format_address → parse_address,
+column_to_index → index_to_column) is skipped under CrossHair via
+``inverse_ensure``; cheap ``@deal.post`` still runs.
 """
 
 from __future__ import annotations
@@ -117,6 +119,8 @@ def deal_maxima(*, crosshair: bool) -> DealMaxima:
 
 
 _CROSSHAIR = os.environ.get(CROSSHAIR_ENV) == "1"
+# Import-time only. Same as DEAL_MAX_* table; never sniff sys.modules["crosshair"].
+UNDER_CROSSHAIR = _CROSSHAIR
 _MAXIMA = deal_maxima(crosshair=_CROSSHAIR)
 DEAL_MAX_COL_LETTERS = _MAXIMA.col_letters
 DEAL_MAX_COL_INDEX = _MAXIMA.col_index

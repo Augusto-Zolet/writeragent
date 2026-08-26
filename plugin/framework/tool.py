@@ -116,15 +116,11 @@ def _doc_type_str_from_doc(doc: Any) -> str | None:
     if doc is None:
         return None
     try:
-        from plugin.doc.doc_type import DocumentType, get_document_type
+        from plugin.doc.doc_type import doc_type_label_for_enum, get_document_type
 
         dt = get_document_type(doc)
-        if dt == DocumentType.CALC:
-            return "calc"
-        if dt in (DocumentType.DRAW, DocumentType.IMPRESS):
-            return "draw"
-        if dt == DocumentType.WRITER:
-            return "writer"
+        label = doc_type_label_for_enum(dt, impress_as_draw=True)
+        return None if label == "unknown" else label
     except Exception:
         pass
     return None
@@ -595,20 +591,17 @@ def tool_supports_document(
 
         services = uno_services_for_doc_type_label(doc_type)
 
-    is_supported = False
     if tool.uno_services is not None and services:
         if any(svc in services for svc in tool.uno_services):
-            is_supported = True
+            return True
 
-    if not is_supported and tool.doc_types is not None:
+    if tool.doc_types is not None:
         if doc_type and doc_type.lower() in {str(d).lower() for d in tool.doc_types}:
-            is_supported = True
-        elif tool.uno_services is None:
+            return True
+        if tool.uno_services is None:
             return False
 
-    if tool.uno_services is None and tool.doc_types is None:
-        return True
-    return is_supported
+    return False
 
 
 class ToolRegistry:
@@ -846,6 +839,11 @@ class ToolRegistry:
 
         If ``run_threaded`` is False, the timeout is ignored and the function runs inline.
         Sync tools are marshaled to the main thread by ``ToolRegistry.execute`` before this runs.
+
+        Timeout **abandons** the worker; it does not kill the dedicated thread.
+        The thread may run to completion with its result dropped. If *kwargs*
+        include a ``ToolContext`` with ``send_cancellation``, that flag is set
+        so cooperative tools can stop at the next ``stop_checker`` poll.
         """
         # crosshair: off
         if timeout <= 0:
@@ -867,6 +865,13 @@ class ToolRegistry:
         worker_thread.join(timeout=timeout)
 
         if worker_thread.is_alive():
+            ctx = kwargs.get("ctx")
+            cancel = getattr(ctx, "send_cancellation", None) if ctx is not None else None
+            if cancel is not None and hasattr(cancel, "cancel"):
+                try:
+                    cancel.cancel()
+                except Exception:
+                    log.debug("tool timeout: send_cancellation.cancel failed", exc_info=True)
             return make_tool_error(
                 f"Tool timed out after {timeout} seconds",
                 code="TOOL_TIMEOUT",

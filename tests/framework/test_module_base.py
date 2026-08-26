@@ -13,6 +13,20 @@ def test_topo_sort():
     assert (names.index('b') < names.index('a'))
     assert (names.index('c') < names.index('a'))
 
+def test_topo_sort_cycle_raises_config_error():
+    from plugin.framework.errors import ConfigError
+
+    modules = [
+        {"name": "a", "requires": ["b"]},
+        {"name": "b", "requires": ["a"]},
+    ]
+    try:
+        ModuleLoader.topo_sort(modules)
+        raise AssertionError("expected ConfigError")
+    except ConfigError as e:
+        assert "Cyclic" in str(e.message) or "Cyclic" in str(e)
+
+
 def test_topo_sort_with_provides_services():
     modules = [{'name': 'consumer', 'requires': ['service_a']}, {'name': 'provider', 'provides_services': ['service_a']}]
     order = ModuleLoader.topo_sort(modules)

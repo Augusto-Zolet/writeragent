@@ -31,6 +31,7 @@ When inactive, violations log a warning with full stack (no crash).
 See docs/framework-uno-thread-safety.md (Layer A).
 """
 
+import functools
 import os
 import threading
 import logging
@@ -181,6 +182,7 @@ def assert_main_thread(what: str) -> None:
 
 def main_thread_only(fn):
     """Decorator: assert main thread on entry. Use on UNO source functions."""
+    @functools.wraps(fn)
     def wrapper(*a, **k):
         assert_main_thread(getattr(fn, "__qualname__", str(fn)))
         return fn(*a, **k)
@@ -193,6 +195,7 @@ def background(fn):
     Warns if invoked on the main thread; documents intent for static analysis.
     See docs/framework-uno-thread-safety.md (Layer C).
     """
+    @functools.wraps(fn)
     def wrapper(*a, **k):
         if on_main_thread():
             log.warning("@background fn %r ran on the main thread", getattr(fn, "__qualname__", str(fn)))

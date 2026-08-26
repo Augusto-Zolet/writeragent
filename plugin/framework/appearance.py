@@ -16,6 +16,7 @@ window was created. This matches the logic previously only in rich_text.py.
 import logging
 from typing import Any
 
+from plugin.framework.deal_shim import UNDER_CROSSHAIR, deal
 from plugin.framework.uno_context import get_desktop
 
 log = logging.getLogger(__name__)
@@ -33,47 +34,37 @@ def get_style_window(doc: Any = None, style_window: Any = None, ctx: Any = None)
     desktop frame's container (for cases with no doc like Run Python Script).
     """
     win = style_window
-    import sys
 
-    if win is None and doc is not None:
-        if "crosshair" in sys.modules:
-            win = None
-        else:
-            try:
-                controller = doc.getCurrentController()
-                if controller:
-                    frame = controller.getFrame()
-                    if frame:
-                        win = frame.getContainerWindow()
-            except Exception as e:
-                log.debug("get_style_window: doc frame lookup failed: %s", e)
-
-    if win is None and ctx is not None:
-        if "crosshair" in sys.modules:
-            win = None
-        else:
-            try:
-                desktop = get_desktop(ctx)
-                # Try current frame first (active window)
-                frame = desktop.getCurrentFrame()
+    if win is None and doc is not None and not UNDER_CROSSHAIR:
+        try:
+            controller = doc.getCurrentController()
+            if controller:
+                frame = controller.getFrame()
                 if frame:
                     win = frame.getContainerWindow()
-                if win is None:
-                    # Fallback to current component's controller
-                    comp = desktop.getCurrentComponent()
-                    if comp is not None and hasattr(comp, "getCurrentController"):
-                        ctrl = comp.getCurrentController()
-                        if ctrl:
-                            f = getattr(ctrl, "getFrame", lambda: None)()
-                            if f:
-                                win = f.getContainerWindow()
-            except Exception as e:
-                log.debug("get_style_window: ctx/desktop lookup failed: %s", e)
+        except Exception as e:
+            log.debug("get_style_window: doc frame lookup failed: %s", e)
+
+    if win is None and ctx is not None and not UNDER_CROSSHAIR:
+        try:
+            desktop = get_desktop(ctx)
+            # Try current frame first (active window)
+            frame = desktop.getCurrentFrame()
+            if frame:
+                win = frame.getContainerWindow()
+            if win is None:
+                # Fallback to current component's controller
+                comp = desktop.getCurrentComponent()
+                if comp is not None and hasattr(comp, "getCurrentController"):
+                    ctrl = comp.getCurrentController()
+                    if ctrl:
+                        f = getattr(ctrl, "getFrame", lambda: None)()
+                        if f:
+                            win = f.getContainerWindow()
+        except Exception as e:
+            log.debug("get_style_window: ctx/desktop lookup failed: %s", e)
 
     return win
-
-
-from plugin.framework.deal_shim import deal
 
 
 @deal.pre(lambda color: type(color) is int and 0 <= color <= 0xFFFFFF)
@@ -87,6 +78,31 @@ def _luminance(color: int) -> float:
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
+def _darken(color: int, factor: float) -> int:
+    r = int(((color >> 16) & 0xFF) * factor)
+    g = int(((color >> 8) & 0xFF) * factor)
+    b = int((color & 0xFF) * factor)
+    return (r << 16) | (g << 8) | b
+
+
+def _resolve_style(win: Any) -> tuple[bool, int]:
+    """Return (is_dark, bg) from VCL StyleSettings, or fallback light gray."""
+    if UNDER_CROSSHAIR or win is None or not hasattr(win, "StyleSettings"):
+        return False, _FALLBACK_BG
+    style_settings = win.StyleSettings
+    if not style_settings:
+        return False, _FALLBACK_BG
+    field_color = getattr(style_settings, "FieldColor", 0xFFFFFF)
+    if not isinstance(field_color, int):
+        return False, _FALLBACK_BG
+    if _luminance(field_color) < 128:
+        return True, field_color
+    dialog_color = getattr(style_settings, "DialogColor", 0xEFF0F1)
+    if isinstance(dialog_color, int):
+        return False, _darken(dialog_color, 0.94)
+    return False, 0xE0E1E2
+
+
 def get_theme_colors(doc: Any = None, style_window: Any = None, ctx: Any = None) -> tuple[int, int, int]:
     """Retrieve theme-aware colors based on StyleSettings.
 
@@ -96,25 +112,10 @@ def get_theme_colors(doc: Any = None, style_window: Any = None, ctx: Any = None)
     """
     win = get_style_window(doc=doc, style_window=style_window, ctx=ctx)
     try:
-        import sys
-
-        if win and ("crosshair" not in sys.modules) and hasattr(win, "StyleSettings"):
-            style_settings = win.StyleSettings
-            if style_settings:
-                field_color = getattr(style_settings, "FieldColor", 0xFFFFFF)
-                if isinstance(field_color, int):
-                    if _luminance(field_color) < 128:
-                        # Dark
-                        return field_color, 0x60A5FA, 0xE2E8F0
-                    # Light: darken DialogColor a bit for nice contrast
-                    dialog_color = getattr(style_settings, "DialogColor", 0xEFF0F1)
-                    if isinstance(dialog_color, int):
-                        r = int(((dialog_color >> 16) & 0xFF) * 0.94)
-                        g = int(((dialog_color >> 8) & 0xFF) * 0.94)
-                        b = int((dialog_color & 0xFF) * 0.94)
-                        light_bg = (r << 16) | (g << 8) | b
-                        return light_bg, 0x2A6099, 0x1E293B
-                    return 0xE0E1E2, 0x2A6099, 0x1E293B
+        is_dark, bg = _resolve_style(win)
+        if is_dark:
+            return bg, 0x60A5FA, 0xE2E8F0
+        return bg, 0x2A6099, 0x1E293B
     except Exception as e:
         log.debug("Failed to resolve theme colors from StyleSettings: %s", e)
     return _FALLBACK_BG, _FALLBACK_USER, _FALLBACK_ASSISTANT
@@ -137,25 +138,7 @@ def get_monaco_theme_info(doc: Any = None, style_window: Any = None, ctx: Any = 
     is_dark = False
     bg = _FALLBACK_BG
     try:
-        import sys
-
-        if win and ("crosshair" not in sys.modules) and hasattr(win, "StyleSettings"):
-            style_settings = win.StyleSettings
-            if style_settings:
-                field_color = getattr(style_settings, "FieldColor", 0xFFFFFF)
-                if isinstance(field_color, int):
-                    if _luminance(field_color) < 128:
-                        is_dark = True
-                        bg = field_color
-                    else:
-                        dialog_color = getattr(style_settings, "DialogColor", 0xEFF0F1)
-                        if isinstance(dialog_color, int):
-                            r = int(((dialog_color >> 16) & 0xFF) * 0.94)
-                            g = int(((dialog_color >> 8) & 0xFF) * 0.94)
-                            b = int((dialog_color & 0xFF) * 0.94)
-                            bg = (r << 16) | (g << 8) | b
-                        else:
-                            bg = 0xE0E1E2
+        is_dark, bg = _resolve_style(win)
     except Exception as e:
         log.debug("get_monaco_theme_info failed: %s", e)
 

@@ -32,7 +32,7 @@ import logging
 import os
 from typing import Any, Callable, Dict
 
-from plugin.framework.deal_shim import deal
+from plugin.framework.deal_shim import UNDER_CROSSHAIR, deal
 from plugin.framework.errors import ConfigError, ConfigValidationError
 from plugin.framework.i18n import _
 from plugin.framework.url_utils import normalize_endpoint_url
@@ -106,9 +106,7 @@ _LRU_LIST_CONFIG_KEY_PREFIXES: frozenset[str] = frozenset({"model_lru", "prompt_
 @deal.post(lambda result: isinstance(result, bool))
 def as_bool(value):
     """Parse a value as boolean (handles str, int, float)."""
-    import sys
-
-    if "crosshair" in sys.modules:
+    if UNDER_CROSSHAIR:
         if isinstance(value, bool):
             return value
         if isinstance(value, (int, float)):
@@ -130,7 +128,6 @@ def parse_int_robust(val) -> int:
     """Robustly parse an integer value from a string, float, or other type,
     handling locale-specific decimal commas (like "8765,0" in German)."""
     import math
-    import sys
 
     if isinstance(val, bool):
         # bool is a subclass of int; keep explicit for clarity under CrossHair.
@@ -145,7 +142,7 @@ def parse_int_robust(val) -> int:
     if val is None:
         raise ValueError("Cannot parse None as int")
 
-    if "crosshair" in sys.modules:
+    if UNDER_CROSSHAIR:
         if isinstance(val, int):
             return val
         if isinstance(val, float):
@@ -197,9 +194,7 @@ def parse_float_robust(val) -> float:
     if val is None:
         raise ValueError("Cannot parse None as float")
 
-    import sys
-
-    if "crosshair" in sys.modules:
+    if UNDER_CROSSHAIR:
         if isinstance(val, (int, float)):
             return float(val)
         raise ValueError("Cannot parse symbolic type as float under CrossHair")

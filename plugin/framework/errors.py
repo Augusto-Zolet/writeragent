@@ -30,7 +30,7 @@ from typing import Any, Literal, TypedDict
 from plugin.framework.i18n import _
 from plugin.framework.json_utils import safe_json_loads, safe_python_literal_eval
 
-from plugin.framework.deal_shim import DEAL_MAX_TOKEN, ascii_bounded, deal
+from plugin.framework.deal_shim import DEAL_MAX_TOKEN, UNDER_CROSSHAIR, ascii_bounded, deal
 
 try:
     from com.sun.star.lang import DisposedException
@@ -189,9 +189,7 @@ class WriterAgentException(Exception):
             details = context
 
         super().__init__(message)
-        import sys
-
-        if "crosshair" in sys.modules:
+        if UNDER_CROSSHAIR:
             self.message = "mock"
         else:
             self.message = _(_resolve_exception_message(message))
@@ -320,9 +318,7 @@ def format_error_payload(e: Exception) -> dict[str, Any]:
         return payload
 
     # For unexpected exceptions
-    import sys
-
-    if "crosshair" in sys.modules:
+    if UNDER_CROSSHAIR:
         err_type = "ValueError"
         err_msg = "mock"
     else:
@@ -358,12 +354,7 @@ def format_error_message(e: Exception) -> str:
     import http.client
     import urllib.error
 
-    import sys
-
-    if "crosshair" in sys.modules:
-        msg = "mock"
-    else:
-        msg = str(e)
+    msg = "mock" if UNDER_CROSSHAIR else str(e)
     if isinstance(e, ssl.SSLError):
         return _("TLS/SSL Error: {0}").format(msg)
     if isinstance(e, (urllib.error.HTTPError, http.client.HTTPResponse)):
@@ -374,10 +365,7 @@ def format_error_message(e: Exception) -> str:
             code = int(code_candidate) if code_candidate is not None else 0
         except (TypeError, ValueError):
             code = 0
-        if "crosshair" in sys.modules:
-            reason = "mock"
-        else:
-            reason = str(getattr(e, "reason", "") or "")
+        reason = "mock" if UNDER_CROSSHAIR else str(getattr(e, "reason", "") or "")
         if code == 401:
             return _("Invalid API Key. Please check your settings.")
         if code == 403:
@@ -388,23 +376,21 @@ def format_error_message(e: Exception) -> str:
             return _("Server error ({0}). The AI provider is having issues.").format(code)
         return _("HTTP Error {0}: {1}").format(code, reason)
 
-    if isinstance(e, VenvNotFoundError) or "venv not found" in msg.lower() or "no python executable found" in msg.lower():
+    # Typed exceptions first. Substring checks below are last-resort for
+    # stdlib/HTTP-library strings we do not own a subclass for.
+    if isinstance(e, VenvNotFoundError):
         return _("Python venv not found. Open Settings → Python, set the venv path, then Test.")
-
-    if isinstance(e, VenvTimeoutError) or "python timed out" in msg.lower() or "worker failed: timed out" in msg.lower():
+    if isinstance(e, VenvTimeoutError):
         return _("Python execution timed out. Open Settings → Python to raise the timeout.")
-
-    if isinstance(e, SpillCollisionError) or msg.strip() == "#SPILL!":
+    if isinstance(e, SpillCollisionError):
         return _("Formula spill collision: destination range contains non-empty cells.")
-
     if isinstance(e, SandboxSecurityError):
         return _("Script execution blocked by sandbox policy: {0}").format(getattr(e, "message", str(e)))
-
-    if isinstance(e, socket.timeout) or "timed out" in msg.lower():
+    if isinstance(e, socket.timeout):
         return _("Request Timed Out. Try increasing 'Request Timeout' in Settings.")
 
     if isinstance(e, (urllib.error.URLError, OSError)):
-        if "crosshair" in sys.modules:
+        if UNDER_CROSSHAIR:
             reason = "mock"
         elif isinstance(e, urllib.error.URLError):
             reason = str(getattr(e, "reason", None) or e)
@@ -416,6 +402,15 @@ def format_error_message(e: Exception) -> str:
             return _("DNS Error. Could not resolve the endpoint URL.")
         return _("Connection Error: {0}").format(reason)
 
+    lower = msg.lower()
+    if "venv not found" in lower or "no python executable found" in lower:
+        return _("Python venv not found. Open Settings → Python, set the venv path, then Test.")
+    if "python timed out" in lower or "worker failed: timed out" in lower:
+        return _("Python execution timed out. Open Settings → Python to raise the timeout.")
+    if msg.strip() == "#SPILL!":
+        return _("Formula spill collision: destination range contains non-empty cells.")
+    if "timed out" in lower:
+        return _("Request Timed Out. Try increasing 'Request Timeout' in Settings.")
     if "finish_reason=error" in msg:
         return _("The AI provider reported an error. Try again.")
 

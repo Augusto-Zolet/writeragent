@@ -155,6 +155,7 @@ def python_specialized_sub_agent_hint(agent_label: str) -> str:
         )
     else:
         data_hint = " run_venv_python_script does not inject spreadsheet `data`—use document tools for content."
+    _ensure_venv_import_policy_strings()
     policy = _VENV_IMPORT_POLICY_FULL or _load_venv_import_policy_full()
     from plugin.scripting.import_policy import format_matplotlib_plot_hint, format_units_helper_hint
 
@@ -384,6 +385,7 @@ DEFAULT_CALC_GREETING = "AI: I can help you with formulas, data analysis, and co
 
 def _build_calc_chat_system_prompt_template() -> str:
     """Assemble Calc main-chat system prompt (needs CALC_FORMULA_SYNTAX from late init)."""
+    _ensure_venv_import_policy_strings()
     return f"""You are a LibreOffice Calc spreadsheet assistant who creates polished, professional, and colorful spreadsheets.
 Do not explain, do the operation directly using tools. Perform as many steps as needed in one turn when possible.
 
@@ -642,6 +644,7 @@ def get_chat_system_prompt_for_document(model, additional_instructions="", ctx=N
     Callers must pass the document that is being chatted about."""
     from plugin.doc.doc_type import is_calc, is_draw
 
+    _ensure_venv_import_policy_strings()
     delegation = get_specialized_delegation_for_model(model, ctx=ctx)
 
     if is_calc(model):
@@ -710,6 +713,13 @@ def get_chat_system_prompt_for_document(model, additional_instructions="", ctx=N
     return base
 
 
+def _ensure_venv_import_policy_strings() -> None:
+    """Fill venv-policy prompt strings on first use (import_policy pulls smolagents)."""
+    if _VENV_IMPORT_POLICY_COMPACT:
+        return
+    _init_venv_import_policy_strings()
+
+
 def _init_venv_import_policy_strings() -> None:
     """Late init: import_policy pulls smolagents; constants must be fully loaded first."""
     global _VENV_IMPORT_POLICY_COMPACT, _VENV_IMPORT_POLICY_FULL
@@ -735,5 +745,3 @@ Other-sheet refs use a dot (Orders.A1), never Excel bang (Orders!A1 → #NAME?).
     # Phase 6 spreadsheet-import LLM fallback; not a second prompt.
     CALC_PYTHON_FORMULA_LLM_HINT = CALC_FORMULA_SYNTAX
     DEFAULT_CALC_CHAT_SYSTEM_PROMPT_TEMPLATE = _build_calc_chat_system_prompt_template()
-
-_init_venv_import_policy_strings()
