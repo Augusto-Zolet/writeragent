@@ -4,7 +4,6 @@ from plugin.doc.document_helpers import resolve_locator, get_document_context_fo
 from plugin.doc.paragraph_search import get_paragraph_ranges
 from plugin.doc.text_helpers import get_document_length
 from plugin.writer.edit_review import WriterStreamedRewriteSession
-from plugin.writer.specialized.bookmarks import ensure_heading_bookmarks
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
 
@@ -45,21 +44,6 @@ def _populate_doc_helpers(doc):
 
     # Populate cache.length
     get_document_length(doc)
-
-
-@native_test
-@with_native_doc("writer")
-def test_ensure_heading_bookmarks(ctx, doc):
-    _populate_doc_helpers(doc)
-    ensure_heading_bookmarks(doc)
-    bookmarks = doc.getBookmarks()
-    bnames = bookmarks.getElementNames()
-    assert len(bnames) == 3, f"ensure_heading_bookmarks created {len(bnames)} bookmarks instead of 3"
-
-    # Running ensure_heading_bookmarks again should not duplicate
-    ensure_heading_bookmarks(doc)
-    bnames = doc.getBookmarks().getElementNames()
-    assert len(bnames) == 3, f"ensure_heading_bookmarks duplicated bookmarks, total: {len(bnames)}"
 
 
 @native_test

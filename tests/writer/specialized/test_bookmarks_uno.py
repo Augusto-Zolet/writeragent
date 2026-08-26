@@ -1,8 +1,5 @@
-from types import SimpleNamespace
-
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import with_native_doc
-from plugin.doc.document_helpers import DocumentService
 from plugin.writer.specialized.bookmarks import BookmarkService
 
 
@@ -30,8 +27,7 @@ def _setup_headings(doc):
 @with_native_doc("writer")
 def test_ensure_heading_bookmarks_and_map(ctx, doc):
     _setup_headings(doc)
-    doc_svc = DocumentService()
-    bookmark_svc = BookmarkService(SimpleNamespace(document=doc_svc))
+    bookmark_svc = BookmarkService()
 
     # Initially no bookmarks
     bms = doc.getBookmarks().getElementNames()
@@ -59,8 +55,7 @@ def test_ensure_heading_bookmarks_and_map(ctx, doc):
 @with_native_doc("writer")
 def test_find_nearest_heading_bookmark(ctx, doc):
     _setup_headings(doc)
-    doc_svc = DocumentService()
-    bookmark_svc = BookmarkService(SimpleNamespace(document=doc_svc))
+    bookmark_svc = BookmarkService()
 
     bookmark_map = bookmark_svc.ensure_heading_bookmarks(doc)
 
@@ -81,8 +76,7 @@ def test_find_nearest_heading_bookmark(ctx, doc):
 @with_native_doc("writer")
 def test_cleanup_mcp_bookmarks(ctx, doc):
     _setup_headings(doc)
-    doc_svc = DocumentService()
-    bookmark_svc = BookmarkService(SimpleNamespace(document=doc_svc))
+    bookmark_svc = BookmarkService()
 
     # Ensure we have some bookmarks
     bookmark_svc.ensure_heading_bookmarks(doc)

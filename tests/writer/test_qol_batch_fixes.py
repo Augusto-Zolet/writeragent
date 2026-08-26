@@ -23,10 +23,7 @@ def test_ensure_heading_bookmarks_never_stores():
     text.createEnumeration.return_value = enum
     doc.getText.return_value = text
     doc.getBookmarks.return_value.getElementNames.return_value = []
-    services = MagicMock()
-    services.document.get_paragraph_ranges.return_value = []
-    services.document.yield_to_gui.return_value = None
-    BookmarkService(services).ensure_heading_bookmarks(doc)
+    BookmarkService().ensure_heading_bookmarks(doc)
     doc.store.assert_not_called()
 
 

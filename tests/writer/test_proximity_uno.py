@@ -41,7 +41,7 @@ def test_proximity_service(ctx, doc):
     services = SimpleNamespace()
     services.document = DocSvcAdapter()
     services.events = events
-    services.writer_bookmarks = BookmarkService(services)
+    services.writer_bookmarks = BookmarkService()
     services.writer_tree = TreeService(services)
     services.writer_proximity = ProximityService(services)
 

@@ -35,7 +35,7 @@ def test_tree_service_basic(ctx, doc):
     services = SimpleNamespace()
     services.document = doc_svc
     services.events = events
-    services.writer_bookmarks = BookmarkService(services)
+    services.writer_bookmarks = BookmarkService()
     services.writer_tree = TreeService(services)
     tree_svc = services.writer_tree
 

@@ -161,3 +161,10 @@ def test_list_bookmarks(mock_ctx):
     assert res["bookmarks"][0]["text"] == "First Anchor"
     assert res["bookmarks"][1]["name"] == "BM2"
     assert res["bookmarks"][1]["text"] == ""
+
+
+def test_list_bookmarks_error(mock_ctx):
+    mock_ctx.doc.getBookmarks.side_effect = RuntimeError("boom")
+    res = BookmarkList().execute(mock_ctx)
+    assert res["status"] == "error"
+    assert "Failed to list bookmarks" in res["message"]

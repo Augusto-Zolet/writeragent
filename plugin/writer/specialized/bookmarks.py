@@ -20,71 +20,16 @@ import logging
 import uuid
 
 from plugin.doc.paragraph_search import find_paragraph_for_range, get_paragraph_ranges
-from plugin.framework.errors import UnoObjectError, check_disposed, safe_call
 from plugin.framework.service import ServiceBase
 from ..specialized_base import ToolWriterBookmarkBase
 
 log = logging.getLogger("writeragent.writer.nav.bookmarks")
 
 
-def ensure_heading_bookmarks(model):
-    """Ensure every heading has an _mcp_ bookmark. Returns {para_index: bookmark_name}."""
-    try:
-        check_disposed(model, "Document Model")
-        text = safe_call(model.getText, "Get document text")
-        para_ranges = get_paragraph_ranges(model)
-
-        # 1. Map existing _mcp_ bookmarks
-        existing_map = {}
-        if hasattr(model, "getBookmarks"):
-            bookmarks = safe_call(model.getBookmarks, "Get bookmarks")
-            for name in safe_call(bookmarks.getElementNames, "Get element names"):
-                if name.startswith("_mcp_"):
-                    bm = safe_call(bookmarks.getByName, "Get bookmark by name", name)
-                    idx = find_paragraph_for_range(safe_call(bm.getAnchor, "Get bookmark anchor"), para_ranges, text)
-                    existing_map[idx] = name
-
-        # 2. Scanthe document for headings
-        enum = safe_call(text.createEnumeration, "Create enumeration")
-        para_index = 0
-        bookmark_map = {}
-        needs_bookmark = []
-
-        while safe_call(enum.hasMoreElements, "Check more elements"):
-            element = safe_call(enum.nextElement, "Get next element")
-            if safe_call(element.supportsService, "Check supportsService Paragraph", "com.sun.star.text.Paragraph"):
-                try:
-                    if safe_call(element.getPropertyValue, "Get OutlineLevel", "OutlineLevel") > 0:
-                        if para_index in existing_map:
-                            bookmark_map[para_index] = existing_map[para_index]
-                        else:
-                            needs_bookmark.append((para_index, safe_call(element.getStart, "Get element start")))
-                except UnoObjectError as e:
-                    logging.getLogger(__name__).debug("ensure_heading_bookmarks could not get OutlineLevel: %s", e)
-            para_index += 1
-
-        # 3. Add missing bookmarks
-        for idx, start_range in needs_bookmark:
-            name = f"_mcp_{uuid.uuid4().hex[:8]}"
-            bookmark = safe_call(model.createInstance, "Create bookmark instance", "com.sun.star.text.Bookmark")
-            bookmark.Name = name
-            cursor = safe_call(text.createTextCursorByRange, "Create cursor by range", start_range)
-            safe_call(text.insertTextContent, "Insert text content", cursor, bookmark, False)
-            bookmark_map[idx] = name
-
-        return bookmark_map
-    except UnoObjectError:
-        logging.getLogger(__name__).exception("ensure_heading_bookmarks error")
-        return {}
-
-
 class BookmarkService(ServiceBase):
     """Manage _mcp_ bookmarks on headings for stable addressing."""
 
     name = "writer_bookmarks"
-
-    def __init__(self, services):
-        self._doc_svc = services.document
 
     def get_mcp_bookmark_map(self, doc):
         """Return {para_index: bookmark_name} for all _mcp_ bookmarks."""
@@ -96,14 +41,14 @@ class BookmarkService(ServiceBase):
             names = bookmarks.getElementNames()
             if not names:
                 return result
-            para_ranges = self._doc_svc.get_paragraph_ranges(doc)
+            para_ranges = get_paragraph_ranges(doc)
             text_obj = doc.getText()
             for name in names:
                 if not name.startswith("_mcp_"):
                     continue
                 bm = bookmarks.getByName(name)
                 anchor = bm.getAnchor()
-                para_idx = self._doc_svc.find_paragraph_for_range(anchor, para_ranges, text_obj)
+                para_idx = find_paragraph_for_range(anchor, para_ranges, text_obj)
                 if para_idx >= 0:
                     result[para_idx] = name
         except Exception:
@@ -134,7 +79,6 @@ class BookmarkService(ServiceBase):
                     else:
                         needs_bookmark.append((para_index, element.getStart()))
             para_index += 1
-            self._doc_svc.yield_to_gui()
 
         for para_idx, start_range in needs_bookmark:
             bm_name = "_mcp_%s" % uuid.uuid4().hex[:8]
@@ -207,7 +151,7 @@ class BookmarkList(ToolWriterBookmarkBase):
                 result.append({"name": name, "text": anchor_text[:100] if anchor_text else ""})
             return {"status": "ok", "bookmarks": result, "count": len(result)}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            return self._tool_error(f"Failed to list bookmarks: {str(e)}")
 
 
 class BookmarkCleanup(ToolWriterBookmarkBase):
