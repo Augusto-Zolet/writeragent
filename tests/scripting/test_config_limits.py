@@ -24,6 +24,26 @@ from plugin.scripting.config_limits import (
 )
 
 
+def test_timeout_fallbacks_match_manifest():
+    from plugin._manifest import MODULES
+    from plugin.scripting.config_limits import (
+        _TIMEOUT_FALLBACK_DEFAULT,
+        _TIMEOUT_FALLBACK_MAX,
+        _TIMEOUT_FALLBACK_MIN,
+    )
+
+    field = None
+    for module in MODULES:
+        if isinstance(module, dict) and module.get("name") == "scripting":
+            config = module.get("config") or {}
+            field = config.get("python_exec_timeout")
+            break
+    assert isinstance(field, dict)
+    assert field["default"] == _TIMEOUT_FALLBACK_DEFAULT
+    assert field["min"] == _TIMEOUT_FALLBACK_MIN
+    assert field["max"] == _TIMEOUT_FALLBACK_MAX
+
+
 def test_timeout_schema_limits_from_manifest():
     assert python_exec_timeout_default() == 10
     assert python_exec_timeout_min() == 1

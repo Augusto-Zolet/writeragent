@@ -65,3 +65,18 @@ def test_spec_runner_worker_error(ctx, runner_name, session_prefix, domain, erro
     assert exc_info.value.code == error_code
 
 
+def test_languagetool_and_vale_use_config_limit_timeouts(ctx):
+    from plugin.scripting.config_limits import (
+        LANGUAGETOOL_WORKER_TIMEOUT_SEC,
+        VALE_WORKER_TIMEOUT_SEC,
+    )
+
+    with patch("plugin.scripting.client.run_trusted_worker_action", return_value={"status": "ok"}) as mock_run:
+        client.run_languagetool_check(ctx, "text", "en-US")
+    assert mock_run.call_args.kwargs["timeout_sec"] == LANGUAGETOOL_WORKER_TIMEOUT_SEC
+
+    with patch("plugin.scripting.client.run_trusted_worker_action", return_value={"status": "ok"}) as mock_run:
+        client.run_vale_check(ctx, "text", "/cfg", "styles")
+    assert mock_run.call_args.kwargs["timeout_sec"] == VALE_WORKER_TIMEOUT_SEC
+
+

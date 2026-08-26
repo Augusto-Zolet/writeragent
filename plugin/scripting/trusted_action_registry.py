@@ -10,6 +10,8 @@ import importlib
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from plugin.framework.deal_shim import DEAL_MAX_TOKEN, deal, str_bounded
+
 if TYPE_CHECKING:
     from collections.abc import Callable
 
@@ -23,8 +25,6 @@ class TrustedActionWiring:
     supports_heartbeat: bool = False
 
     def dispatch(self, data: dict[str, Any], *, heartbeat_fn: Callable[[dict[str, Any]], None] | None = None) -> Any:
-        # Later: same module:attr as domain_registry._resolve_module_attr; RPS
-        # wiring still uses module.attr — unify on colon and grep every string.
         mod_name, attr_name = self.handler.rsplit(":", 1)
         mod = importlib.import_module(mod_name)
         fn = getattr(mod, attr_name)
@@ -58,8 +58,6 @@ _TRUSTED_ACTION_WIRING: tuple[TrustedActionWiring, ...] = (
         supports_heartbeat=True,
     ),
 )
-
-from plugin.framework.deal_shim import DEAL_MAX_TOKEN, str_bounded, deal
 
 _wiring_by_domain: dict[str, TrustedActionWiring] | None = None
 

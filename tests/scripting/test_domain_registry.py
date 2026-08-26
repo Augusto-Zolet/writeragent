@@ -18,6 +18,15 @@ from plugin.scripting.domain_registry import (
 )
 
 
+def test_wiring_table_uses_colon_module_attr():
+    for w in WIRING_TABLE:
+        for path in (w.insert, w.is_result):
+            assert path.count(":") == 1, path
+            mod_name, attr_name = path.split(":")
+            assert "." in mod_name
+            assert attr_name.isidentifier()
+
+
 def test_rps_domain_order():
     ids = [s.id for s in get_rps_domains()]
     assert ids == [

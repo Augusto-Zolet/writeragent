@@ -257,7 +257,8 @@ def _readline_with_timeout_win32(stream: IO[str], timeout_sec: float, *, cmd: st
             return stream.readline()
         if avail > 0:
             return stream.readline()
-        time.sleep(min(0.001, deadline - time.monotonic()))
+        # PeekNamedPipe can cross the deadline; sleep(negative) is ValueError.
+        time.sleep(max(0.0, min(0.001, deadline - time.monotonic())))
 
     raise subprocess.TimeoutExpired(cmd=cmd, timeout=timeout_sec)
 

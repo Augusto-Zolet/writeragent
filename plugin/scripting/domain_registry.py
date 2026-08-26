@@ -132,25 +132,26 @@ def try_rps_post_venv(
 # (is_result scan order), PICKER_WIRING (script-picker UI). Do not collapse them
 # or add a fourth registry. Drift is caught by test_domain_registry (same members
 # for wiring vs post-venv; picker is not 1:1 — sql is picker-only, text is not).
-# Later: build_rps_spec uses module.attr while picker/_resolve_module_attr and
-# trusted_action_registry use module:attr. Unify on colon and grep every string.
-
 @dataclass(frozen=True)
 class DomainWiring:
     id: str
-    insert: str
-    is_result: str
+    insert: str  # module.path:attr
+    is_result: str  # module.path:attr
     format_ok_kind: str = "generic"  # generic | plot | symbolic | units | vision | rows
     post_venv_calc_only: bool = False
+
+
+def _resolve_module_attr(target: str) -> Any:
+    import importlib
+
+    mod_name, attr_name = target.rsplit(":", 1)
+    return getattr(importlib.import_module(mod_name), attr_name)
 
 
 def _resolve_fn(path: str | None) -> Any:
     if not path:
         return None
-    import importlib
-    mod_name, attr_name = path.rsplit(".", 1)
-    mod = importlib.import_module(mod_name)
-    return getattr(mod, attr_name)
+    return _resolve_module_attr(path)
 
 
 def build_rps_spec(w: DomainWiring) -> RpsDomainSpec:
@@ -234,59 +235,59 @@ def build_rps_spec(w: DomainWiring) -> RpsDomainSpec:
 WIRING_TABLE: tuple[DomainWiring, ...] = (
     DomainWiring(
         id="vision",
-        insert="plugin.vision.vision_egress.insert_vision_result",
-        is_result="plugin.vision.vision_egress.is_vision_result",
+        insert="plugin.vision.vision_egress:insert_vision_result",
+        is_result="plugin.vision.vision_egress:is_vision_result",
         format_ok_kind="vision",
     ),
     DomainWiring(
         id="viz",
-        insert="plugin.scripting.viz.insert_viz_result_into_doc",
-        is_result="plugin.scripting.viz.is_viz_result",
+        insert="plugin.scripting.viz:insert_viz_result_into_doc",
+        is_result="plugin.scripting.viz:is_viz_result",
         format_ok_kind="plot",
     ),
     DomainWiring(
         id="math",
-        insert="plugin.scripting.symbolic.insert_symbolic_result_into_doc",
-        is_result="plugin.scripting.symbolic.is_symbolic_result",
+        insert="plugin.scripting.symbolic:insert_symbolic_result_into_doc",
+        is_result="plugin.scripting.symbolic:is_symbolic_result",
         format_ok_kind="symbolic",
     ),
     DomainWiring(
         id="units",
-        insert="plugin.scripting.units.insert_units_result_into_doc",
-        is_result="plugin.scripting.units.is_units_result",
+        insert="plugin.scripting.units:insert_units_result_into_doc",
+        is_result="plugin.scripting.units:is_units_result",
         format_ok_kind="units",
     ),
     DomainWiring(
         id="text",
-        insert="plugin.scripting.text_analytics.insert_text_analytics_result_into_doc",
-        is_result="plugin.scripting.text_analytics.is_text_analytics_result",
+        insert="plugin.scripting.text_analytics:insert_text_analytics_result_into_doc",
+        is_result="plugin.scripting.text_analytics:is_text_analytics_result",
         format_ok_kind="generic",
     ),
     DomainWiring(
         id="quant",
-        insert="plugin.calc.quant_egress.insert_quant_result_into_calc",
-        is_result="plugin.calc.quant_egress.is_quant_result",
+        insert="plugin.calc.quant_egress:insert_quant_result_into_calc",
+        is_result="plugin.calc.quant_egress:is_quant_result",
         format_ok_kind="rows",
         post_venv_calc_only=True,
     ),
     DomainWiring(
         id="optimize",
-        insert="plugin.scripting.optimize.insert_optimize_result_into_calc",
-        is_result="plugin.scripting.optimize.is_optimize_result",
+        insert="plugin.scripting.optimize:insert_optimize_result_into_calc",
+        is_result="plugin.scripting.optimize:is_optimize_result",
         format_ok_kind="rows",
         post_venv_calc_only=True,
     ),
     DomainWiring(
         id="forecast",
-        insert="plugin.scripting.forecast.insert_forecast_result_into_calc",
-        is_result="plugin.scripting.forecast.is_forecast_result",
+        insert="plugin.scripting.forecast:insert_forecast_result_into_calc",
+        is_result="plugin.scripting.forecast:is_forecast_result",
         format_ok_kind="rows",
         post_venv_calc_only=True,
     ),
     DomainWiring(
         id="analysis",
-        insert="plugin.calc.analysis_egress.insert_analysis_result_into_calc",
-        is_result="plugin.calc.analysis_egress.is_analysis_result",
+        insert="plugin.calc.analysis_egress:insert_analysis_result_into_calc",
+        is_result="plugin.calc.analysis_egress:is_analysis_result",
         format_ok_kind="rows",
         post_venv_calc_only=True,
     ),
@@ -387,13 +388,6 @@ def _picker_calc_only(doc: Any) -> bool:
         return doc is not None and is_calc(doc)
     except Exception:
         return False
-
-
-def _resolve_module_attr(target: str) -> Any:
-    import importlib
-
-    mod_name, attr_name = target.rsplit(":", 1)
-    return getattr(importlib.import_module(mod_name), attr_name)
 
 
 def _picker_supports_fn(supports: str) -> Callable[[Any], bool]:

@@ -14,6 +14,8 @@ if TYPE_CHECKING:
 from plugin.scripting.config_limits import (
     configured_python_exec_timeout,
     long_trusted_worker_timeout_sec,
+    LANGUAGETOOL_WORKER_TIMEOUT_SEC,
+    VALE_WORKER_TIMEOUT_SEC,
     VISION_WORKER_TIMEOUT_SEC,
 )
 from plugin.scripting.trusted_rpc import run_trusted_worker_action
@@ -63,9 +65,9 @@ _LONG_TRUSTED_PREFIXES = frozenset({
 })
 
 
-def _resolve_trusted_timeout(ctx: Any, session_id: str) -> int:
+def _resolve_trusted_timeout(ctx: Any, session_prefix: str) -> int:
     """Return the long budget for known slow calls, otherwise the user's standard timeout."""
-    if session_id in _LONG_TRUSTED_PREFIXES:
+    if session_prefix in _LONG_TRUSTED_PREFIXES:
         return long_trusted_worker_timeout_sec(ctx)
     return configured_python_exec_timeout(ctx)
 
@@ -260,7 +262,7 @@ def run_folder_sql(
         additional_data={
             "scoped_dir": scoped_dir,
             "sql": sql,
-            "files": files or [] if isinstance(files, list) else (files or {}),
+            "files": files if isinstance(files, list) else (files or {}),
             "preloaded": preloaded or {},
             "flat_files": flat_files or {},
         },
@@ -338,7 +340,7 @@ def run_languagetool_check(ctx: Any, text: str, bcp47: str) -> dict[str, Any]:
         params={},
         data_range=None,
         context=None,
-        timeout_sec=15,  # later: config_limits next to VISION_WORKER_TIMEOUT_SEC
+        timeout_sec=LANGUAGETOOL_WORKER_TIMEOUT_SEC,
         error_code="LANGUAGETOOL_ERROR",
         error_label="LanguageTool",
         additional_data={"text": text, "bcp47": bcp47},
@@ -360,7 +362,7 @@ def run_vale_check(ctx: Any, text: str, config_dir: str, styles: str) -> dict[st
         params={},
         data_range=None,
         context=None,
-        timeout_sec=25,  # later: config_limits next to VISION_WORKER_TIMEOUT_SEC
+        timeout_sec=VALE_WORKER_TIMEOUT_SEC,
         error_code="VALE_ERROR",
         error_label="Vale Linter",
         additional_data={"text": text, "config_dir": config_dir, "styles": styles},

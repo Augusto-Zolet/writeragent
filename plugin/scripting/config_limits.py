@@ -13,7 +13,7 @@ from typing import Any
 
 _TIMEOUT_CONFIG_KEY = "scripting.python_exec_timeout"
 # Fallbacks duplicate module.yaml so an OXT can import without plugin._manifest.
-# Later: assert in tests that _manifest matches these; do not drop the fallbacks.
+# test_config_limits.test_timeout_fallbacks_match_manifest; do not drop the fallbacks.
 _TIMEOUT_FALLBACK_DEFAULT = 10
 _TIMEOUT_FALLBACK_MIN = 1
 _TIMEOUT_FALLBACK_MAX = 600
@@ -41,6 +41,8 @@ LONG_TRUSTED_WORKER_TIMEOUT_SEC = 300
 # The general long trusted list (spaCy, SymPy, vision, etc.) uses LONG_TRUSTED_WORKER_TIMEOUT_SEC.
 VISION_WORKER_TIMEOUT_SEC = 120
 DOCLING_WORKER_TIMEOUT_SEC = 300
+LANGUAGETOOL_WORKER_TIMEOUT_SEC = 15
+VALE_WORKER_TIMEOUT_SEC = 25
 
 
 def long_trusted_worker_timeout_sec(_ctx: Any | None = None) -> int:

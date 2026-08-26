@@ -112,6 +112,22 @@ def test_json_line_timeout_on_pipe():
         os.close(write_fd)
 
 
+def test_win32_readline_sleep_clamps_when_peek_crosses_deadline(monkeypatch):
+    """PeekNamedPipe can finish after the deadline; sleep(negative) is ValueError."""
+    from plugin.scripting import ipc
+
+    slept: list[float] = []
+    monkeypatch.setattr(ipc.time, "sleep", lambda sec: slept.append(sec))
+    times = iter([0.0, 0.009, 0.011, 0.011])
+    monkeypatch.setattr(ipc.time, "monotonic", lambda: next(times))
+    monkeypatch.setattr(ipc, "_peek_pipe_bytes_available", lambda fd: 0)
+    stream = MagicMock()
+    stream.fileno.return_value = 3
+    with pytest.raises(subprocess.TimeoutExpired):
+        ipc._readline_with_timeout_win32(stream, 0.01)
+    assert slept == [0.0]
+
+
 def test_json_line_timeout_falls_back_when_fileno_not_int():
     """Non-int fileno() (e.g. MagicMock) must use readline, not PeekNamedPipe/select."""
     stream = MagicMock()
