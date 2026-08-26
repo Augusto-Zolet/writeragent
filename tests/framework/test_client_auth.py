@@ -149,6 +149,12 @@ def test_build_auth_headers_non_str_style_coerced():
     assert headers_bearer["Authorization"] == "Bearer k"
 
 
+def test_build_auth_headers_rejects_control_chars():
+    with pytest.raises(AuthError) as err:
+        build_auth_headers({"header_style": "bearer", "api_key": "sk-\r\ninject"})
+    assert err.value.code == "invalid_api_key"
+
+
 @patch("plugin.framework.client.auth.normalize_endpoint_url")
 @patch("plugin.framework.client.auth.get_provider_from_endpoint")
 def test_resolve_auth_for_config_local_no_api_key(mock_get_provider, mock_normalize):

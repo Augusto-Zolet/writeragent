@@ -1,5 +1,6 @@
 import unittest
 from plugin.framework.url_utils import (
+    _is_zai_host,
     dispatch_command_from_url,
     get_api_version_suffix,
     get_url_query_dict,
@@ -45,6 +46,12 @@ class TestNormalizeEndpointUrl():
         stored = normalize_endpoint_url("https://api.z.ai/api/paas/v4")
         suffix = get_api_version_suffix(stored)
         assert stored + suffix + "/chat/completions" == "https://api.z.ai/api/paas/v4/chat/completions"
+
+    def test_is_zai_host_uses_hostname_not_path(self):
+        assert _is_zai_host("https://api.z.ai/v1") is True
+        assert _is_zai_host("https://z.ai/api") is True
+        assert _is_zai_host("https://evil.example/z.ai") is False
+        assert _is_zai_host("https://notz.ai/") is False
 
     def test_openwebui_normalization(self):
         # /api is stripped when is_openwebui is True (re-appended as get_api_version_suffix)

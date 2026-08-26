@@ -15,6 +15,19 @@ class DummyToolkit:
     def processEventsToIdle(self):
         self.idle_calls += 1
 
+def test_run_async_worker_with_drain_none_apply_chunk():
+    from plugin.framework.async_stream import run_async_worker_with_drain
+
+    ctx = MagicMock()
+    toolkit = DummyToolkit()
+
+    def worker(q):
+        q.put((StreamQueueKind.CHUNK, "hello"))
+
+    with patch("plugin.framework.uno_context.get_toolkit", return_value=toolkit):
+        run_async_worker_with_drain(ctx, worker, None, lambda item: True, None)
+
+
 def test_run_stream_drain_loop_basic():
     q = queue.Queue()
     q.put((StreamQueueKind.CHUNK, "hello"))

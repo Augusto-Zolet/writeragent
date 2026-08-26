@@ -48,10 +48,8 @@ def dispatch_command_from_url(url: Any, *, protocol_prefix: str = LIBREPY_DISPAT
 
 def _is_zai_host(url):
     """True when URL targets Z.ai (general or coding-plan API)."""
-    if not isinstance(url, str):
-        return False
-    url_lower = url.lower()
-    return "api.z.ai" in url_lower or "z.ai" in url_lower
+    host = get_url_hostname(url).lower()
+    return host == "z.ai" or host.endswith(".z.ai")
 
 
 def _is_google_host(url):

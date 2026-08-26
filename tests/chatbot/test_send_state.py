@@ -13,6 +13,13 @@ from plugin.chatbot.send_state import (
 )
 
 
+def test_send_event_default_data_is_not_shared():
+    a = SendEvent(SendEventKind.SEND_CLICKED)
+    b = SendEvent(SendEventKind.STOP_CLICKED)
+    assert a.data is None
+    assert b.data is None
+
+
 def test_initial_state_to_text_updated():
     state = SendButtonState(False, False, False, False, True)
     tr = next_state(state, SendEvent(SendEventKind.TEXT_UPDATED, {"has_text": True}))

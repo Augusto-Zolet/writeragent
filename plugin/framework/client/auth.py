@@ -31,6 +31,13 @@ from plugin.framework.errors import ConfigError
 from plugin.framework.deal_shim import DEAL_MAX_TOKEN, DEAL_MAX_URL, ascii_bounded, str_bounded, deal
 
 
+def reject_control_chars_in_api_key(api_key: str) -> str:
+    """Raise if *api_key* would be unsafe in an HTTP header (CR/LF/other controls)."""
+    if any(ord(c) < 32 for c in api_key):
+        raise AuthError("API key contains invalid control characters", code="invalid_api_key")
+    return api_key
+
+
 class AuthError(ConfigError):
     """Structured auth error for provider/endpoint configuration problems."""
 
@@ -209,6 +216,8 @@ def build_auth_headers(auth_info: Dict[str, Any]) -> Dict[str, str]:
     # Coerce: callers/CrossHair may pass non-str header_style (e.g. int 2).
     style = str(auth_info.get("header_style") or "bearer").lower().strip()
     api_key = str(auth_info.get("api_key") or "").strip()
+    if api_key:
+        api_key = reject_control_chars_in_api_key(api_key)
 
     if style == "bearer" and api_key:
         headers["Authorization"] = f"Bearer {api_key}"

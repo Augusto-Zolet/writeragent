@@ -209,6 +209,9 @@ def run_in_background(
     for servers, pipe drains, infinite loops, and any job another thread will
     ``join()`` — those must not occupy a pool slot.
 
+    Without *error_callback*, failures are logged only; ``BackgroundHandle.join()``
+    does not re-raise the worker exception.
+
     :return: A :class:`BackgroundHandle` with ``join`` / ``is_alive``.
     """
 

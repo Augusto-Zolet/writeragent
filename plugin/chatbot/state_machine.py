@@ -1,6 +1,5 @@
 """Pure state machine for chat sidebar send handlers."""
 
-import time
 import dataclasses
 from dataclasses import dataclass
 from typing import List, Any, Optional, NamedTuple, Literal
@@ -258,7 +257,7 @@ def handle_error(state: SendHandlerState, event: ErrorEvent) -> FsmTransition[Se
     effects.append(SendHandlerUIEffect("append", append_text))
     effects.append(CompleteJobEffect("Error"))
 
-    new_state = dataclasses.replace(state, status="error", last_error=str(event.error), error_time=event.error_time or time.time(), recent_effects=tuple(effects))
+    new_state = dataclasses.replace(state, status="error", last_error=str(event.error), error_time=event.error_time, recent_effects=tuple(effects))
 
     return FsmTransition(new_state, effects)
 

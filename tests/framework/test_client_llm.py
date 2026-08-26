@@ -419,6 +419,40 @@ def test_stream_request_with_tools_tls_retry():
         assert result["content"] == "Success"
 
 
+def test_stream_connection_error_after_content_does_not_retry():
+    from plugin.framework.errors import NetworkError
+
+    ctx = MockContext()
+    client = LlmClient({"endpoint": "https://api.openai.com", "model": "gpt-4"}, ctx)
+    chunks: list[str] = []
+
+    def iterate_then_drop(_response):
+        yield '{"choices": [{"delta": {"content": "Hello"}}]}'
+        raise ConnectionResetError("reset after tokens")
+
+    with (
+        patch("http.client.HTTPSConnection") as mock_https,
+        patch("plugin.framework.client.llm_client.iterate_sse", side_effect=iterate_then_drop),
+        patch("plugin.framework.client.http_transport.get_verified_ssl_context"),
+    ):
+        mock_conn = MagicMock()
+        mock_https.return_value = mock_conn
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_conn.getresponse.return_value = mock_response
+
+        with pytest.raises(NetworkError) as err:
+            client.stream_chat_response(
+                [{"role": "user", "content": "Hi"}],
+                max_tokens=10,
+                append_callback=chunks.append,
+            )
+
+    assert err.value.code == "CONNECTION_LOST"
+    assert chunks == ["Hello"]
+    mock_https.assert_called_once()
+
+
 def test_request_with_tools_sync_tls_retry():
     import ssl
     ctx = MockContext()

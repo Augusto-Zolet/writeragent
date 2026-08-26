@@ -132,7 +132,6 @@ def ensure_plugin_on_path(
     also_add_plugin_dir: bool = False,
     also_add_vendor: bool = False,
 ) -> str:
-    register_alias_importer()
     """
     Walk up from the caller's __file__ and add the extension root on sys.path.
 
@@ -171,6 +170,7 @@ def ensure_plugin_on_path(
     Returns:
         The extension root path that is now on sys.path.
     """
+    register_alias_importer()
     this_file = os.path.abspath(__file__)
     for _unused in range(levels_up):
         this_file = os.path.dirname(this_file)

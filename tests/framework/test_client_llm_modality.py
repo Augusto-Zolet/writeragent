@@ -76,6 +76,7 @@ def test_transcribe_audio_uses_sync_request_fallback(mock_sync):
         headers = kwargs.get("headers", {})
         content_type = headers.get("Content-Type", "")
         assert "multipart/form-data" in content_type
+        assert kwargs.get("timeout") == 120
 
         # Assert body format
         boundary = content_type.split("boundary=")[1]

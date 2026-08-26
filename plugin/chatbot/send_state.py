@@ -37,7 +37,7 @@ class SendEventKind(Enum):
 
 class SendEvent(NamedTuple):
     kind: SendEventKind
-    data: dict = {}
+    data: dict | None = None
 
 
 # --- Effects ---
@@ -109,11 +109,12 @@ def next_state(state: SendButtonState, event: SendEvent) -> FsmTransition[SendBu
     """Pure state transition for the Send button."""
     # event.data is an unbounded dict; Hypothesis covers transitions.
     # crosshair: off
+    event_data = event.data or {}
 
     effects: List[SendEffects] = []
 
     if event.kind == SendEventKind.TEXT_UPDATED:
-        new_state = SendButtonState(is_busy=state.is_busy, is_recording=state.is_recording, has_text=event.data.get("has_text", False), has_audio=state.has_audio, audio_supported=state.audio_supported)
+        new_state = SendButtonState(is_busy=state.is_busy, is_recording=state.is_recording, has_text=event_data.get("has_text", False), has_audio=state.has_audio, audio_supported=state.audio_supported)
         # If currently recording, do not toggle back to Record
         send_enabled = not new_state.is_busy
         stop_enabled = new_state.is_busy

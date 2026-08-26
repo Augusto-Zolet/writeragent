@@ -16,11 +16,10 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Global UNO component context provider.
 
-Services are singletons that outlive the UNO component that created them.
-The ctx passed during bootstrap (from MainJob.__init__) can become stale.
-
-``uno.getComponentContext()`` always returns the current, valid global
-context — this is the same call the fallback autostart thread uses.
+Prefer the bootstrap ``_fallback_ctx`` set from the extension's ``self.ctx``.
+Calling ``uno.getComponentContext()`` first can return a different context
+(standalone test runners: a local pyuno context with no VCL, which segfaults
+on Desktop). AGENTS.md: use the extension context, not a fresh UNO context.
 
 All services that need UNO access should call ``get_ctx()`` rather than
 storing a ctx reference from ``initialize()``.
@@ -117,10 +116,11 @@ def product_display_name(ctx=None) -> str:
 
 @main_thread_only
 def get_ctx():
-    """Return the current valid UNO component context.
+    """Return the UNO component context.
 
-    Prefers ``uno.getComponentContext()`` (always fresh).
-    Falls back to the stored bootstrap ctx if uno is not importable.
+    Prefers the bootstrap context stored at extension init. ``uno.getComponentContext()``
+    is only used when that fallback is unset (and must not be preferred in test
+    runners — see module docstring).
     """
     # BUGFIX: In standalone runner processes (like test runners), uno.getComponentContext()
     # returns a local standalone pyuno context that lacks a VCL instance. Attempting to
@@ -415,8 +415,6 @@ def resolve_document_by_url(ctx, url):
                 model = None
                 if hasattr(elem, "getURL") and callable(getattr(elem, "getURL")):
                     model = elem
-                elif hasattr(elem, "getController") and elem.getController():
-                    model = elem.getController().getModel()
                 if model is not None:
                     doc_url = _normalize_doc_url(model.getURL()) if hasattr(model, "getURL") else ""
                     uid = get_runtime_uid(model)

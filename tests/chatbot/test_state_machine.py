@@ -126,6 +126,12 @@ class TestSendHandlerStateMachine:
         assert isinstance(effects[2], CompleteJobEffect)
         assert effects[2].terminal_status == "Error"
 
+    def test_error_event_without_error_time_stays_none(self):
+        state = SendHandlerState(handler_type="web", status="running")
+        event = ErrorEvent(error=Exception("Network failure"), context="test")
+        step = next_state(state, event)
+        assert step.state.error_time is None
+
     def test_terminal_error_state(self):
         state = SendHandlerState(handler_type="web", status="error", last_error="Network failure")
         event = StreamChunkEvent(chunk_text="test data")

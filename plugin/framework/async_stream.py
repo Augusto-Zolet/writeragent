@@ -620,6 +620,10 @@ def run_async_worker_with_drain(
     def _noop_stopped() -> None:
         return None
 
+    def _noop_chunk(_text: str, _is_thinking: bool) -> None:
+        return None
+
+    resolved_apply_chunk = apply_chunk_fn or _noop_chunk
     resolved_on_error = on_error_fn or _noop_error
     def _call_done_on_stopped() -> None:
         # Mirror on_stream_done_wrapper: try with a sentinel item first, then
@@ -640,7 +644,7 @@ def run_async_worker_with_drain(
         _real_q,
         toolkit,
         job_done,
-        apply_chunk_fn,
+        resolved_apply_chunk,
         on_stream_done=on_stream_done_wrapper,
         on_stopped=resolved_on_stopped,
         on_error=resolved_on_error,

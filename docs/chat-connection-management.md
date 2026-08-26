@@ -46,7 +46,7 @@ LocalHttpsCertificateFallback     # local HTTPS verified-to-unverified retry pol
 4. **Request Pacing**: Applies a per-client 50 ms burst guard before consecutive sends.
 5. **Timeout Support**: Uses configurable connection timeouts.
 6. **SSL Handling**: Public HTTPS is always verified. Local HTTPS starts verified and retries unverified only after a certificate verification failure (self-signed Ollama/LM Studio).
-7. **Transient Retry**: Retries one connection failure on a fresh connection, unless the failure is caused by a user stop.
+7. **Transient Retry**: Retries one connection failure on a fresh connection if no stream tokens have been delivered yet. After the first content/thinking token, a reset is surfaced as connection-lost (retrying would duplicate text). User stop still exits without retry. HTTP 429/5xx are not retried.
 
 ### Current Limitations
 

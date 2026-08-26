@@ -70,7 +70,12 @@ from plugin.framework.async_stream import accumulate_delta
 from plugin.framework.constants import USER_AGENT
 
 from plugin.framework.logging import init_logging, redact_sensitive_payload_for_log
-from plugin.framework.client.auth import resolve_auth_for_config, build_auth_headers, AuthError
+from plugin.framework.client.auth import (
+    resolve_auth_for_config,
+    build_auth_headers,
+    AuthError,
+    reject_control_chars_in_api_key,
+)
 from plugin.framework.errors import NetworkError
 from plugin.framework.url_utils import get_api_version_suffix, normalize_endpoint_url
 
@@ -220,6 +225,7 @@ class LlmClient:
         # auth header was added (e.g. style='none' or unknown provider), add Bearer.
         api_key = self.config.get("api_key", "").strip()
         if api_key and "Authorization" not in h and "x-api-key" not in h:
+            reject_control_chars_in_api_key(api_key)
             h["Authorization"] = f"Bearer {api_key}"
 
         return h
@@ -477,7 +483,7 @@ class LlmClient:
         log.debug("STT Model: %s" % model_name)
 
         # use sync_request (blocking helper already in this file)
-        res = sync_request(url, data=body_bytes, headers=headers)
+        res = sync_request(url, data=body_bytes, headers=headers, timeout=self._timeout())
         return res.get("text", "") if isinstance(res, dict) else str(res)
 
     def stream_completion(self, prompt, system_prompt, max_tokens, append_callback, append_thinking_callback=None, stop_checker=None, status_callback=None):
@@ -492,6 +498,7 @@ class LlmClient:
         log.debug("Request Path: %s" % path)
 
         retry_available = _retry
+        emitted_any = False
         while True:
             last_finish_reason = None
 
@@ -600,6 +607,7 @@ class LlmClient:
 
                         if thinking and on_thinking:
                             on_thinking(thinking)
+                            emitted_any = True
                         if content:
                             pieces = think_tag_splitter.feed(content)
                             for is_think, text_piece in pieces:
@@ -609,6 +617,8 @@ class LlmClient:
                                 else:
                                     if on_content:
                                         on_content(text_piece)
+                                    if text_piece:
+                                        emitted_any = True
                                     # LiteLLM: streaming_handler.py ~L198 safety_checker(), issue #5158
                                     last_contents.append(text_piece)
                                     if (
@@ -661,6 +671,14 @@ class LlmClient:
                         self._close_connection()
 
             except CONNECTION_ERRORS as e:
+                # A retry after tokens already reached the UI would duplicate text.
+                if emitted_any:
+                    self._close_connection()
+                    raise NetworkError(
+                        format_error_message(e),
+                        code="CONNECTION_LOST",
+                        details={"url": path},
+                    ) from e
                 action = self._transport.handle_connection_error(
                     e,
                     path=path,

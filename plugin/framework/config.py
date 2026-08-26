@@ -43,6 +43,7 @@ import logging
 import os
 import shutil
 import tempfile
+import threading
 import time
 from typing import Any, Dict
 
@@ -104,6 +105,7 @@ LRU_MAX_ITEMS = 10
 AI_SIMPLE_FIELDS = {"endpoint", "text_model", "image_model", "stt_model", "temperature", "chat_max_tokens", "request_timeout", "additional_instructions", "parallel_tool_calls"}
 
 _resolved_config_path = None
+_config_write_lock = threading.Lock()
 
 
 def _resolve_config_path_from_ctx(ctx) -> str:
@@ -482,6 +484,10 @@ def get_config_float(key) -> float:
     """Get a config value as float. ALL requested keys MUST be in the schema.
     Throws ConfigError if key is not found or value is non-float (use get_config_float_safe to return a default instead)."""
     v = get_config(key)
+    if v == "" or v is None:
+        v = _config_schema._resolve_default(key)
+    if v == "":
+        raise ConfigError(f"Missing config key {key!r}: not a WriterAgentConfig field, MODULES default, or LRU pattern.", "CONFIG_KEY_NOT_FOUND", details={"key": key})
     try:
         return _config_schema.parse_float_robust(v)
     except ValueError as e:
@@ -511,46 +517,49 @@ def set_config(key, value):
     try:
         config_file_path = _config_path()
     except ConfigError:
+        log.warning("set_config skipped: config path could not be resolved")
         return
 
     if not config_file_path:
+        log.warning("set_config skipped: empty config path")
         return
-    if os.path.exists(config_file_path):
-        config_data = _load_config_dict(config_file_path, allow_repair=True, persist_repair=False)
-    else:
-        config_data = {}
-    current_value = _raw_config_value_for_key(config_data, key)
-    value = _config_schema.coerce_config_value(key, value, fallback_value=current_value)
-    if config_data.get(key) == value:
-        return
+    with _config_write_lock:
+        if os.path.exists(config_file_path):
+            config_data = _load_config_dict(config_file_path, allow_repair=True, persist_repair=False)
+        else:
+            config_data = {}
+        current_value = _raw_config_value_for_key(config_data, key)
+        value = _config_schema.coerce_config_value(key, value, fallback_value=current_value)
+        if config_data.get(key) == value:
+            return
 
-    test_data = dict(config_data)
-    for dotted in _config_schema._dotted_fallback_keys(key):
-        test_data.pop(dotted, None)
-    if "." in key:
-        test_data.pop(key.split(".", 1)[1], None)
-    test_data[key] = value
+        test_data = dict(config_data)
+        for dotted in _config_schema._dotted_fallback_keys(key):
+            test_data.pop(dotted, None)
+        if "." in key:
+            test_data.pop(key.split(".", 1)[1], None)
+        test_data[key] = value
 
-    try:
-        test_config = _config_schema.WriterAgentConfig.from_dict(test_data)
-        test_config.validate()
-        config_data = test_config.to_dict()
-    except ConfigValidationError as e:
-        raise e
-    except Exception as e:
-        log.exception("Validation error in set_config")
-        raise ConfigValidationError(f"Invalid configuration value for {key}: {e}") from e
+        try:
+            test_config = _config_schema.WriterAgentConfig.from_dict(test_data)
+            test_config.validate()
+            config_data = test_config.to_dict()
+        except ConfigValidationError as e:
+            raise e
+        except Exception as e:
+            log.exception("Validation error in set_config")
+            raise ConfigValidationError(f"Invalid configuration value for {key}: {e}") from e
 
-    try:
-        _write_config_file(config_file_path, config_data)
+        try:
+            _write_config_file(config_file_path, config_data)
 
-        _invalidate_config_cache()
+            _invalidate_config_cache()
 
-        global_event_bus.emit("config:changed", ctx=_emit_config_changed_ctx())
+            global_event_bus.emit("config:changed", ctx=_emit_config_changed_ctx())
 
-    except OSError as e:
-        log.exception("Error writing to %s", config_file_path)
-        raise ConfigError(f"Failed to save config: {e}", "CONFIG_SAVE_ERROR") from e
+        except OSError as e:
+            log.exception("Error writing to %s", config_file_path)
+            raise ConfigError(f"Failed to save config: {e}", "CONFIG_SAVE_ERROR") from e
 
 
 def remove_config(key):
@@ -558,50 +567,59 @@ def remove_config(key):
     try:
         config_file_path = _config_path()
     except ConfigError:
+        log.warning("remove_config skipped: config path could not be resolved")
         return
 
-    if not config_file_path or not os.path.exists(config_file_path):
+    if not config_file_path:
+        log.warning("remove_config skipped: empty config path")
         return
-    try:
-        with open(config_file_path, "r", encoding="utf-8") as f:
-            config_data = parse_config_json_text(f.read())
-        if not isinstance(config_data, dict):
+    if not os.path.exists(config_file_path):
+        return
+    with _config_write_lock:
+        try:
+            with open(config_file_path, "r", encoding="utf-8") as f:
+                config_data = parse_config_json_text(f.read())
+            if not isinstance(config_data, dict):
+                return
+        except OSError:
             return
-    except OSError:
-        return
-    removed = False
-    if key in config_data:
-        config_data.pop(key, None)
-        removed = True
-    for dotted in list(_config_schema._dotted_fallback_keys(key)):
-        if dotted in config_data:
-            config_data.pop(dotted, None)
+        removed = False
+        if key in config_data:
+            config_data.pop(key, None)
             removed = True
-    if "." in key:
-        field_name = key.split(".", 1)[1]
-        if field_name in config_data:
-            config_data.pop(field_name, None)
-            removed = True
-    if not removed:
-        return
+        for dotted in list(_config_schema._dotted_fallback_keys(key)):
+            if dotted in config_data:
+                config_data.pop(dotted, None)
+                removed = True
+        if "." in key:
+            field_name = key.split(".", 1)[1]
+            if field_name in config_data:
+                config_data.pop(field_name, None)
+                removed = True
+        if not removed:
+            return
 
-    try:
-        test_config = _config_schema.WriterAgentConfig.from_dict(config_data)
-        test_config.validate()
-        config_data = test_config.to_dict()
-    except Exception:
-        pass
+        try:
+            test_config = _config_schema.WriterAgentConfig.from_dict(config_data)
+            test_config.validate()
+            config_data = test_config.to_dict()
+        except ConfigValidationError as e:
+            log.warning("remove_config skipped write: remaining config is invalid: %s", e)
+            return
+        except Exception:
+            log.exception("remove_config validation failed; not writing unvalidated dict")
+            return
 
-    try:
-        _write_config_file(config_file_path, config_data)
+        try:
+            _write_config_file(config_file_path, config_data)
 
-        _invalidate_config_cache()
+            _invalidate_config_cache()
 
-        global_event_bus.emit("config:changed", ctx=_emit_config_changed_ctx())
+            global_event_bus.emit("config:changed", ctx=_emit_config_changed_ctx())
 
-    except OSError as e:
-        log.exception("Error writing to %s", config_file_path)
-        raise ConfigError(f"Failed to remove config key: {e}", "CONFIG_SAVE_ERROR") from e
+        except OSError as e:
+            log.exception("Error writing to %s", config_file_path)
+            raise ConfigError(f"Failed to remove config key: {e}", "CONFIG_SAVE_ERROR") from e
 
 
 def _get_validated_config_dict():
@@ -716,6 +734,10 @@ def set_api_key_for_endpoint(endpoint, key):
     data = get_config("api_keys_by_endpoint")
     if not isinstance(data, dict):
         data = {}
+    else:
+        # Copy: get_config returns the live cache; mutating it would leak an
+        # unpersisted key into memory if the write below fails.
+        data = dict(data)
     normalized = normalize_endpoint_url(endpoint or "")
     data[normalized] = str(key)
     set_config("api_keys_by_endpoint", data)

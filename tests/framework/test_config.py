@@ -12,6 +12,7 @@ from plugin.framework.config import (
     set_api_key_for_endpoint,
     get_config,
     get_config_bool,
+    get_config_float,
     get_config_int,
     parse_config_json_text,
     reset_config_for_tests,
@@ -259,6 +260,30 @@ class TestConfigSyncFileIO(unittest.TestCase):
         data = self._load_written()
         self.assertEqual(data["api_keys_by_endpoint"]["https://api.openai.com"], "sk-keep")
         self.assertEqual(data["temperature"], 1.0)
+
+    def test_empty_temperature_uses_schema_default(self):
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            json.dump({"temperature": ""}, f)
+        reset_config_for_tests()
+        self.assertEqual(get_config_float("temperature"), -1.0)
+
+    def test_failed_api_key_write_does_not_leak_into_cache(self):
+        reset_config_for_tests()
+        with patch("plugin.framework.config._write_config_file", side_effect=OSError("disk full")):
+            with self.assertRaises(ConfigError):
+                set_api_key_for_endpoint("https://api.openai.com", "sk-new")
+        self.assertEqual(get_api_key_for_endpoint("https://api.openai.com"), "")
+
+    def test_remove_config_skips_write_when_remaining_invalid(self):
+        from plugin.framework.config import remove_config
+
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            json.dump({"temperature": 1.5, "text_model": "keep-me"}, f)
+        reset_config_for_tests()
+        remove_config("text_model")
+        data = self._load_written()
+        self.assertEqual(data.get("text_model"), "keep-me")
+        self.assertEqual(data.get("temperature"), 1.5)
 
     def test_get_config_default_resolution(self):
         if os.path.exists(self.config_path):

@@ -45,5 +45,10 @@ class TestEnsureUtf8Stdio(unittest.TestCase):
             sys.stdout = old_stdout
 
 
+class TestEnsurePluginOnPathDoc(unittest.TestCase):
+    def test_ensure_plugin_on_path_has_docstring(self) -> None:
+        self.assertTrue(uno_bootstrap.ensure_plugin_on_path.__doc__)
+
+
 if __name__ == "__main__":
     unittest.main()
