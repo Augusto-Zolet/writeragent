@@ -26,8 +26,10 @@ from plugin.notebook.cell_registry import (
     save_registry,
 )
 from plugin.notebook.writer_importer import (
+    _IN_PROMPT_RE,
     _PARAGRAPH_BREAK,
-    _STYLE_CELL_HEADING,
+    _STYLE_MD_H1,
+    _STYLE_MD_H2,
     _STYLE_NOTEBOOK_IN,
     _STYLE_OUTPUT,
     _format_in_prompt,
@@ -53,8 +55,11 @@ class RunResult:
     message: str = ""
 
 
-def format_run_output_text(result: dict[str, Any]) -> str:
-    """Plain-text body for a cell output block (stdout, errors, scalar result)."""
+def format_run_output_text(result: dict[str, Any], execution_count: int | None = None) -> str:
+    """Plain-text body for a cell output block (stdout, errors, scalar result).
+
+    ``Out [n]:`` is only for execute_result / last-line values, not print streams.
+    """
     parts: list[str] = []
     stdout = (result.get("stdout") or "").strip()
     if stdout:
@@ -80,7 +85,11 @@ def format_run_output_text(result: dict[str, Any]) -> str:
             except Exception:
                 log.debug("notebook run: host_unpack_data failed", exc_info=True)
                 value = wire
-            parts.append(repr(value))
+            rendered = repr(value)
+            if execution_count is not None:
+                parts.append(f"Out [{execution_count}]: {rendered}")
+            else:
+                parts.append(rendered)
     return "\n\n".join(p for p in parts if p.strip())
 
 
@@ -177,24 +186,101 @@ def _bookmark_exists(doc: Any, bookmark_name: str) -> bool:
 
 
 _ENUM_SAFETY_CAP = 10000
+_OUT_PROMPT_RE = re.compile(r"^Out \[[0-9 ]*\]:")
+_LEGACY_CHROME_RE = re.compile(r"^Cell \d+: (Markdown|Raw|Code)\b")
+_CELL_CHROME_RE = _LEGACY_CHROME_RE
 
 
-def _find_cell_output_heading_end(doc: Any, cell: NotebookCodeCell) -> Any | None:
-    """Cursor at the end of this cell's Heading 4 ``Output`` paragraph, or None."""
-    marker = f"Cell {cell.index + 1}: Code"
-    notebook_in = _resolve_para_style(doc, _STYLE_NOTEBOOK_IN)
+def _style_compact(para_style: str) -> str:
+    return (para_style or "").lower().replace(" ", "")
+
+
+def _style_is_heading12(para_style: str) -> bool:
+    return _style_compact(para_style) in ("heading1", "heading2")
+
+
+def _style_is_preformatted(para_style: str) -> bool:
+    return _style_compact(para_style) in ("preformattedtext", "preformatted")
+
+
+def _same_paragraph(a: Any, b: Any) -> bool:
+    """True when *a* and *b* are in the same Writer paragraph."""
     try:
-        text = doc.getText()
+        text = a.getText()
+        ca = text.createTextCursorByRange(a)
+        cb = text.createTextCursorByRange(b)
+        ca.gotoStartOfParagraph(False)
+        cb.gotoStartOfParagraph(False)
+        return int(text.compareRegionStarts(ca, cb)) == 0
+    except Exception:
+        return False
+
+
+def _is_this_cell_field_paragraph(doc: Any, cell: NotebookCodeCell, cursor: Any) -> bool:
+    end = _code_field_paragraph_end(doc, cell)
+    if end is None:
+        return False
+    return _same_paragraph(cursor, end)
+
+
+def _is_foreign_control_paragraph(doc: Any, cell: NotebookCodeCell, cursor: Any) -> bool:
+    """True when *cursor* is in another cell's ▶ gutter or code-field paragraph."""
+    if not _paragraph_has_frame(cursor):
+        return False
+    return not _is_this_cell_field_paragraph(doc, cell, cursor)
+
+
+def _is_output_bookmark_home(
+    cursor: Any, doc: Any | None = None, cell: NotebookCodeCell | None = None
+) -> bool:
+    """True when *cursor* is in *this* cell's code-field row (or leftover Output).
+
+    Any ``In [n]:`` used to count as home. Consecutive code cells (medium In[2]
+    then In[3]) drift the bookmark onto the *next* gutter; clear then skipped
+    that label and ``setString`` ate In[3]'s ▶ and TextField.
+    """
+    content = _paragraph_string(cursor).strip()
+    if content == "Output":
+        return True
+    if doc is not None and cell is not None:
+        if _is_this_cell_field_paragraph(doc, cell, cursor):
+            return True
+        # No code field (UNO tests that only insert a bookmark): In [n]: is home.
+        if _IN_PROMPT_RE.match(content) and _code_field_paragraph_end(doc, cell) is None:
+            return True
+        return False
+    if _IN_PROMPT_RE.match(content):
+        return True
+    if _paragraph_has_frame(cursor):
+        return True
+    return False
+
+
+def _is_leftover_empty_paragraph(cursor: Any) -> bool:
+    """Empty row that is not a heading and not stdout — leftover gap or ▶+field.
+
+    ``getString`` omits ControlShapes, so the ▶+field paragraph looks like this.
+    A leftover blank *between* field and markdown looks the same; insert fills
+    that blank, while clear skips it so ``setString`` cannot eat frames.
+    """
+    if _paragraph_string(cursor).strip():
+        return False
+    style = _para_style_name(cursor)
+    if _style_is_preformatted(style) or _style_is_heading12(style):
+        return False
+    return True
+
+
+def _paragraph_has_frame(cursor: Any) -> bool:
+    """True when the paragraph contains an in-flow ControlShape / graphic (▶ or field)."""
+    try:
+        text = cursor.getText()
         enum = text.createEnumeration()
     except Exception:
-        return None
-    seen_code = False
-    first_output_end: Any | None = None
-    matched_output_end: Any | None = None
+        return False
     steps = 0
     while steps < _ENUM_SAFETY_CAP:
         more = enum.hasMoreElements()
-        # PyUNO may return 1/0; MagicMock is neither True nor int 1 — stop.
         if more is not True and more != 1:
             break
         steps += 1
@@ -202,72 +288,131 @@ def _find_cell_output_heading_end(doc: Any, cell: NotebookCodeCell) -> Any | Non
         try:
             if hasattr(para, "supportsService") and not para.supportsService("com.sun.star.text.Paragraph"):
                 continue
-            content = _plain_text(para.getString() or "")
-            style = str(para.getPropertyValue("ParaStyleName") or "")
+            start_cmp = text.compareRegionStarts(para.getStart(), cursor)
+            end_cmp = text.compareRegionEnds(cursor, para.getEnd())
+            # compareRegionStarts(A,B) is 1 if A starts before B. Cursor is in *para*
+            # when para starts at/before the cursor and the cursor ends at/before para.
+            if not (start_cmp >= 0 and end_cmp >= 0):
+                continue
+            portions = para.createEnumeration()
         except Exception:
             continue
-        if marker in content:
-            seen_code = True
-            continue
-        if content.strip() == "Output":
+        psteps = 0
+        while psteps < 64:
+            pmore = portions.hasMoreElements()
+            if pmore is not True and pmore != 1:
+                break
+            psteps += 1
+            portion = portions.nextElement()
             try:
-                # After the last character of "Output", still in this paragraph.
-                # para.getEnd() / a mid-heading goRight(1) are wrong: the former
-                # is the break (setString of the next range deletes nb_out_*),
-                # the latter splits the heading when we insert PARAGRAPH_BREAK
-                # ("O" / stdout / "utput").
-                cursor = text.createTextCursorByRange(para.getStart())
-                n = min(len("Output"), 32767)
-                if not cursor.goRight(n, False):
-                    cursor.gotoEndOfParagraph(False)
+                ptype = str(portion.getPropertyValue("TextPortionType") or "")
             except Exception:
+                ptype = str(getattr(portion, "TextPortionType", "") or "")
+            if ptype == "Frame":
+                return True
+        return False
+    return False
+
+
+def _find_control_shape_by_name(doc: Any, name: str) -> Any | None:
+    if not name or not hasattr(doc, "getDrawPage"):
+        return None
+    try:
+        dp = doc.getDrawPage()
+        count = int(dp.getCount())
+    except Exception:
+        return None
+    for i in range(count):
+        try:
+            shape = dp.getByIndex(i)
+            if shape.getShapeType() != "com.sun.star.drawing.ControlShape":
                 continue
-            if first_output_end is None:
-                first_output_end = cursor
-            if seen_code:
-                matched_output_end = cursor
+            model = shape.Control
+            if str(getattr(model, "Name", "") or "") == name:
+                return shape
+        except Exception:
             continue
-        if _is_next_cell_boundary(style, content, notebook_in):
-            if seen_code:
-                return matched_output_end
-            # Earlier chrome (``Cell 1: Markdown`` before this code cell) is not
-            # this cell's Output. Keep scanning. Synthetic docs with no
-            # ``Cell N: Code`` fall through to first_output_end at EOF.
-            continue
-    return matched_output_end if seen_code else first_output_end
+    return None
+
+
+def _code_field_paragraph_end(doc: Any, cell: NotebookCodeCell) -> Any | None:
+    shape = _find_control_shape_by_name(doc, cell.code_field_name)
+    if shape is None:
+        return None
+    try:
+        anchor = shape.getAnchor()
+        text = doc.getText()
+        cursor = text.createTextCursorByRange(anchor)
+        cursor.gotoEndOfParagraph(False)
+        return cursor
+    except Exception:
+        log.debug("notebook run: code field anchor unusable for %s", cell.code_field_name, exc_info=True)
+        return None
+
+
+def _find_cell_output_heading_end(doc: Any, cell: NotebookCodeCell) -> Any | None:
+    """Cursor at this cell's output bookmark (end of the ▶+field paragraph).
+
+    Named for the old Heading 4 ``Output`` scan. Chrome is gone; the invisible
+    ``nb_out_*`` bookmark is the source of truth. Fallback: end of the code-field
+    paragraph so re-anchor can restore a deleted bookmark.
+    """
+    cur = _cursor_after_bookmark(doc, cell.output_start_bookmark)
+    if cur is not None and _is_output_bookmark_home(cur, doc, cell):
+        return cur
+    field_end = _code_field_paragraph_end(doc, cell)
+    if field_end is not None:
+        return field_end
+    return cur
 
 
 def _reanchor_output_bookmark(doc: Any, cell: NotebookCodeCell) -> Any | None:
-    """Keep ``nb_out_*`` at the end of this cell's Output heading.
+    """Keep ``nb_out_*`` at the end of this cell's ▶+field paragraph.
 
     ``clear_cell_output`` used ``setString("")`` on a range that started at the
     point bookmark. Writer treats that bookmark as in-range, so the bookmark
     vanished; ``apply_run_result`` then got ``cursor is None`` and appended at
-    the document end. Re-attach to the Output heading before clear/insert so
-    re-runs replace in-cell stdout like Jupyter.
+    the document end. Re-attach before clear/insert so re-runs replace in-cell
+    stdout like Jupyter.
 
-    Find the heading **after** removing the old bookmark. A cursor captured
+    Find the insert point **after** removing the old bookmark. A cursor captured
     before ``removeTextContent`` is stale and insert then fails, leaving no
     bookmark for the next run. Re-insert with ``gotoEndOfParagraph`` (inside
-    the heading), not ``para.getEnd()`` (the paragraph break).
+    the control paragraph), not ``para.getEnd()`` (the paragraph break).
     """
     name = cell.output_start_bookmark
     if not name:
         return None
     current = _cursor_after_bookmark(doc, name)
-    if current is not None and _paragraph_string(current).strip() == "Output":
+    if current is not None and _is_output_bookmark_home(current, doc, cell):
+        return current
+    # Bookmark at the paragraph break reports as the *next* cell (markdown /
+    # In [n]:). Insert then mashed stdout onto that heading. Move it back
+    # inside the ▶+field (or In-prompt) paragraph. Capture the insert point
+    # before removeTextContent — a cursor taken from the removed bookmark is stale.
+    insert_at = _code_field_paragraph_end(doc, cell)
+    if insert_at is None and current is not None:
+        notebook_in = _resolve_para_style(doc, _STYLE_NOTEBOOK_IN)
+        if _is_next_cell_boundary(
+            _para_style_name(current), _paragraph_string(current), notebook_in
+        ):
+            try:
+                prev = doc.getText().createTextCursorByRange(current)
+                if prev.gotoPreviousParagraph(False):
+                    prev.gotoEndOfParagraph(False)
+                    insert_at = prev
+            except Exception:
+                insert_at = None
+    if insert_at is None:
         return current
     try:
         text = doc.getText()
         bookmarks = doc.getBookmarks()
         if bookmarks.hasByName(name):
             text.removeTextContent(bookmarks.getByName(name))
-        heading_end = _find_cell_output_heading_end(doc, cell)
-        if heading_end is None:
-            return _cursor_after_bookmark(doc, name)
         bookmark = doc.createInstance("com.sun.star.text.Bookmark")
         bookmark.Name = name
-        text.insertTextContent(heading_end, bookmark, False)
+        text.insertTextContent(insert_at, bookmark, False)
         return _cursor_after_bookmark(doc, name)
     except Exception:
         log.exception("notebook run: failed to reanchor bookmark %r", name)
@@ -313,9 +458,10 @@ def _collapse_leading_empty_paragraphs(
         if start is None:
             return
         # Bookmark at the paragraph break reports as the *next* para (often a
-        # leftover blank). Snap to the Output heading so we delete that blank
-        # instead of treating it as the bookmark's home.
-        if _paragraph_string(start).strip() != "Output":
+        # leftover blank). Snap to the ▶+field bookmark paragraph so we delete
+        # that blank instead of treating it as the bookmark's home.
+        at_home = _is_output_bookmark_home(start, doc, cell)
+        if not at_home:
             heading = _find_cell_output_heading_end(doc, cell)
             if heading is None:
                 return
@@ -326,31 +472,43 @@ def _collapse_leading_empty_paragraphs(
         content = _paragraph_string(nxt)
         if _is_next_cell_boundary(_para_style_name(nxt), content, notebook_in):
             return
+        if _is_foreign_control_paragraph(doc, cell, nxt):
+            return
         if content.strip():
+            return
+        if _paragraph_has_frame(nxt):
             return
         if not _delete_paragraph_at(nxt):
             return
 
 
-# Markdown/raw chrome is ``Cell N: Markdown`` (Heading 3). Code gutters use
-# ``WriterAgent Notebook In`` and/or ``[In [n]]\tCell N: Code``.
-_CELL_CHROME_RE = re.compile(r"^Cell \d+: (Markdown|Raw|Code)\b")
+# Next-cell boundary: In [n]: gutter, markdown Heading 1/2 / Text Body, or
+# leftover Cell N chrome from older imports. Empty ▶+field rows are not
+# boundaries (getString omits ControlShapes).
+_CELL_CHROME_RE = _LEGACY_CHROME_RE
 
 
 def _is_next_cell_boundary(para_style: str, content: str, notebook_in_resolved: str | None) -> bool:
     stripped = (content or "").strip()
     # The importer puts ▶ / the code field in their own paragraph after the
-    # ``[In [n]]`` gutter, still styled WriterAgent Notebook In but empty.
-    # Treating that empty row as a cell boundary made ``_find_cell_output_heading_end``
-    # return None before the Output heading, so re-anchor failed and the bookmark
-    # died on the next clear.
+    # In [n]: gutter, still possibly styled but empty of text. Treating that
+    # empty row as a cell boundary made output-anchor lookup return None.
     if notebook_in_resolved and para_style == notebook_in_resolved and stripped:
+        return True
+    if _IN_PROMPT_RE.match(stripped):
         return True
     if stripped.startswith("[In [") and ": Code" in stripped:
         return True
-    # Stopping only at the next code gutter ate markdown cells between code cells
-    # (the small NumPy fixture is markdown/code/markdown/…).
-    return bool(_CELL_CHROME_RE.match(stripped))
+    if _OUT_PROMPT_RE.match(stripped) or _style_is_preformatted(para_style):
+        return False
+    if _LEGACY_CHROME_RE.match(stripped):
+        return True
+    if _style_is_heading12(para_style) and stripped:
+        return True
+    compact = _style_compact(para_style)
+    if stripped and compact in ("textbody", "textkörper", "bodytext"):
+        return True
+    return False
 
 
 def clear_cell_output(doc: Any, cell: NotebookCodeCell) -> None:
@@ -362,37 +520,42 @@ def clear_cell_output(doc: Any, cell: NotebookCodeCell) -> None:
 
     The bookmark must not be in that range: a point bookmark at the range start is
     deleted by ``setString``, and the next insert then falls off the end of the
-    document. Re-anchor to the Output heading first and start the deletion at the
+    document. Re-anchor to the ▶+field paragraph first and start the deletion at the
     *next* paragraph. Still ``setString`` whitespace-only ranges so leftover empty
-    paragraphs do not accumulate under Output.
+    paragraphs do not accumulate under the cell.
     """
     _reanchor_output_bookmark(doc, cell)
     text = doc.getText()
     notebook_in = _resolve_para_style(doc, _STYLE_NOTEBOOK_IN)
-    # Prefer the Output heading over the bookmark cursor. After a first run the
-    # bookmark often sits on the paragraph break, so collapseToEnd is already
-    # in the next para — setString then deletes nb_out_*. Unit mocks have no
-    # heading enumeration, so they still clear from the bookmark cursor.
-    heading = _find_cell_output_heading_end(doc, cell)
-    if heading is not None:
-        start = heading
-        end = text.createTextCursorByRange(start)
+    # Always start from *this* cell's field paragraph. A drifted bookmark on the
+    # next In [n]: used to skip that gutter and setString the next ▶+field.
+    start = _code_field_paragraph_end(doc, cell)
+    if start is None:
+        start = _cursor_after_bookmark(doc, cell.output_start_bookmark)
+    if start is None:
+        return
+    end = text.createTextCursorByRange(start)
+    # Bookmark lives in the ▶+field paragraph (getString is empty because frames
+    # do not appear). Starting setString there deleted ▶, the TextField, and the
+    # bookmark — live UNO runs then logged "output bookmark missing".
+    skip_home = _is_output_bookmark_home(start, doc, cell) or (
+        _is_leftover_empty_paragraph(start) and not _paragraph_has_frame(start)
+    )
+    if skip_home:
         if not end.gotoNextParagraph(False):
             return
-    else:
-        start = _cursor_after_bookmark(doc, cell.output_start_bookmark)
-        if start is None:
-            return
-        end = text.createTextCursorByRange(start)
-        if _paragraph_string(start).strip() == "Output":
-            if not end.gotoNextParagraph(False):
-                return
     if _is_next_cell_boundary(_para_style_name(end), _paragraph_string(end), notebook_in):
+        return
+    if _is_foreign_control_paragraph(doc, cell, end):
         return
     range_start = text.createTextCursorByRange(end)
     found_boundary = False
     while end.gotoNextParagraph(False):
         if _is_next_cell_boundary(_para_style_name(end), _paragraph_string(end), notebook_in):
+            end.gotoStartOfParagraph(False)
+            found_boundary = True
+            break
+        if _is_foreign_control_paragraph(doc, cell, end):
             end.gotoStartOfParagraph(False)
             found_boundary = True
             break
@@ -409,7 +572,14 @@ def clear_cell_output(doc: Any, cell: NotebookCodeCell) -> None:
         _reanchor_output_bookmark(doc, cell)
 
 
-def _insert_run_image(doc: Any, payload: dict[str, Any], *, ctx: Any, images_before: int) -> bool:
+def _insert_run_image(
+    doc: Any,
+    payload: dict[str, Any],
+    *,
+    ctx: Any,
+    images_before: int,
+    text_cursor: Any | None = None,
+) -> bool:
     raw = payload.get("data")
     if not isinstance(raw, (bytes, bytearray)):
         return False
@@ -420,7 +590,9 @@ def _insert_run_image(doc: Any, payload: dict[str, Any], *, ctx: Any, images_bef
         mime = "image/jpeg"
     else:
         mime = "image/png"
-    return _insert_image_in_flow(doc, raw=bytes(raw), mime=mime, images_before=images_before, ctx=ctx)
+    return _insert_image_in_flow(
+        doc, raw=bytes(raw), mime=mime, images_before=images_before, ctx=ctx, text_cursor=text_cursor
+    )
 
 
 def _enter_paragraph_after_break(cursor: Any) -> None:
@@ -450,14 +622,11 @@ def apply_run_result(
     ctx: Any | None = None,
 ) -> None:
     """Write stdout/errors/result and optional image after the output bookmark."""
-    out_text = format_run_output_text(result)
+    out_text = format_run_output_text(result, cell.execution_count)
     _reanchor_output_bookmark(doc, cell)
-    # Insert from the Output heading, not the bookmark cursor. After collapseToEnd
-    # a break-anchored bookmark is already in the next paragraph; filling that
-    # range can absorb nb_out_* on the next clear.
-    cursor = _find_cell_output_heading_end(doc, cell)
+    cursor = _cursor_after_bookmark(doc, cell.output_start_bookmark)
     if cursor is None:
-        cursor = _cursor_after_bookmark(doc, cell.output_start_bookmark)
+        cursor = _find_cell_output_heading_end(doc, cell)
     output_style = _resolve_para_style(doc, _STYLE_OUTPUT)
     notebook_in = _resolve_para_style(doc, _STYLE_NOTEBOOK_IN)
     if out_text.strip():
@@ -474,8 +643,23 @@ def apply_run_result(
     if result.get("status") == "ok":
         wire = result.get("result")
         images = find_image_payloads(wire)
+        if not images:
+            return
+        img_cursor = _cursor_after_bookmark(doc, cell.output_start_bookmark)
+        if img_cursor is None:
+            img_cursor = _code_field_paragraph_end(doc, cell)
+        text = doc.getText()
         for img in images:
-            _insert_run_image(doc, img, ctx=ctx, images_before=0)
+            if img_cursor is None:
+                log.warning(
+                    "notebook run: image bookmark missing for cell %d; not appending at document end",
+                    cell.index,
+                )
+                break
+            if _paragraph_has_frame(img_cursor) or _paragraph_string(img_cursor).strip():
+                text.insertControlCharacter(img_cursor, _PARAGRAPH_BREAK, False)
+                _enter_paragraph_after_break(img_cursor)
+            _insert_run_image(doc, img, ctx=ctx, images_before=0, text_cursor=img_cursor)
 
 
 def _apply_para_style(cursor: Any, style: str | None) -> None:
@@ -511,22 +695,25 @@ def _split_if_stdout_mashed_onto_chrome(
             rest.goRight(n, False)
         rest.gotoEndOfParagraph(True)
         leftover = _plain_text(rest.getString() or "")
-        if not leftover.strip():
+        leftover_text = leftover.strip()
+        if not leftover_text:
             _apply_para_style(cursor, output_style)
             return
         if n:
             cursor.goRight(n, False)
         text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
+        _enter_paragraph_after_break(cursor)
     except Exception:
         log.debug("notebook run: trailing split after stdout failed", exc_info=True)
         _apply_para_style(cursor, output_style)
         return
     try:
-        following = _paragraph_string(cursor)
-        if _is_next_cell_boundary(_para_style_name(cursor), following, notebook_in) or _CELL_CHROME_RE.match(
-            (following or "").strip()
-        ):
-            heading = _resolve_para_style(doc, _STYLE_CELL_HEADING)
+        # Leftover inherits Preformatted from fill, so _is_next_cell_boundary
+        # would skip (stdout style). Restore markdown/gutter from the text.
+        if _IN_PROMPT_RE.match(leftover_text) or leftover_text.startswith("[In ["):
+            _apply_para_style(cursor, notebook_in)
+        else:
+            heading = _resolve_para_style(doc, _STYLE_MD_H2) or _resolve_para_style(doc, _STYLE_MD_H1)
             _apply_para_style(cursor, heading)
         if output_style:
             prev = text.createTextCursorByRange(cursor)
@@ -545,13 +732,15 @@ def _insert_stdout_paragraph(
     output_style: str | None,
     notebook_in: str | None,
 ) -> None:
-    """Insert *display* as its own paragraph under Output; do not eat the next cell.
+    """Insert *display* as its own paragraph under the code field; do not eat the next cell.
 
     Always inserting a PARAGRAPH_BREAK before ``insertString`` (and another
     trailing split) left a blank paragraph when the bookmark para was already
     empty. Fill an existing empty paragraph; only split when the current para
-    has content (Output heading or next-cell chrome). Trailing split only if
-    stdout would otherwise share a line with ``Cell N: Markdown`` (PR 461).
+    has content (▶+field or next-cell markdown). Trailing split only if
+    stdout would otherwise share a line with the following markdown (PR 461).
+    Never write into the ▶+field paragraph — that mixed stdout with controls
+    and put a stray bookmark glyph on a visible heading.
     """
     text = doc.getText()
 
@@ -568,18 +757,61 @@ def _insert_stdout_paragraph(
         _reanchor_output_bookmark(doc, cell)
         _collapse_leading_empty_paragraphs(doc, cell, notebook_in)
 
-    # Bookmark/find cursor may sit inside "Output". A PARAGRAPH_BREAK there
-    # splits the heading into "O" + "utput". Snap to after the last character.
-    if _paragraph_string(cursor).strip() == "Output":
-        try:
-            cursor.gotoStartOfParagraph(False)
-            n = min(len("Output"), 32767)
-            if not cursor.goRight(n, False):
-                cursor.gotoEndOfParagraph(False)
-        except Exception:
-            log.debug("notebook run: snap to end of Output heading failed", exc_info=True)
+    def _break_then_fill() -> None:
+        text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
+        _enter_paragraph_after_break(cursor)
+        _fill(cursor)
+        _finish()
 
-    if _paragraph_is_empty(cursor):
+    # Bookmark on the paragraph break reports as the following markdown. Snap
+    # back so PARAGRAPH_BREAK does not split that heading and prepend stdout.
+    field_end = _code_field_paragraph_end(doc, cell)
+    if field_end is not None:
+        try:
+            cursor.gotoRange(field_end, False)
+        except Exception:
+            log.debug("notebook run: snap insert cursor to code field failed", exc_info=True)
+    elif _is_next_cell_boundary(_para_style_name(cursor), _paragraph_string(cursor), notebook_in):
+        try:
+            prev = text.createTextCursorByRange(cursor)
+            if prev.gotoPreviousParagraph(False):
+                prev.gotoEndOfParagraph(False)
+                cursor.gotoRange(prev, False)
+        except Exception:
+            log.debug("notebook run: snap insert cursor to previous para failed", exc_info=True)
+
+    if _is_output_bookmark_home(cursor, doc, cell):
+        try:
+            cursor.gotoEndOfParagraph(False)
+        except Exception:
+            log.debug("notebook run: snap to end of control paragraph failed", exc_info=True)
+        nxt = text.createTextCursorByRange(cursor)
+        if nxt.gotoNextParagraph(False):
+            nxt_text = _paragraph_string(nxt)
+            if (
+                not nxt_text.strip()
+                and not _style_is_heading12(_para_style_name(nxt))
+                and not _is_next_cell_boundary(_para_style_name(nxt), nxt_text, notebook_in)
+                and not _paragraph_has_frame(nxt)
+            ):
+                # Import lead_break leaves an empty para after ▶+field. Fill it
+                # rather than inserting another break (field | blank | stdout).
+                _fill(nxt)
+                _finish()
+                return
+        _break_then_fill()
+        return
+
+    if _paragraph_is_empty(cursor) and not _style_is_heading12(_para_style_name(cursor)):
+        # Leftover empty gap (Text Body) or empty Preformatted: fill in place.
+        # Never write into a ▶+field paragraph (this cell or the next).
+        if _paragraph_has_frame(cursor):
+            try:
+                cursor.gotoEndOfParagraph(False)
+            except Exception:
+                log.debug("notebook run: snap to end of framed paragraph failed", exc_info=True)
+            _break_then_fill()
+            return
         _fill(cursor)
         _finish()
         return
@@ -589,7 +821,7 @@ def _insert_stdout_paragraph(
         nxt_text = _paragraph_string(nxt)
         if not nxt_text.strip() and not _is_next_cell_boundary(
             _para_style_name(nxt), nxt_text, notebook_in
-        ):
+        ) and not _paragraph_has_frame(nxt):
             _fill(nxt)
             _finish()
             return
@@ -604,8 +836,9 @@ def _leading_text_cursor(text: Any, para: Any) -> Any | None:
     """Cursor over leading Text portions of *para*, stopping before in-flow shapes.
 
     Importer used to put AS_CHARACTER ▶ / code ``TextField`` in the same paragraph as
-    ``[In [n]]\\tCell N: Code``. ``setString`` on ``para.getStart()``–``getEnd()`` then
-    deleted those ``ControlShape``s (TextPortionType ``Frame``). Replace text only.
+    ``[In [n]]``. ``setString`` on ``para.getStart()``–``getEnd()`` then
+    deleted those ``ControlShape``s (TextPortionType ``Frame``). ▶ now sits on the
+    ``In [n]:`` gutter; rewrite leading Text portions only, never the Frame.
     """
     try:
         enum = para.createEnumeration()
@@ -658,31 +891,80 @@ def _gutter_text_cursor(text: Any, para: Any) -> Any | None:
 
 
 def update_in_prompt(doc: Any, cell: NotebookCodeCell, execution_count: int | None) -> None:
-    """Update the ``[In [n]]`` gutter prefix on the code cell title line."""
-    marker = f"Cell {cell.index + 1}: Code"
-    new_line = f"{_format_in_prompt(execution_count)}\t{marker}"
+    """Update the ``In [n]:`` gutter. Never setString a range that contains ControlShapes."""
+    new_line = _format_in_prompt(execution_count)
     try:
         text = doc.getText()
-        enum = text.createEnumeration()
     except Exception:
-        log.debug("notebook run: could not enumerate text for in prompt", exc_info=True)
+        log.debug("notebook run: could not get text for in prompt", exc_info=True)
         return
-    while enum.hasMoreElements():
-        para = enum.nextElement()
+
+    para = None
+    shape = _find_control_shape_by_name(doc, cell.code_field_name)
+    if shape is not None:
         try:
-            content = para.getString()
+            anchor = shape.getAnchor()
+            cursor = text.createTextCursorByRange(anchor)
+            if cursor.gotoPreviousParagraph(False):
+                para_rng = text.createTextCursorByRange(cursor)
+                para_rng.gotoStartOfParagraph(False)
+                para_rng.gotoEndOfParagraph(True)
+                para = para_rng
         except Exception:
-            continue
-        if marker not in content:
-            continue
+            log.debug("notebook run: gutter from code field failed", exc_info=True)
+            para = None
+    if para is None:
         try:
-            cursor = _gutter_text_cursor(text, para)
-            if cursor is None:
-                return
-            cursor.setString(new_line)
+            enum = text.createEnumeration()
         except Exception:
-            log.exception("notebook run: failed to update in prompt for cell %d", cell.index)
+            log.debug("notebook run: could not enumerate text for in prompt", exc_info=True)
+            return
+        marker = f"Cell {cell.index + 1}: Code"
+        while enum.hasMoreElements():
+            candidate = enum.nextElement()
+            try:
+                content = candidate.getString() or ""
+            except Exception:
+                continue
+            stripped = str(content).strip()
+            if marker in stripped or _IN_PROMPT_RE.match(stripped) or stripped.startswith("[In ["):
+                para = candidate
+                break
+    if para is None:
         return
+    try:
+        cursor = _gutter_text_cursor(text, para)
+        if cursor is None:
+            return
+        cursor.setString(new_line)
+    except Exception:
+        log.exception("notebook run: failed to update in prompt for cell %d", cell.index)
+
+
+def _save_view_cursor(doc: Any) -> Any | None:
+    try:
+        vc = doc.getCurrentController().getViewCursor()
+        return doc.getText().createTextCursorByRange(vc)
+    except Exception:
+        return None
+
+
+def _restore_view_to_cell(doc: Any, cell: NotebookCodeCell, saved: Any | None = None) -> None:
+    """Keep the view on the cell that ran instead of jumping to the document end."""
+    vc = None
+    try:
+        vc = doc.getCurrentController().getViewCursor()
+    except Exception:
+        return
+    shape = _find_control_shape_by_name(doc, cell.code_field_name)
+    try:
+        if shape is not None:
+            vc.gotoRange(shape.getAnchor(), False)
+            return
+        if saved is not None:
+            vc.gotoRange(saved, False)
+    except Exception:
+        log.debug("notebook run: restore view to cell failed", exc_info=True)
 
 
 def run_cell(ctx: Any, doc: Any, cell_id: str) -> RunResult:
@@ -698,6 +980,7 @@ def run_cell(ctx: Any, doc: Any, cell_id: str) -> RunResult:
     if not (code or "").strip():
         return RunResult("error", None, "Code cell is empty.")
 
+    saved_view = _save_view_cursor(doc)
     result = execute_code(ctx, doc, code)
     # After execute so live smoke can tell ok from a sandbox dunder deny.
     log.info(
@@ -721,6 +1004,7 @@ def run_cell(ctx: Any, doc: Any, cell_id: str) -> RunResult:
     update_in_prompt(doc, cell, execution_count)
     save_registry(doc, state)
     flush_ui_idle(ctx)
+    _restore_view_to_cell(doc, cell, saved_view)
 
     if result.get("status") != "ok":
         msg = result.get("message") or _("Cell execution failed.")

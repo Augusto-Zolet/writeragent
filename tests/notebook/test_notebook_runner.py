@@ -29,9 +29,17 @@ setup_uno_mocks()
 
 
 def test_format_run_output_text_stdout_and_result():
-    text = format_run_output_text({"status": "ok", "stdout": "hi\n", "result": 42})
+    text = format_run_output_text({"status": "ok", "stdout": "hi\n", "result": 42}, execution_count=1)
     assert "hi" in text
     assert "42" in text
+    assert "Out [1]:" in text
+    assert text.index("hi") < text.index("Out [1]:")
+
+
+def test_format_run_output_text_stdout_has_no_out_prompt():
+    text = format_run_output_text({"status": "ok", "stdout": "printed\n", "result": None})
+    assert text == "printed"
+    assert "Out [" not in text
 
 
 def test_format_run_output_text_error_traceback():
@@ -138,6 +146,12 @@ def test_run_cell_logs_status_after_execute():
     assert src.find("execute_code(") < src.find("status=%s")
 
 
+def test_run_cell_restores_view_to_cell():
+    src = inspect.getsource(run_cell)
+    assert "_restore_view_to_cell" in src
+    assert src.find("apply_run_result") < src.find("_restore_view_to_cell")
+
+
 def test_run_cell_empty_code():
     ctx = MagicMock()
     cell = new_code_cell_entry(0, None, "nb_cell_0_code")
@@ -203,54 +217,31 @@ def test_clear_cell_output_source_has_no_delete_contents():
 
 
 def test_find_output_heading_stays_inside_paragraph():
-    """para.getEnd() is the paragraph break; a bookmark there is deleted by setString."""
+    """Bookmark insert uses gotoEndOfParagraph, not para.getEnd() (the break)."""
     src = inspect.getsource(_find_cell_output_heading_end)
     assert "createTextCursorByRange(para.getEnd())" not in src
-    assert "para.getStart()" in src
-    assert "goRight" in src
+    from plugin.notebook.notebook_runner import _reanchor_output_bookmark, _code_field_paragraph_end
+
+    assert "createTextCursorByRange(para.getEnd())" not in inspect.getsource(_reanchor_output_bookmark)
+    assert "gotoEndOfParagraph" in inspect.getsource(_code_field_paragraph_end)
 
 
-def test_find_output_heading_skips_earlier_markdown_chrome():
-    """``Cell 1: Markdown`` is a boundary but must not abort before this cell's Output."""
-
-    def _para(text: str, style: str = "Heading 3") -> MagicMock:
-        para = MagicMock()
-        para.getString.return_value = text
-        para.getPropertyValue.return_value = style
-        para.supportsService.return_value = True
-        para.getStart.return_value = f"start:{text}"
-        return para
-
-    output_para = _para("Output", "Heading 4")
-    paras = [
-        _para("Cell 1: Markdown"),
-        _para("Before code", "Heading 1"),
-        _para("[In [1]]\tCell 2: Code", "WriterAgent Notebook In"),
-        _para("", "WriterAgent Notebook In"),
-        output_para,
-        _para("Cell 3: Markdown"),
-    ]
-    heading_cursor = MagicMock(name="inside-output")
-    heading_cursor.goRight.return_value = True
-    text = MagicMock()
-    text.createEnumeration.return_value = _enum_of(paras)
-    text.createTextCursorByRange.return_value = heading_cursor
-    doc = MagicMock()
-    doc.getText.return_value = text
-    cell = new_code_cell_entry(1, None, "nb_cell_1_code")
-    with patch("plugin.notebook.notebook_runner._resolve_para_style", return_value="WriterAgent Notebook In"):
-        found = _find_cell_output_heading_end(doc, cell)
-    assert found is heading_cursor
-    text.createTextCursorByRange.assert_called_with(output_para.getStart())
-    heading_cursor.goRight.assert_called_once_with(6, False)
+def test_find_output_uses_bookmark_not_output_heading():
+    """Output chrome is gone; the insert cursor is the nb_out_* bookmark."""
+    src = inspect.getsource(_find_cell_output_heading_end)
+    assert "_cursor_after_bookmark" in src
+    assert 'content.strip() == "Output"' not in src
 
 
 def test_is_next_cell_boundary_markdown_and_code():
     assert _is_next_cell_boundary("Heading 3", "Cell 3: Markdown", None) is True
     assert _is_next_cell_boundary("Heading 3", "Cell 5: Raw", None) is True
     assert _is_next_cell_boundary("Preformatted Text", "old stdout", None) is False
-    assert _is_next_cell_boundary("WriterAgent Notebook In", "[In [1]]\tCell 2: Code", "WriterAgent Notebook In") is True
+    assert _is_next_cell_boundary("WriterAgent Notebook In", "In [1]:", "WriterAgent Notebook In") is True
     assert _is_next_cell_boundary("WriterAgent Notebook In", "", "WriterAgent Notebook In") is False
+    assert _is_next_cell_boundary("Heading 2", "1. Creating Arrays", None) is True
+    assert _is_next_cell_boundary("Text Body", "A transpose swaps axes.", None) is True
+    assert _is_next_cell_boundary("Preformatted Text", "Out [1]: 42", None) is False
 
 
 def test_paragraph_string_uses_selection_when_nonempty():
@@ -389,6 +380,120 @@ def test_clear_cell_output_collapsed_cursor_stops_at_markdown():
     walker.gotoStartOfParagraph.assert_called_once()
 
 
+def test_clear_cell_output_skips_empty_control_paragraph():
+    """▶+field getString is empty (frames omitted). setString there deleted ▶ and nb_out_*."""
+    cell = new_code_cell_entry(0, None, "nb_cell_0_code")
+    start = MagicMock(name="start")
+    start.ParaStyleName = "Text Body"
+    start.getString.return_value = ""
+
+    walker = MagicMock(name="walker")
+    walker.ParaStyleName = "Text Body"
+    walker.getString.return_value = ""
+
+    def goto_next(_expand):
+        walker.ParaStyleName = "Heading 2"
+        walker.getString.return_value = "Reshape and transpose"
+        return True
+
+    walker.gotoNextParagraph.side_effect = goto_next
+    walker.getStart.return_value = "md-start"
+
+    range_start = MagicMock(name="range_start")
+    sel = MagicMock(name="sel")
+    text = MagicMock()
+    text.createTextCursorByRange.side_effect = [walker, range_start, sel]
+    doc = MagicMock()
+    doc.getText.return_value = text
+
+    with (
+        patch("plugin.notebook.notebook_runner._cursor_after_bookmark", return_value=start),
+        patch("plugin.notebook.notebook_runner._resolve_para_style", return_value="WriterAgent Notebook In"),
+    ):
+        clear_cell_output(doc, cell)
+
+    sel.setString.assert_not_called()
+
+
+def test_clear_cell_output_skips_control_row_then_clears_stdout():
+    """Bookmark home is empty Text Body; stdout in the next Preformatted paragraph."""
+    cell = new_code_cell_entry(0, None, "nb_cell_0_code")
+    start = MagicMock(name="start")
+    start.ParaStyleName = "Text Body"
+    start.getString.return_value = ""
+
+    walker = MagicMock(name="walker")
+    walker.ParaStyleName = "Text Body"
+    walker.getString.return_value = ""
+    steps = {"n": 0}
+
+    def goto_next(_expand):
+        steps["n"] += 1
+        if steps["n"] == 1:
+            walker.ParaStyleName = "Preformatted Text"
+            walker.getString.return_value = "old stdout"
+            return True
+        walker.ParaStyleName = "Heading 2"
+        walker.getString.return_value = "Reshape and transpose"
+        return True
+
+    walker.gotoNextParagraph.side_effect = goto_next
+    walker.getStart.return_value = "md-start"
+
+    range_start = MagicMock(name="range_start")
+    sel = MagicMock(name="sel")
+    sel.getString.return_value = "old stdout\n"
+    text = MagicMock()
+    text.createTextCursorByRange.side_effect = [walker, range_start, sel]
+    doc = MagicMock()
+    doc.getText.return_value = text
+
+    with (
+        patch("plugin.notebook.notebook_runner._cursor_after_bookmark", return_value=start),
+        patch("plugin.notebook.notebook_runner._resolve_para_style", return_value="WriterAgent Notebook In"),
+    ):
+        clear_cell_output(doc, cell)
+
+    sel.setString.assert_called_once_with("")
+
+
+def test_is_output_bookmark_home_empty_text_body_not_heading():
+    from plugin.notebook.notebook_runner import _is_output_bookmark_home
+
+    control = MagicMock()
+    control.ParaStyleName = "Text Body"
+    control.getString.return_value = ""
+    assert _is_output_bookmark_home(control) is False
+    from plugin.notebook.notebook_runner import _is_leftover_empty_paragraph
+
+    assert _is_leftover_empty_paragraph(control) is True
+
+    heading = MagicMock()
+    heading.ParaStyleName = "Heading 2"
+    heading.getString.return_value = ""
+    assert _is_output_bookmark_home(heading) is False
+
+    stdout = MagicMock()
+    stdout.ParaStyleName = "Preformatted Text"
+    stdout.getString.return_value = ""
+    assert _is_output_bookmark_home(stdout) is False
+
+    prompt = MagicMock()
+    prompt.ParaStyleName = "WriterAgent Notebook In"
+    prompt.getString.return_value = "In [1]:"
+    assert _is_output_bookmark_home(prompt) is True
+
+    cell = new_code_cell_entry(2, 2, "nb_cell_2_code")
+    nxt = MagicMock()
+    nxt.ParaStyleName = "WriterAgent Notebook In"
+    nxt.getString.return_value = "In [3]:"
+    with (
+        patch("plugin.notebook.notebook_runner._code_field_paragraph_end", return_value=MagicMock()),
+        patch("plugin.notebook.notebook_runner._same_paragraph", return_value=False),
+    ):
+        assert _is_output_bookmark_home(nxt, MagicMock(), cell) is False
+
+
 def test_run_cell_rerun_clears_then_applies():
     ctx = MagicMock()
     cell = new_code_cell_entry(0, None, "nb_cell_0_code")
@@ -498,14 +603,14 @@ def test_gutter_text_cursor_stops_before_frame_portion():
 
 
 def test_update_in_prompt_does_not_setstring_whole_paragraph():
-    """Whole-para setString deletes in-flow ▶ and code fields that share the gutter line."""
+    """Whole-para setString deletes in-flow ▶ on the In [n]: gutter. Rewrite Text only."""
     text_portion = MagicMock(name="text_portion")
     text_portion.getPropertyValue.return_value = "Text"
     frame_portion = MagicMock(name="frame_portion")
     frame_portion.getPropertyValue.return_value = "Frame"
 
     para = MagicMock()
-    para.getString.return_value = "[In [1]]\tCell 2: Code"
+    para.getString.return_value = "In [1]:"
     para.createEnumeration.return_value = _enum_of([text_portion, frame_portion])
     para.getStart.return_value = "para-start"
     para.getEnd.return_value = "para-end"
@@ -527,7 +632,7 @@ def test_update_in_prompt_does_not_setstring_whole_paragraph():
     cell = new_code_cell_entry(1, 1, "nb_cell_1_code")
     update_in_prompt(doc, cell, 4)
 
-    text_cursor.setString.assert_called_once_with("[In [4]]\tCell 2: Code")
+    text_cursor.setString.assert_called_once_with("In [4]:")
     whole_para.setString.assert_not_called()
     whole_para.gotoRange.assert_not_called()
 

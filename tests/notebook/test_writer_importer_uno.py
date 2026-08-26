@@ -29,6 +29,9 @@ from plugin.tests.testing_utils import with_native_doc
 _SMALL_IPYNB = (
     Path(__file__).resolve().parents[1] / "fixtures" / "introduction-to-numpy-small.ipynb"
 )
+_MEDIUM_IPYNB = (
+    Path(__file__).resolve().parents[1] / "fixtures" / "introduction-to-numpy-medium.ipynb"
+)
 _IMPORT_ACTION = "scripting.import_ipynb"
 _HEADINGS = (
     ("A Small Introduction to NumPy", 1),
@@ -147,6 +150,22 @@ def _draw_control_names(doc) -> list[str]:
         if name:
             names.append(name)
     return names
+
+
+def _anchor_paragraph_string(doc, shape_name: str) -> str:
+    from plugin.notebook.notebook_runner import _find_control_shape_by_name
+
+    shape = _find_control_shape_by_name(doc, shape_name)
+    if shape is None:
+        return ""
+    try:
+        text = doc.getText()
+        cursor = text.createTextCursorByRange(shape.getAnchor())
+        cursor.gotoStartOfParagraph(False)
+        cursor.gotoEndOfParagraph(True)
+        return str(cursor.getString() or "")
+    except Exception:
+        return ""
 
 
 def _output_text_for_cell(doc, cell) -> str:
@@ -310,6 +329,19 @@ def _debug_menu_import_and_run(ctx, doc) -> None:
     else:
         assert "ndarray" in body
 
+    import re as _re
+
+    assert _re.search(r"Cell \d+: Markdown", body) is None, (
+        f"Cell N: Markdown chrome still present after import: {body[:800]!r}"
+    )
+    assert _re.search(r"Cell \d+: Code", body) is None, (
+        f"Cell N: Code chrome still present after import: {body[:800]!r}"
+    )
+    assert not any(t.strip() == "Output" for _s, t in paras), (
+        f"visible Output heading after import: {paras!r}"
+    )
+    assert any(t.strip().startswith("In [") for _s, t in paras), f"In [n]: gutter missing: {paras!r}"
+
     state = load_registry(doc)
     assert state is not None, "notebook registry missing after Debug-menu import"
     assert len(state.code_cells) == 3
@@ -411,6 +443,11 @@ def _debug_menu_import_and_run(ctx, doc) -> None:
         )
         mashed = [t for _s, t in _paragraphs(doc) if "NumPy Version" in t and "Cell 3: Markdown" in t]
         assert not mashed, f"stdout concatenated onto next heading: {mashed!r}"
+        import re as _re
+
+        assert _re.search(r"Cell \d+: Markdown", later) is None, (
+            f"Cell N: Markdown chrome still in document after import/run: {later[:500]!r}"
+        )
 
     draw_after_run = _draw_control_names(doc)
     for field in field_names:
@@ -447,8 +484,391 @@ def _debug_menu_import_and_run(ctx, doc) -> None:
         assert run_name in draw_after_rerun, f"{run_name} vanished after re-run: {draw_after_rerun}"
     mashed_after = [t for _s, t in _paragraphs(doc) if "NumPy Version" in t and "Cell 3: Markdown" in t]
     assert not mashed_after, f"re-run mashed stdout onto next heading: {mashed_after!r}"
+    import re as _re
+
+    assert _re.search(r"Cell \d+: Markdown", body_after) is None, (
+        f"Cell N: Markdown chrome present after re-run: {body_after[:500]!r}"
+    )
 
     import plugin.scripting.session_manager as sm
 
     with patch.object(sm, "_msgbox", lambda *args, **kwargs: None):
         sm.reset_workbook_python_session(ctx, doc)
+
+
+@native_test
+@with_native_doc("writer", hidden=not show_window)
+def test_medium_numpy_import_layout_no_run(ctx, doc):
+    """Visual fixture: Jupyter-like layout, no Run All, no 184-cell notebook."""
+    assert _MEDIUM_IPYNB.is_file(), f"missing fixture {_MEDIUM_IPYNB}"
+
+    import re as _re
+
+    from plugin.notebook.cell_registry import load_registry
+    from plugin.notebook.writer_importer import import_ipynb_to_writer, flush_ui_idle
+
+    stats = import_ipynb_to_writer(doc, str(_MEDIUM_IPYNB), ctx=ctx)
+    flush_ui_idle(ctx)
+
+    assert stats["cells"] == 25
+    assert stats["code"] == 11
+    assert stats["markdown"] == 14
+    assert stats["shapes"] == 22, f"expected 11 ▶ + 11 fields, got shapes={stats['shapes']}"
+
+    body = doc.getText().getString() or ""
+    paras = _paragraphs(doc)
+    print(
+        f"medium import pages={_writer_page_count(doc)} paras={len(paras)} "
+        f"shapes={stats['shapes']} in_prompts={sum(1 for _s, t in paras if t.strip().startswith('In ['))} "
+        f"numbering={sum(1 for s, _t in paras if 'numbering' in (s or '').lower())}",
+        flush=True,
+    )
+    assert _re.search(r"Cell \d+: Markdown", body) is None, (
+        f"Cell N: Markdown chrome after medium import: {body[:800]!r}"
+    )
+    assert _re.search(r"Cell \d+: Code", body) is None
+    assert not any(t.strip() == "Output" for _s, t in paras), f"visible Output heading: {paras!r}"
+    assert any(t.strip().startswith("In [") for _s, t in paras), f"In [n]: gutter missing: {paras!r}"
+    assert "A Medium Introduction to NumPy" in body
+    assert "* **Array**" not in body, f"literal markdown list/bold survived: {body[body.find('Array')-40:body.find('Array')+80]!r}"
+    assert "Array" in body
+
+    state = load_registry(doc)
+    assert state is not None and len(state.code_cells) == 11
+    names = _draw_control_names(doc)
+    for cell in state.code_cells:
+        assert cell.code_field_name in names, f"{cell.code_field_name} missing: {names}"
+
+    from plugin.notebook.notebook_runner import _find_control_shape_by_name, read_code_from_field
+    from plugin.notebook.writer_importer import (
+        _FIELD_HEIGHT_PAD,
+        _height_for_text,
+        _LINE_HEIGHT,
+        _WRAP_SLACK,
+    )
+
+    # Multi-line In[2] field must be tall enough that the last line is not clipped.
+    cell_in2 = state.code_cells[1]
+    src_in2 = read_code_from_field(doc, cell_in2.code_field_name)
+    lines_in2 = max(1, src_in2.count("\n") + 1)
+    shape_in2 = _find_control_shape_by_name(doc, cell_in2.code_field_name)
+    assert shape_in2 is not None
+    h_in2 = int(shape_in2.getSize().Height)
+    want_h = _height_for_text(src_in2, doc)
+    print(f"medium In[2] lines={lines_in2} shape_h={h_in2} want_h={want_h}", flush=True)
+    assert lines_in2 >= 10, f"fixture In[2] should be multi-line, got {lines_in2}"
+    assert h_in2 >= want_h or h_in2 >= lines_in2 * 420, (
+        f"In[2] field clips source: height={h_in2} lines={lines_in2} want={want_h}"
+    )
+
+    cell_in1 = state.code_cells[0]
+    src_in1 = read_code_from_field(doc, cell_in1.code_field_name)
+    lines_in1 = max(1, src_in1.count("\n") + 1)
+    shape_in1 = _find_control_shape_by_name(doc, cell_in1.code_field_name)
+    assert shape_in1 is not None
+    h_in1 = int(shape_in1.getSize().Height)
+    print(f"medium In[1] lines={lines_in1} shape_h={h_in1}", flush=True)
+    assert lines_in1 == 2, f"fixture In[1] should be two source lines, got {lines_in1}"
+    # Half-line slack, not a full empty gray row under a short cell.
+    assert h_in1 < (lines_in1 + 1) * _LINE_HEIGHT + _FIELD_HEIGHT_PAD, (
+        f"In[1] has a full extra gray line: height={h_in1}"
+    )
+    assert h_in1 >= lines_in1 * _LINE_HEIGHT + _WRAP_SLACK, (
+        f"In[1] lost wrap slack: height={h_in1}"
+    )
+
+    from plugin.notebook.cell_registry import cell_id_to_hex
+    from plugin.notebook.writer_importer import _text_area_width_units
+
+    run_in2 = f"nb_run_{cell_id_to_hex(cell_in2.cell_id)}"
+    gutter_in2 = _anchor_paragraph_string(doc, run_in2)
+    field_para_in2 = _anchor_paragraph_string(doc, cell_in2.code_field_name)
+    field_w = int(shape_in2.getSize().Width)
+    area = _text_area_width_units(doc)
+    print(
+        f"medium In[2] gutter={gutter_in2!r} field_para={field_para_in2!r} "
+        f"field_w={field_w} area={area}",
+        flush=True,
+    )
+    assert gutter_in2.strip().startswith("In ["), f"▶ not on In [n]: row: {gutter_in2!r}"
+    assert not field_para_in2.strip().startswith("In ["), (
+        f"field still shares gutter para: {field_para_in2!r}"
+    )
+    assert field_w >= area - 50, f"field not full text-area width: {field_w} vs {area}"
+
+    cell_in3 = state.code_cells[2]
+    src_in3 = read_code_from_field(doc, cell_in3.code_field_name)
+    lines_in3 = max(1, src_in3.count("\n") + 1)
+    shape_in3 = _find_control_shape_by_name(doc, cell_in3.code_field_name)
+    assert shape_in3 is not None
+    h_in3 = int(shape_in3.getSize().Height)
+    want_in3 = _height_for_text(src_in3, doc)
+    print(f"medium In[3] lines={lines_in3} shape_h={h_in3} want_h={want_in3}", flush=True)
+    assert h_in3 >= want_in3, f"In[3] wrap-clip: height={h_in3} want={want_in3} lines={lines_in3}"
+    run_in3 = f"nb_run_{cell_id_to_hex(cell_in3.cell_id)}"
+    assert _anchor_paragraph_string(doc, run_in3).strip().startswith("In [")
+
+    why_page = _page_of_text(doc, "Why NumPy?")
+    dt_page = _page_of_text(doc, "1. DataTypes and attributes")
+    in2_page = _page_of_text(doc, "In [2]:")
+    by_page = _paragraphs_with_pages(doc)
+    layout = _paragraphs_with_layout(doc)
+    print(
+        f"medium pages why={why_page} datatypes={dt_page} in2={in2_page} "
+        f"leading_empties={ {p: _leading_empty_count(by_page, p) for p in sorted({pg for pg, _s, _t in by_page})} }",
+        flush=True,
+    )
+    if why_page is not None and dt_page is not None:
+        assert dt_page == why_page, (
+            f"DataTypes heading skipped to page {dt_page} away from Why NumPy on {why_page}"
+        )
+    # A tall AS_CHARACTER field may miss the remainder of page 1; that is not
+    # KeepWithNext glue (DataTypes staying with Why NumPy is the hole we forbid).
+    pages_used = sorted({pg for pg, _s, _t in by_page})
+    for page in pages_used:
+        empties = _leading_empty_count(by_page, page)
+        assert empties <= 1, (
+            f"page {page} starts with {empties} empty paragraphs before content: "
+            f"{[t for pg, _s, t in by_page if pg == page][:6]!r}"
+        )
+
+    pages = _writer_page_count(doc)
+    print(f"medium page_count={pages}", flush=True)
+    box = _page_box(doc)
+    if box is not None and layout:
+        top, bottom, page_h = box
+        print(f"medium page box top={top} bottom={bottom} h={page_h}", flush=True)
+        for page in pages_used:
+            first = next(
+                (item for item in layout if item[0] == page and (item[3] or "").strip()),
+                None,
+            )
+            if first is None:
+                continue
+            _pg, y, _style, text = first
+            local_y = _page_local_y(y, page, page_h)
+            preview = " ".join((text or "").split())[:48]
+            print(
+                f"medium page {page} first_y={y} local_y={local_y} {preview!r}",
+                flush=True,
+            )
+            # Skip-before-shape: a quarter-page blank top band is ~5000+ HMM.
+            # ViewCursor Y is document-absolute (page 2 was 28441 on a 27940 page).
+            if page > 1 and local_y > 0:
+                assert local_y <= top + 2500, (
+                    f"page {page} blank top band: {preview!r} at local Y={local_y} "
+                    f"(raw Y={y}, top margin {top})"
+                )
+        # Print remaining-space math for code cells that start a page. Do not
+        # assert it: the field paragraph is empty in getString(), so last_y is
+        # the In [n]: gutter, not the bottom of the gray box.
+        from plugin.notebook.notebook_runner import _find_control_shape_by_name as _find_shape
+
+        for page in pages_used:
+            if page <= 1:
+                continue
+            first = next(
+                (item for item in layout if item[0] == page and (item[3] or "").strip()),
+                None,
+            )
+            if first is None:
+                continue
+            preview = " ".join((first[3] or "").split())[:48]
+            if not preview.startswith("In ["):
+                continue
+            prev = [item for item in layout if item[0] == page - 1 and (item[3] or "").strip()]
+            if not prev:
+                continue
+            last_y = prev[-1][1]
+            last_local = _page_local_y(last_y, page - 1, page_h)
+            remaining = page_h - bottom - last_local
+            last_preview = " ".join((prev[-1][3] or "").split())[:48]
+            field_h = 0
+            in_index = sum(
+                1
+                for item in layout
+                if item[0] < page and (item[3] or "").strip().startswith("In [")
+            )
+            if 0 <= in_index < len(state.code_cells):
+                shp = _find_shape(doc, state.code_cells[in_index].code_field_name)
+                if shp is not None:
+                    field_h = int(shp.getSize().Height)
+            print(
+                f"medium page {page} starts {preview!r} last_prev_y={last_y} "
+                f"last_local={last_local} remaining={remaining} field_h={field_h} "
+                f"last={last_preview!r}",
+                flush=True,
+            )
+
+
+@native_test
+@with_native_doc("writer", hidden=not show_window)
+def test_medium_run_in2_keeps_in3_controls(ctx, doc):
+    """Keith repro: ▶ on medium In[2] must not eat In[3]'s play button and field."""
+    assert _MEDIUM_IPYNB.is_file(), f"missing fixture {_MEDIUM_IPYNB}"
+
+    from plugin.notebook.cell_registry import cell_id_to_hex, load_registry
+    from plugin.notebook.notebook_controls import (
+        ensure_form_design_mode_off,
+        wire_all_notebook_run_buttons,
+    )
+    from plugin.notebook.notebook_runner import read_code_from_field
+    from plugin.notebook.writer_importer import import_ipynb_to_writer, flush_ui_idle
+
+    import_ipynb_to_writer(doc, str(_MEDIUM_IPYNB), ctx=ctx)
+    flush_ui_idle(ctx)
+    state = load_registry(doc)
+    assert state is not None and len(state.code_cells) >= 3
+    first_of_pair, second_of_pair = state.code_cells[1], state.code_cells[2]
+    src_before = read_code_from_field(doc, second_of_pair.code_field_name)
+    assert "a1.shape" in src_before or "shape/ndim" in src_before
+
+    ensure_form_design_mode_off(doc)
+    wire_all_notebook_run_buttons(ctx, doc)
+    fake = {"status": "ok", "stdout": "a1: [1 2 3]\n", "result": None}
+    with (
+        patch("plugin.notebook.notebook_runner.msgbox", lambda *_a, **_k: None),
+        patch("plugin.notebook.notebook_runner.execute_code", return_value=fake),
+    ):
+        from plugin.notebook.notebook_runner import run_cell
+
+        result = run_cell(ctx, doc, first_of_pair.cell_id)
+    flush_ui_idle(ctx)
+    print(
+        f"medium run In[2] status={result.status} draw={_draw_control_names(doc)!r}",
+        flush=True,
+    )
+    names = _draw_control_names(doc)
+    assert second_of_pair.code_field_name in names, f"In[3] field eaten: {names!r}"
+    run_name = f"nb_run_{cell_id_to_hex(second_of_pair.cell_id)}"
+    assert run_name in names, f"In[3] ▶ eaten: {names!r}"
+    src_after = read_code_from_field(doc, second_of_pair.code_field_name)
+    assert src_after.strip() == src_before.strip(), f"In[3] source changed: {src_after!r}"
+    assert _anchor_paragraph_string(doc, run_name).strip().startswith("In ["), (
+        f"In[3] ▶ left the gutter after run: {_anchor_paragraph_string(doc, run_name)!r}"
+    )
+
+
+def _writer_page_count(doc) -> int | None:
+    try:
+        vc = doc.getCurrentController().getViewCursor()
+        vc.jumpToLastPage()
+        return int(vc.getPage())
+    except Exception:
+        return None
+
+
+def _page_of_text(doc, needle: str) -> int | None:
+    try:
+        vc = doc.getCurrentController().getViewCursor()
+        enum = doc.getText().createEnumeration()
+        while enum.hasMoreElements():
+            el = enum.nextElement()
+            try:
+                text = str(el.getString() or "")
+            except Exception:
+                continue
+            if needle in text:
+                vc.gotoRange(el.getStart(), False)
+                return int(vc.getPage())
+    except Exception:
+        return None
+    return None
+
+
+def _paragraphs_with_pages(doc) -> list[tuple[int, str, str]]:
+    out: list[tuple[int, str, str]] = []
+    try:
+        vc = doc.getCurrentController().getViewCursor()
+        enum = doc.getText().createEnumeration()
+        while enum.hasMoreElements():
+            el = enum.nextElement()
+            try:
+                if hasattr(el, "supportsService") and not el.supportsService("com.sun.star.text.Paragraph"):
+                    continue
+                style = str(el.getPropertyValue("ParaStyleName") or "")
+                text = str(el.getString() or "")
+                vc.gotoRange(el.getStart(), False)
+                page = int(vc.getPage())
+            except Exception:
+                continue
+            out.append((page, style, text))
+    except Exception:
+        return out
+    return out
+
+
+def _leading_empty_count(by_page: list[tuple[int, str, str]], page: int) -> int:
+    n = 0
+    seen = False
+    for pg, _style, text in by_page:
+        if pg != page:
+            if seen:
+                break
+            continue
+        seen = True
+        if (text or "").strip():
+            break
+        n += 1
+    return n
+
+
+def _page_local_y(y: int, page: int, page_h: int) -> int:
+    """Map ViewCursor.getPosition().Y (document layout) onto one page."""
+    if page <= 1 or page_h <= 0:
+        return y
+    return y - (page - 1) * page_h
+
+
+def _page_box(doc) -> tuple[int, int, int] | None:
+    """(top_margin, bottom_margin, page_height) in 1/100 mm."""
+    try:
+        families = doc.getStyleFamilies().getByName("PageStyles")
+        name = ""
+        try:
+            name = str(doc.getPropertyValue("PageDescName") or "")
+        except Exception:
+            name = ""
+        style = None
+        if name and families.hasByName(name):
+            style = families.getByName(name)
+        else:
+            for candidate in ("Standard", "Default", "Default Page Style"):
+                if families.hasByName(candidate):
+                    style = families.getByName(candidate)
+                    break
+        if style is None:
+            return None
+        return (
+            int(style.getPropertyValue("TopMargin")),
+            int(style.getPropertyValue("BottomMargin")),
+            int(style.getPropertyValue("Height")),
+        )
+    except Exception:
+        return None
+
+
+def _paragraphs_with_layout(doc) -> list[tuple[int, int, str, str]]:
+    """(page, view Y in 1/100 mm, style, text) for skip-before / blank-tail checks."""
+    out: list[tuple[int, int, str, str]] = []
+    try:
+        vc = doc.getCurrentController().getViewCursor()
+        enum = doc.getText().createEnumeration()
+        while enum.hasMoreElements():
+            el = enum.nextElement()
+            try:
+                if hasattr(el, "supportsService") and not el.supportsService("com.sun.star.text.Paragraph"):
+                    continue
+                style = str(el.getPropertyValue("ParaStyleName") or "")
+                text = str(el.getString() or "")
+                vc.gotoRange(el.getStart(), False)
+                page = int(vc.getPage())
+                pos = vc.getPosition()
+                y = int(getattr(pos, "Y", 0) or 0)
+            except Exception:
+                continue
+            out.append((page, y, style, text))
+    except Exception:
+        return out
+    return out
+
