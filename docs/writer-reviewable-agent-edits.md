@@ -182,7 +182,10 @@ resolve-all returns user-facing messages when verification fails.
   at the end. Streamed collapse may show both marks under the INSERT author instead of split
   insert/delete colors.
 * **`ShowChanges` is forced on** during review and is not restored afterward; the user must toggle
-  display back manually if they had it off.
+  display back manually if they had it off. Do not treat that as a missing restore bug in the wait loop.
+* **Closing the document during wait** aborts with ``complete=False`` and ``timed_out=False`` (not a
+  full-timeout spin). A change that never gets an anchor bookmark is **not** registered as a
+  reviewable agent edit.
 * **Toolbar fast-travel** skips changes whose bounds cannot be read (`_change_bounds` fails); the
   pending counter may still include them.
 * **Second window, same document:** toolbar visibility is per-window; a rare stale toolbar can appear

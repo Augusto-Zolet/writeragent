@@ -449,6 +449,73 @@ def test_record_mutation_does_not_tag_when_before_snapshot_unreliable():
     assert session.changes == []   # but nothing was registered/tagged
 
 
+def test_record_mutation_does_not_register_when_anchor_insert_fails():
+    from unittest.mock import patch as _patch
+
+    from plugin.writer.edit_review import EditReviewSession
+
+    session = EditReviewSession(MagicMock(), MagicMock(), enabled=True)
+    session._active = True
+    applied = {"n": 0}
+
+    def apply_fn():
+        applied["n"] += 1
+        return "r"
+
+    rl = MagicMock()
+    start = MagicMock()
+    end = MagicMock()
+    rl.getPropertyValue.side_effect = lambda name: start if name == "RedlineStart" else end
+    text = MagicMock()
+    cursor = MagicMock()
+    start.getText.return_value = text
+    text.createTextCursorByRange.return_value = cursor
+    cursor.getText.return_value = text
+    text.insertTextContent.side_effect = RuntimeError("bookmark insert failed")
+
+    with (
+        _patch.object(session, "_redline_idents", return_value=(set(), True)),
+        _patch("plugin.writer.review_scan.new_redlines_since", return_value=([rl], True)),
+        _patch("plugin.writer.edit_review._tag_new_redlines", return_value=(True, 0)),
+        _patch("plugin.writer.edit_review._string_skipping_redline", return_value=""),
+    ):
+        result = session.record_mutation(apply_fn)
+
+    assert result == "r" and applied["n"] == 1
+    assert session.changes == []
+
+
+def test_wait_for_review_aborts_immediately_when_document_disposed():
+    import time as time_mod
+    from unittest.mock import patch as _patch
+
+    from plugin.writer.edit_review import ChangeRecord, EditReviewSession
+
+    session = EditReviewSession(MagicMock(), MagicMock(), enabled=True)
+    session._active = True
+    session.changes = [ChangeRecord("t", "bm", "", "", "", "")]
+    t0 = time_mod.monotonic()
+    captured: dict = {}
+
+    def fake_payload(*, complete, timed_out):
+        captured["complete"] = complete
+        captured["timed_out"] = timed_out
+        return {"complete": complete, "timed_out": timed_out, "changes": []}
+
+    with (
+        _patch.object(session, "_pending_tokens", return_value=(set(), False)),
+        _patch("plugin.framework.errors.is_document_disposed", return_value=True),
+        _patch.object(session, "_review_payload", side_effect=lambda complete, timed_out: fake_payload(complete=complete, timed_out=timed_out)),
+        _patch.object(session, "cleanup") as cleanup,
+    ):
+        result = session.wait_for_review(timeout=2.0, poll=0.01)
+    assert time_mod.monotonic() - t0 < 0.5
+    assert result["complete"] is False
+    assert result["timed_out"] is False
+    assert captured == {"complete": False, "timed_out": False}
+    cleanup.assert_called()
+
+
 # ----------------------------------------------- discard_changes_since (partial-batch rollback)
 
 def _bookmarks(names, removed):

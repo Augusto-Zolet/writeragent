@@ -419,6 +419,19 @@ class EditReviewSession:
                 bookmark_name = ""
                 log.debug("EditReviewSession: anchoring failed for change %d", n, exc_info=True)
 
+        # No bookmark → do not register. ChangeRecord with bookmark="" makes _outcome guess
+        # rejected/modified (current is None). That is a lie to the model. Same as failed tagging:
+        # the edit already applied; it stays untagged. Do not "fix" this by appending and
+        # special-casing _outcome — empty bookmark is not the same as a bookmark the user later
+        # removed (pure-insert reject).
+        if not bookmark_name:
+            log.warning(
+                "EditReviewSession: no review anchor for change %d; leaving this edit untagged "
+                "(not a reviewable agent change)",
+                n,
+            )
+            return result
+
         self.changes.append(ChangeRecord(
             token, bookmark_name, accepted_text, rejected_text,
             original_preview or rejected_text, proposed_preview or accepted_text))
@@ -620,6 +633,16 @@ class EditReviewSession:
             deadline = time.monotonic() + max(0.0, timeout)
             timed_out = False
             while True:
+                # execute_safe skips the pre-execute disposed probe when is_async() (review-wait
+                # runs off the main thread). This loop is that probe. Do not add assert_main_thread
+                # here and do not force the execute_safe check onto async tools.
+                from plugin.framework.errors import is_document_disposed
+
+                if run(lambda: is_document_disposed(self.doc)):
+                    # Dead doc, not a user-timeout. Unreliable getRedlines() is a *different*
+                    # signal (incomplete enum on a live doc) — never treat that as complete
+                    # (would resolve the user's own redlines) and never equate it with dispose.
+                    return run(lambda: self._review_payload(complete=False, timed_out=False))
                 pending, reliable = run(self._pending_tokens)
                 # Done ONLY on a reliable, empty scan. An unreliable scan (or remaining tokens) keeps
                 # waiting -- never declare the review complete off a partial read that might have
