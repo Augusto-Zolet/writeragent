@@ -441,15 +441,13 @@ class VisitWebpageTool(Tool):
         return content[:max_length] + f"\n..._This content has been truncated to stay below {max_length} characters_...\n"
 
     def _return_error(self, key: str, message: str) -> str:
-        """Return an error message and cache it when cache is enabled."""
-        if self._cache_path and self._cache_max_mb > 0 and key:
-            _web_cache_set(
-                self._cache_path,
-                "page",
-                key,
-                message,
-                self._cache_max_mb * 1024 * 1024,
-            )
+        """Return a fetch error without caching it.
+
+        Transient 403/timeout/network failures used to be stored as page
+        entries with the normal validity window, so a recovered site stayed
+        poisoned for up to web_cache_validity_days. Successful fetches still
+        write through ``forward``.
+        """
         return message
 
     def forward(self, url: str) -> str:

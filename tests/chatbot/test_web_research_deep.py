@@ -67,10 +67,10 @@ class TestRunDeepResearch:
         combined = "\n".join(m["content"] for m in messages)
         if "search queries" in combined and "JSON array" in combined:
             return '[{"query": "sub one", "researchGoal": "goal one"}]'
-        if "follow-up questions" in combined.lower() or ('"questions"' in combined and "JSON object" in combined):
-            return '{"questions": ["Aspect A?"]}'
         if "extract key learnings" in combined:
             return '{"learnings": [{"insight": "Finding X", "sourceUrl": "https://a.test"}], "followUpQuestions": []}'
+        if "follow-up questions" in combined.lower() or ('"questions"' in combined and "JSON object" in combined):
+            return '{"questions": ["Aspect A?"]}'
         if "evaluate whether web research" in combined or "Quality threshold" in combined:
             return '{"score": 9, "knowledge_gaps": [], "suggested_queries": [], "stop": true, "reasoning": "sufficient"}'
         if "plain-text research report" in combined or "Collected evidence" in combined:
@@ -160,6 +160,111 @@ class TestRunDeepResearch:
             initial_search_snippet="x",
         )
         assert call_count == 2
+
+    def test_all_sub_queries_fail_returns_error_not_report(self):
+        def run_web_agent(_sub_query, _goal, _history):
+            return {"status": "error", "code": "TOOL_EXECUTION_ERROR", "message": "fetch failed"}
+
+        result = run_deep_research(
+            "topic",
+            None,
+            llm_chat=lambda msgs, _max: self._llm_router(msgs),
+            run_web_agent=run_web_agent,
+            stop_checker=None,
+            status_callback=None,
+            breadth=1,
+            max_rounds=1,
+            max_sub_queries=3,
+            plain_text_format="plain",
+            initial_search_snippet="preview",
+        )
+        assert isinstance(result, dict)
+        assert result.get("status") == "error"
+        assert "fetch failed" in str(result.get("message") or "")
+
+    def test_partial_sub_query_failure_still_synthesizes(self):
+        def run_web_agent(sub_query, _goal, _history):
+            if sub_query == "q1":
+                raise RuntimeError("branch exploded")
+            return "Sub-agent context for survivor"
+
+        def llm_router(messages):
+            combined = "\n".join(m["content"] for m in messages)
+            if "search queries" in combined and "JSON array" in combined:
+                return (
+                    '[{"query": "q1", "researchGoal": "g1"}, '
+                    '{"query": "q2", "researchGoal": "g2"}]'
+                )
+            return self._llm_router(messages)
+
+        result = run_deep_research(
+            "topic",
+            None,
+            llm_chat=lambda msgs, _max: llm_router(msgs),
+            run_web_agent=run_web_agent,
+            stop_checker=None,
+            status_callback=None,
+            breadth=2,
+            max_rounds=1,
+            max_sub_queries=5,
+            concurrency=2,
+            plain_text_format="plain",
+            initial_search_snippet="preview",
+        )
+        assert result == "Final synthesized report."
+
+    def test_user_stopped_during_sub_agent_returns_stop_payload(self):
+        def run_web_agent(_sub_query, _goal, _history):
+            return {
+                "status": "error",
+                "code": "USER_STOPPED",
+                "message": "Web search stopped by user.",
+            }
+
+        result = run_deep_research(
+            "topic",
+            None,
+            llm_chat=lambda msgs, _max: self._llm_router(msgs),
+            run_web_agent=run_web_agent,
+            stop_checker=None,
+            status_callback=None,
+            breadth=1,
+            max_rounds=1,
+            max_sub_queries=3,
+            plain_text_format="plain",
+            initial_search_snippet="preview",
+        )
+        assert isinstance(result, dict)
+        assert result.get("status") == "error"
+        assert result.get("code") == "USER_STOPPED"
+
+    def test_synthesis_failure_returns_collected_learnings(self):
+        def llm_router(messages):
+            combined = "\n".join(m["content"] for m in messages)
+            if "plain-text research report" in combined or "Collected evidence" in combined:
+                raise TimeoutError("synthesis timed out")
+            return self._llm_router(messages)
+
+        def run_web_agent(sub_query, research_goal, _history):
+            return "Sub-agent context for " + sub_query
+
+        result = run_deep_research(
+            "main topic",
+            None,
+            llm_chat=lambda msgs, _max: llm_router(msgs),
+            run_web_agent=run_web_agent,
+            stop_checker=None,
+            status_callback=None,
+            breadth=1,
+            max_rounds=1,
+            max_sub_queries=5,
+            plain_text_format="Use plain text.",
+            initial_search_snippet="preview hit",
+        )
+        assert isinstance(result, str)
+        assert "Finding X" in result
+        assert "https://a.test" in result
+        assert "synthesis failed" in result.lower() or "automatic synthesis" in result.lower()
 
 
 class TestWebResearchExecuteDeepKwarg:

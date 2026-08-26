@@ -140,7 +140,9 @@ The loop is ported from [gpt-researcher](https://github.com/assafelovic/gpt-rese
    - **Per sub-query** — `_run_web_agent` with research goal, visited-URL dedup, and optional extra step budget.
    - **Extract** — LLM pulls learnings, citations, and source URLs from each sub-report.
    - **Assess** — LLM scores coverage (`chatbot.deep_research_quality_threshold`, default 7/10); stops early when sufficient or continues with gap-filling queries.
-3. **Synthesize** — LLM writes one plain-text report (`WEB_RESEARCH_PLAIN_TEXT_FORMAT` in [`web_research.py`](../plugin/chatbot/web_research.py)) including a sources list.
+3. **Synthesize** — LLM writes one plain-text report (`WEB_RESEARCH_PLAIN_TEXT_FORMAT` in [`web_research.py`](../plugin/chatbot/web_research.py)) including a sources list. If that last LLM call fails, the orchestrator returns the collected learnings and sources instead of discarding the run. If no learnings were collected, it returns an error payload rather than a “completed” report on empty evidence.
+
+`VisitWebpageTool` does not cache fetch-error strings (a transient 403/timeout must not replay for `web_cache_validity_days`).
 
 Implementation: [`plugin/chatbot/web_research_deep.py`](../plugin/chatbot/web_research_deep.py) (adaptive orchestrator + JSON parsers); sidebar session [`plugin/chatbot/deep_research_session.py`](../plugin/chatbot/deep_research_session.py) (`deep_research_web` → `apply_document_content`); shallow agent helper [`_run_web_agent`](../plugin/chatbot/web_research.py).
 

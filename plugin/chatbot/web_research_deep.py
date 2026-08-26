@@ -33,6 +33,7 @@ from typing import Any
 from plugin.framework.constants import now_aware
 
 from plugin.framework.errors import ToolExecutionError, format_error_payload
+from plugin.framework.i18n import _
 from plugin.framework.json_utils import safe_json_loads
 
 log = logging.getLogger("writeragent.web_research_deep")
@@ -253,6 +254,7 @@ class _ResearchAccumulator:
     sources: list[str] = field(default_factory=list)
     completed_queries: int = 0
     budget_lock: threading.Lock = field(default_factory=threading.Lock)
+    last_branch_error: dict[str, Any] | None = None
 
 
 def _emit_progress(
@@ -453,10 +455,32 @@ def synthesize_deep_report(
     return _llm_chat(llm_chat, messages, max_tokens=4096)
 
 
+def _partial_report_from_evidence(
+    query: str,
+    cited_learnings: list[str],
+    sources: list[str] | None,
+) -> str:
+    """Plain-text fallback when the synthesis LLM call fails."""
+    lines = [
+        _("Research notes (automatic synthesis failed) for: {query}").format(query=query),
+        "",
+    ]
+    lines.extend(cited_learnings)
+    unique_sources = list(dict.fromkeys(s for s in (sources or []) if s))
+    if unique_sources:
+        lines.append("")
+        lines.append(_("Sources consulted:"))
+        lines.extend(f"- {url}" for url in unique_sources[:50])
+    return "\n".join(lines)
+
+
 def _coerce_agent_result(result: str | dict[str, Any]) -> str:
     if isinstance(result, dict):
         if result.get("status") == "error":
-            raise ToolExecutionError(str(result.get("message") or "Sub-query research failed."))
+            raise ToolExecutionError(
+                str(result.get("message") or "Sub-query research failed."),
+                code=str(result.get("code") or "TOOL_EXECUTION_ERROR"),
+            )
         if result.get("status") == "ok":
             return str(result.get("result") or "")
         if "result" in result:
@@ -511,7 +535,11 @@ def _process_one_sub_query(
         raw = run_web_agent(sub_query, research_goal, None)
         sub_context = _coerce_agent_result(raw)
     except ToolExecutionError as exc:
+        payload = format_error_payload(exc)
+        if getattr(exc, "code", None) == "USER_STOPPED":
+            return {"error": payload}
         log.warning("deep_research: sub-query failed (%s): %s", sub_query, exc)
+        acc.last_branch_error = payload
         return None
 
     results = process_research_results(llm_chat, sub_query, sub_context)
@@ -574,6 +602,7 @@ def _run_sub_queries_parallel(
             except Exception as exc:
                 sq = futures[future]
                 log.warning("deep_research: parallel sub-query error (%s): %s", sq.get("query"), exc)
+                acc.last_branch_error = format_error_payload(exc)
                 continue
             if isinstance(branch, dict) and branch.get("error"):
                 error_payload = branch["error"]
@@ -681,6 +710,7 @@ def _run_adaptive_research_loop(
         "citations": acc.citations,
         "context": trimmed_context,
         "sources": list(dict.fromkeys(acc.sources)),
+        "branch_error": acc.last_branch_error,
     }
 
 
@@ -750,6 +780,17 @@ def run_deep_research(
     citations = loop_result.get("citations") or {}
     sources = loop_result.get("sources") or []
 
+    if not learnings:
+        # Sub-agent / extract failures are swallowed per-branch; without this
+        # guard the orchestrator synthesizes a report from empty evidence and
+        # execute() labels it "Web research completed."
+        err = loop_result.get("branch_error")
+        if isinstance(err, dict) and err.get("status") == "error":
+            return err
+        return format_error_payload(
+            ToolExecutionError(_("Web research collected no usable evidence."))
+        )
+
     cited_learnings: list[str] = []
     for learning in learnings:
         citation = citations.get(learning, "")
@@ -765,11 +806,17 @@ def run_deep_research(
     if stopped is not None:
         return stopped
 
-    return synthesize_deep_report(
-        llm_chat,
-        query,
-        cited_learnings,
-        context_chunks,
-        plain_text_format,
-        sources=sources,
-    )
+    try:
+        return synthesize_deep_report(
+            llm_chat,
+            query,
+            cited_learnings,
+            context_chunks,
+            plain_text_format,
+            sources=sources,
+        )
+    except Exception:
+        # Synthesis is the last LLM call after evidence is already collected.
+        # A timeout here used to discard the whole run; return the raw notes.
+        log.exception("deep_research: synthesis failed; returning collected evidence")
+        return _partial_report_from_evidence(query, cited_learnings, sources)

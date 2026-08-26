@@ -970,9 +970,21 @@ def test_web_research_caching_disabled_bypasses_cache(tmp_path):
 # =============================================================================
 
 
+class _FakeUrlopenHeaders:
+    def get(self, name, default=None):
+        if str(name).lower() == "content-type":
+            return "text/html; charset=utf-8"
+        return default
+
+    def get_content_charset(self):
+        return "utf-8"
+
+
 class _FakeUrlopenResponse:
     def __init__(self, body: bytes):
         self._body = body
+        self._offset = 0
+        self.headers = _FakeUrlopenHeaders()
 
     def __enter__(self):
         return self
@@ -980,8 +992,14 @@ class _FakeUrlopenResponse:
     def __exit__(self, *args):
         return False
 
-    def read(self):
-        return self._body
+    def read(self, n: int | None = None):
+        if n is None:
+            chunk = self._body[self._offset :]
+            self._offset = len(self._body)
+            return chunk
+        chunk = self._body[self._offset : self._offset + n]
+        self._offset += n
+        return chunk
 
 
 def test_web_search_recency_sets_df_parameter():
@@ -1109,5 +1127,37 @@ def test_web_search_parses_split_row_layout():
     assert "Second Headline" in result
     assert "one.example/a" in result
     assert "two.example/b" in result
+
+
+def test_visit_webpage_does_not_cache_fetch_errors(tmp_path):
+    """Transient fetch failures must not poison the page cache."""
+    from plugin.contrib.smolagents.default_tools import VisitWebpageTool, _web_cache_get
+
+    db_file = str(tmp_path / "writeragent_web_cache.db")
+    url = "https://example.test/gone"
+
+    with patch("urllib.request.urlopen", side_effect=OSError("timed out")):
+        tool = VisitWebpageTool(cache_max_age_days=30, cache_path=db_file, cache_max_mb=10)
+        msg = tool.forward(url)
+
+    assert "Error fetching the webpage" in msg
+    assert _web_cache_get(db_file, "page", url, max_age_days=30) is None
+
+
+def test_visit_webpage_still_caches_successful_fetch(tmp_path):
+    from plugin.contrib.smolagents.default_tools import VisitWebpageTool, _web_cache_get
+
+    db_file = str(tmp_path / "writeragent_web_cache.db")
+    url = "https://example.test/ok"
+    html = b"<html><body><p>Hello cached page</p></body></html>"
+
+    with patch("urllib.request.urlopen", return_value=_FakeUrlopenResponse(html)):
+        tool = VisitWebpageTool(cache_max_age_days=30, cache_path=db_file, cache_max_mb=10)
+        result = tool.forward(url)
+
+    assert "Hello cached page" in result
+    cached = _web_cache_get(db_file, "page", url, max_age_days=30)
+    assert cached is not None
+    assert "Hello cached page" in cached
 
 
