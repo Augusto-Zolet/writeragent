@@ -204,6 +204,9 @@ def grammar_llm_request_gate(max_in_flight: int, timeout: float = 60.0) -> Gener
     """
     limit = max_in_flight
     if limit <= 1:
+        # Intentional: share the global LLM lane so grammar yields to chat.
+        # Local models (llama.cpp, Ollama) can only serve one request at a
+        # time; concurrent calls would queue at the server or OOM the GPU.
         with llm_request_lane(timeout=timeout):
             yield
         return
@@ -284,6 +287,13 @@ class QueueExecutor:
                 # AsyncCallback from a worker is the marshal bootstrap: if the
                 # guard fires here it calls execute_on_main_thread while this
                 # lock is held, and the UI thread deadlocks in set_context().
+                # Two defenses prevent this:
+                #   1. _unwrap_uno() strips the guard proxy so UNO calls below
+                #      don't trigger assert_main_thread at all.
+                #   2. _notify_thread_violation (thread_guard.py) bails early
+                #      when ``not default_executor._initialized``, which is
+                #      exactly the state while this lock is held.
+                # If you refactor here, preserve both or the bootstrap deadlocks.
                 from plugin.framework.thread_guard import _unwrap_uno
 
                 ctx = _unwrap_uno(self._ctx)

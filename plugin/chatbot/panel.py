@@ -1092,6 +1092,15 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         self.sidebar_state = dataclasses.replace(self.sidebar_state, tool_loop=value)
 
     def disposing(self, Source):
+        # UNO can deliver this re-entrantly inside processEventsToIdle while
+        # run_stream_drain_loop is still on the stack. Cancel the send scope
+        # (same object already captured by resolve_stop_checker) so the drain
+        # stop checker fires instead of streaming into a dead panel. Match
+        # StopSendEffect: cancel the scope and latch the fallback.
+        scope = getattr(self, "_send_cancellation", None)
+        if scope is not None:
+            scope.cancel()
+        self._stop_requested_fallback = True
         try:
             from plugin.framework.event_bus import global_event_bus
 

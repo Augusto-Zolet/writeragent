@@ -703,6 +703,10 @@ class RichTextControlListener(BaseWindowListener):
         log_rich_control_context(self.ctx, "disposing", initialized=self.initialized, had_control=bool(self.rich_control))
         self._disposed = True
         self.rich_control = None
+        # CPython can reuse id() after GC; leaving the parent id in this set
+        # makes a later panel skip rich-control init and show the plain field.
+        if self.root_window is not None:
+            _CONTROL_INIT_STARTED.discard(id(self.root_window))
 
     def try_eager_init(self) -> None:
         """Create the RichText control as soon as the panel root window has a VCL peer.

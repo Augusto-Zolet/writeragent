@@ -582,3 +582,29 @@ class TestRichControlListenerInit:
         with patch.object(listener, "_begin_deferred_init") as mock_begin:
             listener.try_eager_init()
         mock_begin.assert_called_once()
+
+    def test_disposing_prunes_control_init_started(self):
+        import plugin.chatbot.rich_text_control as rtc
+        from plugin.chatbot.rich_text_control import RichTextControlListener
+
+        root = MagicMock()
+        rtc._CONTROL_INIT_STARTED.add(id(root))
+        listener = RichTextControlListener(MagicMock(), root, MagicMock(), MagicMock())
+        listener.disposing(MagicMock())
+        assert id(root) not in rtc._CONTROL_INIT_STARTED
+
+    def test_disposing_allows_reinit_on_same_root_id(self):
+        import plugin.chatbot.rich_text_control as rtc
+        from plugin.chatbot.rich_text_control import RichTextControlListener
+
+        root = MagicMock()
+        root.getPeer.return_value = MagicMock()
+        first = RichTextControlListener(MagicMock(), root, MagicMock(), MagicMock())
+        with patch("plugin.framework.queue_executor.post_to_main_thread"):
+            first._begin_deferred_init()
+        assert id(root) in rtc._CONTROL_INIT_STARTED
+        first.disposing(MagicMock())
+        second = RichTextControlListener(MagicMock(), root, MagicMock(), MagicMock())
+        with patch("plugin.framework.queue_executor.post_to_main_thread") as mock_post:
+            second._begin_deferred_init()
+        mock_post.assert_called_once()

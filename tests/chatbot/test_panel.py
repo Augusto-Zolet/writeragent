@@ -6,12 +6,15 @@
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
 
-"""Unit tests for sidebar query Enter-to-send key classification."""
+"""Unit tests for sidebar query Enter-to-send key classification and send dispose."""
 
+import sys
 import unittest
+from unittest.mock import MagicMock, patch
 
 from plugin.framework.config_schema import _get_schema_default
-from plugin.chatbot.panel import query_enter_triggers_primary_send
+from plugin.chatbot.panel import SendButtonListener, query_enter_triggers_primary_send
+from plugin.framework.queue_executor import SendCancellation
 
 
 class QueryEnterSendTests(unittest.TestCase):
@@ -29,6 +32,51 @@ class QueryEnterSendTests(unittest.TestCase):
 
     def test_doc_yaml_default_enter_sends_true(self):
         self.assertIs(_get_schema_default("doc.chat_enter_key_sends_message"), True)
+
+
+def _make_send_listener() -> SendButtonListener:
+    session = MagicMock()
+    session.messages = [{"role": "system", "content": "test"}]
+    return SendButtonListener(
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        MagicMock(),
+        session,
+    )
+
+
+class SendDisposeTests(unittest.TestCase):
+    def setUp(self) -> None:
+        patcher = patch.dict(sys.modules, {"plugin.main": MagicMock()}, clear=False)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_disposing_cancels_in_flight_send(self) -> None:
+        listener = _make_send_listener()
+        scope = SendCancellation()
+        listener._send_cancellation = scope
+        checker = listener.resolve_stop_checker()
+        self.assertFalse(checker())
+        listener.disposing(None)
+        self.assertTrue(scope.is_cancelled())
+        self.assertTrue(checker())
+        self.assertTrue(listener._stop_requested_fallback)
+        self.assertIsNone(listener.ctx)
+        self.assertIsNone(listener.panel)
+
+    def test_disposing_without_active_send_still_latches_stop(self) -> None:
+        listener = _make_send_listener()
+        listener._send_cancellation = None
+        listener.disposing(None)
+        self.assertTrue(listener._stop_requested_fallback)
+        self.assertIsNone(listener.ctx)
+        self.assertIsNone(listener.panel)
 
 
 if __name__ == "__main__":

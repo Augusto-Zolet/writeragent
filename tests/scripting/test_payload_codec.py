@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import ast
 import math
+from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
@@ -51,6 +52,7 @@ from tests.scripting.payload_codec_test_support import (
     pickle5_roundtrip,
     rect_shape_for_cell_count,
 )
+from tests.scripting.serialization_ab_support import cython_accelerator_context
 from plugin.tests.testing_utils import setup_uno_mocks
 
 setup_uno_mocks()
@@ -515,6 +517,43 @@ def test_mixed_grid_preserves_non_numeric_string() -> None:
     pytest.importorskip("numpy")
     out = child_unpack_data(wire)
     assert out[0][1] == "hello"
+
+
+def test_whitespace_only_cell_does_not_crash_child_unpack() -> None:
+    """Pasted '   ' is numeric-coercible for Calc but np.float64 cannot convert it."""
+    pytest.importorskip("numpy")
+    grid = [[1.0, "   ", 3.0, 4.0], [5.0, 6.0, 7.0, 8.0], [9.0, 10.0, 11.0, 12.0]]
+    out = child_unpack_data(host_pack_data(grid, force="always"))
+    assert isinstance(out, list)
+    assert out[0][1] == "   "
+
+
+def test_empty_string_mixed_split_grid_does_not_crash_child_unpack() -> None:
+    """Bare '' on mixed split_grid must not raise (Calc usually maps '' to None first)."""
+    pytest.importorskip("numpy")
+    grid = [[1.0, "", 3.0, 4.0], [5.0, 6.0, 7.0, 8.0], [9.0, 10.0, 11.0, 12.0]]
+    out = child_unpack_data(host_pack_data(grid, force="always"))
+    assert isinstance(out, list)
+    assert out[0][1] == ""
+
+
+def test_mixed_grid_real_nan_becomes_none_on_child() -> None:
+    """Documented: mixed-grid ingress has no blank-vs-NaN wire bit."""
+    pytest.importorskip("numpy")
+    grid = [[1.0, float("nan")], ["label", 4.0]]
+    out = child_unpack_data(host_pack_data(grid, force="always"))
+    assert out[0][1] is None
+    assert out[1][0] == "label"
+
+
+def test_decimal_split_grid_stays_float_not_truncated_int() -> None:
+    """stdlib flatten must label Decimal columns float (Cython already did)."""
+    pytest.importorskip("numpy")
+    grid = [[Decimal("1.5"), Decimal("2.25")], [Decimal("3.0"), Decimal("4.75")]]
+    with cython_accelerator_context(enabled=False):
+        out = child_unpack_data(host_pack_data(grid, force="always"))
+    assert out[0][0] == pytest.approx(1.5)
+    assert out[0][1] == pytest.approx(2.25)
 
 
 def test_bool_cells_round_trip_in_numeric_grid() -> None:
