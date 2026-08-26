@@ -75,6 +75,7 @@ Start here by task.
 | Scripting domain registries (shipped) | [docs/archive/scripting-domain-debt-dev-plan.md](archive/scripting-domain-debt-dev-plan.md) |
 | NumPy domain helpers (Viz, Symbolic, Units, Text, …) | [docs/scripting-numpy-domains.md](scripting-numpy-domains.md) |
 | Excel / Calc `=PY` design stance | [docs/scripting-ms-py-compatibility.md](scripting-ms-py-compatibility.md) |
+| Jupyter notebook import & execution | [docs/writer-jupyter-notebook-import.md](writer-jupyter-notebook-import.md) |
 | Agent Search / Web | [docs/agent-search.md](agent-search.md) |
 | MCP protocol | [docs/mcp-protocol.md](mcp-protocol.md) |
 | Localization / translations | [docs/localization.md](localization.md), [locales/README.md](../locales/README.md) |
