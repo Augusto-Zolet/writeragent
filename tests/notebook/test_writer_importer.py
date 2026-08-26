@@ -733,3 +733,23 @@ def test_import_markdown_lists_and_bold_use_html(tmp_path, monkeypatch):
     assert "<code>np.array()</code>" in joined
     inserted = [call.args[1] for call in body_text.insertString.call_args_list]
     assert not any("Cell " in str(t) for t in inserted)
+
+
+def test_inline_markdown_nested_code_in_bold():
+    from plugin.notebook.writer_importer import _inline_markdown_to_html
+
+    html = _inline_markdown_to_html("**`code` in bold**")
+    assert html == "<strong><code>code</code> in bold</strong>"
+
+    html_italic = _inline_markdown_to_html("*`code` in italic*")
+    assert html_italic == "<em><code>code</code> in italic</em>"
+
+
+def test_height_for_text_accounts_for_long_wrapped_lines():
+    from plugin.notebook.writer_importer import _height_for_text
+
+    short_lines = "a = 1\nb = 2"
+    long_wrapped_line = "a = [" + "1, " * 100 + "]"
+    h_short = _height_for_text(short_lines)
+    h_long = _height_for_text(long_wrapped_line)
+    assert h_long > h_short

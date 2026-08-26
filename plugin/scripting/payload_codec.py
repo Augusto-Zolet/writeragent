@@ -350,7 +350,7 @@ def _deal_envelope_value_ok(val: object, *, depth: int) -> bool:
     Detectors must still return False on garbage dicts, so values are not
     restricted to ascii tokens — only nested list/dict size is capped.
     """
-    if depth > 4:
+    if depth > 10:
         return False
     if type(val) is str:
         return str_bounded(val, DEAL_MAX_SOURCE)

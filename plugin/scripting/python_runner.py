@@ -586,7 +586,8 @@ def _report_run_python_open_failed(
     from plugin.chatbot.dialogs import msgbox_with_report
     from plugin.scripting.editor_ipc import exception_traceback, failure_message
 
-    message = failure_message(reason, detail=detail, exc=exc)
+    full_detail = "\n\n".join(filter(None, [(detail or "").strip(), exception_traceback(exc).rstrip() if exc is not None else ""]))
+    message = failure_message(reason, detail=full_detail or None)
     msgbox_with_report(
         ctx,
         _("Error"),

@@ -103,7 +103,8 @@ def index_form_control_models(doc: Any) -> dict[str, Any]:
     """Map form control ``Name`` → model for all notebook fields and ▶ buttons."""
     by_name: dict[str, Any] = {}
     _collect_models_from_draw_page(doc, by_name)
-    _collect_models_from_text(doc, by_name)
+    if not by_name:
+        _collect_models_from_text(doc, by_name)
     return by_name
 
 

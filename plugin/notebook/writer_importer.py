@@ -163,8 +163,10 @@ def _coerce_notebook_text(value: Any) -> str:
 
 def _height_for_text(text: str, doc: Any | None = None) -> int:
     """Shape height in 1/100 mm so every source line is visible (no clipped last line)."""
-    lines = max(1, (text or "").count("\n") + 1)
-    # One extra line of pad: a long source line may wrap once. Do not compute wrap.
+    lines = 0
+    for line in (text or "").split("\n"):
+        lines += max(1, (len(line) + 79) // 80)
+    lines = max(1, lines)
     raw = lines * _LINE_HEIGHT + _FIELD_HEIGHT_PAD + _WRAP_SLACK
     cap = _max_field_height_units(doc)
     return max(_MIN_FIELD_HEIGHT, min(cap, raw))
@@ -752,6 +754,16 @@ def _inline_markdown_to_html(text: str) -> str:
         placeholders.append(html)
         return f"\x00H{len(placeholders) - 1}\x00"
 
+    def escape_non_placeholders(s: str) -> str:
+        parts: list[str] = []
+        last = 0
+        for m in re.finditer(r"\x00H\d+\x00", s):
+            parts.append(html_lib.escape(s[last : m.start()]))
+            parts.append(m.group(0))
+            last = m.end()
+        parts.append(html_lib.escape(s[last:]))
+        return "".join(parts)
+
     work = text or ""
     work = _MD_IMAGE_RE.sub("", work)
 
@@ -760,21 +772,26 @@ def _inline_markdown_to_html(text: str) -> str:
 
     def stash_bold(match: re.Match[str]) -> str:
         inner = match.group(1) if match.group(1) is not None else match.group(2)
-        return hold(f"<strong>{html_lib.escape(inner or '')}</strong>")
+        escaped_inner = escape_non_placeholders(inner or "")
+        return hold(f"<strong>{escaped_inner}</strong>")
 
     def stash_italic(match: re.Match[str]) -> str:
         inner = match.group(1) if match.group(1) is not None else match.group(2)
-        return hold(f"<em>{html_lib.escape(inner or '')}</em>")
+        escaped_inner = escape_non_placeholders(inner or "")
+        return hold(f"<em>{escaped_inner}</em>")
 
     work = _INLINE_CODE_RE.sub(stash_code, work)
     work = _BOLD_RE.sub(stash_bold, work)
     work = _ITALIC_RE.sub(stash_italic, work)
-    escaped = html_lib.escape(work)
+    escaped = escape_non_placeholders(work)
 
     def restore(match: re.Match[str]) -> str:
         return placeholders[int(match.group(1))]
 
-    return re.sub(r"\x00H(\d+)\x00", restore, escaped)
+    result = escaped
+    while "\x00H" in result:
+        result = re.sub(r"\x00H(\d+)\x00", restore, result)
+    return result
 
 
 def _paragraph_needs_html(text: str) -> bool:

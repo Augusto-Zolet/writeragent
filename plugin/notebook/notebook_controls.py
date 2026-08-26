@@ -97,18 +97,40 @@ def get_control_view_for_model(doc: Any, model: Any) -> Any | None:
         return None
 
 
+def prune_dead_listeners() -> None:
+    """Remove listeners whose target document is closed/gone."""
+    global _listener_refs, _wired_keys
+    survivors: list[Any] = []
+    survivor_keys: set[tuple[str, str]] = set()
+    for lis in _listener_refs:
+        try:
+            doc = lis._resolve_doc()
+            if doc is not None:
+                survivors.append(lis)
+                survivor_keys.add((lis._doc_key_val, lis._hex_id))
+        except Exception:
+            pass
+    _listener_refs = survivors
+    _wired_keys = survivor_keys
+
+
 class NotebookRunButtonListener(BaseActionListener):
     """Run one notebook cell when the ▶ push button is pressed."""
 
     def __init__(self, ctx: Any, doc: Any, hex_id: str) -> None:
         self._ctx = ctx
         self._hex_id = hex_id
-        # PyUNO document components do not support weakref; keep a strong ref (listeners live in _listener_refs).
-        self._doc = doc
+        self._doc_key_val = _doc_key(doc)
         try:
             self._doc_url = str(doc.getURL() or "")
         except Exception:
             self._doc_url = ""
+        try:
+            import weakref
+
+            self._doc_weak: Any | None = weakref.ref(doc)
+        except Exception:
+            self._doc_weak = None
 
     def _resolve_doc(self) -> Any | None:
         if self._doc_url:
@@ -117,7 +139,15 @@ class NotebookRunButtonListener(BaseActionListener):
             doc, _doc_type = resolve_document_by_url(self._ctx, self._doc_url)
             if doc is not None:
                 return doc
-        return self._doc
+        from plugin.framework.uno_context import get_active_document
+
+        active = get_active_document(self._ctx)
+        if active is not None and _doc_key(active) == self._doc_key_val:
+            return active
+        weak = getattr(self, "_doc_weak", None)
+        if callable(weak):
+            return weak()
+        return None
 
     def on_action_performed(self, rEvent: Any) -> None:
         doc = self._resolve_doc()
@@ -131,6 +161,7 @@ class NotebookRunButtonListener(BaseActionListener):
 
 def wire_run_button_listener(ctx: Any, doc: Any, model: Any, hex_id: str) -> bool:
     """Attach ``XActionListener`` to a ▶ button model's view. Returns True on success."""
+    prune_dead_listeners()
     key = (_doc_key(doc), hex_id)
     if key in _wired_keys:
         return True

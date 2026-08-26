@@ -275,6 +275,29 @@ def _paragraph_has_frame(cursor: Any) -> bool:
     """True when the paragraph contains an in-flow ControlShape / graphic (▶ or field)."""
     try:
         text = cursor.getText()
+        para_rng = text.createTextCursorByRange(cursor)
+        para_rng.gotoStartOfParagraph(False)
+        para_rng.gotoEndOfParagraph(True)
+        portions = para_rng.createEnumeration()
+        psteps = 0
+        while psteps < 64:
+            pmore = portions.hasMoreElements()
+            if pmore is not True and pmore != 1:
+                break
+            psteps += 1
+            portion = portions.nextElement()
+            try:
+                ptype = str(portion.getPropertyValue("TextPortionType") or "")
+            except Exception:
+                ptype = str(getattr(portion, "TextPortionType", "") or "")
+            if ptype == "Frame":
+                return True
+        return False
+    except Exception:
+        pass
+    # Fallback for mocks or LO objects where range portion enumeration is unavailable
+    try:
+        text = cursor.getText()
         enum = text.createEnumeration()
     except Exception:
         return False

@@ -401,7 +401,7 @@ def open_python_cell_editor(ctx: Any) -> None:
         _open_python_cell_editor_impl(ctx)
     except Exception as e:
         log.exception("python_editor: unhandled failure")
-        msg = failure_message(_("The Python editor failed unexpectedly."), exc=e)
+        msg = failure_message(_("The Python editor failed unexpectedly."), detail=exception_traceback(e))
         msgbox_with_report(ctx, product_display_name(ctx), msg, box_type=3, reportable=True, report_title="Python cell editor failed", report_extra=msg)
 
 
