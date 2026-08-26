@@ -486,10 +486,22 @@ def test_session_key_and_init_kwargs_recursion_off_main_thread(monkeypatch: pyte
 
     ctx = MagicMock()
     key = python_function.session_key(ctx, "print('hello')")
-    assert key == ("", "", "", "print('hello')")
+    assert key == ("", "", "", "print('hello')", "")
 
     kwargs = python_function.get_python_init_kwargs(ctx)
     assert kwargs == {}
+
+
+def test_get_python_init_kwargs_off_main_empty_when_two_sessions(monkeypatch: pytest.MonkeyPatch) -> None:
+    from plugin.scripting import session_manager as sm
+
+    sm.record_active_calc_session("calc:file:///a.ods", {"init": "a"})
+    sm.record_active_calc_session("calc:file:///b.ods", {"init": "b"})
+    monkeypatch.setattr("plugin.framework.thread_guard.on_main_thread", lambda: False)
+    try:
+        assert python_function.get_python_init_kwargs(MagicMock()) == {}
+    finally:
+        sm.clear_active_calc_session()
 
 
 def test_get_python_init_kwargs_registers_unload_listener(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -812,8 +824,11 @@ def test_py_timing_cached_matrix_skips_ipc(monkeypatch: pytest.MonkeyPatch, capl
     monkeypatch.setattr(python_function, "PYTHON_TIMINGS_LOG", True)
     _reset_py_pass_stats()
     caplog.set_level(logging.DEBUG, logger="plugin.calc.python.function")
-    ctx = _ctx_with_doc(CalcDocStub())
+    doc = CalcDocStub()
+    sheet = doc.getSheets().getByIndex(0)
     code = "result = [1, 2, 3]"
+    sheet.getCellByPosition(0, 0).setFormula(f'=PY("{code}")')
+    ctx = _ctx_with_doc(doc)
     worker_data = None
     tid = threading.get_ident()
     key = (tid, python_function.session_key(ctx, code), repr(worker_data))
@@ -839,6 +854,27 @@ def test_py_timing_cached_matrix_skips_ipc(monkeypatch: pytest.MonkeyPatch, capl
     assert lines
     assert "cached=1" in lines[-1]
     assert "ipc_ms=0" in lines[-1]
+
+
+def test_perform_deferred_spill_aborts_when_formula_replaced(monkeypatch: pytest.MonkeyPatch) -> None:
+    doc = CalcDocStub(url="file:///spill.ods")
+    sheet = doc.getSheets().getByIndex(0)
+    sheet.getCellByPosition(0, 0).setFormula("=SUM(A2)")
+    ctx = _ctx_with_doc(doc)
+    monkeypatch.setattr("plugin.framework.thread_guard.on_main_thread", lambda: True)
+    python_function.perform_deferred_spill(
+        ctx, "file:///spill.ods", "Sheet1", 0, 0, [["x", "y"]], doc=doc, code="result = 1"
+    )
+    assert sheet.getCellByPosition(1, 0).getString() in ("", None) or not sheet.getCellByPosition(1, 0).getFormula()
+
+
+def test_scalar_for_list_result_no_share_without_unique_origin() -> None:
+    ctx = _ctx_with_doc(CalcDocStub())
+    python_function.clear_python_addin_cache()
+    a = python_function.scalar_for_list_result(ctx, "dup", [10, 20, 30])
+    b = python_function.scalar_for_list_result(ctx, "dup", [10, 20, 30])
+    assert a == 10
+    assert b == 10
 
 
 def test_format_error_for_display_distinguishes_timeout_error() -> None:

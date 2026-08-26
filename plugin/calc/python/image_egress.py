@@ -54,10 +54,14 @@ def _shape_anchor_matches_cell(shape: Any, target_cell: Any) -> bool:
         return False
 
 
-def insert_image_result_on_sheet(ctx: Any, payload: dict[str, Any], *, code: str | None = None) -> None:
+def insert_image_result_on_sheet(
+    ctx: Any, payload: dict[str, Any], *, code: str | None = None, doc: Any | None = None
+) -> None:
     """Write image payload bytes to a temp file and insert as a cell-anchored shape on the target sheet.
 
     Posts execution asynchronously to the main VCL UI thread if invoked from a background worker thread.
+    Pass *doc* from the add-in when known: get_calc_document_from_ctx is the front window,
+    not the recalculating workbook.
     """
     from plugin.framework.queue_executor import post_to_main_thread
     from plugin.framework.thread_guard import on_main_thread
@@ -66,13 +70,15 @@ def insert_image_result_on_sheet(ctx: Any, payload: dict[str, Any], *, code: str
     # must run on LibreOffice's main VCL thread to prevent internal C++ state corruption and deadlocks.
     # If called from a background recalculation or script worker thread, post asynchronously to the main thread.
     if not on_main_thread():
-        post_to_main_thread(_insert_image_result_on_sheet_impl, ctx, payload, code)
+        post_to_main_thread(_insert_image_result_on_sheet_impl, ctx, payload, code, doc)
         return
 
-    _insert_image_result_on_sheet_impl(ctx, payload, code)
+    _insert_image_result_on_sheet_impl(ctx, payload, code, doc)
 
 
-def _insert_image_result_on_sheet_impl(ctx: Any, payload: dict[str, Any], code: str | None = None) -> None:
+def _insert_image_result_on_sheet_impl(
+    ctx: Any, payload: dict[str, Any], code: str | None = None, doc: Any | None = None
+) -> None:
     """Main-thread implementation of graphic shape creation and anchoring."""
     import uno
     from com.sun.star.awt import Size
@@ -93,7 +99,8 @@ def _insert_image_result_on_sheet_impl(ctx: Any, payload: dict[str, Any], code: 
         from plugin.calc.calc_utils import get_cell_geometry
         from plugin.scripting.document_scripts import get_calc_document_from_ctx
 
-        doc = get_calc_document_from_ctx(ctx)
+        if doc is None:
+            doc = get_calc_document_from_ctx(ctx)
         if doc is None:
             log.debug("insert_image_result_on_sheet: no active Calc document resolved from context")
             return

@@ -62,7 +62,17 @@ def _format_empty_prompt_diagnostic(result: Mapping[str, Any], *, model: str) ->
 
 
 def _call_prompt_llm(ctx: Any, client: LlmClient, messages: list[dict[str, str]], max_tokens: int) -> dict[str, Any]:
-    result = run_blocking_in_thread(ctx, client.request_with_tools, messages, max_tokens=max_tokens, tools=None, stream=False)
+    # =PY() does not use run_blocking_in_thread: processEventsToIdle on the
+    # recalc stack re-enters the formula engine (#VALUE!). Same constraint here.
+    result = run_blocking_in_thread(
+        ctx,
+        client.request_with_tools,
+        messages,
+        max_tokens=max_tokens,
+        tools=None,
+        stream=False,
+        pump_idle=False,
+    )
     return result if isinstance(result, dict) else {}
 
 

@@ -120,6 +120,22 @@ def test_reset_workbook_python_session_prefers_calc() -> None:
         mock_reset_calc.assert_called_once_with(ctx, mock_calc)
 
 
+def test_workbook_session_id_off_main_ambiguous_when_two_workbooks() -> None:
+    from unittest.mock import MagicMock, patch
+
+    ctx = MagicMock()
+    session_manager.record_active_calc_session("calc:file:///a.ods")
+    session_manager.record_active_calc_session("calc:file:///b.ods")
+    try:
+        with (
+            patch("plugin.scripting.session_manager.python_session_mode", return_value="shared"),
+            patch("plugin.framework.thread_guard.on_main_thread", return_value=False),
+        ):
+            assert session_manager.workbook_session_id(ctx, doc=None) is None
+    finally:
+        session_manager.clear_active_calc_session()
+
+
 def test_workbook_session_id_uses_cached_session_off_main() -> None:
     """Off the main thread without explicit doc, workbook_session_id returns UI-cached session id."""
     from unittest.mock import MagicMock, patch

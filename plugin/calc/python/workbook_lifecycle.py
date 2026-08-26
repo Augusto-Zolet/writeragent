@@ -52,11 +52,19 @@ def _lifecycle_key(doc: Any) -> str:
 
 
 class _CalcPythonUnloadListener(BaseDocumentEventListener):
-    def __init__(self, ctx: Any, workbook_session_id: str, lifecycle_key: str) -> None:
+    def __init__(
+        self,
+        ctx: Any,
+        workbook_session_id: str,
+        lifecycle_key: str,
+        *,
+        doc_url: str = "",
+    ) -> None:
         super().__init__()
         self._ctx = ctx
         self._workbook_session_id = workbook_session_id
         self._lifecycle_key = lifecycle_key
+        self._doc_url = doc_url
         self._teardown_done = False
 
     def on_document_event(self, Event: Any) -> None:
@@ -83,6 +91,18 @@ class _CalcPythonUnloadListener(BaseDocumentEventListener):
         except Exception:
             log.debug("python_workbook_lifecycle: formula cache clear failed", exc_info=True)
         try:
+            from plugin.calc.python.function import clear_in_memory_spill_state
+
+            clear_in_memory_spill_state(doc_url=self._doc_url, lifecycle_key=self._lifecycle_key)
+        except Exception:
+            log.debug("python_workbook_lifecycle: spill state clear failed", exc_info=True)
+        try:
+            from plugin.scripting.session_manager import clear_active_calc_session
+
+            clear_active_calc_session(self._workbook_session_id)
+        except Exception:
+            log.debug("python_workbook_lifecycle: active session clear failed", exc_info=True)
+        try:
             res = reset_python_session(self._ctx, self._workbook_session_id)
             if res.get("status") != "ok":
                 log.debug(
@@ -100,10 +120,15 @@ def ensure_calc_workbook_unload_resets_python(ctx: Any, doc: Any) -> None:
         return
     key = _lifecycle_key(doc)
     session_id = calc_workbook_base_session_id(doc)
+    doc_url = ""
+    try:
+        doc_url = getattr(doc, "getURL", lambda: "")() or ""
+    except Exception:
+        doc_url = ""
     with _LOCK:
         if key in _LISTENERS:
             return
-        listener = _CalcPythonUnloadListener(ctx, session_id, key)
+        listener = _CalcPythonUnloadListener(ctx, session_id, key, doc_url=doc_url)
         _LISTENERS[key] = listener
     try:
         if hasattr(doc, "addDocumentEventListener"):

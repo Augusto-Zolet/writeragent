@@ -44,6 +44,20 @@ def test_unload_listener_resets_worker_session():
         mock_reset.assert_called_once()
 
 
+def test_unload_clears_in_memory_spill_state():
+    import plugin.calc.python.function as python_function
+
+    python_function.SPILL_REGISTRY[("file:///gone.ods", "Sheet1", 0, 0)] = [(0, 1)]
+    python_function.LOADED_DOCUMENTS.add("file:///gone.ods")
+    ctx = MagicMock()
+    listener = _CalcPythonUnloadListener(ctx, "calc:file:///gone.ods", "key-spill", doc_url="file:///gone.ods")
+    with patch("plugin.calc.python.workbook_lifecycle.reset_python_session") as mock_reset:
+        mock_reset.return_value = {"status": "ok"}
+        listener.on_document_event(MagicMock(EventName="OnUnload"))
+    assert ("file:///gone.ods", "Sheet1", 0, 0) not in python_function.SPILL_REGISTRY
+    assert "file:///gone.ods" not in python_function.LOADED_DOCUMENTS
+
+
 def test_unload_clears_formula_location_cache():
     from plugin.calc.python.formula_locator_cache import FORMULA_LOCATION_CACHE
 

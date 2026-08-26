@@ -108,6 +108,31 @@ def test_insert_image_result_on_sheet_background_thread_marshaling():
     assert post_main.call_count == 1
 
 
+def test_insert_image_result_on_sheet_uses_passed_doc_not_front_window():
+    ctx = MagicMock()
+    front = MagicMock(name="front")
+    target = MagicMock(name="target")
+    sheet = MagicMock()
+    cell = MagicMock()
+    draw_page = MagicMock()
+    sheet.DrawPage = draw_page
+    target.getCurrentController.return_value = MagicMock(getActiveSheet=MagicMock(return_value=None))
+    with (
+        patch("plugin.scripting.document_scripts.get_calc_document_from_ctx", return_value=front),
+        patch(
+            "plugin.calc.python.formula_locator_cache.locate_formula_cell_in_doc",
+            return_value=(sheet, cell, (0, 0)),
+        ) as locate,
+        patch("plugin.calc.python.image_egress.write_image_payload_to_temp", return_value="/tmp/chart.svg"),
+        patch("uno.systemPathToFileUrl", return_value="file:///tmp/chart.svg"),
+        patch("plugin.calc.calc_utils.get_cell_geometry", return_value=(MagicMock(), MagicMock(Width=5000, Height=4000))),
+    ):
+        target.createInstance.return_value = MagicMock()
+        insert_image_result_on_sheet(ctx, _IMAGE_PAYLOAD, code="plt.show()", doc=target)
+    locate.assert_called()
+    assert locate.call_args[0][1] is target
+
+
 def test_insert_image_result_on_sheet_aborts_when_formula_location_fails_for_code():
     """When code is supplied and formula cell location fails, image egress aborts without inserting on active sheet."""
     ctx = MagicMock()

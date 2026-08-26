@@ -244,6 +244,48 @@ def is_matching_py_formula(formula: str, code_str: str) -> bool:
     return ext_norm == code_norm
 
 
+def _matching_cells_in_range(
+    sheet: Any,
+    cell_range: Any,
+    code_str: str,
+    *,
+    doc_url: str = "",
+    cache: FormulaLocationCache | None = None,
+    sheet_name: str = "",
+) -> list[tuple[Any, int, int]]:
+    """Matching formula cells in *cell_range*. A filled matrix of the same code is one origin."""
+    addr = cell_range.getRangeAddress()
+    hits: list[tuple[Any, int, int]] = []
+    for r in range(addr.StartRow, addr.EndRow + 1):
+        for c in range(addr.StartColumn, addr.EndColumn + 1):
+            cell = sheet.getCellByPosition(c, r)
+            formula = cell.getFormula()
+            if not formula:
+                continue
+            upper = formula.upper()
+            if "PYTHON" not in upper and "PY" not in upper:
+                continue
+            if cache is not None and doc_url:
+                extracted_code = extract_code_from_py_formula(formula)
+                if extracted_code:
+                    cache.put(doc_url, extracted_code, sheet_name, r, c)
+            if is_matching_py_formula(formula, code_str):
+                hits.append((cell, r, c))
+    if len(hits) <= 1:
+        return hits
+    min_r = min(h[1] for h in hits)
+    max_r = max(h[1] for h in hits)
+    min_c = min(h[2] for h in hits)
+    max_c = max(h[2] for h in hits)
+    expected = (max_r - min_r + 1) * (max_c - min_c + 1)
+    if len(hits) == expected:
+        # Array/matrix formula: one origin at top-left.
+        for cell, r, c in hits:
+            if r == min_r and c == min_c:
+                return [(cell, r, c)]
+    return hits
+
+
 def search_sheet_for_formula(
     sheet: Any,
     code_str: str,
@@ -251,36 +293,44 @@ def search_sheet_for_formula(
     doc_url: str = "",
     cache: FormulaLocationCache | None = None,
 ) -> tuple[Any, int, int] | None:
-    """Query formula cells on sheet, opportunistically warm cache for all PY cells, and return match."""
+    """Query formula cells on sheet. Returns a match only when exactly one origin matches.
+
+    Duplicate ``=PY("same")`` cells are indistinguishable (XAddIn has no calling cell);
+    first-match would spill into the wrong formula. Matrix/array formulas are one origin
+    (top-left of the formula range).
+    """
+    matches = collect_matching_formula_origins(sheet, code_str, doc_url=doc_url, cache=cache)
+    if len(matches) == 1:
+        return matches[0]
+    return None
+
+
+def collect_matching_formula_origins(
+    sheet: Any,
+    code_str: str,
+    *,
+    doc_url: str = "",
+    cache: FormulaLocationCache | None = None,
+) -> list[tuple[Any, int, int]]:
+    """All matching formula origins on *sheet* (one per queryContentCells range)."""
+    found: list[tuple[Any, int, int]] = []
     try:
         # com.sun.star.sheet.CellFlags.FORMULA = 16
         formula_cells = sheet.queryContentCells(16)
-        if formula_cells is not None:
-            count = formula_cells.getCount() if hasattr(formula_cells, "getCount") else 0
-            sheet_name = sheet.getName() if hasattr(sheet, "getName") else "Sheet1"
-            matched = None
-            for i in range(count):
-                cell_range = formula_cells.getByIndex(i)
-                addr = cell_range.getRangeAddress()
-                for r in range(addr.StartRow, addr.EndRow + 1):
-                    for c in range(addr.StartColumn, addr.EndColumn + 1):
-                        cell = sheet.getCellByPosition(c, r)
-                        formula = cell.getFormula()
-                        if not formula:
-                            continue
-                        upper = formula.upper()
-                        if "PYTHON" in upper or "PY" in upper:
-                            # Opportunistically cache every discovered =PY() / =PYTHON() cell on the sheet
-                            if cache is not None and doc_url:
-                                extracted_code = extract_code_from_py_formula(formula)
-                                if extracted_code:
-                                    cache.put(doc_url, extracted_code, sheet_name, r, c)
-                            if matched is None and is_matching_py_formula(formula, code_str):
-                                matched = (cell, r, c)
-            return matched
+        if formula_cells is None:
+            return found
+        count = formula_cells.getCount() if hasattr(formula_cells, "getCount") else 0
+        sheet_name = sheet.getName() if hasattr(sheet, "getName") else "Sheet1"
+        for i in range(count):
+            cell_range = formula_cells.getByIndex(i)
+            found.extend(
+                _matching_cells_in_range(
+                    sheet, cell_range, code_str, doc_url=doc_url, cache=cache, sheet_name=sheet_name
+                )
+            )
     except Exception:
         log.debug("search_sheet_for_formula failed on sheet", exc_info=True)
-    return None
+    return found
 
 
 def locate_formula_cell_in_doc(
@@ -290,96 +340,58 @@ def locate_formula_cell_in_doc(
     *,
     cache: FormulaLocationCache | None = None,
 ) -> tuple[Any, Any, tuple[int, int]] | None:
-    """Find (sheet, cell, (row, col)) containing the Python formula across all sheets in doc.
+    """Find unique (sheet, cell, (row, col)) for this Python formula in *doc*.
 
-    Uses fast-path selection check, validates cached coordinates in O(1), and falls back
-    to queryContentCells(16) across workbook sheets on cache miss.
+    Returns None when zero or two+ origins match: XAddIn has no calling cell, so
+    spilling or caching from the first hit writes the wrong formula.
     """
     if doc is None:
         return None
 
     active_cache = cache if cache is not None else FORMULA_LOCATION_CACHE
     doc_url = document_cache_key(doc)
+    collected: list[tuple[Any, Any, tuple[int, int]]] = []
+    seen: set[tuple[str, int, int]] = set()
 
-    # 1. Fast-path on active sheet / selection
-    active_sheet = None
-    try:
-        ctrl = doc.getCurrentController() if hasattr(doc, "getCurrentController") else None
-        if ctrl is not None and hasattr(ctrl, "getActiveSheet"):
-            active_sheet = ctrl.getActiveSheet()
-        if active_sheet is not None and ctrl is not None and hasattr(ctrl, "getSelection"):
-            selection = ctrl.getSelection()
-            if selection is not None and hasattr(selection, "getRangeAddress"):
-                addr = selection.getRangeAddress()
-                candidates = [
-                    (addr.StartRow, addr.StartColumn),
-                    (addr.StartRow - 1, addr.StartColumn),
-                    (addr.StartRow, addr.StartColumn - 1),
-                ]
-                for r, c in candidates:
-                    if r >= 0 and c >= 0:
-                        cell = active_sheet.getCellByPosition(c, r)
-                        formula = cell.getFormula()
-                        if is_matching_py_formula(formula, code_str):
-                            sheet_name = active_sheet.getName() if hasattr(active_sheet, "getName") else "Sheet1"
-                            active_cache.put(doc_url, code_str, sheet_name, r, c)
-                            return (active_sheet, cell, (r, c))
-    except Exception:
-        log.debug("locate_formula_cell_in_doc: selection fast path failed", exc_info=True)
+    def _add(sheet: Any, cell: Any, row: int, col: int) -> None:
+        try:
+            name = sheet.getName() if hasattr(sheet, "getName") else ""
+        except Exception:
+            name = ""
+        key = (name, row, col)
+        if key in seen:
+            return
+        seen.add(key)
+        collected.append((sheet, cell, (row, col)))
 
-    # 2. Check cached coordinates for (doc_url, code_str)
-    cached_coords = active_cache.get(doc_url, code_str)
-    if cached_coords:
-        sheets = doc.getSheets() if hasattr(doc, "getSheets") else None
-        if sheets is not None:
-            for sheet_name, r, c in cached_coords:
-                try:
-                    if hasattr(sheets, "hasByName") and not sheets.hasByName(sheet_name):
-                        active_cache.remove_coordinate(doc_url, code_str, sheet_name, r, c)
-                        continue
-                    sheet = sheets.getByName(sheet_name)
-                    cell = sheet.getCellByPosition(c, r)
-                    formula = cell.getFormula()
-                    if is_matching_py_formula(formula, code_str):
-                        active_cache.put(doc_url, code_str, sheet_name, r, c)
-                        return (sheet, cell, (r, c))
-                    # Formula moved or modified: prune stale candidate
-                    active_cache.remove_coordinate(doc_url, code_str, sheet_name, r, c)
-                except Exception:
-                    active_cache.remove_coordinate(doc_url, code_str, sheet_name, r, c)
-
-    # 3. Search active sheet formula ranges (opportunistically warms cache for all PY cells on sheet)
-    if active_sheet is not None:
-        res = search_sheet_for_formula(active_sheet, code_str, doc_url=doc_url, cache=active_cache)
-        if res is not None:
-            cell, r, c = res
-            return (active_sheet, cell, (r, c))
-
-    # 4. Fallback: Search all other sheets in the workbook
     try:
         sheets = doc.getSheets() if hasattr(doc, "getSheets") else None
         if sheets is not None:
             count = sheets.getCount() if hasattr(sheets, "getCount") else 0
             for i in range(count):
                 sheet = sheets.getByIndex(i)
-                try:
-                    if (
-                        active_sheet is not None
-                        and hasattr(sheet, "getName")
-                        and hasattr(active_sheet, "getName")
-                        and sheet.getName() == active_sheet.getName()
-                    ):
-                        continue
-                except Exception:
-                    pass
-                res = search_sheet_for_formula(sheet, code_str, doc_url=doc_url, cache=active_cache)
-                if res is not None:
-                    cell, r, c = res
-                    return (sheet, cell, (r, c))
+                for cell, r, c in collect_matching_formula_origins(
+                    sheet, code_str, doc_url=doc_url, cache=active_cache
+                ):
+                    _add(sheet, cell, r, c)
+                    if len(collected) > 1:
+                        return None
     except Exception:
         log.debug("locate_formula_cell_in_doc failed across sheets", exc_info=True)
+        return None
 
-    return None
+    if len(collected) != 1:
+        return None
+    sheet, cell, coord = collected[0]
+    try:
+        sheet_name = sheet.getName() if hasattr(sheet, "getName") else "Sheet1"
+        active_cache.put(doc_url, code_str, sheet_name, coord[0], coord[1])
+        for stale_sheet, stale_r, stale_c in list(active_cache.get(doc_url, code_str)):
+            if (stale_sheet, stale_r, stale_c) != (sheet_name, coord[0], coord[1]):
+                active_cache.remove_coordinate(doc_url, code_str, stale_sheet, stale_r, stale_c)
+    except Exception:
+        pass
+    return (sheet, cell, coord)
 
 
 def locate_formula_cell(

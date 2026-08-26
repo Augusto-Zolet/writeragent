@@ -19,6 +19,50 @@ For implementation details, see the [Writer documentation](writer-specialized-to
 
 ---
 
+## 1.1 Architecture and in-process PyUNO integration
+
+Calc chat and tool capabilities in WriterAgent were adapted from the standalone `libre_calc_ai` project, translated and re-architected to run strictly **in-process** within LibreOffice's Python runtime.
+
+- **Single-Process PyUNO**: WriterAgent executes all Calc operations directly inside LibreOffice's Python environment. It does **not** launch socket/pipe bridge servers (`BridgeServer`/`BridgeClient`), standalone PyUNO processes, or external PyQt5 UIs.
+- **Modular Component Layer**:
+  - `calc_bridge`: In-process document, sheet, and cell resolution from the active component context.
+  - `calc_address_utils`: Pure Python A1 address and range parsing/formatting.
+  - `calc_inspector`: Analytical read operations (`read_cell_range`, cell details, formatting metadata).
+  - `calc_sheet_analyzer`: Sheet structure analysis, used range bounds, and data region detection.
+  - `calc_error_detector`: Formula error code mapping (`#N/A`, `#VALUE!`, `#REF!`, `#NAME?`, etc.) exposed via `detect_and_explain_errors`.
+  - `calc_manipulator`: Cell/range write operations, style application, range clearing, and chart creation.
+- **Component Context Requirement**: All document lookups require a valid UNO component context `ctx` passed from the sidebar panel or MainJob menu dispatch. Callers must pass this `ctx` explicitly so WriterAgent never falls back to `uno.getComponentContext()`, which could resolve a different context and cause wrong-document bugs.
+
+---
+
+## 1.2 Calc chat context assembly
+
+When sending a user query in Calc, WriterAgent dynamically builds a structured document snapshot via `get_calc_context_for_chat(model, max_context, ctx)` in [`plugin/doc/document_helpers.py`](../plugin/doc/document_helpers.py) (delegating to `plugin.calc.analyzer`):
+
+- **Context Payload**:
+  - Document URL and filename.
+  - Active sheet name.
+  - Used range dimensions (e.g., `A1:F50`, total rows × columns).
+  - Column headers (first row of the used range).
+  - Active selection range (e.g., `B2:D10`) and, for small selections, a textual preview of selected cell values.
+- **Context Refresh**: Context is regenerated on every chat send so the LLM always sees the current sheet state.
+
+---
+
+## 1.3 System prompt and formula syntax guidance
+
+Calc chat uses `DEFAULT_CALC_CHAT_SYSTEM_PROMPT` (defined in [`plugin/framework/prompts.py`](../plugin/framework/prompts.py)). Prompt selection is governed by `get_chat_system_prompt_for_document(model, additional_instructions)`, ensuring Writer and Calc prompts are never mixed.
+
+- **Formula Parameter Separator**: Calc formulas use **semicolons** (`;`) as parameter separators (e.g. `=SUM(A1; A2)` or `=IF(A1>0; "Yes"; "No")`), matching LibreOffice Calc standards.
+- **Cross-Sheet References**: Cross-sheet references use **dot notation** (e.g. `Orders.A1` or `'Sheet Name'.B5`). Excel-style exclamation points (`Sheet1!A1`) cause `#NAME?` errors in Calc.
+- **3-Step Workflow**: System prompts guide the LLM to follow a 3-step execution pattern:
+  1. Obtain sheet summary / small cell range peek (`get_sheet_summary` or `read_cell_range`).
+  2. Execute direct operations via tools without lengthy conversational explanations.
+  3. Provide a brief confirmation referencing modified cell/range addresses.
+- **Bulk CSV / Formula Range Writing**: `write_formula_range` performs bulk programmatic `setDataArray`/`setFormulaArray` updates, and can ingest raw CSV string blocks (parsing delimiters automatically) without file I/O overhead.
+
+---
+
 ## 2. Calc domains and feature coverage
 
 WriterAgent organizes Calc tools into specialized domains to keep the main chat toolset focused. Below is the current implementation status and roadmap.
@@ -57,7 +101,7 @@ WriterAgent's `write_formula_range` tool takes a different design approach than 
 | **Cells** | ✅ Implemented | `cells.py`: `read_cell_range`, `write_formula_range`, `set_style`, `insert_cell_html` ([`rich_html.py`](../plugin/calc/rich_html.py)), merge/sort/delete helpers | Basic range + style + **HTML → rich text in one cell** ([§ Rich HTML in a single cell](#rich-html-in-a-single-cell)). Full read/write date & time lifecycle (ISO + duration `PT…` wire): [calc-date-time-handling.md](calc-date-time-handling.md). `read_cell_range` returns ISO/`PTnHnMnS` in `value` with `type` / `format_category`; `write_formula_range` ingests the same shapes as real Calc serials. |
 | **Ranges** | ✅ Implemented | `cells.py`: Get/SetRangeValues, Get/SetRangeFormulas | — |
 | **Sheets** | ✅ Implemented | `sheets.py`, `sheet_filter.py`: ListSheets, CreateSheet, SwitchSheet, GetSheetSummary, `apply_sheet_filter`, `clear_sheet_filter`, `get_sheet_filter` | Basic sheet ops + AutoFilter |
-| **Formulas** | ⚠️ Partial | `cells.py` (`write_formula_range` + compound undo); `list_calc_functions` / `evaluate_formula` implemented; `FormulaDepChain` via [`formula_dep_chain.py`](../plugin/calc/formula_dep_chain.py) | — |
+| **Formulas & Error Detection** | ✅ Implemented | `cells.py` (`write_formula_range` + compound undo); `list_calc_functions` / `evaluate_formula`; `detect_and_explain_errors` ([`calc_error_detector.py`](../plugin/calc/error_detector.py)); `FormulaDepChain` ([`formula_dep_chain.py`](../plugin/calc/formula_dep_chain.py)) | Formula evaluation, error explanation (`#N/A`, `#VALUE!`, `#REF!`, `#NAME?`), dependency tracking |
 | **Charts** | ✅ Implemented | `charts.py`: `manage_charts` only (shared with Writer and Draw; skinny classes are Dummy backends) | Fat API: `list`, `get_info`, `create`, `edit`, `delete` actions |
 | **Named Ranges** | ✅ Implemented | [`named_ranges.py`](../plugin/calc/named_ranges.py): `named_range_list`, `named_range_get_info`, `named_range_add`, `named_range_edit`, `named_range_delete`, `named_range_create_from_titles` | Domain-first naming. Global and sheet-local scopes, `NamedRangeFlag` bitmasks (print area, filter criteria), base position parsing, dynamic formulas, header-based creation (`Border.TOP/BOTTOM/LEFT/RIGHT`), and transparent resolution in `read_cell_range` / `write_formula_range`. |
 | **Data Validation** | ✅ Implemented | `validation.py`: SetDataValidation, GetDataValidationRules | Specialized tier |

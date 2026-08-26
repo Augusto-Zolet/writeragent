@@ -707,15 +707,21 @@ def run_stream_async(ctx, client, messages, tools=None, apply_chunk_fn=None, on_
     _run_client_stream(ctx, client_call, apply_chunk_fn=apply_chunk_fn, on_done_fn=on_done_fn, on_error_fn=on_error_fn, stop_checker=stop_checker, name="stream-async", include_status=False)
 
 
-def run_blocking_in_thread(ctx, func, *args, **kwargs):
+def run_blocking_in_thread(ctx, func, *args, pump_idle: bool = True, **kwargs):
     """
-    Run a blocking function in a background thread while pumping UNO events
-    on the main thread to keep the UI responsive.
+    Run a blocking function in a background thread.
+
+    When *pump_idle* is True (default), pump UNO events on the caller thread so
+    the UI stays responsive (STT, notebook). When False, wait without
+    ``processEventsToIdle`` — required for Calc ``=PROMPT()`` because pumping
+    inside recalc re-enters the formula engine (``#VALUE!``). ``=PY()`` already
+    avoids this helper for the same reason.
+
+    Never runs *func* on the caller thread: a missing Toolkit used to fall back
+    to a synchronous call, which blocked recalc with no worker isolation.
 
     The internal queue uses :class:`BlockingPumpKind` as the first tuple
     element only (same contract as :class:`StreamQueueKind` for the stream drain).
-
-    Returns the result of the function or raises the exception encountered.
     """
     # crosshair: off
     q: "queue.Queue[BlockingPumpQueueItem]" = queue.Queue()
@@ -727,12 +733,13 @@ def run_blocking_in_thread(ctx, func, *args, **kwargs):
         except Exception as e:
             q.put((BlockingPumpKind.ERROR, e))
 
-    try:
-        toolkit = ctx.getServiceManager().createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
-    except Exception as e:
-        log.warning("run_blocking_with_pump: Failed to create toolkit, running synchronously. %s", e)
-        # Fallback if toolkit isn't available (unlikely in UI context)
-        return func(*args, **kwargs)
+    toolkit = None
+    if pump_idle:
+        try:
+            toolkit = ctx.getServiceManager().createInstanceWithContext("com.sun.star.awt.Toolkit", ctx)
+        except Exception as e:
+            log.warning("run_blocking_with_pump: Failed to create toolkit, waiting without pump. %s", e)
+            toolkit = None
 
     run_in_background(worker, daemon=True, name="blocking-thread", dedicated=True)
 
@@ -740,8 +747,7 @@ def run_blocking_in_thread(ctx, func, *args, **kwargs):
     # drain. pump_ui_idle remains the owner-safe VCL pump path.
     while True:
         try:
-            # Check for result without long block
-            item = q.get(timeout=0.1)
+            item = q.get(timeout=0.1 if (pump_idle and toolkit is not None) else None)
             kind, data = item
             if not isinstance(kind, BlockingPumpKind):
                 ek = TypeError("blocking pump queue item kind must be BlockingPumpKind, got %s" % (type(kind).__name__,))
@@ -752,7 +758,8 @@ def run_blocking_in_thread(ctx, func, *args, **kwargs):
             if kind == BlockingPumpKind.ERROR:
                 raise data
         except queue.Empty:
-            pump_ui_idle(toolkit)
+            if pump_idle and toolkit is not None:
+                pump_ui_idle(toolkit)
 
 
 # ── Streaming Delta Accumulation (OpenAI-Compatible) ───────────────

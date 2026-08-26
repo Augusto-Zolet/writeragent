@@ -887,7 +887,7 @@ See [scripting-numpy-domains.md](scripting-numpy-domains.md) and [image-recognit
 - [Monaco editor dev plan](scripting-monaco-editor-dev-plan.md) — IPC, phases 2B–2F
 - [Image Recognition](image-recognition.md) — Vision/OCR design
 - [Math / TeX import](writer-math-tex.md) — LaTeX, MathML, StarMath pipeline
-- [Calc integration](calc-integration.md) — broader Calc chat/tools (WriterAgent scope)
+- [Calc specialized toolsets](calc-specialized-toolsets.md) — broader Calc chat/tools (WriterAgent scope)
 
 **Out of scope for core** (separate PM/dev docs): [embeddings.md](embeddings.md), [calc-duckdb-dev-plan.md](calc-duckdb-dev-plan.md), [writer-jupyter-notebook-import.md](writer-jupyter-notebook-import.md), [calc-spreadsheet-to-python-import.md](calc-spreadsheet-to-python-import.md)
 

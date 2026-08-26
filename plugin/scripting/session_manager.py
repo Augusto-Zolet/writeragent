@@ -126,6 +126,10 @@ def _find_document_by_predicate(ctx: Any, predicate: Any) -> Any | None:
 _ACTIVE_CALC_SESSION_LOCK = threading.Lock()
 _LAST_ACTIVE_CALC_SESSION_ID: str | None = None
 _LAST_ACTIVE_CALC_INIT_KWARGS: dict[str, Any] = {}
+# Session ids recorded while workbooks were on the UI thread. Off-main recalc
+# may use the cache only when exactly one workbook is recorded — two open files
+# would otherwise run doc B in doc A's shared kernel (XAddIn has no calling doc).
+_RECORDED_CALC_SESSION_IDS: set[str] = set()
 
 
 def record_active_calc_session(session_id: str | None, init_kwargs: dict[str, Any] | None = None) -> None:
@@ -134,8 +138,21 @@ def record_active_calc_session(session_id: str | None, init_kwargs: dict[str, An
     with _ACTIVE_CALC_SESSION_LOCK:
         if session_id is not None:
             _LAST_ACTIVE_CALC_SESSION_ID = session_id
+            _RECORDED_CALC_SESSION_IDS.add(session_id)
         if init_kwargs:
             _LAST_ACTIVE_CALC_INIT_KWARGS = dict(init_kwargs)
+
+
+def recorded_calc_session_count() -> int:
+    """How many distinct Calc workbook sessions are currently recorded."""
+    with _ACTIVE_CALC_SESSION_LOCK:
+        return len(_RECORDED_CALC_SESSION_IDS)
+
+
+def off_main_calc_session_is_unambiguous() -> bool:
+    """True when off-main recalc can safely reuse the cached shared kernel."""
+    with _ACTIVE_CALC_SESSION_LOCK:
+        return len(_RECORDED_CALC_SESSION_IDS) == 1
 
 
 
@@ -155,9 +172,16 @@ def clear_active_calc_session(session_id: str | None = None) -> None:
     """Clear cached Calc session on document unload or reset."""
     global _LAST_ACTIVE_CALC_SESSION_ID, _LAST_ACTIVE_CALC_INIT_KWARGS
     with _ACTIVE_CALC_SESSION_LOCK:
-        if session_id is None or _LAST_ACTIVE_CALC_SESSION_ID == session_id:
+        if session_id is None:
+            _RECORDED_CALC_SESSION_IDS.clear()
             _LAST_ACTIVE_CALC_SESSION_ID = None
             _LAST_ACTIVE_CALC_INIT_KWARGS = {}
+        else:
+            _RECORDED_CALC_SESSION_IDS.discard(session_id)
+            if _LAST_ACTIVE_CALC_SESSION_ID == session_id:
+                _LAST_ACTIVE_CALC_SESSION_ID = next(iter(_RECORDED_CALC_SESSION_IDS), None)
+                # Remaining workbook's init is unknown; do not keep the closed file's kwargs.
+                _LAST_ACTIVE_CALC_INIT_KWARGS = {}
     try:
         from plugin.calc.python.function import clear_python_addin_cache
 
@@ -237,8 +261,11 @@ def workbook_session_id(ctx: Any, doc: Any | None = None) -> str | None:
     from plugin.framework.thread_guard import on_main_thread
 
     # Off-main threads without an explicit doc must not query the desktop (Yellow contract #402, #411).
-    # Return the UI-thread-cached session id instead.
+    # XAddIn never names the recalculating workbook: reuse the cache only when a
+    # single workbook is recorded. Two open files would bleed shared-kernel state.
     if not on_main_thread():
+        if not off_main_calc_session_is_unambiguous():
+            return None
         return get_cached_calc_session_id()
 
     target = _calc_document(ctx)

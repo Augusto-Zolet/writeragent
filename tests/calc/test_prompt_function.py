@@ -34,6 +34,7 @@ def test_prompt_default_system_is_plain_cell_prompt(mock_get_config_int, mock_ge
     assert messages[0]["role"] == "system"
     assert messages[0]["content"] == CALC_PROMPT_CELL_SYSTEM_PROMPT
     assert messages[0]["content"] != CALC_PYTHON_FORMULA_LLM_HINT
+    assert mock_run.call_args.kwargs.get("pump_idle") is False
 
 
 @patch("plugin.calc.prompt_function.run_blocking_in_thread")

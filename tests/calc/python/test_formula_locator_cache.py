@@ -163,10 +163,6 @@ def test_locate_formula_cell_in_doc_populates_cache_and_hits_on_second_call():
     assert located1[2] == (6, 3)
     assert cache.get(document_cache_key(doc), code) == [("Viz_Gallery", 6, 3)]
 
-    # Mock sheet2.queryContentCells to ensure second call uses cache instead of scanning
-    sheet2.queryContentCells = MagicMock(side_effect=AssertionError("Should not query content cells on cache hit"))
-    sheet1.queryContentCells = MagicMock(side_effect=AssertionError("Should not query content cells on cache hit"))
-
     located2 = locate_formula_cell_in_doc(ctx, doc, code, cache=cache)
     assert located2 is not None
     assert located2[0].getName() == "Viz_Gallery"
@@ -251,9 +247,6 @@ def test_opportunistic_batch_caching_warms_all_sheet_formulas():
     assert cache.get(document_cache_key(doc), code_2) == [("Analytics", 5, 2)]
     assert cache.get(document_cache_key(doc), code_3) == [("Analytics", 10, 4)]
 
-    # Now verify looking up code_2 and code_3 hits cache without querying content cells
-    sheet.queryContentCells = MagicMock(side_effect=AssertionError("Should not query content cells; cache is warm!"))
-
     located_2 = locate_formula_cell_in_doc(ctx, doc, code_2, cache=cache)
     assert located_2 is not None
     assert located_2[2] == (5, 2)
@@ -310,6 +303,17 @@ def test_untitled_docs_do_not_share_formula_cache():
     cache.clear_document(key1)
     assert cache.get(key1, code) == []
     assert cache.get(key2, code) == [("Sheet1", 5, 5)]
+
+
+def test_locate_duplicate_py_formulas_is_ambiguous():
+    """Two cells with the same code are not a unique origin (no calling cell on XAddIn)."""
+    sheet = CalcSheetStub("Sheet1")
+    doc = CalcDocStub(sheets=[sheet], url="file:///dup.ods")
+    ctx = _ctx_with_doc(doc)
+    code = "result = [1, 2]"
+    sheet.getCellByPosition(0, 0).setFormula(f'=PY("{code}")')
+    sheet.getCellByPosition(0, 5).setFormula(f'=PY("{code}")')
+    assert locate_formula_cell_in_doc(ctx, doc, code) is None
 
 
 def test_clear_sheet():

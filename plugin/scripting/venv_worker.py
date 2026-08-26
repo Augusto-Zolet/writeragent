@@ -66,6 +66,25 @@ class _NonReplayableIpcWriteTimeout(RuntimeError):
     """A mid-turn host response timed out after side effects may have occurred."""
 
 
+_SHARED_WORKER_RESTART_HINT = " Shared Python process restarted (all workbooks)."
+
+
+def _clear_host_state_after_worker_death() -> None:
+    """IPC is desynced after a kill; drop cached session/scalar state so other books restart cold."""
+    try:
+        from plugin.scripting.session_manager import clear_active_calc_session
+
+        clear_active_calc_session()
+    except Exception:
+        log.debug("venv_worker: clear_active_calc_session after death failed", exc_info=True)
+    try:
+        from plugin.calc.python.function import clear_python_addin_cache
+
+        clear_python_addin_cache()
+    except Exception:
+        log.debug("venv_worker: clear_python_addin_cache after death failed", exc_info=True)
+
+
 def _worker_error_message(exc: BaseException) -> str:
     """Build a short user-facing worker error without subprocess command paths."""
     if isinstance(exc, subprocess.TimeoutExpired):
@@ -329,18 +348,20 @@ class PythonWorkerManager:
                     # User code / C-extension hung: killing and replaying would double the wait.
                     log.warning("Python worker read timed out: %s", e)
                     self._terminate_worker()
+                    _clear_host_state_after_worker_death()
                     return _worker_error(
                         "VENV_TIMEOUT",
-                        _worker_error_message(e),
+                        _worker_error_message(e) + _SHARED_WORKER_RESTART_HINT,
                         details={"timeout_sec": timeout_sec, "exe": self.exe},
                     )
                 return self._normalize_response(response)
             except _NonReplayableIpcWriteTimeout as e:
                 log.warning("Python worker failed without replay: %s", e)
                 self._terminate_worker()
+                _clear_host_state_after_worker_death()
                 return _worker_error(
                     "WORKER_IPC_ERROR",
-                    f"Python worker failed: {e}",
+                    f"Python worker failed: {e}{_SHARED_WORKER_RESTART_HINT}",
                     details={"exe": self.exe},
                 )
             except (BrokenPipeError, ValueError, RuntimeError, subprocess.TimeoutExpired, OSError) as e:
@@ -348,6 +369,7 @@ class PythonWorkerManager:
                 # fresh worker. Host read timeouts return above without replay.
                 log.warning("Python worker failed (attempt %s): %s", attempt + 1, e)
                 self._terminate_worker()
+                _clear_host_state_after_worker_death()
                 if attempt == 1:
                     code_val = "VENV_TIMEOUT" if isinstance(e, subprocess.TimeoutExpired) else "WORKER_IPC_ERROR"
                     return _worker_error(
@@ -488,6 +510,7 @@ class PythonWorkerManager:
             # pool. Killing the child closes the pipe reader and unblocks the writer.
             log.warning("%s write timed out after %ss; terminating Python worker", label, timeout_sec)
             self._terminate_worker()
+            _clear_host_state_after_worker_death()
             writer.join(timeout=5)
             if writer.is_alive():
                 log.error("%s writer thread remained blocked after worker termination", label)

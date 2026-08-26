@@ -253,6 +253,34 @@ def test_run_blocking_in_thread():
     assert run_blocking_in_thread(ctx, blocking_func) == "success"
 
 
+def test_run_blocking_in_thread_pump_idle_false_does_not_pump():
+    from unittest.mock import MagicMock, patch
+    from plugin.framework.async_stream import run_blocking_in_thread
+
+    ctx = MagicMock()
+    with patch("plugin.framework.async_stream.pump_ui_idle") as pump:
+        assert run_blocking_in_thread(ctx, lambda: "ok", pump_idle=False) == "ok"
+    pump.assert_not_called()
+
+
+def test_run_blocking_in_thread_toolkit_fail_runs_off_caller():
+    import threading
+    from unittest.mock import MagicMock
+    from plugin.framework.async_stream import run_blocking_in_thread
+
+    caller = threading.get_ident()
+    ran_on: list[int] = []
+    ctx = MagicMock()
+    ctx.getServiceManager.side_effect = RuntimeError("no toolkit")
+
+    def blocking_func():
+        ran_on.append(threading.get_ident())
+        return "ok"
+
+    assert run_blocking_in_thread(ctx, blocking_func) == "ok"
+    assert ran_on and ran_on[0] != caller
+
+
 def test_run_blocking_in_thread_error():
     from unittest.mock import MagicMock
     from plugin.framework.async_stream import run_blocking_in_thread

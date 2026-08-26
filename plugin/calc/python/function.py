@@ -34,6 +34,7 @@ from plugin.calc.datetime_wire import (
 )
 from plugin.calc.inspector import _format_category_from_type
 from plugin.calc.python.formula_locator_cache import (
+    is_matching_py_formula,
     locate_formula_cell_in_doc,
 )
 from plugin.calc.python.image_egress import insert_image_result_on_sheet
@@ -266,9 +267,13 @@ def _get_calc_doc(ctx: Any) -> Any | None:
 def session_key(ctx: Any, code: str, doc: Any | None = None) -> tuple:
     # Bugfix (#402, #411): Include workbook session_id in key so unsaved documents
     # (where doc_url="") do not collide in the in-memory formula result cache.
+    # Do not use getActiveSheet(): full recalc's active sheet is not the formula cell
+    # (XAddIn has no calling cell). Unique locate fills sheet+origin; otherwise
+    # callers must not share WorkerResultSession.
     doc_url = ""
     sheet_name = ""
     sid = ""
+    origin = ""
     try:
         target = doc
         if target is None:
@@ -281,19 +286,19 @@ def session_key(ctx: Any, code: str, doc: Any | None = None) -> tuple:
         if target is not None:
             url_val = getattr(target, "getURL", lambda: "")()
             doc_url = url_val if isinstance(url_val, str) else ""
-            ctrl = getattr(target, "getCurrentController", lambda: None)()
-            if ctrl is not None:
-                sheet = getattr(ctrl, "getActiveSheet", lambda: None)()
-                if sheet is not None:
-                    name_val = getattr(sheet, "getName", lambda: "")()
-                    sheet_name = name_val if isinstance(name_val, str) else ""
             from plugin.scripting.session_manager import workbook_session_id
 
             sid = workbook_session_id(ctx, doc=target) or ""
+            located = locate_formula_cell_in_doc(ctx, target, code)
+            if located is not None:
+                sheet, _cell, coord = located
+                name_val = getattr(sheet, "getName", lambda: "")()
+                sheet_name = name_val if isinstance(name_val, str) else ""
+                origin = f"{coord[0]},{coord[1]}"
 
     except Exception:
         log.debug("session_key inline metadata lookup exception", exc_info=True)
-    return (doc_url, sheet_name, sid, code)
+    return (doc_url, sheet_name, sid, code, origin)
 
 
 
@@ -321,7 +326,11 @@ def scalar_for_list_result(
     if not flat:
         return ""
     tid = threading.get_ident()
-    key = (tid, session_key(ctx, code, doc=doc), repr(worker_data))
+    sk = session_key(ctx, code, doc=doc)
+    if len(sk) < 5 or not sk[4]:
+        # Ambiguous formula identity: do not share next_index across duplicate =PY() cells.
+        return flat[0] if flat else ""
+    key = (tid, sk, repr(worker_data))
     with _MATRIX_SCALAR_SESSIONS_LOCK:
         state = _MATRIX_SCALAR_SESSIONS.get(key)
         if not isinstance(state, WorkerResultSession) or state.flat != tuple(flat):
@@ -342,6 +351,8 @@ def scalar_for_list_result(
 # Value: list of (spilled_row, spilled_col) coordinates
 SPILL_REGISTRY: dict[tuple[str, str, int, int], list[tuple[int, int]]] = {}
 LOADED_DOCUMENTS: set[str] = set()
+_PENDING_SPILL_LOCK = threading.Lock()
+_PENDING_SPILL_TIMERS: list[tuple[str, threading.Timer]] = []
 
 import unohelper
 from com.sun.star.util import XModifyListener
@@ -602,6 +613,9 @@ def perform_deferred_spill(
     formula_col: int,
     grid: list[list[Any]],
     doc: Any | None = None,
+    *,
+    code: str = "",
+    lifecycle_key: str = "",
 ) -> None:
     """Clear old spilled cells and write new values deferred (collision check is done synchronously)."""
     try:
@@ -620,10 +634,30 @@ def perform_deferred_spill(
             current_url = getattr(doc, "getURL", lambda: "")() or ""
             if current_url != doc_url:
                 return
+            if lifecycle_key:
+                try:
+                    from plugin.calc.python.workbook_lifecycle import _lifecycle_key
+
+                    if _lifecycle_key(doc) != lifecycle_key:
+                        # Closed file reopened with the same URL is a new instance.
+                        return
+                except Exception:
+                    log.debug("perform_deferred_spill: lifecycle key check failed", exc_info=True)
+                    return
 
             sheet = doc.getSheets().getByName(sheet_name)
             if sheet is None:
                 return
+
+            if code:
+                try:
+                    origin_cell = sheet.getCellByPosition(formula_col, formula_row)
+                    if not is_matching_py_formula(origin_cell.getFormula(), code):
+                        # Formula moved or replaced; do not clear/write stale coordinates.
+                        return
+                except Exception:
+                    log.debug("perform_deferred_spill: origin formula check failed", exc_info=True)
+                    return
 
             reg_key = (doc_url, sheet_name, formula_row, formula_col)
         
@@ -903,15 +937,27 @@ def finalize_python_return(
                             return "#SPILL!"
 
                         from plugin.framework.queue_executor import post_to_main_thread
+                        from plugin.calc.python.workbook_lifecycle import _lifecycle_key
+
+                        spill_lifecycle = _lifecycle_key(target_doc)
 
                         def _deferred_spill_on_main() -> None:
                             post_to_main_thread(
                                 lambda: perform_deferred_spill(
-                                    ctx, doc_url, sheet_name, formula_row, formula_col, grid_to_spill, doc=target_doc
+                                    ctx,
+                                    doc_url,
+                                    sheet_name,
+                                    formula_row,
+                                    formula_col,
+                                    grid_to_spill,
+                                    doc=target_doc,
+                                    code=code,
+                                    lifecycle_key=spill_lifecycle,
                                 )
                             )
 
                         t = threading.Timer(0.1, _deferred_spill_on_main)
+                        _register_spill_timer(spill_lifecycle, t)
                         t.start()
 
                         return to_calc_compatible(grid_to_spill[0][0])
@@ -980,6 +1026,12 @@ def get_python_init_kwargs(ctx: Any, doc: Any | None = None) -> dict[str, Any]:
             if on_main_thread():
                 target = get_calc_document_from_ctx(ctx)
             else:
+                from plugin.scripting.session_manager import off_main_calc_session_is_unambiguous
+
+                # Two open workbooks: cached init belongs to the last focused file, not
+                # the one Calc is recalculating (add-in has no calling document).
+                if not off_main_calc_session_is_unambiguous():
+                    return {}
                 return get_cached_calc_init_kwargs()
         if target is not None:
             try:
@@ -1046,6 +1098,39 @@ def clear_python_addin_cache() -> None:
     """Clear formula result cache across all threads (e.g. on session reset or document reload)."""
     with _MATRIX_SCALAR_SESSIONS_LOCK:
         _MATRIX_SCALAR_SESSIONS.clear()
+
+
+def _register_spill_timer(lifecycle_key: str, timer: threading.Timer) -> None:
+    with _PENDING_SPILL_LOCK:
+        _PENDING_SPILL_TIMERS.append((lifecycle_key, timer))
+
+
+def cancel_pending_spill_timers(lifecycle_key: str) -> None:
+    """Cancel deferred spill timers for a workbook that is unloading."""
+    with _PENDING_SPILL_LOCK:
+        keep: list[tuple[str, threading.Timer]] = []
+        for key, timer in _PENDING_SPILL_TIMERS:
+            if key == lifecycle_key:
+                try:
+                    timer.cancel()
+                except Exception:
+                    pass
+            else:
+                keep.append((key, timer))
+        _PENDING_SPILL_TIMERS[:] = keep
+
+
+def clear_in_memory_spill_state(*, doc_url: str = "", lifecycle_key: str = "") -> None:
+    """Drop instance-scoped spill maps. UD property is left for a later open of the same file."""
+    if lifecycle_key:
+        cancel_pending_spill_timers(lifecycle_key)
+    if doc_url:
+        LOADED_DOCUMENTS.discard(doc_url)
+        for key in [k for k in SPILL_REGISTRY if k[0] == doc_url]:
+            SPILL_REGISTRY.pop(key, None)
+        for skey in [k for k in SHEET_MODIFY_LISTENERS if k[0] == doc_url]:
+            SHEET_MODIFY_LISTENERS.pop(skey, None)
+    clear_python_addin_cache()
 
 
 def execute_python_addin(
@@ -1138,9 +1223,11 @@ def _execute_python_addin_impl(
                 target_doc = _calc_document(ctx)
 
         tid = threading.get_ident()
-        cache_key = (tid, session_key(ctx, code, doc=target_doc), repr(worker_data))
+        sk = session_key(ctx, code, doc=target_doc)
+        unique_origin = bool(sk[4]) if len(sk) > 4 else False
+        cache_key = (tid, sk, repr(worker_data))
         with _MATRIX_SCALAR_SESSIONS_LOCK:
-            cached = _MATRIX_SCALAR_SESSIONS.get(cache_key)
+            cached = _MATRIX_SCALAR_SESSIONS.get(cache_key) if unique_origin else None
         if isinstance(cached, WorkerResultSession) and cached.next_index < len(cached.flat):
             used_cache = True
             res = {"status": "ok", "result": cached.raw}
@@ -1178,7 +1265,7 @@ def _execute_python_addin_impl(
             if images:
                 t_img = time.perf_counter() if timings else 0.0
                 for img in images:
-                    insert_image_result_on_sheet(ctx, img, code=code)
+                    insert_image_result_on_sheet(ctx, img, code=code, doc=target_doc)
                 if timings:
                     image_ms = int(round((time.perf_counter() - t_img) * 1000))
                 return _("Image inserted") if len(images) == 1 else _("Images inserted")
