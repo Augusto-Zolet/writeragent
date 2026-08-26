@@ -903,6 +903,10 @@ def _flatten_update_column_state(column_states: list[int], c: int, val: Any) -> 
             column_states[c] = 2
     elif tname.startswith("float"):
         column_states[c] = 3
+    else:
+        # Decimal/Fraction/etc. already survived float(val). Default to float,
+        # matching Cython _update_column_state — not int (state 0).
+        column_states[c] = 3
 
 
 def _flatten_append_cell_slow(
@@ -1511,7 +1515,16 @@ def _child_unpack_single_data(wire: Any) -> Any:
         else:
             grid = list(unpacked)
         if is_numeric_grid(grid):
-            arr = np.array(grid, dtype=np.float64)
+            # is_numeric_coercible treats whitespace/"" as Calc blanks, but
+            # np.float64 cannot convert those strings (ValueError). Keep the list.
+            try:
+                arr = np.array(grid, dtype=np.float64)
+            except ValueError:
+                log.debug(
+                    "payload_codec child_unpack json_list as-is (non-floatable blanks) %s",
+                    describe_wire_value(unpacked),
+                )
+                return grid
             log.debug(
                 "payload_codec child_unpack json_list -> ndarray shape=%s",
                 arr.shape,

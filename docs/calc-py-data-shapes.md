@@ -122,8 +122,8 @@ Microsoft Python in Excel also collapses empty → `NaN` on ingress and renders 
 
 | Grid type in the venv | Empty Calc cell becomes | Notes |
 | --- | --- | --- |
-| **Mixed** (any text in range) | `None` in `list` / `list[list]` (inside `CalcRange.values`) | Same as small-list path |
-| **Pure numeric** (≥100 cells, split_grid) | `np.nan` when using `data.to_numpy()` / `__array__` | Use `np.nansum`, `np.nanmean`, or `np.isnan` |
+| **Mixed** (any text in range) | `None` in `list` / `list[list]` (inside `CalcRange.values`) | Same as small-list path. Real `float('nan')` in a mixed grid is also `None` — the wire has no blank-vs-NaN bit. |
+| **Pure numeric** (≥100 cells, split_grid) | `np.nan` when using `data.to_numpy()` / `__array__` | Use `np.nansum`, `np.nanmean`, or `np.isnan`. Real NaN and blanks are both `np.nan` here. |
 | **Small range** (<100 cells, nested list) | `None` in `.values` | May promote to ndarray only if reloaded as clean numeric |
 
 Ingress blanks can poison naive `np.sum` / `np.mean` — prefer `nan*` helpers when blanks should be ignored.
@@ -133,7 +133,8 @@ Ingress blanks can poison naive `np.sum` / `np.mean` — prefer `nan*` helpers w
 - Python `None` → `""` (empty cell).
 - `float('nan')` / `np.nan` → raw NaN → cascading error cell.
 - `±inf` passes through (may also error in formulas). **Not a missing-value sentinel.**
-- `decimal.Decimal` → `float` (precision loss is accepted; Calc only has doubles).
+- `decimal.Decimal` → `float` (precision loss is accepted; Calc only has doubles). Column kind must stay `"float"`, not `"int"` (truncation is not accepted).
+- **Int fidelity:** the `split_grid` buffer is float64. Integers outside ±2^53 round on pack and unpack. Account numbers and 64-bit IDs should travel as strings. There is no int64 wire lane (Calc cells are doubles anyway).
 - For a visible non-error marker, return a string:
 
 ```python
