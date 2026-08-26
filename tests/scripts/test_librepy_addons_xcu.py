@@ -216,5 +216,7 @@ def test_librepy_images_section_points_at_python_assets():
             by_url[url] = small
     run_url = "org.extension.librepy:scripting.run_python_dialog"
     cell_url = "org.extension.librepy:scripting.edit_python_cell"
+    settings_url = "org.extension.librepy:main.settings"
     assert by_url[run_url] == "%origin%/assets/python_32.png"
     assert by_url[cell_url] == "%origin%/assets/python_cell_32.png"
+    assert by_url[settings_url] == "%origin%/assets/gear_32.png"

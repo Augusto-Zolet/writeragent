@@ -118,7 +118,7 @@ def show_hamburger_menu(ctx: Any, frame: Any, button_ctrl: Any) -> None:
         pos += 1
 
         # 5. Settings & Servers with Dynamic MCP Status
-        add_item(popup, _("Settings"), "main.settings", pos)
+        add_item(popup, _("Settings"), "main.settings", pos, "gear_32.png")
         pos += 1
         add_item(popup, _("Vision OCR Settings..."), "vision.open_settings", pos)
         pos += 1

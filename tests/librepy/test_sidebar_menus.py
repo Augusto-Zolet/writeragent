@@ -43,6 +43,8 @@ def test_calc_hamburger_includes_python_and_cell_not_search():
     assert "scripting.edit_python_cell" in actions
     assert "scripting.reset_python_session" in actions
     assert "main.settings" in actions
+    by_action = {a: icon for _label, a, icon in rows}
+    assert by_action["main.settings"] == "gear_32.png"
     assert "vision.open_settings" in actions
     assert "main.report_bug" in actions
     assert "embeddings.search_dialog" not in actions

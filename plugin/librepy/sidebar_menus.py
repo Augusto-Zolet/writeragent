@@ -37,7 +37,7 @@ def _librepy_hamburger_specs() -> tuple[tuple[str, str, str | None, str], ...]:
         (_("Edit Python in Cell..."), "scripting.edit_python_cell", "python_cell_32.png", "calc"),
         (_("Insert LaTeX Math..."), "writer.insert_latex_dialog", "latex_32.png", "writer"),
         (_("Text Analytics..."), "textanalytics.open_dialog", None, "writer"),
-        (_("Settings"), "main.settings", None, "always"),
+        (_("Settings"), "main.settings", "gear_32.png", "always"),
         (_("Vision OCR Settings..."), "vision.open_settings", None, "always"),
         (_("Reset Python Session"), "scripting.reset_python_session", None, "always"),
         (_("Report bug..."), "main.report_bug", None, "always"),

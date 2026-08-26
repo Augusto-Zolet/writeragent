@@ -216,3 +216,5 @@ def test_writeragent_mcp_images_section_points_at_assets():
     jupyter = _PROTOCOL + "scripting.import_ipynb"
     assert jupyter in by_url
     assert by_url[jupyter] == "%origin%/assets/jupyter_32.png"
+    settings = _PROTOCOL + "main.settings"
+    assert by_url[settings] == "%origin%/assets/gear_32.png"

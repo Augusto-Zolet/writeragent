@@ -482,6 +482,19 @@
           </prop>
         </node>
       </node>
+      <node oor:name="org.extension.writeragent.main.settings.img" oor:op="replace">
+        <prop oor:name="URL">
+          <value>org.extension.writeragent:main.settings</value>
+        </prop>
+        <node oor:name="UserDefinedImages">
+          <prop oor:name="ImageSmallURL">
+            <value>%origin%/assets/gear_32.png</value>
+          </prop>
+          <prop oor:name="ImageBigURL">
+            <value>%origin%/assets/gear_32.png</value>
+          </prop>
+        </node>
+      </node>
     </node>
   </node>
 </oor:component-data>

@@ -59,6 +59,7 @@ class TestHamburgerMenu:
             show_hamburger_menu(ctx, MagicMock(), button_ctrl)
 
         assert any(c.args[-1] == "jupyter_32.png" for c in load_g.call_args_list)
+        assert any(c.args[-1] == "gear_32.png" for c in load_g.call_args_list)
         labels = [c.args[1] for c in popup.insertItem.call_args_list]
         assert any("Jupyter" in str(label) for label in labels)
 
