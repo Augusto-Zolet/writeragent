@@ -141,6 +141,9 @@ def test_run_cell_updates_registry_and_execution_count():
 
 
 def test_run_cell_logs_status_after_execute():
+    from tests.strip_bundle import skip_if_release_build
+
+    skip_if_release_build("log.info stripped in release bundle")
     src = inspect.getsource(run_cell)
     assert "status=%s" in src
     assert src.find("execute_code(") < src.find("status=%s")

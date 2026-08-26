@@ -505,6 +505,9 @@ def test_empty_and_delegate_formatters_dropped_from_check_all_fqns():
     """Deep check-all run 32840960268: engine traceback after 1:53 / Prev 56:34."""
     from pathlib import Path
 
+    from tests.strip_bundle import skip_if_release_build
+
+    skip_if_release_build("scripts/ not in stripped release tree")
     from scripts.crosshair_stream import cover_fqns_for_module
 
     fqns = cover_fqns_for_module(Path("plugin/chatbot/tool_loop_state.py"), require_deal=True)
