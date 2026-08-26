@@ -55,7 +55,15 @@ from plugin.calc.excel_py_convert.models import (
     HeaderMode,
 )
 from plugin.calc.excel_py_convert.resolve_refs import ResolvedDep, resolve_deps
-from plugin.framework.deal_shim import DEAL_MAX_PLACEHOLDER_INDEX, DEAL_MAX_SOURCE, DEAL_MAX_XL_EXPR, str_bounded, deal
+from plugin.framework.deal_shim import (
+    DEAL_MAX_CMD_ARGS,
+    DEAL_MAX_PLACEHOLDER_INDEX,
+    DEAL_MAX_SOURCE,
+    DEAL_MAX_XL_EXPR,
+    inverse_ensure,
+    str_bounded,
+    deal,
+)
 
 _P_TOKEN_RE = re.compile(r"^%P(\d+)%$", re.IGNORECASE)
 # Bare Excel placeholder in source (not anchored); same length as ``_Pn_`` sentinel.
@@ -149,7 +157,7 @@ def _skip_string(src: str, i: int) -> int:
 
 
 @deal.pre(lambda src, *_unused, **__: str_bounded(src, DEAL_MAX_SOURCE))
-@deal.ensure(lambda *args, result="", **kwargs: len(result) == len(args[0]))
+@inverse_ensure(lambda *args, result="", **kwargs: len(result) == len(args[0]))
 def _normalize_excel_placeholders(src: str) -> str:
     """Rewrite bare ``%Pn%`` to equal-length ``_Pn_`` so ``ast.parse`` accepts Excel scripts.
 
@@ -263,6 +271,13 @@ def _find_xl_calls(code: str) -> tuple[list[_XlCall], list[str]]:
     return calls, issues
 
 
+@deal.pre(
+    lambda src, lineno, col, *_unused, **__: str_bounded(src, DEAL_MAX_SOURCE)
+    and type(lineno) is int
+    and 1 <= lineno <= 100
+    and type(col) is int
+    and 0 <= col <= 200
+)
 def ast_source_offset(src: str, lineno: int, col: int) -> int:
     """Map AST ``(lineno, col_offset)`` to an absolute character index in *src*.
 
@@ -429,6 +444,14 @@ def _normalize_bindings(
     return bindings, index_map, data_args, excel_deps, issues
 
 
+@deal.pre(
+    lambda model, cell, *_unused, **__: isinstance(model.scripts, list)
+    and len(model.scripts) <= DEAL_MAX_CMD_ARGS
+    and type(cell.script_index) is int
+    and -1 <= cell.script_index <= len(model.scripts) + 1
+    and isinstance(cell.deps, list)
+    and len(cell.deps) <= DEAL_MAX_CMD_ARGS
+)
 def convert_cell_to_dag(
     model: ExcelWorkbookModel,
     cell: ExcelPyCell,

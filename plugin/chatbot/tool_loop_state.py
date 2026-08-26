@@ -33,6 +33,11 @@ def _describe_empty_response_content(content: Any) -> str:
     return f"{len(content)} chars: {preview!r}..."
 
 
+@deal.pre(
+    lambda tool_calls, *_unused, **__: tool_calls is None
+    or not isinstance(tool_calls, list)
+    or len(tool_calls) <= DEAL_MAX_CMD_ARGS
+)
 def _describe_empty_response_tool_calls(tool_calls: Any) -> str:
     if tool_calls is None:
         return "none"
@@ -85,6 +90,11 @@ def delegate_status_label(func_args: Mapping[str, Any]) -> str:
     return f"delegate ({domain_from_delegate_args(func_args)})"
 
 
+@deal.pre(
+    lambda task, max_len=DELEGATE_TASK_CHAT_MAX, *_unused, **__: str_bounded(task, DEAL_MAX_SOURCE)
+    and type(max_len) is int
+    and 1 <= max_len <= 1000
+)
 def _truncate_delegate_task(task: str, max_len: int = DELEGATE_TASK_CHAT_MAX) -> str:
     one_line = task.replace("\n", " ").replace("\r", " ").strip()
     if len(one_line) <= max_len:

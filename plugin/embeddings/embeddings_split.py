@@ -241,6 +241,13 @@ def _split_non_prose_passage_to_spans(passage: str) -> list[tuple[int, int]]:
     return spans
 
 
+@deal.pre(
+    lambda text, runs, base_meta, *_unused, **__: str_bounded(text, DEAL_MAX_SOURCE)
+    and isinstance(runs, list)
+    and len(runs) <= DEAL_MAX_SHAPE_DIM
+    and isinstance(base_meta, dict)
+    and len(base_meta) <= DEAL_MAX_SHAPE_DIM
+)
 def split_passage_locale_runs_to_chunk_meta(
     text: str,
     runs: list[Any],
@@ -278,6 +285,11 @@ def split_passage_locale_runs_to_chunk_meta(
     return _meta_chunks_from_spans(passage, all_spans, base_meta)
 
 
+@deal.pre(
+    lambda text, base_meta, *_unused, **__: str_bounded(text, DEAL_MAX_SOURCE)
+    and isinstance(base_meta, dict)
+    and len(base_meta) <= DEAL_MAX_SHAPE_DIM
+)
 def split_passage_to_chunk_meta(
     text: str,
     base_meta: dict[str, Any],
