@@ -74,7 +74,9 @@ def test_google_image_completion(mock_ctx):
     # 1. Test Imagen path default model & aspect ratio 16:9
     method, path, body, headers = shim.build_image_request("Draw a sunset", model=None, width=1792, height=1024)
     assert method == "POST"
-    assert path == "/v1beta/models/imagen-4.0-generate-001:predict?key=test-key"
+    assert path == "/v1beta/models/imagen-4.0-generate-001:predict"
+    assert headers.get("x-goog-api-key") == "test-key"
+    assert "key=" not in path
     data = json.loads(body.decode("utf-8"))
     assert data["parameters"]["aspectRatio"] == "16:9"
 
@@ -88,7 +90,9 @@ def test_google_image_completion(mock_ctx):
     # 3. Test Multimodal path (other models)
     method, path, body, headers = shim.build_image_request("Generate an image", model="gemini-2.5-flash-image", width=1024, height=1024)
     assert method == "POST"
-    assert path == "/v1beta/models/gemini-2.5-flash-image:generateContent?key=test-key"
+    assert path == "/v1beta/models/gemini-2.5-flash-image:generateContent"
+    assert headers.get("x-goog-api-key") == "test-key"
+    assert "key=" not in path
     data = json.loads(body.decode("utf-8"))
     assert "responseModalities" in data["generationConfig"]
     assert "IMAGE" in data["generationConfig"]["responseModalities"]

@@ -14,7 +14,7 @@ def test_transport_reuses_connection_and_reopens_on_endpoint_change():
     with (
         patch("http.client.HTTPSConnection") as mock_https,
         patch("http.client.HTTPConnection") as mock_http,
-        patch("plugin.framework.client.http_transport.get_unverified_ssl_context") as mock_ssl,
+        patch("plugin.framework.client.http_transport.get_verified_ssl_context") as mock_ssl,
     ):
         conn1 = transport.get_connection()
         conn2 = transport.get_connection()

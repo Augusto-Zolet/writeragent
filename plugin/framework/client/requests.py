@@ -63,7 +63,8 @@ def sync_request(url, data=None, headers=None, timeout=10, parse_json=True, meth
                 return json.loads(raw.decode("utf-8"))
             return raw
 
-    ctx = get_verified_ssl_context() if is_local_https else get_unverified_ssl_context()
+    # Always verify first. Local self-signed hosts retry unverified below.
+    ctx = get_verified_ssl_context()
     try:
         return _read_with_context(ctx)
     except urllib.error.HTTPError as e:

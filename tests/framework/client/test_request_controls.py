@@ -19,8 +19,10 @@ def test_local_https_certificate_fallback_only_enables_for_local_cert_errors():
     fallback = LocalHttpsCertificateFallback()
 
     assert fallback.ssl_mode_for("https", "localhost") == "verified"
+    assert fallback.ssl_mode_for("https", "api.openai.com") == "verified"
     assert fallback.enable_if_applicable("localhost", ssl.SSLCertVerificationError("self-signed certificate")) is True
     assert fallback.ssl_mode_for("https", "localhost") == "unverified"
+    assert fallback.ssl_mode_for("https", "api.openai.com") == "verified"
 
     assert fallback.enable_if_applicable("api.openai.com", ssl.SSLCertVerificationError("self-signed certificate")) is False
     assert fallback.enable_if_applicable("localhost", OSError("connection reset")) is False

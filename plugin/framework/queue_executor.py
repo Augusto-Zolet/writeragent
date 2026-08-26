@@ -373,7 +373,9 @@ class QueueExecutor:
 
         try:
             item.result = item.fn(*item.args, **item.kwargs)
-        except Exception as exc:
+        except BaseException as exc:
+            # Store KeyboardInterrupt/SystemExit too so the waiter re-raises
+            # instead of seeing result=None while the exception hits VCL.
             item.exception = exc
         finally:
             if item.blocking and item.event:

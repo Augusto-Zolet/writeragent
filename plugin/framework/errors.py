@@ -309,7 +309,7 @@ class DataShapeError(PayloadCodecError):
     or (result.get("code") == "INTERNAL_ERROR" and isinstance(result.get("details"), dict) and "type" in result["details"])
 )
 @deal.ensure(lambda e, result: not isinstance(e, WriterAgentException) or result.get("code") == e.code)
-def format_error_payload(e: Exception) -> dict[str, Any]:
+def format_error_payload(e: BaseException) -> dict[str, Any]:
     """Format an exception into the standard JSON error payload schema."""
     if isinstance(e, WriterAgentException):
         payload: dict[str, Any] = {"status": "error", "code": e.code, "message": e.message}
@@ -357,7 +357,7 @@ def format_error_message(e: Exception) -> str:
     msg = "mock" if UNDER_CROSSHAIR else str(e)
     if isinstance(e, ssl.SSLError):
         return _("TLS/SSL Error: {0}").format(msg)
-    if isinstance(e, (urllib.error.HTTPError, http.client.HTTPResponse)):
+    if isinstance(e, (urllib.error.HTTPError, http.client.HTTPException)):
         code_candidate = getattr(e, "code", None)
         if code_candidate is None:
             code_candidate = getattr(e, "status", None)

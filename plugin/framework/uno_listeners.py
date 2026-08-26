@@ -140,6 +140,7 @@ def _catch_and_log(func):
 # ---------------------------------------------------------
 
 class BaseListener(_BaseParent, _XEventListenerParent):
+    @_catch_and_log
     def disposing(self, Source: Any) -> None:  # noqa: N802, N803 -- UNO signature
         self.on_disposing(Source)
 

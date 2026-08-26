@@ -403,7 +403,8 @@ class LlmClient:
         # log.debug...
         init_logging(self.ctx)
         log.debug("=== Image Request ===")
-        log.debug("URL: %s" % url)
+        # Path/query must not include API keys (Google image used to put ?key= here).
+        log.debug("URL: %s" % urllib.parse.urlunparse(urllib.parse.urlparse(url)._replace(query="", fragment="")))
 
         res = sync_request(url, method=method, data=body, headers=headers)
         if not res:

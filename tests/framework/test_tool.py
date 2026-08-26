@@ -594,6 +594,29 @@ class TestToolIsolation:
         assert "Test error" in result["details"]["original_error"]
         assert result["code"] == "TOOL_EXECUTION_ERROR"
 
+    def test_execute_safe_document_disposed(self):
+        from plugin.framework.errors import DocumentDisposedError
+
+        class DeadTool(ToolBase):
+            name = "test_dead"
+            description = "x"
+            parameters = {"type": "object", "properties": {}}
+
+            def is_async(self):
+                return True
+
+            def execute(self, ctx, **kwargs):
+                raise DocumentDisposedError("gone")
+
+        class DummyContext:
+            doc = None
+            doc_type = None
+            caller = None
+
+        result = DeadTool().execute_safe(DummyContext())
+        assert result["status"] == "error"
+        assert result["code"] == "DOCUMENT_DISPOSED"
+
     def test_tool_timeout(self):
         class SlowTool(ToolBase):
             name = "test_slow"

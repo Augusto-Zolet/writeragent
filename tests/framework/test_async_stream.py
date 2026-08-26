@@ -295,6 +295,23 @@ def test_run_blocking_in_thread_error():
         run_blocking_in_thread(ctx, blocking_func)
 
 
+def test_run_blocking_in_thread_baseexception_does_not_hang():
+    from unittest.mock import MagicMock
+    from plugin.framework.async_stream import run_blocking_in_thread
+
+    class Boom(BaseException):
+        pass
+
+    ctx = MagicMock()
+    ctx.getServiceManager.return_value = MagicMock()
+
+    def blocking_func():
+        raise Boom("hard fault")
+
+    with pytest.raises(Boom, match="hard fault"):
+        run_blocking_in_thread(ctx, blocking_func, pump_idle=False)
+
+
 def test_run_stream_drain_loop_toolkit_none():
     q = queue.Queue()
     q.put((StreamQueueKind.CHUNK, "hello"))

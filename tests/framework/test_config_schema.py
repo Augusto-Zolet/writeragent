@@ -192,6 +192,16 @@ def test_writeragent_config_validate_constraints() -> None:
     assert err.value.code == "INVALID_TEMPERATURE"
 
 
+def test_validate_coerce_out_of_range_clamps_instead_of_raising():
+    from plugin.framework.config_schema import WriterAgentConfig
+
+    cfg = WriterAgentConfig(temperature=1.5, chat_max_tokens=-1, request_timeout=0)
+    cfg.validate(coerce_out_of_range=True)
+    assert cfg.temperature == 1.0
+    assert cfg.chat_max_tokens == 16384
+    assert cfg.request_timeout == 120
+
+
 def test_set_and_get_manifest_modules(restore_manifest) -> None:
     modules = [{"name": "only", "config": {"flag": {"type": "boolean", "default": False}}}]
     set_manifest_modules(modules)

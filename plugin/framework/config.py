@@ -42,6 +42,7 @@ import json
 import logging
 import os
 import shutil
+import tempfile
 import time
 from typing import Any, Dict
 
@@ -242,12 +243,25 @@ def _try_repair_config_dict(text: str) -> dict | None:
 
 
 def _write_config_file(config_file_path: str, data: dict) -> None:
+    """Write config via temp file + ``os.replace`` so a crash cannot truncate the live file."""
     body = json.dumps(data, indent=4)
-    with open(config_file_path, "w", encoding="utf-8") as f:
-        f.write(CONFIG_SCHEMA_COMMENT)
-        f.write(body)
-        if not body.endswith("\n"):
-            f.write("\n")
+    if not body.endswith("\n"):
+        body += "\n"
+    content = CONFIG_SCHEMA_COMMENT + body
+    directory = os.path.dirname(config_file_path) or "."
+    fd, tmp_path = tempfile.mkstemp(prefix=".writeragent-", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, config_file_path)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def _invalidate_config_cache() -> None:
@@ -628,9 +642,27 @@ def _get_validated_config_dict():
         except OSError:
             current_mtime = 0
 
-        # Perform validation when config is loaded
+        # One out-of-range field used to raise ConfigValidationError, which the
+        # ConfigError handler below turned into {} — a later set_config then
+        # rewrote the file with only the new key. Coerce and persist so the
+        # rest of the file (API keys included) is kept. set_config still
+        # validates strictly so the UI can reject a bad new value.
         config = _config_schema.WriterAgentConfig.from_dict(data)
-        config.validate()
+        try:
+            config.validate()
+        except ConfigValidationError as e:
+            log.warning("Config has out-of-range values (%s); coercing to in-range defaults", e)
+            config.validate(coerce_out_of_range=True)
+            try:
+                repaired = config.to_dict()
+                _write_config_file(config_file_path, repaired)
+                data = repaired
+                try:
+                    current_mtime = os.path.getmtime(config_file_path)
+                except OSError:
+                    pass
+            except OSError as write_err:
+                log.warning("Failed to persist coerced config: %s", write_err)
 
         out = _build_validated_config_export(data, config)
 

@@ -360,8 +360,13 @@ class WriterAgentConfig:
     # Store arbitrary module.yaml config entries
     _extra_config: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
-    def validate(self):
-        """Perform validation of config keys and emit warnings or fix values."""
+    def validate(self, *, coerce_out_of_range: bool = False):
+        """Perform validation of config keys and emit warnings or fix values.
+
+        When *coerce_out_of_range* is True (config load/repair), clamp invalid
+        numeric bounds instead of raising so one bad field cannot discard the
+        rest of the file.
+        """
         # Clean up any translated headers that incorrectly made it into config
         for f in dataclasses.fields(self):
             if f.name == "_extra_config":
@@ -405,7 +410,11 @@ class WriterAgentConfig:
             except ValueError:
                 self.chat_max_tokens = 16384
         if self.chat_max_tokens < 0:
-            raise ConfigValidationError(_("Chat max tokens must be >= 0"), code="INVALID_CHAT_MAX_TOKENS")
+            if coerce_out_of_range:
+                log.warning("chat_max_tokens %s out of range; using 16384", self.chat_max_tokens)
+                self.chat_max_tokens = 16384
+            else:
+                raise ConfigValidationError(_("Chat max tokens must be >= 0"), code="INVALID_CHAT_MAX_TOKENS")
 
         # Old shipped default was 70; values below 100 are treated as stale and upgraded.
         if not isinstance(self.calc_prompt_max_tokens, int):
@@ -423,7 +432,11 @@ class WriterAgentConfig:
             except ValueError:
                 self.request_timeout = 120
         if self.request_timeout <= 0:
-            raise ConfigValidationError(_("Request timeout must be > 0"), code="INVALID_REQUEST_TIMEOUT")
+            if coerce_out_of_range:
+                log.warning("request_timeout %s out of range; using 120", self.request_timeout)
+                self.request_timeout = 120
+            else:
+                raise ConfigValidationError(_("Request timeout must be > 0"), code="INVALID_REQUEST_TIMEOUT")
 
         if not isinstance(self.temperature, (int, float)):
             try:
@@ -431,7 +444,11 @@ class WriterAgentConfig:
             except ValueError:
                 self.temperature = -1.0
         if self.temperature > 1.0:
-            raise ConfigValidationError(_("Temperature must be <= 1.0"), code="INVALID_TEMPERATURE")
+            if coerce_out_of_range:
+                log.warning("temperature %s out of range; using 1.0", self.temperature)
+                self.temperature = 1.0
+            else:
+                raise ConfigValidationError(_("Temperature must be <= 1.0"), code="INVALID_TEMPERATURE")
 
         if not isinstance(self.openrouter_chat_extra, dict):
             log.warning("Invalid openrouter_chat_extra (not a dict), resetting to {}")

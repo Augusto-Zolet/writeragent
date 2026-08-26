@@ -73,7 +73,8 @@ def get_lo_locale(ctx=None):
         if locale:
             if "Mock" in str(type(locale)):
                 return _DEFAULT_LOCALE
-            # LibreOffice often returns "en-US", gettext prefers "en_US"
+            # Setup.xcs: ooLocale is xs:string (e.g. "ja", "ja-JP").
+            # LibreOffice often uses a hyphen; gettext prefers an underscore.
             return locale.replace("-", "_")
     except Exception as e:
         log.debug("Failed to determine LibreOffice locale: %s", e)

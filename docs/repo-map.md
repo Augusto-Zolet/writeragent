@@ -88,6 +88,7 @@ Start here by task.
 | Test Architecture | [docs/archive/test_architecture_analysis.md](archive/test_architecture_analysis.md) |
 | Type checking | [docs/framework-type-checking.md](framework-type-checking.md) |
 | UNO Dialogs & Wizards | [docs/framework-uno-dialogs.md](framework-uno-dialogs.md) |
+| UNO exception policy (disposed vs leaf catches) | [docs/framework-exception-policy.md](framework-exception-policy.md) |
 | LLM Hacks & Workarounds | [docs/chat-llm-hacks.md](chat-llm-hacks.md) |
 | Experimental memory / roadmap | [docs/archive/hermes-agent-patterns.md](archive/hermes-agent-patterns.md), [docs/ROADMAP.md](ROADMAP.md), [docs/framework-robustness-roadmap.md](framework-robustness-roadmap.md) |
 | LLM evals / benchmarks | [docs/eval-benchmarks.md](eval-benchmarks.md), [scripts/prompt_optimization/README.md](../scripts/prompt_optimization/README.md) |

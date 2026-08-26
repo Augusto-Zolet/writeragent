@@ -230,7 +230,7 @@ class ModuleLoader:
                     mod.name = name
                     mod.initialize(services_registry)
                     initialized_modules.append(mod)
-            except Exception as e:
-                logging.getLogger("writeragent").warning("Failed to load module %s: %s", name, e)
+            except Exception:
+                log.exception("Failed to load module %s", name)
 
         return initialized_modules

@@ -575,7 +575,7 @@ def run_async_worker_with_drain(
     def worker_wrapper():
         try:
             worker_fn(cast("queue.Queue[Any]", _batched.raw if _batched is not None else q))  # worker always sees a real Queue
-        except Exception as e:
+        except BaseException as e:
             from plugin.framework.errors import format_error_payload
 
             payload = (StreamQueueKind.ERROR, format_error_payload(e))
@@ -637,7 +637,7 @@ def run_async_worker_with_drain(
     resolved_on_stopped = on_stopped_fn or (_call_done_on_stopped if on_done_fn else _noop_stopped)
 
     run_stream_drain_loop(
-        q,
+        _real_q,
         toolkit,
         job_done,
         apply_chunk_fn,
@@ -730,7 +730,7 @@ def run_blocking_in_thread(ctx, func, *args, pump_idle: bool = True, **kwargs):
         try:
             result = func(*args, **kwargs)
             q.put((BlockingPumpKind.DONE, result))
-        except Exception as e:
+        except BaseException as e:
             q.put((BlockingPumpKind.ERROR, e))
 
     toolkit = None

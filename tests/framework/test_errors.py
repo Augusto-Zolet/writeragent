@@ -134,6 +134,15 @@ class TestErrorHandling(unittest.TestCase):
         msg_generic_venv = format_error_message(RuntimeError("venv not found at /tmp/x"))
         self.assertIn("Python venv not found", msg_generic_venv)
 
+    def test_format_error_message_http_exception(self):
+        import http.client
+        from plugin.framework.errors import format_error_message
+
+        err = http.client.RemoteDisconnected("Remote end closed connection")
+        msg = format_error_message(err)
+        self.assertTrue("HTTP Error" in msg or "Remote" in msg)
+        self.assertNotIn("Connection Error", msg)
+
     def test_writeragent_exception_subclasses_and_details_unification(self):
         from plugin.framework.errors import (
             AgentParsingError,

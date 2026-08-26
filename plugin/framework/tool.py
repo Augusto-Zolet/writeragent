@@ -470,7 +470,16 @@ class ToolBase(ABC):
             return self.execute(ctx, **kwargs)
 
         except Exception as e:
+            from plugin.framework.errors import is_disposed_exception
+
             _log.exception("Tool '%s' execution failed", self.name if self.name else "<unknown>")
+            if is_disposed_exception(e):
+                return self._tool_error(
+                    "Document was closed or disposed by LibreOffice",
+                    code="DOCUMENT_DISPOSED",
+                    original_error=str(e),
+                    error_type=type(e).__name__,
+                )
             return self._tool_error(f"Tool execution failed: {str(e)}", code="TOOL_EXECUTION_ERROR", original_error=str(e), error_type=type(e).__name__)
 
     def get_collection(self, doc, getter_name, missing_msg=None):

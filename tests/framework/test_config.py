@@ -244,6 +244,22 @@ class TestConfigSyncFileIO(unittest.TestCase):
         self.assertFalse(os.path.exists(self._backup_path()))
         self.assertEqual(self._load_written()['text_model'], 'other')
 
+    def test_out_of_range_temperature_does_not_discard_api_keys(self):
+        """One invalid numeric field must not collapse the whole config to {}."""
+        with open(self.config_path, 'w', encoding='utf-8') as f:
+            json.dump({
+                "temperature": 1.5,
+                "api_keys_by_endpoint": {"https://api.openai.com": "sk-keep"},
+                "text_model": "gpt",
+            }, f)
+        reset_config_for_tests()
+        self.assertEqual(get_config("text_model"), "gpt")
+        self.assertEqual(get_api_key_for_endpoint("https://api.openai.com"), "sk-keep")
+        self.assertEqual(get_config("temperature"), 1.0)
+        data = self._load_written()
+        self.assertEqual(data["api_keys_by_endpoint"]["https://api.openai.com"], "sk-keep")
+        self.assertEqual(data["temperature"], 1.0)
+
     def test_get_config_default_resolution(self):
         if os.path.exists(self.config_path):
             os.remove(self.config_path)

@@ -48,12 +48,19 @@ class LocalHttpsCertificateFallback:
         self._fallback_hosts: set[str] = set()
 
     def ssl_mode_for(self, scheme: str, host: str) -> str:
-        """Return ``verified``, ``unverified``, or ``plain`` for the next connection."""
+        """Return ``verified``, ``unverified``, or ``plain`` for the next connection.
+
+        Public HTTPS is always verified. Local HTTPS starts verified and
+        switches to unverified only after ``enable_if_applicable`` records a
+        certificate failure (self-signed Ollama/LM Studio). Previously this
+        returned ``unverified`` for every non-local host, which silently
+        disabled TLS checks for OpenAI, Anthropic, OpenRouter, and similar.
+        """
         if scheme != "https":
             return "plain"
-        if is_local_host(host) and host not in self._fallback_hosts:
-            return "verified"
-        return "unverified"
+        if is_local_host(host) and host in self._fallback_hosts:
+            return "unverified"
+        return "verified"
 
     def enable_if_applicable(self, host: str, err: BaseException) -> bool:
         """Enable unverified retry for a local host after certificate validation fails."""

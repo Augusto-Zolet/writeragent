@@ -37,8 +37,10 @@ class GoogleShim(OpenAIShim):
         key = self.client._resolve_auth().get("api_key", "")
         model_name = model or "imagen-4.0-generate-001"
 
+        # Key in x-goog-api-key, not ?key=, so it does not land in access logs
+        # or ``log.debug("URL: ...")``.
         if model_name.startswith("imagen"):
-            url = f"{endpoint}/v1beta/models/{model_name}:predict?key={key}"
+            url = f"{endpoint}/v1beta/models/{model_name}:predict"
             aspect = "1:1"
             if width and height:
                 ratio = width / height
@@ -53,11 +55,14 @@ class GoogleShim(OpenAIShim):
 
             data: dict[str, Any] = {"instances": [{"prompt": prompt}], "parameters": {"sampleCount": 1, "aspectRatio": aspect}}
         else:
-            url = f"{endpoint}/v1beta/models/{model_name}:generateContent?key={key}"
+            url = f"{endpoint}/v1beta/models/{model_name}:generateContent"
             data = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
 
         path = get_url_path_and_query(url)
-        return "POST", path, json.dumps(data).encode("utf-8"), self.client._headers()
+        headers = dict(self.client._headers())
+        if key:
+            headers["x-goog-api-key"] = key
+        return "POST", path, json.dumps(data).encode("utf-8"), headers
 
     def parse_image_responses(self, response_data: dict[str, Any]) -> list[str]:
         out: list[str] = []

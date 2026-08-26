@@ -676,3 +676,20 @@ class TestWorkItemClaimLockTimeoutRace:
 
         assert executed == [], "Cancelled item must not be executed"
         assert item.event.is_set(), "Event must be set so any waiter unblocks"
+
+    def test_process_queue_stores_baseexception(self):
+        from plugin.framework.queue_executor import QueueExecutor, _WorkItem
+        import uuid
+
+        class Boom(BaseException):
+            pass
+
+        def fn():
+            raise Boom("hard")
+
+        item = _WorkItem(str(uuid.uuid4()), fn, (), {}, blocking=True)
+        qe = QueueExecutor()
+        qe._work_queue.put(item)
+        qe.process_queue()
+        assert isinstance(item.exception, Boom)
+        assert item.event.is_set()

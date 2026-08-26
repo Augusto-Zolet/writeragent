@@ -64,8 +64,10 @@ def uno_services_for_document(model: Any, doc_type: str | None) -> frozenset[str
     return uno_services_for_doc_type_label(doc_type)
 
 
-@safe_uno_call(default=frozenset())
+# @main_thread_only MUST be outer so off-thread calls raise instead of
+# being swallowed by @safe_uno_call (same order as get_document_type).
 @main_thread_only
+@safe_uno_call(default=frozenset())
 def get_document_uno_services(model: Any) -> frozenset[str]:
     """Return UNO service names supported by *model* (main thread only; cache in sidebar/MCP)."""
     if model is None:

@@ -45,7 +45,7 @@ LocalHttpsCertificateFallback     # local HTTPS verified-to-unverified retry pol
 3. **Proper Cleanup**: Closes the connection on endpoint changes, HTTP errors, stop requests, and connection failures.
 4. **Request Pacing**: Applies a per-client 50 ms burst guard before consecutive sends.
 5. **Timeout Support**: Uses configurable connection timeouts.
-6. **SSL Handling**: Uses verified TLS first for local HTTPS, then retries unverified only for local certificate verification failures.
+6. **SSL Handling**: Public HTTPS is always verified. Local HTTPS starts verified and retries unverified only after a certificate verification failure (self-signed Ollama/LM Studio).
 7. **Transient Retry**: Retries one connection failure on a fresh connection, unless the failure is caused by a user stop.
 
 ### Current Limitations

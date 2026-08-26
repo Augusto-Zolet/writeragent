@@ -100,7 +100,7 @@ def test_persistent_connections(client):
     with (
         patch("http.client.HTTPSConnection") as mock_https,
         patch("http.client.HTTPConnection") as mock_http,
-        patch("plugin.framework.client.http_transport.get_unverified_ssl_context") as mock_ssl,
+        patch("plugin.framework.client.http_transport.get_verified_ssl_context") as mock_ssl,
     ):
         conn1 = client._get_connection()
         conn2 = client._get_connection()
