@@ -120,7 +120,6 @@ class NotebookRunButtonListener(BaseActionListener):
     def __init__(self, ctx: Any, doc: Any, hex_id: str) -> None:
         self._ctx = ctx
         self._hex_id = hex_id
-        self._doc = doc
         self._doc_key_val = _doc_key(doc)
         try:
             self._doc_url = str(doc.getURL() or "")
@@ -150,7 +149,7 @@ class NotebookRunButtonListener(BaseActionListener):
             ref_doc = weak()
             if ref_doc is not None:
                 return ref_doc
-        return getattr(self, "_doc", None)
+        return None
 
     def on_action_performed(self, rEvent: Any) -> None:
         doc = self._resolve_doc()
