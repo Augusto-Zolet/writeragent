@@ -18,7 +18,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any, Literal
 
 from plugin.writer.locale.locale_abbrev import CLDR_ABBREVS
@@ -399,12 +399,9 @@ _LANGUAGE_DEFAULT_FALLBACKS: dict[str, str] = {
 }
 
 
-@dataclass(frozen=True)
-class _LocaleTagShim:
-    """Minimal Locale-like object for ``normalize_uno_locale_to_bcp47`` on LLM tags."""
-
-    Language: str
-    Country: str = ""
+def _normalize_lang_country(lang: str, country: str = "") -> str | None:
+    """Same registry mapping as a UNO Locale with Language/Country fields."""
+    return normalize_uno_locale_to_bcp47(SimpleNamespace(Language=lang, Country=country))
 
 
 def normalize_detected_bcp47(tag: str | None) -> str | None:
@@ -419,7 +416,7 @@ def normalize_detected_bcp47(tag: str | None) -> str | None:
     if not lang:
         return None
     country = parts[1].upper() if len(parts) > 1 else ""
-    return normalize_uno_locale_to_bcp47(_LocaleTagShim(lang, country))
+    return _normalize_lang_country(lang, country)
 
 
 def grammar_bcp47_tags_match(a: str | None, b: str | None) -> bool:

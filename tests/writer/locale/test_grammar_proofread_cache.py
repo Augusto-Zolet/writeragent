@@ -14,11 +14,9 @@ from plugin.writer.locale.grammar_proofread_cache import _normalize_for_sentence
 @pytest.fixture(autouse=True)
 def clear_cache():
     gc.cache_clear()
-    gc.clear_sentence_cache()
     gc.ignore_rules_clear()
     yield
     gc.cache_clear()
-    gc.clear_sentence_cache()
     gc.ignore_rules_clear()
 
 def test_sentence_cache_roundtrip() -> None:
@@ -263,6 +261,6 @@ def test_cache_clear_does_not_register_empty_persistence() -> None:
     from plugin.writer.locale.grammar_persistence import grammar_registry
 
     ctx = MagicMock()
-    gc.cache_clear(ctx, doc_id="phantom-doc")
+    gc.cache_clear(ctx)
     assert "phantom-doc" not in grammar_registry.doc_persistence_instances
 

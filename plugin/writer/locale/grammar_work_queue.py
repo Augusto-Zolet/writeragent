@@ -12,21 +12,15 @@ The grammar queue must ensure that for any given ``inflight_key``, only the
 remaining layers (plus the ``_latest_seq`` generation map) enforce this
 invariant.  (A third Layer 1 "tail-replace" existed historically — see below.)
 
-**Layer 2 — Batch-drain dedup** (``_drain_loop`` dict accumulator + ``deduplicate_grammar_batch``)
+**Layer 2 — Batch-drain dedup** (``_drain_loop`` dict accumulator)
 
     After the worker wakes on the first ``get()``, it enters a tight
     ``get(timeout=GRAMMAR_WORKER_PAUSE_TIMEOUT_S)`` loop that collects every
     pending item into a ``batch_by_key`` dict keyed by ``inflight_key``.
-    For each key only the item with the highest ``enqueue_seq`` is kept.
-    The result is then passed through ``deduplicate_grammar_batch`` — which
-    applies the same highest-seq-wins rule — as a canonical safety net (it is
-    also the standalone pure function used by tests and any external caller).
+    For each key only the item with the highest ``enqueue_seq`` is kept
+    (same rule as the tested pure ``deduplicate_grammar_batch``).
 
-    *Why both the dict and ``deduplicate_grammar_batch``?*  The dict handles
-    the fast path during draining; ``deduplicate_grammar_batch`` is defense-
-    in-depth and the single source of truth for the dedup contract.
-
-    *Blind spot*: Neither can detect items that were already consumed in a
+    *Blind spot*: The dict cannot detect items that were already consumed in a
     *previous* batch and whose ``inflight_key`` was re-enqueued while the
     worker was busy with the LLM.
 
@@ -52,9 +46,8 @@ invariant.  (A third Layer 1 "tail-replace" existed historically — see below.)
     - The worker drains so quickly that the queue is *usually empty* on the
       next enqueue during real typing bursts (the exact scenario the comment
       in the old Layer 2 section called out).
-    - Layer 2 (the drain dict) + the canonical ``deduplicate_grammar_batch``
-      + Layer 3 (``_latest_seq`` guards, including the language-requeue path)
-      already provide complete protection.
+    - Layer 2 (the drain dict) + Layer 3 (``_latest_seq`` guards, including
+      the language-requeue path) already provide complete protection.
     - Removing it eliminates the highest-cognitive-load construct while
       changing no observable behavior for squiggles, cache, or LLM calls.
 
@@ -139,28 +132,20 @@ def record_enqueue_latest(prev: dict[str, int], item: GrammarWorkItem) -> tuple[
     return new_d, out_of_order, prev_seq if out_of_order else None
 
 
-def _enqueue_seq_superseded_by_latest(latest_seq: Mapping[str, int], inflight_key: str, enqueue_seq: int) -> bool:
-    """True if ``latest_seq`` records a newer generation than ``enqueue_seq`` for ``inflight_key`` (pre-execute skip and post-LLM cache skip)."""
+def inflight_superseded(latest_seq: Mapping[str, int], inflight_key: str, enqueue_seq: int) -> bool:
+    """True if ``latest_seq`` records a newer generation than ``enqueue_seq`` for ``inflight_key``.
+
+    Used for pre-execute skip (via ``GrammarWorkQueue._is_stale``) and post-LLM cache skip.
+    """
     latest = latest_seq.get(inflight_key)
     return latest is not None and enqueue_seq < latest
-
-
-def is_stale(latest_seq: Mapping[str, int], item: GrammarWorkItem) -> bool:
-    """True if a newer enqueue has been recorded for this ``inflight_key``."""
-    return _enqueue_seq_superseded_by_latest(latest_seq, item.inflight_key, item.enqueue_seq)
-
-
-def inflight_superseded(latest_seq: Mapping[str, int], inflight_key: str, enqueue_seq: int) -> bool:
-    """True if ``enqueue_seq`` is older than the latest known generation for ``inflight_key``."""
-    return _enqueue_seq_superseded_by_latest(latest_seq, inflight_key, enqueue_seq)
 
 
 def should_replace_for_key(existing: GrammarWorkItem | None, incoming: GrammarWorkItem) -> bool:
     """True if ``incoming`` should replace ``existing`` in a per-key accumulator.
 
-    Used by both the ``_drain_loop`` dict accumulator (Layer 2 fast path) and
-    ``deduplicate_grammar_batch`` (canonical pure dedup).  A missing ``existing``
-    (first item for this key) always returns True.
+    Used by the ``_drain_loop`` dict accumulator and by ``deduplicate_grammar_batch``
+    (unit tests / any external caller). A missing ``existing`` always returns True.
     """
     return existing is None or incoming.enqueue_seq > existing.enqueue_seq
 
@@ -215,8 +200,8 @@ class GrammarWorkQueue:
     was evaluated and rejected — the tracker would absorb 2 fields and 3 thin methods
     but ``GrammarWorkQueue`` is already small enough that an extra indirection adds more
     cognitive load than it removes.  The pure functions (``should_replace_for_key``,
-    ``filter_stale_and_group``, ``is_stale``, ``inflight_superseded``,
-    ``record_enqueue_latest``) keep the logic testable without wrapping the state.
+    ``filter_stale_and_group``, ``inflight_superseded``, ``record_enqueue_latest``)
+    keep the logic testable without wrapping the state.
     """
 
     def __init__(self) -> None:
@@ -265,7 +250,7 @@ class GrammarWorkQueue:
 
     def _is_stale(self, item: GrammarWorkItem) -> bool:
         with self._lock:
-            return is_stale(self._latest_seq, item)
+            return inflight_superseded(self._latest_seq, item.inflight_key, item.enqueue_seq)
 
     def inflight_superseded(self, inflight_key: str, enqueue_seq: int) -> bool:
         """True if a newer grammar enqueue has been recorded for this key (e.g. user kept typing)."""
@@ -275,14 +260,11 @@ class GrammarWorkQueue:
     def enqueue(self, item: GrammarWorkItem) -> None:
         """Add a work item; starts the drain worker on first call.
 
-        Same-key deduplication for rapid typing is handled in two places:
-        - The Layer 2 ``batch_by_key`` dict inside ``_drain_loop`` (the primary
-          fast path — the worker drains so quickly that the queue is usually
-          empty on the next enqueue during bursts).
-        - The canonical pure ``deduplicate_grammar_batch`` (defense-in-depth)
-          plus the ``_latest_seq`` guards (Layer 3) for cross-batch and in-flight
-          supersedes (including language-detection requeues that mint a fresh
-          higher seq).
+        Same-key deduplication for rapid typing is the Layer 2 ``batch_by_key``
+        dict inside ``_drain_loop`` (the worker drains so quickly that the queue
+        is usually empty on the next enqueue during bursts). Cross-batch and
+        in-flight supersedes use ``_latest_seq`` (Layer 3), including
+        language-detection requeues that mint a fresh higher seq.
         """
         with self._lock:
             self._latest_seq, out_of_order, superseded_prev_seq = record_enqueue_latest(self._latest_seq, item)
@@ -348,21 +330,15 @@ class GrammarWorkQueue:
                     break
             batch = list(batch_by_key.values())
             grammar_obs("queue_drain_batch", batch_size=len(batch), seqs=tuple(x.enqueue_seq for x in batch), keys=tuple(x.inflight_key for x in batch))
-            # Canonical dedup (defense-in-depth — the drain dict already did
-            # same-key newest-wins for this batch, but deduplicate_grammar_batch
-            # is the single source of truth for the dedup contract and is also
-            # used by unit tests and any external caller).
-            survivors = deduplicate_grammar_batch(batch)
-            deduped_count = len(batch) - len(survivors)
+            # Same-key newest-wins already applied in batch_by_key (same rule as
+            # deduplicate_grammar_batch, which remains the tested pure helper).
             grammar_obs(
                 "queue_drain_survivors",
-                survivor_count=len(survivors),
-                seqs=tuple(x.enqueue_seq for x in survivors),
+                survivor_count=len(batch),
+                seqs=tuple(x.enqueue_seq for x in batch),
             )
-            if deduped_count > 0:
-                grammar_obs("batch_stats", sentences_deduped=deduped_count, batch_size=len(batch))
 
-            groups = filter_stale_and_group(survivors, self._is_stale)
+            groups = filter_stale_and_group(batch, self._is_stale)
 
             for (doc_id, locale), group_items in groups.items():
                 try:

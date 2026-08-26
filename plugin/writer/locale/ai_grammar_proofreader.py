@@ -163,48 +163,6 @@ def _reset_ignore_rules_on_main(ctx: Any, doc_id: str | None) -> None:
     log.debug("[grammar] resetIgnoreRules cleared all ignored rules for doc_id=%s", doc_id)
 
 
-# --- Testing seam -------------------------------------------------------
-# Single explicit entry point for unit tests that need to invoke or patch
-# cross-module helpers (run_llm_and_cache lives in the work queue; locale
-# helpers are pure but were historically reached via this module for UNO
-# bootstrap reasons). Production code uses the clean imported names directly;
-# no module-level private aliases or F401 test hacks remain.
-
-
-def _get_testing_api():  # pyright: ignore[reportUnusedFunction]  # UNO proofreader test seam
-    """Return a dict of objects that unit tests commonly need to patch or call.
-
-    This is the supported (internal) testing seam for the grammar proofreader.
-    Do not use in production code.
-
-    Keys include both worker entry points and the pure helpers used for
-    sentence gating / obs. GRAMMAR_* consts are included for threshold tests.
-    """
-    # Lazy imports for symbols that are test-only (never referenced in
-    # production paths in this module). This avoids top-level unused imports
-    # and the previous `as _Foo` (F401 test-hook) pattern.
-    from plugin.writer.locale.grammar_work_queue import GrammarWorkQueue
-    from plugin.writer.locale.grammar_worker import run_llm_and_cache
-    from plugin.writer.locale.grammar_proofread_locale import (
-        GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS,
-        GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS,
-        count_nonspace_chars,
-    )
-
-    return {
-        "run_llm_and_cache": run_llm_and_cache,
-        "GrammarWorkQueue": GrammarWorkQueue,
-        "grammar_obs": grammar_obs,
-        "emit_grammar_status": emit_grammar_status,
-        "slice_preview_debug": slice_preview_debug,
-        "inflight_key": grammar_inflight_key,
-        "looks_complete_sentence": looks_complete_sentence,
-        "count_nonspace_chars": count_nonspace_chars,
-        "GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS": GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS,
-        "GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS": GRAMMAR_PROOFREAD_SAFETY_MAX_CHARS,
-    }
-
-
 def _proofreading_markup_type() -> int:
     """``com.sun.star.text.TextMarkupType.PROOFREADING`` via PyUNO constant lookup."""
     if uno_mod is None:

@@ -20,14 +20,13 @@ from .grammar_proofread_locale import (
     looks_complete_sentence,
 )
 
-def cache_clear(ctx: Any | None = None, doc_id: str | None = None) -> None:
+def cache_clear(ctx: Any | None = None) -> None:
     """Clear the in-memory proofreading cache (tests / reset).
 
     Always ``clear_all``: a follow-up ``get_persistence(doc_id)`` would register a
     fresh model-less ``DocumentPersistence``. Per-document teardown is
-    ``grammar_registry.clear_for_doc``. ``doc_id`` is unused (kept for old call sites).
+    ``grammar_registry.clear_for_doc``.
     """
-    del doc_id
     grammar_registry.clear_all(ctx)
 
 
@@ -205,9 +204,4 @@ def cache_put_sentence(
                 scan_count += 1
             for k in to_remove:
                 grammar_registry.sentence_cache.pop(k, None)
-
-
-def clear_sentence_cache(ctx: Any | None = None) -> None:
-    """Clear sentence cache (for tests)."""
-    cache_clear(ctx)
 

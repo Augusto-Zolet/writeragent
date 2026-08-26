@@ -22,7 +22,7 @@ class TestGrammarPersistence(unittest.TestCase):
         from plugin.writer.locale import grammar_persistence as gp
 
         ctx = MagicMock()
-        gp._doc_persistence_instances.clear()
+        gp.grammar_registry.doc_persistence_instances.clear()
         try:
             pa = gp.get_persistence(ctx, "runtime-a")
             pb = gp.get_persistence(ctx, "runtime-b")
@@ -39,7 +39,7 @@ class TestGrammarPersistence(unittest.TestCase):
 
         ctx = MagicMock()
         model = MagicMock()
-        gp._doc_persistence_instances.clear()
+        gp.grammar_registry.doc_persistence_instances.clear()
         try:
             pa = gp.get_persistence(ctx, "2", model=model)
             pb = gp.get_persistence(ctx, "2")
@@ -63,7 +63,7 @@ class TestGrammarPersistence(unittest.TestCase):
                 "fp_cached": [{"s": 0, "l": 3, "g": ["fix"], "c": "c", "f": "f", "r": "wa_g_rule||test"}],
             },
         }
-        gp._doc_persistence_instances.clear()
+        gp.grammar_registry.doc_persistence_instances.clear()
         try:
             with patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
                 dp = DocumentPersistence(ctx, "2", model=model)
@@ -87,7 +87,7 @@ class TestGrammarPersistence(unittest.TestCase):
                 "fp_cached": [{"s": 0, "l": 3, "g": ["fix"], "c": "c", "f": "f", "r": "wa_g_rule||test"}],
             },
         }
-        gp._doc_persistence_instances.clear()
+        gp.grammar_registry.doc_persistence_instances.clear()
         try:
             with patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
                 dp = gp.DocumentPersistence(ctx, "2")

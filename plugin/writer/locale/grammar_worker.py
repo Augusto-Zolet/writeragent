@@ -642,31 +642,6 @@ class GrammarWorkerContext:
     detect_lang_mode: str = "off"
 
 
-def run_llm_and_cache(
-    ctx: Any,
-    text: str,
-    enqueue_seq: int,
-    inflight_key: str,
-    grammar_bcp47: str,
-    partial_sentence: bool = False,
-    *,
-    doc_id: str = "",
-    grammar_queue_instance: Any | None = None,
-    original_bcp47: str = "",
-) -> None:
-    """Process one queue item: LLM request(s) + sentence cache write(s)."""
-    item = GrammarWorkItem(
-        ctx=ctx,
-        text=text,
-        grammar_bcp47=grammar_bcp47,
-        partial_sentence=partial_sentence,
-        doc_id=doc_id,
-        inflight_key=inflight_key,
-        enqueue_seq=enqueue_seq,
-    )
-    run_llm_and_cache_batch([item], grammar_queue_instance=grammar_queue_instance, original_bcp47=original_bcp47)
-
-
 def _obs_language_validation_decision(
     chunk: list[tuple[GrammarWorkItem, str]],
     target_bcp47: str,

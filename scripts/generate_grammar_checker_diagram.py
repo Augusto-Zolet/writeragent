@@ -398,7 +398,7 @@ class GrammarCheckerFlowchart:
         lines.append("2. **`grammar_work_queue.py`** - Queue layer (work items, dedup, enqueue supersede/stale helpers, sequential worker + LLM)")
         lines.append("   - `GrammarWorkItem`, `deduplicate_grammar_batch()`, pure stale/supersede helpers")
         lines.append("   - `GrammarWorkQueue` - Daemon thread + batch drain + dedup")
-        lines.append("   - `run_llm_and_cache()` - LLM execution and cache writes")
+        lines.append("   - `run_llm_and_cache_batch()` - LLM execution and cache writes")
         lines.append("")
         lines.append("3. **`grammar_proofread_locale.py`** - Policy tables and worker knobs")
         lines.append("   - Unicode terminals, abbrev/Thai chunking, `parse_grammar_json`, caps/prompt/pause")

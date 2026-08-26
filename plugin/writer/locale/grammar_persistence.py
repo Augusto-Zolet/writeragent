@@ -18,7 +18,6 @@ import json
 import logging
 import threading
 import time
-from abc import ABC, abstractmethod
 from typing import Any
 
 log = logging.getLogger("writeragent.grammar")
@@ -130,48 +129,6 @@ def get_document_model_for_id(ctx: Any, doc_id: str) -> Any | None:
     return None
 
 
-class GrammarPersistence(ABC):
-    """Abstract base for persistent grammar cache."""
-
-    def __init__(self, ctx: Any) -> None:
-        self.ctx = ctx
-        self._session_accessed: set[str] = set()
-        self._ignored_rules: set[str] = set()
-        self._lock = threading.Lock()
-
-    def mark_accessed(self, fp: str) -> None:
-        """Record that this fingerprint was used this session (udprop save filter)."""
-        with self._lock:
-            self._session_accessed.add(fp)
-
-    def _persist_to_udprops(self) -> None:
-        pass
-
-    @abstractmethod
-    def get(self, fp: str) -> list[dict[str, Any]] | None:
-        pass
-
-    @abstractmethod
-    def put(self, fp: str, locale: str, errors: list[dict[str, Any]]) -> None:
-        pass
-
-    @abstractmethod
-    def clear(self) -> None:
-        pass
-
-
-def _dispatch_doc_event(outer: "DocumentPersistence", event_name: str) -> None:
-    """Route XDocumentEventListener.documentEventOccured to the right persistence action.
-
-    Shared between the real UNO listener and the no-UNO stub so a single source
-    of truth defines which events trigger save vs teardown.
-    """
-    if event_name in ("OnPrepareSave", "OnSave", "OnSaveAs", "OnSaveTo"):
-        outer._persist_to_udprops()
-    elif event_name == "OnUnload":
-        outer._teardown()
-
-
 # XDocumentEventListener extends com.sun.star.lang.XEventListener, so a single
 # class handles both document events (incl. OnUnload) and broadcaster disposal.
 class _GrammarDocumentEventListener(BaseDocumentEventListener):
@@ -184,17 +141,23 @@ class _GrammarDocumentEventListener(BaseDocumentEventListener):
             name = getattr(Event, "EventName", "") or ""
         except Exception:
             return
-        _dispatch_doc_event(self._outer, name)
+        if name in ("OnPrepareSave", "OnSave", "OnSaveAs", "OnSaveTo"):
+            self._outer._persist_to_udprops()
+        elif name == "OnUnload":
+            self._outer._teardown()
 
     def on_disposing(self, Source: Any) -> None:
         self._outer._teardown()
 
 
-class DocumentPersistence(GrammarPersistence):
+class DocumentPersistence:
     """In-memory grammar sentence persistence backing the unified sentence cache with ODT udprops on save."""
 
     def __init__(self, ctx: Any, doc_id: str, *, model: Any = None) -> None:
-        super().__init__(ctx)
+        self.ctx = ctx
+        self._session_accessed: set[str] = set()
+        self._ignored_rules: set[str] = set()
+        self._lock = threading.Lock()
         self._doc_id = doc_id
         self._entries: dict[str, list[dict[str, Any]]] = {}
         self._model: Any = model
@@ -205,6 +168,11 @@ class DocumentPersistence(GrammarPersistence):
             self._register_listeners()
         else:
             log.debug("[grammar] DocumentPersistence: no model for doc_id=%s (in-memory only until resolved)", doc_id[:32] if doc_id else "")
+
+    def mark_accessed(self, fp: str) -> None:
+        """Record that this fingerprint was used this session (udprop save filter)."""
+        with self._lock:
+            self._session_accessed.add(fp)
 
     def _bind_model(self, model: Any) -> None:
         """Attach the Writer model after init when ``get_persistence(..., model=...)`` runs."""
@@ -367,7 +335,7 @@ class DocumentPersistence(GrammarPersistence):
             self._entries.clear()
 
 
-def get_persistence(ctx: Any, doc_id: str | None = None, *, model: Any = None) -> GrammarPersistence | None:
+def get_persistence(ctx: Any, doc_id: str | None = None, *, model: Any = None) -> DocumentPersistence | None:
     """Return per-document persistence for grammar sentence cache."""
     return grammar_registry.get_persistence(ctx, doc_id, model=model)
 
@@ -375,8 +343,6 @@ def get_persistence(ctx: Any, doc_id: str | None = None, *, model: Any = None) -
 def clear_all_document_persistence(ctx: Any) -> None:
     """Remove every ``DocumentPersistence`` (listeners + map); for tests / reset without doc_id."""
     grammar_registry.clear_all(ctx)
-
-_doc_persistence_instances = grammar_registry.doc_persistence_instances
 
 
 def get_cached_document_locales(ctx: Any, doc_id: str) -> list[str]:

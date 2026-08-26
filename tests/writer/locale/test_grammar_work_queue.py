@@ -16,7 +16,6 @@ from plugin.writer.locale.grammar_work_queue import (
     deduplicate_grammar_batch,
     filter_stale_and_group,
     inflight_superseded,
-    is_stale,
     record_enqueue_latest,
     should_replace_for_key,
 )
@@ -298,8 +297,7 @@ def test_drain_loop_collapses_same_key_items_during_burst() -> None:
     The worker drains so quickly that the queue is empty between keystrokes
     in the common case; items that arrive while a previous batch is being
     processed (or while the worker is blocked on get()) are collapsed here
-    using should_replace_for_key.  deduplicate_grammar_batch then acts as the
-    canonical safety net.
+    using should_replace_for_key.
 
     Historical note (old text for reference): during typing bursts the worker pulls items between keystrokes,
     so enqueue's tail-replace path cannot help \u2014 the queue is empty between
@@ -346,13 +344,11 @@ def test_drain_loop_collapses_same_key_items_during_burst() -> None:
     assert by_key[complete_b].enqueue_seq == 4
 
 
-def test_is_stale_and_inflight_superseded() -> None:
+def test_inflight_superseded() -> None:
     latest = {"k": 9}
-    old = _item(7, key="k")
-    assert is_stale(latest, old) is True
     assert inflight_superseded(latest, "k", 7) is True
-    cur = _item(9, key="k")
-    assert is_stale(latest, cur) is False
+    assert inflight_superseded(latest, "k", 9) is False
+    assert inflight_superseded(latest, "other", 1) is False
 
 
 def test_done_status_deferred_until_last_parallel_batch() -> None:

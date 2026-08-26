@@ -237,8 +237,8 @@ def _setup_grammar_persistence_test_env():
     import tempfile
 
     # Reset doc instances to ensure fresh initialization per test
-    old_doc_instances = dict(grammar_persistence._doc_persistence_instances)
-    grammar_persistence._doc_persistence_instances.clear()
+    old_doc_instances = dict(grammar_persistence.grammar_registry.doc_persistence_instances)
+    grammar_persistence.grammar_registry.doc_persistence_instances.clear()
 
     # Save logging state
     old_debug_log_path = logging_mod._debug_log_path
@@ -291,9 +291,9 @@ def _setup_grammar_persistence_test_env():
                     pass
 
         # Clean up
-        grammar_persistence._doc_persistence_instances.clear()
+        grammar_persistence.grammar_registry.doc_persistence_instances.clear()
         shutil.rmtree(tmp_dir, ignore_errors=True)
-        grammar_persistence._doc_persistence_instances.update(old_doc_instances)
+        grammar_persistence.grammar_registry.doc_persistence_instances.update(old_doc_instances)
 
 
 

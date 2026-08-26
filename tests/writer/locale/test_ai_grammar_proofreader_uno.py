@@ -28,7 +28,6 @@ def setup_grammar_proof_tests(_ctx: Any = None) -> Any:
 def teardown_grammar_proof_tests(saved_enabled: Any) -> None:
     set_config("doc.grammar_proofreader_enabled", saved_enabled)
     gc.cache_clear()
-    gc.clear_sentence_cache()
     gc.ignore_rules_clear()
 
 
