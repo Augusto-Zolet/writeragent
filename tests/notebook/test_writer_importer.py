@@ -369,6 +369,68 @@ def test_import_ipynb_to_writer_logs(tmp_path, monkeypatch):
     assert "notebook import start" in log_text
     assert "notebook import complete" in log_text
     assert "cell start index=0" in log_text
+    assert "flush_ui_idle" not in log_text
+
+
+def test_import_ipynb_to_writer_does_not_pump_vcl_idle(tmp_path, monkeypatch):
+    """Bulk import must not call ProcessEventsToIdle (LayoutIdle livelock)."""
+    ipynb = tmp_path / "md.ipynb"
+    ipynb.write_text(
+        '{"nbformat":4,"nbformat_minor":5,"metadata":{},"cells":['
+        '{"cell_type":"markdown","metadata":{},"source":"hi"},'
+        '{"cell_type":"code","metadata":{},"source":"x=1","outputs":[]}'
+        "]}",
+        encoding="utf-8",
+    )
+    doc, _body, _cur = _writer_doc_mock()
+    doc.createInstance.side_effect = lambda service: MagicMock()
+
+    class FakeSize:
+        def __init__(self, w, h):
+            self.Width = w
+            self.Height = h
+
+    flush = MagicMock()
+    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+    monkeypatch.setattr("plugin.notebook.writer_importer.flush_ui_idle", flush)
+    monkeypatch.setattr(
+        "plugin.notebook.notebook_controls.wire_all_notebook_run_buttons",
+        MagicMock(return_value=1),
+    )
+    order: list[str] = []
+    doc.lockControllers.side_effect = lambda: order.append("lock")
+    doc.unlockControllers.side_effect = lambda: order.append("unlock")
+    vc = doc.getCurrentController().getViewCursor()
+    vc.gotoRange.side_effect = lambda *args, **kwargs: order.append("view_start")
+    import_ipynb_to_writer(doc, str(ipynb), ctx=MagicMock())
+    flush.assert_not_called()
+    assert order[0] == "lock"
+    assert order[-1] == "unlock"
+    assert "view_start" in order
+    assert order.index("view_start") < order.index("unlock")
+    vc.gotoRange.assert_called()
+
+
+def test_batch_document_updates_unlocks_after_error():
+    doc = MagicMock()
+
+    def boom() -> None:
+        raise RuntimeError("insert failed")
+
+    from plugin.notebook.writer_importer import _batch_document_updates
+
+    with pytest.raises(RuntimeError, match="insert failed"):
+        with _batch_document_updates(doc):
+            boom()
+    doc.lockControllers.assert_called_once()
+    doc.unlockControllers.assert_called_once()
+
+
+def test_import_dialog_does_not_pump_vcl_idle_before_msgbox():
+    from plugin.notebook.import_dialog import run_import_ipynb_dialog
+
+    src = inspect.getsource(run_import_ipynb_dialog)
+    assert "flush_ui_idle" not in src
 
 
 def test_import_ipynb_code_cells_use_insert_text_content(tmp_path, monkeypatch):

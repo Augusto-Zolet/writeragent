@@ -49,7 +49,7 @@ For the full interactive roadmap (Run All, Stop, export, …), see [calc-noteboo
 1. Open a **Writer** document (empty or existing — import appends at the end).
 2. **WriterAgent → Import Jupyter Notebook…** (below Text Analytics...).
 3. Pick a `.ipynb` file.
-4. Wait for the completion dialog (cells / code fields / image counts). Large notebooks run on the **main thread**; the UI may pause — see [Debugging](#debugging-import-and-run).
+4. Wait for the completion dialog (cells / code fields / image counts). Cell insert is on the **main thread** with **`lockControllers`** so the live view does not scroll or relayout per cell. Before unlock, the view cursor is moved to the document start so the first layout paints from the top, not the last cell. Import does **not** wait for Writer `LayoutIdle` / `processEventsToIdle` — that livelocked for minutes on 100+ in-flow form controls. A hidden second document is not used: import appends to the open file, and ▶ wiring needs that document’s form controller.
 5. Click **▶** beside a code cell to run it (see [Run a code cell](#run-a-code-cell)).
 
 After `make deploy`, **restart LibreOffice** so the extension and menu handlers load. Re-import after upgrading WriterAgent if ▶ buttons do nothing (old builds may lack listener wiring).
@@ -139,7 +139,7 @@ tail -f ~/.config/libreoffice/4/user/writeragent_debug.log
 | `failed to clear output for cell` | `setString("")` on the output range failed (should be rare) |
 | `run_venv_code` / `Task … completed` | Python worker finished |
 
-[`flush_ui_idle`](../plugin/notebook/writer_importer.py) calls `processEventsToIdle()` after import, after wiring, and after each run.
+Do **not** call `processEventsToIdle` / [`flush_ui_idle`](../plugin/notebook/writer_importer.py) after bulk import or ▶ wiring. `SwViewShell::LayoutIdle` re-arms a QTimer on large in-flow form documents, so the pump never returns. Layout runs in the normal event loop after the completion dialog.
 
 Live Writer smoke (same Debug-menu action, FilePicker driven to the small fixture — not a pixel-click):
 

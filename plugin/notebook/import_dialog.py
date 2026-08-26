@@ -21,7 +21,7 @@ from plugin.contrib.nbformat import NBFormatError
 from plugin.doc.doc_type import is_writer
 from plugin.framework.i18n import _
 from plugin.framework.uno_context import get_active_document, get_ctx
-from plugin.notebook.writer_importer import flush_ui_idle, import_ipynb_to_writer
+from plugin.notebook.writer_importer import import_ipynb_to_writer
 
 log = logging.getLogger("writeragent.notebook")
 
@@ -101,12 +101,8 @@ def run_import_ipynb_dialog(uno_ctx: Any = None) -> None:
         int((time.monotonic() - import_t0) * 1000),
         stats,
     )
-    to_msg_t0 = time.monotonic()
-    flush_ui_idle(ctx, log_phase="flush_ui_idle before_completion_msgbox")
-    log.info(
-        "notebook import dialog to_completion_msgbox elapsed_ms=%d",
-        int((time.monotonic() - to_msg_t0) * 1000),
-    )
+    # No processEventsToIdle: after a large import Writer LayoutIdle never
+    # goes idle, so a flush here delayed (or livelocked) the completion box.
     log.debug("notebook import showing completion message box")
     msgbox(
         ctx,
@@ -124,5 +120,4 @@ def run_import_ipynb_dialog(uno_ctx: Any = None) -> None:
             images=stats.get("images", 0),
         ),
     )
-    flush_ui_idle(ctx)
     log.debug("notebook import completion message box closed")

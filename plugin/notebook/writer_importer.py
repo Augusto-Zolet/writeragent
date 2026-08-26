@@ -17,8 +17,9 @@ import re
 import struct
 import tempfile
 import time
+from contextlib import contextmanager
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, Iterator
 
 from com.sun.star.awt import Point, Size
 from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
@@ -606,7 +607,70 @@ def _log_shape_add(
         )
 
 
+@contextmanager
+def _batch_document_updates(doc: Any) -> Iterator[None]:
+    """Suppress view/layout while inserting many in-flow controls.
+
+    Hidden-document import would need a second Writer, a content copy, and a
+    form controller that often does not exist until the doc is shown. Locking
+    ``XModel`` controllers on the live document is the same idea with one
+    object: no scroll-to-end, no per-cell LayoutIdle. Nested lock is counted
+    in LibreOffice; always pair unlock in ``finally``.
+    """
+    locked = False
+    try:
+        lock = getattr(doc, "lockControllers", None)
+        if callable(lock):
+            try:
+                lock()
+                locked = True
+                log.info("notebook import lockControllers")
+            except Exception:
+                log.debug("notebook import lockControllers failed", exc_info=True)
+        yield
+    finally:
+        if locked:
+            try:
+                unlock = getattr(doc, "unlockControllers", None)
+                if callable(unlock):
+                    unlock()
+                    log.info("notebook import unlockControllers")
+            except Exception:
+                log.debug("notebook import unlockControllers failed", exc_info=True)
+
+
+def _scroll_view_to_start(doc: Any) -> None:
+    """Place the view at the document start (call while controllers are still locked).
+
+    Cells are inserted at the body end, so unlock would paint from the last cell.
+    Moving the view cursor first makes the first layout pass start at the top.
+    Use a text range, not ``jumpToFirstPage``: page jumps can force layout while locked.
+    """
+    try:
+        controller = doc.getCurrentController()
+        if controller is None:
+            return
+        get_vc = getattr(controller, "getViewCursor", None)
+        if not callable(get_vc):
+            return
+        vc = get_vc()
+        goto_range = getattr(vc, "gotoRange", None)
+        if not callable(goto_range):
+            return
+        start = doc.getText().getStart()
+        goto_range(start, False)
+        log.info("notebook import view_to_start")
+    except Exception:
+        log.debug("notebook import view_to_start failed", exc_info=True)
+
+
 def flush_ui_idle(ctx: Any | None, *, log_phase: str | None = None) -> None:
+    """Pump VCL until idle. Do **not** call this after bulk notebook import.
+
+    ``ProcessEventsToIdle`` waits for ``SwViewShell::LayoutIdle``. With hundreds of
+    in-flow form controls that idle task re-arms a QTimer, so the pump never
+    returns (92% CPU livelock; py-spy + gdb on the numpy fixture).
+    """
     if ctx is None:
         return
     t0 = time.monotonic()
@@ -1550,17 +1614,19 @@ def import_ipynb_to_writer(doc: Any, path: str, ctx: Any | None = None) -> dict[
     # Re-import replaces the whole registry (merge UX is Phase 3).
     registry_state = NotebookDocState(source_path=path)
     cells_t0 = time.monotonic()
-    _import_cells(
-        doc,
-        nb,
-        stats,
-        cell_count,
-        run_t0,
-        ctx=ctx,
-        notebook_in=notebook_in,
-        registry_state=registry_state,
-        notebook_dir=os.path.dirname(os.path.abspath(path)) if path else None,
-    )
+    with _batch_document_updates(doc):
+        _import_cells(
+            doc,
+            nb,
+            stats,
+            cell_count,
+            run_t0,
+            ctx=ctx,
+            notebook_in=notebook_in,
+            registry_state=registry_state,
+            notebook_dir=os.path.dirname(os.path.abspath(path)) if path else None,
+        )
+        _scroll_view_to_start(doc)
     log.info("notebook import cells_done elapsed_ms=%d cells=%d", _mono_ms(cells_t0), stats["cells"])
     if registry_state.code_cells:
         from plugin.notebook.notebook_controls import ensure_form_design_mode_off, wire_all_notebook_run_buttons
@@ -1576,11 +1642,11 @@ def import_ipynb_to_writer(doc: Any, path: str, ctx: Any | None = None) -> dict[
             _mono_ms(reg_t0),
             len(registry_state.code_cells),
         )
-        flush_ui_idle(ctx, log_phase="flush_ui_idle after_registry")
+        # Do not processEventsToIdle here: LayoutIdle livelocks on large
+        # in-flow form documents. Wire ▶ without waiting for full layout;
+        # XContainerListener catches views as they appear.
         if ctx is not None:
             wire_all_notebook_run_buttons(ctx, doc)
-    else:
-        flush_ui_idle(ctx, log_phase="flush_ui_idle after_cells")
 
     stats["controls"] = stats["shapes"]
     total_ms = _mono_ms(run_t0)

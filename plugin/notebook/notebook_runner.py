@@ -37,7 +37,6 @@ from plugin.notebook.writer_importer import (
     _prepare_display_text,
     _resolve_para_style,
     _strip_ansi,
-    flush_ui_idle,
 )
 from plugin.scripting.payload_codec import host_unpack_data, is_image_payload, find_image_payloads
 from plugin.scripting.session_manager import notebook_session_id
@@ -1063,7 +1062,8 @@ def run_cell(ctx: Any, doc: Any, cell_id: str) -> RunResult:
     apply_run_result(doc, cell, result, ctx=ctx)
     update_in_prompt(doc, cell, execution_count)
     save_registry(doc, state)
-    flush_ui_idle(ctx)
+    # Skip processEventsToIdle: same LayoutIdle livelock as post-import flush
+    # on notebooks with many in-flow form controls.
     _restore_view_to_cell(doc, cell, saved_view)
 
     if result.get("status") != "ok":

@@ -381,12 +381,9 @@ def wire_all_notebook_run_buttons(ctx: Any, doc: Any) -> int:
     state = load_registry(doc)
     if state is None:
         return 0
-    from plugin.notebook.writer_importer import flush_ui_idle
-
     prune_dead_listeners()
     doc_key = _doc_key(doc)
     ensure_form_design_mode_off(doc)
-    flush_ui_idle(ctx, log_phase="flush_ui_idle before_form_listener")
     if doc_key in _wired_form_docs:
         log.debug("notebook controls: form listener already attached doc=%s", doc_key)
         return 1

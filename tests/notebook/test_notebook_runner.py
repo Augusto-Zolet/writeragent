@@ -130,7 +130,6 @@ def test_run_cell_updates_registry_and_execution_count():
         patch("plugin.notebook.notebook_runner.apply_run_result"),
         patch("plugin.notebook.notebook_runner.update_in_prompt"),
         patch("plugin.notebook.notebook_runner.save_registry") as save_reg,
-        patch("plugin.notebook.notebook_runner.flush_ui_idle"),
     ):
         result = run_cell(ctx, doc, cell.cell_id)
 
@@ -522,7 +521,6 @@ def test_run_cell_rerun_clears_then_applies():
         patch("plugin.notebook.notebook_runner.apply_run_result", side_effect=rec_apply),
         patch("plugin.notebook.notebook_runner.update_in_prompt"),
         patch("plugin.notebook.notebook_runner.save_registry"),
-        patch("plugin.notebook.notebook_runner.flush_ui_idle"),
     ):
         assert run_cell(ctx, doc, cell.cell_id).status == "ok"
         assert run_cell(ctx, doc, cell.cell_id).status == "ok"
@@ -665,7 +663,6 @@ def test_run_cell_error_still_increments_execution_count():
         patch("plugin.notebook.notebook_runner.apply_run_result"),
         patch("plugin.notebook.notebook_runner.update_in_prompt"),
         patch("plugin.notebook.notebook_runner.save_registry"),
-        patch("plugin.notebook.notebook_runner.flush_ui_idle"),
     ):
         result = run_cell(ctx, doc, cell.cell_id)
 
@@ -747,7 +744,6 @@ def test_run_cell_for_doc_hex_execution_error_does_not_msgbox():
         patch("plugin.notebook.notebook_runner.apply_run_result", side_effect=rec_apply),
         patch("plugin.notebook.notebook_runner.update_in_prompt"),
         patch("plugin.notebook.notebook_runner.save_registry"),
-        patch("plugin.notebook.notebook_runner.flush_ui_idle"),
         patch("plugin.notebook.notebook_runner.msgbox") as boxed,
     ):
         run_cell_for_doc_hex(ctx, doc, hex_id)

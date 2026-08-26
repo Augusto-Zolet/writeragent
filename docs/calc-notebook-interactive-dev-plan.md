@@ -89,7 +89,7 @@ This plan is **Writer-first**. Calc notebook import is out of scope unless expli
 
 - **`queryInterface`** must use `uno.getTypeByName("com.sun.star.view.XControlAccess")`, not imported IDL classes (same pattern as [`pivot.py`](../plugin/calc/pivot.py)).
 - **Control lookup** — in-flow `ControlShape` models live on **`doc.getDrawPage()`**, not only as `TextPortionType == "Frame"` in body enumeration ([`form_lookup.py`](../plugin/notebook/form_lookup.py); mirrors [`form_list_controls`](../plugin/writer/specialized/forms.py)).
-- **Wire timing** — attach **one** form-controller `XActionListener` after import + `processEventsToIdle()`. Do **not** call `controller.getControl(model)` per ▶ (that realized every view; ~2.4s for 144 buttons). `wire_all_notebook_run_buttons` attaches the shared listener to `getFormController(form).getContainer()` (`getControls()` + `XContainerListener`). PUSH clicks are view `XActionListener` / `XApproveActionBroadcaster`; the form model and `runtime.XFormController` are not action broadcasters (live QI).
+- **Wire timing** — attach **one** form-controller `XActionListener` after import **without** `processEventsToIdle()` (LayoutIdle livelocks on 100+ in-flow controls). Do **not** call `controller.getControl(model)` per ▶ (that realized every view; ~2.4s for 144 buttons). `wire_all_notebook_run_buttons` attaches the shared listener to `getFormController(form).getContainer()` (`getControls()` + `XContainerListener`). PUSH clicks are view `XActionListener` / `XApproveActionBroadcaster`; the form model and `runtime.XFormController` are not action broadcasters (live QI).
 - **Spellcheck** — set document + paragraph styles to **`zxx`** (no linguistic content) at import start ([`rich_text.py`](../plugin/chatbot/rich_text.py) uses the same locale).
 - **In-flow controls vs `setString`** — `XTextRange.setString` on a paragraph that contains `AS_CHARACTER` ControlShapes deletes those shapes. Rewrite Text portions only (`update_in_prompt` / `_gutter_text_cursor`).
 - **`PARAGRAPH_BREAK` cursor** — After `insertControlCharacter(..., PARAGRAPH_BREAK)`, the cursor stays **before** the break ([`html_export.py`](../plugin/writer/html_export.py)). Move with `goRight(1)` / `gotoNextParagraph` before inserting stdout.
@@ -114,7 +114,7 @@ This plan is **Writer-first**. Calc notebook import is out of scope unless expli
 
 ## Design principles
 
-1. **Main thread for UNO** — Document mutations on the LO UI thread; venv IPC on worker via `run_blocking_in_thread` + mandatory `flush_ui_idle` / `processEventsToIdle` after runs ([`notebook_runner.py`](../plugin/notebook/notebook_runner.py)).
+1. **Main thread for UNO** — Document mutations on the LO UI thread; venv IPC on worker via `run_blocking_in_thread`. Do **not** `processEventsToIdle` after bulk import or cell run ([`notebook_runner.py`](../plugin/notebook/notebook_runner.py)) — Writer `LayoutIdle` livelocks on large form documents.
 
 2. **Stable cell identity** — Registry uses **`cell_id` (UUID)** and hex id in control names (`nb_run_{hex}`, `nb_out_{hex}`). Field names still include index (`nb_cell_{i}_code`) for readability; Phase 3 may avoid renumbering pain via UUID-only refs.
 
