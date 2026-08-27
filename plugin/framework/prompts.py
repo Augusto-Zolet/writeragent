@@ -252,9 +252,10 @@ WRITER_APPLY_DOCUMENT_HTML_RULES = f"""APPLY_DOCUMENT_CONTENT AND HTML (CRITICAL
 - `content` is a JSON array of HTML strings (one fragment per heading/paragraph).
   We wrap in <html>/<body>.
 {HTML_FRAGMENT_RULES}
-- Math: Use LaTeX inline delimiters \\(...\\) only (e.g. \\(x^2=4\\)).
-  No $, $$, \\[, HTML-escaped math, or equation images.
-  Single variables can be plain text.
+- Math (CRITICAL): Format mathematical equations, formulas, fractions, integrals, matrices, and non-trivial calculations in LaTeX using \\(...\\) for inline math or \\[\u2026\\] for centered display math (e.g. \\(a^2+b^2=c^2\\) or \\(\\frac{{a}}{{b}}\\)).
+  Use standard HTML <sup> and <sub> tags for simple text superscripts and subscripts (e.g. 10<sup>th</sup>, H<sub>2</sub>O, x<sup>2</sup>) to preserve native character formatting without creating OLE Math objects.
+  Do NOT write equations in plain text (avoid plain a/b, etc.).
+  No $, $$, HTML-escaped math, or equation images.
 - Named styles: get_document_content marks each block `data-lo-style` = style name with spaces removed (`Heading 1`→`Heading1`).
   Copy tokens exactly. Prefer named styles; unknown token → Standard.
   inline style="" is a character override on top of the named style.
@@ -263,7 +264,7 @@ WRITER_APPLY_DOCUMENT_HTML_RULES = f"""APPLY_DOCUMENT_CONTENT AND HTML (CRITICAL
 
 EXAMPLES:
 - Good: ["<h1>Title</h1>", "<p>Paragraph with <strong>bold</strong> text and \\"quotes\\".</p>"]
-- Good math: ["<p>The identity \\(a^2+b^2=c^2\\) holds.</p>"]
+- Good math: ["<p>The identity \\(a^2+b^2=c^2\\) holds.</p>", "\\[E = mc^2\\]", "<p>Water molecule: H<sub>2</sub>O, 10<sup>th</sup> edition.</p>"]
 - Good styles: ["<p data-lo-style=\\"Heading1\\">Section title</p>", "<p data-lo-style=\\"Quotations\\">A quoted clause.</p>"]
 - Bad: <h1>Title</h1><p>Paragraph</p> (must be a list of strings)"""
 
