@@ -154,6 +154,56 @@ def test_unsubscribe_weak_bound_method_without_stashing():
     assert received == []
 
 
+def test_emit_drops_reentrant_same_event():
+    """Same-thread nested emit of the same name must not re-enter subscribers.
+
+    That is the sidebar hang: config:changed -> setText -> set_config ->
+    config:changed. Raising from emit would be swallowed by the outer emit's
+    except Exception, so we drop and warn instead.
+    """
+    bus = EventBus()
+    calls = []
+
+    def handler():
+        calls.append("enter")
+        bus.emit("test:event")
+        calls.append("after-nested")
+
+    bus.subscribe("test:event", handler)
+    bus.emit("test:event")
+    assert calls == ["enter", "after-nested"]
+
+
+def test_emit_allows_nested_different_event():
+    bus = EventBus()
+    order = []
+
+    def outer():
+        order.append("outer")
+        bus.emit("inner:event")
+
+    def inner():
+        order.append("inner")
+
+    bus.subscribe("outer:event", outer)
+    bus.subscribe("inner:event", inner)
+    bus.emit("outer:event")
+    assert order == ["outer", "inner"]
+
+
+def test_emit_allows_sequential_same_event():
+    bus = EventBus()
+    calls = []
+
+    def handler():
+        calls.append(1)
+
+    bus.subscribe("test:event", handler)
+    bus.emit("test:event")
+    bus.emit("test:event")
+    assert calls == [1, 1]
+
+
 def test_weakref_subscribe_callable():
     bus = EventBus()
     received = []

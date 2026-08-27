@@ -18,6 +18,7 @@
 
 import sys
 import logging
+import threading
 import weakref
 
 from plugin.framework.service import ServiceBase
@@ -34,6 +35,13 @@ class EventBus:
     All callbacks run synchronously on the calling thread. Exceptions in
     subscribers are logged but never propagated to the emitter.
 
+    Re-entrant ``emit`` of the *same* event on the same thread is dropped
+    (warning logged). That stops the sidebar config-refresh loop where
+    ``config:changed`` → control ``setText`` → listener → ``set_config`` →
+    ``config:changed`` again. Nested *different* events still run. Concurrent
+    emits of the same name on *other* threads are not dropped (thread-local
+    dispatch set, not a process-wide lock).
+
     Usage::
 
         bus = EventBus()
@@ -48,6 +56,9 @@ class EventBus:
 
     def __init__(self):
         self._subscribers = {}  # event -> list of (callback, is_weakref)
+        # Per-thread names currently in emit(); instance-wide would drop
+        # legitimate parallel emits of the same event from two threads.
+        self._dispatching = threading.local()
 
     def subscribe(self, event, callback, weak=False):
         """Register *callback* for *event*.
@@ -103,38 +114,54 @@ class EventBus:
             return False
         return stored_self is other_self and getattr(stored, "__func__", None) is getattr(callback, "__func__", None)
 
+    def _active_events(self) -> set:
+        active = getattr(self._dispatching, "events", None)
+        if active is None:
+            active = set()
+            self._dispatching.events = active
+        return active
+
     @deal.post(lambda result: result is None)
     def emit(self, event, **data):
         """Emit *event*, calling all subscribers with **data as kwargs.
 
         Exceptions in subscribers are logged and swallowed.
+        Re-entrant emit of the same event on this thread is dropped.
         """
         # crosshair: off
         subs = self._subscribers.get(event)
         if not subs:
             return
 
-        dead = []
-        for i, (cb, is_weak) in enumerate(subs):
-            resolved = self._resolve(cb, is_weak)
-            if resolved is None:
-                dead.append(i)
-                continue
-            try:
-                resolved(**data)
-            except TypeError:
-                log.exception("TypeError in event handler %s for %s", resolved, event)
-            except ValueError:
-                log.exception("ValueError in event handler %s for %s", resolved, event)
-            except Exception as e:
-                # Still catch Exception to avoid one bad listener breaking the whole bus,
-                # but log it clearly as an unhandled application error
-                log.exception("Unhandled error in event handler %s for %s: %s", resolved, event, e)
+        active = self._active_events()
+        if event in active:
+            log.warning("Suppressed re-entrant event_bus.emit for %r on the same thread", event)
+            return
 
-        # Clean up dead weakrefs
-        if dead:
-            for i in reversed(dead):
-                subs.pop(i)
+        active.add(event)
+        try:
+            dead = []
+            for i, (cb, is_weak) in enumerate(subs):
+                resolved = self._resolve(cb, is_weak)
+                if resolved is None:
+                    dead.append(i)
+                    continue
+                try:
+                    resolved(**data)
+                except TypeError:
+                    log.exception("TypeError in event handler %s for %s", resolved, event)
+                except ValueError:
+                    log.exception("ValueError in event handler %s for %s", resolved, event)
+                except Exception as e:
+                    # Still catch Exception to avoid one bad listener breaking the whole bus,
+                    # but log it clearly as an unhandled application error
+                    log.exception("Unhandled error in event handler %s for %s: %s", resolved, event, e)
+
+            if dead:
+                for i in reversed(dead):
+                    subs.pop(i)
+        finally:
+            active.discard(event)
 
     def _resolve(self, cb, is_weak):
         if is_weak:
@@ -172,3 +199,4 @@ class EventBusService(ServiceBase, EventBus):
         # Share the process-wide subscriber dict; do not reassign this attribute
         # or the service would silently desync from global_event_bus.
         self._subscribers = global_event_bus._subscribers
+        self._dispatching = global_event_bus._dispatching

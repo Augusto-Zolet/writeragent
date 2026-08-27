@@ -437,81 +437,49 @@ def update_lru_history(val, lru_key, endpoint, max_items=None):
 
 ---
 
-### 12.3 Defense-in-Depth Roadmap (Strategies 2–4)
+### 12.3 What we shipped vs what we did not (and why)
 
-To systematically prevent similar event feedback loops across new dialogs and controls, three additional architectural layers are planned:
+This subsection is the record of the test/build follow-up to the hang in 12.1. It is **not** an open roadmap: do not "complete" the skipped items unless the conditions in each **Revisit when** clause actually happen.
 
-#### Strategy 2: Event Suppression Context Manager (`suppress_control_listeners`)
+#### Shipped
 
-Add a generic context manager to [`plugin/framework/uno_listeners.py`](../plugin/framework/uno_listeners.py) that temporarily suppresses listener callbacks during control mutation blocks:
+**Strategy 1 (already in tree):** panel `_in_refresh_controls`, listener checks, LRU short-circuit when the value is already `lru[0]`. Stops *this* sidebar path from treating programmatic `setText` as a user edit.
 
-```python
-@contextmanager
-def suppress_control_listeners(*listeners_or_controls):
-    """Context manager to suppress UNO listener callbacks during programmatic control updates."""
-    token_guards = []
-    for target in listeners_or_controls:
-        if hasattr(target, "_suppress_callbacks"):
-            token_guards.append(target)
-            target._suppress_callbacks = True
-    try:
-        yield
-    finally:
-        for target in token_guards:
-            target._suppress_callbacks = False
-```
+**Strategy 3 (event bus, this follow-up):** [`plugin/framework/event_bus.py`](../plugin/framework/event_bus.py) drops a **same-event, same-thread** nested `emit` and logs a warning. Nested *different* events still run; a second `emit` of the same name *after* the first returns still runs.
 
-**Usage in UI Refreshes:**
-```python
-with suppress_control_listeners(model_sync_listener, model_text_sync_listener):
-    populate_combobox_with_lru(ctx, model_selector, current_model, "model_lru", endpoint)
-```
+Implementation notes that differ from the first sketch in git history:
 
-#### Strategy 3: Event Bus Re-Entrancy Circuit Breaker
+- Dispatch state is **`threading.local()`**, not an instance `set` plus `RLock`. A process-wide/instance set would drop a legitimate second `config:changed` that is in flight on another thread (MCP, worker posting a real config write). The hang is same-thread recursion, so thread-local is the property we want.
+- Re-entrant `emit` **returns**; it does **not** raise. `emit` already swallows subscriber `Exception`s, so an inner raise would not fail pytest and would only show up as a log line. Tests assert call counts instead. `WRITERAGENT_TESTING` is not a reliable pytest signal (many unit tests never set it).
 
-Enhance [`plugin/framework/event_bus.py`](../plugin/framework/event_bus.py) to track active event emissions and prevent re-entrant dispatch loops at the infrastructure layer:
+Tests: [`tests/framework/test_event_bus.py`](../tests/framework/test_event_bus.py) (`test_emit_drops_reentrant_same_event`, nested different event, sequential same event).
 
-```python
-class EventBus:
-    def __init__(self):
-        self._listeners: dict[str, list[Callable]] = defaultdict(list)
-        self._active_events: set[str] = set()
-        self._lock = threading.RLock()
+**Strategy 4.2 (synthetic tests, this follow-up):** [`tests/chatbot/test_ui_reentrancy.py`](../tests/chatbot/test_ui_reentrancy.py). A `FiringCombo` calls `textChanged` / `itemStateChanged` from `setText` / `addItems` / `removeItems` (the VCL behavior unit tests never had). It drives production `ChatPanelElement._wire_model_selectors` / `_refresh_controls_from_config`. Oracles: refresh is capped (`AssertionError` after 20 re-entries, so a missed guard fails in milliseconds, not a hang); guarded populate does not `set_config`; an unguarded text listener still writes LRU but the bus drop keeps refresh at one entry.
 
-    def emit(self, event_name: str, *args, **kwargs) -> None:
-        with self._lock:
-            if event_name in self._active_events:
-                log.warning("Suppressed re-entrant event_bus.emit for %r on main thread", event_name)
-                return
-            self._active_events.add(event_name)
+This is the test that would have caught last night **without soffice**. LRU skip is **not** the hang oracle (empty LRU still wrote config in the py-spy stack).
 
-        try:
-            listeners = list(self._listeners.get(event_name, []))
-            for listener in listeners:
-                try:
-                    listener(*args, **kwargs)
-                except Exception:
-                    log.exception("Error in event_bus listener for %r", event_name)
-        finally:
-            with self._lock:
-                self._active_events.remove(event_name)
-```
+#### Not doing — keep these skipped unless the revisit condition is true
 
-**Key Advantages:**
-- **Zero-Config Circuit Breaker**: If any UI path or config listener attempts to re-emit an event that is currently being processed on the stack, the event bus logs a warning and drops the re-entrant dispatch immediately.
-- **Thread Safety**: Uses `threading.RLock()` so multi-thread event bus emissions remain thread-safe.
+**Strategy 2 (`suppress_control_listeners` context manager).**  
+Not shipped. The panel already has `_in_refresh_controls` and the listeners already check it. A context manager is another token to remember at every `setText` site; forgetting the `with` is the same class of bug, and the synthetic test already fails if populate re-enters. Extra API without a second consumer is noise.  
+**Revisit when:** a *second* dialog or control family grows the same populate → listener → `set_config` pattern and a panel-level bool does not fit (multiple independent refreshes, shared listeners).
 
-#### Strategy 4: AST Static Linter (`scripts/lint_ui_reentrancy.py`) & Synthetic Tests
+**Strategy 4.1 (AST linter `scripts/lint_ui_reentrancy.py`).**  
+Not shipped. “Any `event_bus` subscriber that calls `setText` must have a guard” is intrafile, easy to evade (`populate_combobox_with_lru` in another module, `getattr` flags), and noisy on legitimate UI code. High false-positive cost for a pattern we now have a deterministic pytest for.  
+**Revisit when:** a second dialog hits the same loop *and* nobody extended `test_ui_reentrancy.py`. Then a small allowlisted scan of those modules may be cheaper than hoping the next author copies the test.
 
-1. **Static AST Linter (`scripts/lint_ui_reentrancy.py`)**:
-   Add an AST visitor rule to `make typecheck` that inspects functions subscribed to `event_bus`:
-   - Scans function bodies for calls to control mutators: `setText()`, `addItems()`, `removeItems()`, `setSelectedPos()`.
-   - Ensures the enclosing function either wraps control calls in a re-entrancy guard (`_in_refresh_controls` / `suppress_control_listeners`) or passes `update_lru=False`.
+**Raise on re-entrant emit under tests.**  
+Not shipped. See Strategy 3: inner raise is swallowed by outer `emit`. Call-count / refresh-cap oracles are what turn red.
 
-2. **Synthetic Event Loop Unit Tests (`tests/chatbot/test_ui_reentrancy.py`)**:
-   Construct test cases that trigger `_refresh_controls_from_config()` with mock controls and verify:
-   - Zero secondary `config_changed` events are emitted during control population.
-   - Combobox removal/addition cycles do not trigger state mutations.
+**Native LibreOffice UNO test for this loop.**  
+Not shipped. The bug is same-thread and deterministic once the combo fires synchronously; a live VCL test adds CI time without a stronger oracle than the firing mock.  
+**Revisit when:** we learn VCL fires a listener we did not mock (`removeItems` vs `setText` vs focus) and pytest is green while the office still hangs.
+
+**Do not fold this into `lint_thread_safety.py`, Opengrep UNO taint, or `lo-test-threadguard`.**  
+Wrong bug class. Everything in 12.1 runs on the main UI thread (red). Layers A–C stay green during this hang.
+
+**Do not treat LRU dedup as sufficient.**  
+`update_lru_history` skipping `set_config` when the value is already on top is a useful extra; the freeze still happens whenever `set_config` actually writes (empty LRU, new model, settings apply). The bus drop + panel flag + refresh-cap test are the hang nets.
 
 ---
 

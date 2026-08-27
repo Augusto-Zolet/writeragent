@@ -242,7 +242,7 @@ help:
 	@echo "  make opengrep-rules-audit   Live registry sweep (p/python; manual triage only)"
 	@echo "  make uno-thread-lint        Alias for make opengrep-lint"
 	@echo "  make opengrep-install       Install Opengrep CLI (~/.local/bin or bin/opengrep)"
-	@echo "  make typecheck              ruff-for-build, then ty/mypy/basedpyright/pyspector/opengrep/thread-safety/bandit in parallel"
+	@echo "  make typecheck              ruff-for-build, then basedpyright/bandit/opengrep/pyspector/ty/thread-safety/mypy in parallel"
 	@echo "  make ensure-uno             Link system UNO into .venv if import uno fails (auto-run by typecheck/test)"
 	@echo "  make fix-uno                Same as ensure-uno with verbose output"
 	@echo "  make mypy / make basedpyright / make pyrefly / make bandit   Single-tool runs (bandit: plugin/, excludes contrib + tests)"
@@ -660,8 +660,8 @@ check-ext:
 LO_PYTHON ?= $(shell python3 -c "import uno" 2>/dev/null && echo python3 || (python -c "import uno" 2>/dev/null && echo python || echo python))
 
 typecheck: manifest ruff-for-build
-	@echo "=== typecheck: ty + mypy + basedpyright + pyspector + opengrep + thread-safety + bandit (parallel) ==="
-	@$(MAKE) -j7 ty-run mypy-run basedpyright-run pyspector opengrep-lint thread-safety-lint bandit
+	@echo "=== typecheck: basedpyright + bandit + opengrep + pyspector + ty + thread-safety + mypy (parallel) ==="
+	@$(MAKE) -j7 basedpyright-run bandit opengrep-lint pyspector ty-run thread-safety-lint mypy-run
 
 # Unit pytest only: no *_uno.py collection, no testing_runner / live soffice.
 # Exact command: $(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py'
