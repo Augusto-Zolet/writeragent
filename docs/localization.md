@@ -21,7 +21,7 @@ There is **no separate “UI language” override in `writeragent.json`** today:
 
 4. **Dialogs at runtime**: [`translate_dialog` in `plugin/chatbot/dialogs.py`](../plugin/chatbot/dialogs.py) walks controls and applies translated text. **Do not** pass raw saved config values through `_()`: empty strings can pick up gettext header garbage. Config validation strips bogus gettext headers; see [`tests/framework/test_i18n.py`](../tests/framework/test_i18n.py).
 
-5. **Monaco editor (pywebview)**: User-visible strings live in Python only — [`plugin/scripting/editor_ui_strings.py`](../plugin/scripting/editor_ui_strings.py). [`launch_monaco_editor()`](../plugin/scripting/editor_host.py) enriches every IPC `load` message with a pre-translated `ui` dict; [`editor.js`](../plugin/contrib/scripting/assets/editor/editor.js) applies it in `applyLoadMessage()`. Add new shell strings in Python `_()`, run `make extract-strings`, then read the key from `load.ui` in JS. See [scripting-monaco-editor-dev-plan.md § Localization](scripting-monaco-editor-dev-plan.md#localization).
+5. **Monaco editor (pywebview)**: User-visible strings live in Python only — [`plugin/scripting/editor_ui_strings.py`](../plugin/scripting/editor_ui_strings.py). [`launch_monaco_editor()`](../plugin/scripting/editor_host.py) enriches every IPC `load` message with a pre-translated `ui` dict; [`editor.js`](../plugin/contrib/scripting/assets/editor/editor.js) applies it in `applyLoadMessage()`. Add new shell strings in Python `_()`, run `make extract-strings`, then read the key from `load.ui` in JS. See [scripting/monaco-editor-dev-plan.md § Localization](scripting/monaco-editor-dev-plan.md#localization).
 
 ## Build and maintenance commands
 

@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Core get_image tool — return an embedded image as a real (viewable) image.
 
-Lazy image perception (see docs/image-recognition-multimodal-LLMs.md and the Keith/Augusto design):
+Lazy image perception (see docs/image/recognition-multimodal-LLMs.md and the Keith/Augusto design):
 b64 is stripped from get_document_content by default, so a model never pays vision tokens up front.
 When it actually needs to SEE one image, it calls get_image, which returns that single picture as a
 native MCP image content block (only then are vision tokens spent). One self-documenting tool, by

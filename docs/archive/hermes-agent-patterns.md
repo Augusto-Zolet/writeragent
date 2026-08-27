@@ -89,9 +89,9 @@ This reuses [`MemoryStore`](../plugin/chatbot/memory.py); omit registering [`Mem
 Split **who you are** from **what we edit** using **different tool sets**, not necessarily a different session:
 
 - **Librarian surface** — Reduced tools (memory/skills/chat only). Same sidebar session and history; onboarding chat seeds `USER.md`.
-- **Writer surface** — Full Writer tool list (or nested Writer delegation per [`writer-specialized-toolsets.md`](writer-specialized-toolsets.md)).
+- **Writer surface** — Full Writer tool list (or nested Writer delegation per [`../writer/specialized-toolsets.md`](../writer/specialized-toolsets.md)).
 
-**Precedent:** Web research already branches on a checkbox in [`panel.py`](../plugin/chatbot/panel.py) / [`web_research.py`](../plugin/chatbot/web_research.py). Librarian mode is implemented in [`librarian.py`](../plugin/chatbot/librarian.py). See [`chat-librarian-onboarding.md`](chat-librarian-onboarding.md) for onboarding details.
+**Precedent:** Web research already branches on a checkbox in [`panel.py`](../plugin/chatbot/panel.py) / [`web_research.py`](../plugin/chatbot/web_research.py). Librarian mode is implemented in [`librarian.py`](../plugin/chatbot/librarian.py). See [`../chat/librarian-onboarding.md`](../chat/librarian-onboarding.md) for onboarding details.
 
 ---
 
@@ -246,7 +246,7 @@ Port the same way as humanizer: trim to a short office-tuned guidance block, amb
 |-------|----------|-------|
 | `creative/humanizer` | **Shipped** | AI-slop removal + human voice. See § WriterAgent implementation. |
 | `productivity/document-to-action-items` + `productivity/meeting-action-items` | **Next (merge into one)** | One WriterAgent skill. Split decisions / proposals / commitments / risks; keep may–should–must; never invent owner or due date (`unresolved`); every item cites a heading/paragraph; draft only — no tracker writes unless asked. LibreOffice does not do this. Output: Writer table or Calc sheet. Fits the legal/professional pitch in [`business-freemium.md`](business-freemium.md). |
-| `research/grounded-citations` | **Next** | Procedure only — not `scripts/sources.py` and not a bibliography UNO module (still a gap in [`writer-specialized-toolsets.md`](../writer-specialized-toolsets.md)). Cite-while-drafting; never invent `[n]` or URLs; model-knowledge claims get `[unverified]`; keep conflicting sources; append a mechanical Sources list. Web research already collects URLs; this is the missing craft layer. |
+| `research/grounded-citations` | **Next** | Procedure only — not `scripts/sources.py` and not a bibliography UNO module (still a gap in [`../writer/specialized-toolsets.md`](../writer/specialized-toolsets.md)). Cite-while-drafting; never invent `[n]` or URLs; model-knowledge claims get `[unverified]`; keep conflicting sources; append a mechanical Sources list. Web research already collects URLs; this is the missing craft layer. |
 | `optional-skills/communication/one-three-one-rule` | Cheap third | Tiny. “Give me options” → 1 problem, 3 distinct options, 1 recommendation + definition of done. Zero deps. Good for memos / strategy docs. |
 
 ### Later / optional (not defaults)
@@ -284,7 +284,7 @@ Port the same way as humanizer: trim to a short office-tuned guidance block, amb
 ## Integration principles
 
 - **Reuse first** — Prompt injection points, smol sub-agents, trusted venv modules (`plugin/scripting/`).
-- **Shared layout** — `SKILL.md` + directory convention for cross-agent portability (Hermes, WriterAgent, Memento — see [`external/memento-skills.md`](external/memento-skills.md)).
+- **Shared layout** — `SKILL.md` + directory convention for cross-agent portability (Hermes, WriterAgent, Memento — see [`../external/memento-skills.md`](../external/memento-skills.md)).
 - **Vendoring / adaptation** — Small focused pieces (humanizer patterns, action-item / citation procedures, threat scanner) rather than whole subsystems.
 - **Injection vs. tools** — Ambient injection for memory and key skills; tools primarily for mutation.
 - **Defaults vs. optional** — Tiny high-signal default set; hub/discovery for the rest.
@@ -351,11 +351,11 @@ Port the same way as humanizer: trim to a short office-tuned guidance block, amb
 
 **Related docs:**
 
-- [`chat-librarian-onboarding.md`](chat-librarian-onboarding.md)
-- [`external/memento-skills.md`](external/memento-skills.md)
-- [`chat-smol-tool-architecture.md`](chat-smol-tool-architecture.md)
-- [`mcp-protocol.md`](mcp-protocol.md)
-- [`enabling_numpy_in_libreoffice.md`](enabling_numpy_in_libreoffice.md)
+- [`../chat/librarian-onboarding.md`](../chat/librarian-onboarding.md)
+- [`../external/memento-skills.md`](../external/memento-skills.md)
+- [`../chat/smol-tool-architecture.md`](../chat/smol-tool-architecture.md)
+- [`../mcp/protocol.md`](../mcp/protocol.md)
+- [`../enabling_numpy_in_libreoffice.md`](../enabling_numpy_in_libreoffice.md)
 
 ---
 

@@ -660,7 +660,7 @@ class CellManipulator:
         """Write formula(s) or value(s) to a cell range.
 
         ISO date/time strings matching the wire gate become Calc serials with
-        category-compatible NumberFormat preservation (see docs/calc-date-time-handling.md).
+        category-compatible NumberFormat preservation (see docs/calc/date-time-handling.md).
 
         Args:
             range_str: Cell range (e.g. "A1:A10", "B2:D2").

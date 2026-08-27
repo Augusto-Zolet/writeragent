@@ -12,7 +12,7 @@ declare `token: MainThreadToken` or `token: MainThreadToken | None = None`
 in their signatures, enabling build-time type verification.
 
 Unused in plugin/ today: runtime affinity is Opengrep taint plus thread_guard
-(docs/framework-uno-thread-safety.md §11).
+(docs/framework/uno-thread-safety.md §11).
 """
 
 from __future__ import annotations

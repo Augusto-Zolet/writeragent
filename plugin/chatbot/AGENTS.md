@@ -32,11 +32,11 @@ the area gotchas.
 - views → `dialogs` helpers; views must **not** import `tool_loop`
 - send / tool loop → `ChatSession.refresh_document_context`; must **not** import `get_document_context_for_chat` or `panel_factory`
 
-Topic docs: [docs/chat-sidebar-implementation.md](../../docs/chat-sidebar-implementation.md),
-[docs/chat-smol-tool-architecture.md](../../docs/chat-smol-tool-architecture.md),
-[docs/chat-llm-hacks.md](../../docs/chat-llm-hacks.md),
-[docs/framework-streaming-and-threading.md](../../docs/framework-streaming-and-threading.md),
-[docs/framework-uno-dialogs.md](../../docs/framework-uno-dialogs.md).
+Topic docs: [docs/chat/sidebar-implementation.md](../../docs/chat/sidebar-implementation.md),
+[docs/chat/smol-tool-architecture.md](../../docs/chat/smol-tool-architecture.md),
+[docs/chat/llm-hacks.md](../../docs/chat/llm-hacks.md),
+[docs/framework/streaming-and-threading.md](../../docs/framework/streaming-and-threading.md),
+[docs/framework/uno-dialogs.md](../../docs/framework/uno-dialogs.md).
 
 ## Sharp edges
 

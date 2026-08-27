@@ -48,7 +48,7 @@ _RUN_PREFIX = "nb_run_"
 # error). Do not marshal with execute_on_main_thread from the filter (host
 # waiting = deadlock #402). ApplyFormDesignMode=False must happen before the
 # filter returns. Listener methods stay undecorated (LO already invokes those
-# on the UI thread; docs/framework-uno-thread-safety.md §A4). Release OXT still
+# on the UI thread; docs/framework/uno-thread-safety.md §A4). Release OXT still
 # strips remaining decorators. Keep @main_thread_only on getControl /
 # per-button wire / bootstrap install. _lock only serializes the one-shot
 # global _doc_listener install.

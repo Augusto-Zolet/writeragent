@@ -1,0 +1,238 @@
+# Static type checking (`ty`)
+
+WriterAgent uses [Astral’s `ty`](https://docs.astral.sh/ty/) on the `plugin/` tree. This document covers **what changed in the code** (especially UNO and extension patterns), **where** it landed, and the **minimum tooling** needed to run the checker. Quick-reference annotation rules are in [Other recurring fixes](#other-recurring-fixes-non-uno) below.
+
+---
+
+## Outcome
+
+| Stage | Notes |
+|--------|--------|
+| Initial | On the order of **1000+** diagnostics before scoping (including vendored `plugin/contrib` and noisy test-only code). |
+| After narrowing | Excluding **`plugin/contrib`**, **`plugin/lib`** (vendored wheels / pip `--target` trees), and **`plugin/tests`** via `pyproject.toml` focused work on application code; one documented pass fixed on the order of **~141** categorized issues in that scope. |
+| Final | **`ty check`** reports **no errors** for the configured include set. **`make typecheck`** runs **`ruff-for-build`**, then **`basedpyright`**, **bandit**, **opengrep**, **`pyspector`**, **`ty`**, thread-safety lint, and **`mypy`** in one parallel batch; **`scripts/run_timed.py`** buffers each tool’s stdout/stderr and prints one labeled block when that tool finishes so progress bars do not interleave. **`make test`** runs **`typecheck`**, then pytest and LO tests. **`make release`** runs **`typecheck-full`** (same checkers; Basedpyright uses **`pyrightconfig.full.json`** with **`useLibraryCodeForTypes = true`**) before the stripped-bundle verification (see **`Makefile`**). |
+
+Static checking does **not** prove LibreOffice runtime behavior: UNO remains highly dynamic. The goal is consistent annotations, usable stubs, and fewer accidental mistakes in Python code.
+
+---
+
+## Tooling (short)
+
+- **`pyproject.toml`** — `[tool.ty.src]`: `include = ["plugin", "compute_service"]`, `exclude = ["plugin/contrib", "plugin/lib", "plugin/tests"]`. Mypy / Basedpyright / Pyrefly use the same include set.
+- **`Makefile`** — `make ty`: ensures `import uno` (via `make fix-uno` if needed), then `python -m ty check --exclude plugin/contrib/ --exclude plugin/lib/`.
+- **Dev dependency**: **`types-unopy`** (LibreOffice API stubs). **`make fix-uno`** links system UNO into `.venv` so `uno` and `com.sun.star` resolve; without that, the checker cannot see extension types.
+- **Windows / ARM64 note**: **`make fix-uno`** is a static-analysis helper, not proof that external Python can run PyUNO. On Windows, especially ARM64, LibreOffice's `pyuno.pyd` still depends on matching Python ABI and native DLL loading; the extension runtime uses LibreOffice's own Python.
+
+### mypy (optional)
+
+- **`make mypy`** — same prelude as `ty` (`make manifest`, `import uno` → `make fix-uno`), then **`python -m mypy`** using **`[tool.mypy]`** in `pyproject.toml`.
+- **Not** part of **`make build`** alone; it **is** part of **`make typecheck`** and **`make test`**. **`make release`** runs **`make test`** first, so mypy runs there too. Use standalone **`make mypy`** to compare against **`ty`**. Mypy often reports issues `ty` does not (and vice versa).
+- **Scope**: `packages = ["plugin", "compute_service"]` with path **`exclude`** plus **`[[tool.mypy.overrides]]`** `ignore_errors = true` for **`plugin.contrib.*`**, **`plugin.lib.*`**, and **`plugin.tests.*`**. Plain `exclude` alone does not stop mypy from checking vendored trees when resolving the `plugin` package, so the overrides mirror ty’s “no contrib / no lib / no tests” intent.
+- **Stubs**: **`types-requests`**, **`types-unopy`**, and overrides for **`officehelper`** are configured for a usable first run; remaining diagnostics are normal application code until you tighten further. Venv-only packages (e.g. **`sounddevice`** for sidebar recording) are type-checked only when imported inside `plugin/scripting/venv/`.
+
+### Basedpyright
+
+- **`make basedpyright`** — same prelude as **`ty`** / **`mypy`** (`make manifest`, then **`import uno`** → **`make fix-uno`** if needed), then **`python -m basedpyright`** using **`[tool.basedpyright]`** in **`pyproject.toml`** (`include` / **`exclude`** mirror **`ty`**). Daily **`make typecheck`** sets **`useLibraryCodeForTypes = false`** so Basedpyright does not parse numpy/pandas implementation.
+- **`make typecheck-full`** / **`make release`** use **`pyrightconfig.full.json`** (same include/exclude and report flags, **`useLibraryCodeForTypes = true`**). That file must stay in the repo: **`basedpyright -p`** on a missing path does not reuse **`pyproject.toml`**; it falls back to default include (the whole checkout, including **`.venv`**) and can run for many minutes. **`basedpyright-full-run`** fails fast if the file is absent.
+- **Not** part of **`make build`** alone; **`make typecheck`** and **`make test`** use the fast Basedpyright pass; **`make release`** uses **`typecheck-full`**. Diagnostics overlap Pylance in the editor; use standalone **`make basedpyright`** for a quick CLI pass.
+- **Mode**: `typeCheckingMode = "all"` with unknown-type rules and project-idiom rules turned off so the gate stays useful. Intentionally disabled (see comments in **`pyproject.toml`**):
+  - **Idiom conflicts:** `reportConstantRedefinition` (UNO ImportError fallbacks), `reportImplicitAbstractClass` (tool `*Base` without `execute`), `reportPrivateLocalImportUsage` (facade re-exports), `reportUnnecessaryIsInstance` / `Cast` / `Comparison`, `reportUnreachable`, `reportMissingTypeStubs`, `reportCallInDefaultInitializer`, `reportUnsafeMultipleInheritance`, `reportMissingSuperCall` (UNO listeners / mixins skipping `super().__init__()`).
+  - **Style / noise:** `reportImplicitStringConcatenation` (long prompts), `reportUnnecessaryTypeIgnoreComment` (ty/mypy ignores), plus the existing unused-parameter / deprecated / import-cycle disables.
+  - **`reportMissingModuleSource`** / **`reportMissingImports`** stay off / none for `com.sun.star.*` stub resolution.
+- **Status:** Basedpyright still reports real gaps (argument types, optional access, uninitialized mixin attrs, unused symbols). Drive those down in batches; do not re-enable the idiom rules above without a coordinated code change.
+
+### Pyrefly (experimental)
+
+- **[Pyrefly](https://pyrefly.org/)** — Meta’s Rust-based type checker and language server; **`make pyrefly`** runs **`python -m pyrefly check`** with the same **`import uno`** / **`make fix-uno`** prelude as **`make basedpyright`**.
+- **Not** part of **`make typecheck`** or **`make test`**. Use as an optional fourth opinion while triaging; **`[tool.pyrefly]`** in **`pyproject.toml`** sets **`project-includes`**, **`project-excludes`**, and **`python-version`** (see [Pyrefly configuration](https://pyrefly.org/en/docs/configuration/)).
+- Like other static checkers, Pyrefly treats **`typing.TYPE_CHECKING` as true**, so imports and types under **`if TYPE_CHECKING:`** participate in analysis. Config sets **`search-path = ["."]`** so **`from plugin...`** in those blocks resolves from the repo root, and **`check-unannotated-defs`**, **`infer-return-types`**, and **`infer-with-first-use`** match Pyrefly’s defaults for full analysis of checked modules.
+- Until the project drives Pyrefly to **zero errors**, CI should not gate on it; treat output as experimental signal alongside ty/mypy/basedpyright.
+
+---
+
+## Basedpyright vs `ty` and mypy (what differed in practice)
+
+All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plugin/`** scope (contrib, lib, and tests excluded). **`make typecheck`** runs **`ruff-for-build`**, then **`basedpyright`**, **bandit**, **opengrep**, **`pyspector`**, **`ty`**, thread-safety lint, and **`mypy`** in parallel. **`make test`** runs **`typecheck`**, then tests. **`make release`** runs **`typecheck-full`**. A full Basedpyright pass still finds **real issues and strictness gaps** that **`ty`** (and **`mypy`**) often did not report on the same codebase, or reported much less loudly.
+
+### Optional and `None` narrowing
+
+- **`reportOptionalMemberAccess`**: Pyright is aggressive about **calling methods on values that may be `None`**. Example: **`DrawBridge.get_active_page()`** can return **`None`** at runtime; without an explicit **`if page is None: ...`** early exit, uses like **`page.getCount()`** were errors under Pyright even when **`ty`** accepted the file. **Fix**: guard or assert before use (Draw shape tools in **`plugin/draw/shapes.py`**).
+- **`reportPossiblyUnboundVariable`**: Assignments only on some branches (e.g. **`compiled`** only inside **`if use_regex:`**, or **`restore_snapshot`** only inside **`try`**) can be flagged when a later branch uses the name. **Fix**: initialize before the branch (**`compiled = None`**) or declare **`restore_snapshot: dict[str, Any] | None = None`** before **`try`**, then assign (**`search.py`**, **`testing_runner.py`**).
+
+### Overrides, bases, and variance
+
+- **`reportIncompatibleMethodOverride`**: Pyright checks **return types and container types** against **`types-unopy`** strictly. Examples: **`XDispatchProvider.queryDispatch`** returning **`None`** where the stub expects **`XDispatch`**, or **`queryDispatches`** returning a **list** where the stub expects a **tuple**. Runtime UNO often allows this; **fix** is either to match the stub shape or a **targeted `# pyright: ignore[reportIncompatibleMethodOverride]`** on that method (**`DispatchHandler`** in **`main.py`**).
+- **`reportGeneralTypeIssues`**: A **second base class** loaded from the Java/IDL bridge (e.g. **`XPromptFunction`** from **`org.extension.writeragent`**) is not always treated as a valid class base. **Fix**: stub base inheriting **`unohelper.Base`** for **`ImportError`** fallbacks, plus **`# pyright: ignore[reportGeneralTypeIssues]`** on the concrete class when the real IDL base is present (**`prompt_addin.py`** / **`python/addin.py`**).
+- **`reportIncompatibleVariableOverride`**: Multiple mixins declaring the **same attribute** (e.g. **`client`**) with types that Pyright considers **incompatible under invariance** (mutable **`Protocol`** fields vs concrete class). **`ty`** may not emit the same diagnostic; resolving it may require aligning annotations, widening a **`Protocol`** field, or structural refactors (**chatbot panel / mixins**).
+- **`list` invariance** (Pyright / strict typing): Passing **`list[ChatMessage]`** where an API is typed as **`list[ChatMessage | dict[...]]`** can fail in Pyright; **`ty`** may be looser. **Fix**: **`cast(...)`** or widen the target API type (**`smol_model`** paths).
+
+### Config and JSON-shaped values
+
+- **`reportArgumentType`** on **`int(...)`**: **`get_config(key)`** is effectively **JSON-shaped** (**`Any`** / wide unions). Pyright rejects **`int(get_config(...))`** when the inferred type includes non-numeric shapes. **Fix**: use **`get_config_int` / `get_config_str`** with an explicit **`-> int`** (or **`str`**) helper signature (**`config.py`**, call sites such as **`prompt_function.py`** for `=PROMPT()`).
+
+### `dict` payload widening
+
+- If the first assignments build a **`dict[str, str]`**, later **`payload["details"] = {...}`** can fail in Pyright. **`ty`** may not flag the same. **Fix**: annotate **`payload: dict[str, Any]`** or **`cast(dict[str, Any], ...)`** (**`format_error_payload`**, tool schema merges in **`tool.py`**).
+
+### `getattr` / UNO context chains
+
+- Nested patterns like **`getattr(ctx_any, "ServiceManager", getattr(ctx_any, "getServiceManager", lambda: None)())`** triggered **`reportAttributeAccessIssue`** / optional access on **`Any`**. **Fix**: small helper or sequential **`getattr`** + **`callable`** checks, **`assert smgr is not None`**, then **`cast(Any, smgr).createInstanceWithContext(...)`** (**`uno_context`**, **`dialogs._load_xdl`**, [**`images.py`**](../../plugin/writer/images/images.py), **`queue_executor`**, **`main`** icon loading).
+
+### Import / branch typing quirks
+
+- **`urllib`**: Importing **`urllib.error`** (or similar) **inside** a function that also uses **`urllib.request`** / **`urllib.parse`** can make Pyright **narrow** the **`urllib`** package incorrectly. Prefer **module-level** imports for **`urllib`** submodules.
+- **`try` / `except ImportError`**: Fallback functions like **`def is_writer(model): return False`** can be inferred as **`-> Literal[False]`** while the imported symbol is **`(Any) -> bool`**, producing **`reportAssignmentType`** when both arms assign into one logical “slot”. **Fix**: explicit **`-> bool`** on the fallbacks (**`testing_runner.py`**).
+
+### Optional modules and guards
+
+- **`sqlite3`** may be typed as optional; Pyright wants **`assert sqlite3 is not None`** on paths that use it after **`HAS_SQLITE`**.
+- **`user_config_dir()`** as **`str | None`**: filesystem stores should **`raise ConfigError`** rather than joining on **`None`** (**`MemoryStore`**, **`SkillsStore`**).
+
+### smolagents and FSM helpers
+
+- **`model_output`** not always **`str`**: guard with **`isinstance`** or **`str(...)`** before **`strip()`** (several agent/chat paths).
+- **`EffectInterpreter.current_state`**: declare **`SendHandlerState | None`** where **`None`** is a real state (**`send_handlers`**).
+
+### Cross-check workflow
+
+After Basedpyright-driven edits, run **`make ty`** (or **`make test`**) anyway: fixes for Basedpyright do **not** always change **`ty`**, and occasionally one tool will disagree. **`make build`** enforces **`ty`**; **`make test`** / **`make release`** enforce all three tools.
+
+---
+
+## UNO and extension-heavy patterns (what actually changed)
+
+These are the recurring themes that dominated the cleanup, beyond “add `str | None` everywhere.”
+
+### 1. `com.sun.star` imports and optional UNO
+
+Many modules import constants from `com.sun.star.*`. Stubs or resolution can fail; some code paths must run **without** LibreOffice (tests, analysis). The pattern is: **try real imports**, else **`cast(Any, …)`** integer stand-ins so the rest of the module still type-checks.
+
+See [`plugin/calc/error_detector.py`](../../plugin/calc/error_detector.py) (and similarly analyzer/inspector): `CellContentType`, `FormulaResult`, and a fallback branch with `cast(Any, 0)` … `cast(Any, 4)`.
+
+Some imports stay as `# type: ignore[unresolved-import]` where the checker still cannot resolve a particular `com.sun.star` module path.
+
+### 2. Structs, `Any`, and callbacks
+
+`uno.createUnoStruct("com.sun.star.beans.PropertyValue")` and similar return values that stubs treat loosely. The codebase uses **`cast(Any, …)`** where a struct is built and passed through (e.g. [`plugin/writer/format.py`](../../plugin/writer/format.py)).
+
+[`plugin/framework/queue_executor.py`](../../plugin/framework/queue_executor.py) passes **`uno.Any("void", None)`** into UNO callbacks; that line is explicitly ignored where the stub contract does not match pyuno’s usage.
+
+### 3. Listener / interface overrides: **parameter names matter**
+
+`types-unopy` expects **the same parameter names as the `.pyi` stubs**. Implementations of `XActionListener`, `XEventListener`, etc. must use names like **`rEvent`** and **`Source`**, not arbitrary `ev` / `e`, or `ty` raises **`invalid-method-override`**.
+
+Examples: [`plugin/chatbot/dialogs.py`](../../plugin/chatbot/dialogs.py) (`TabListener`: `actionPerformed(self, rEvent)`, `disposing(self, Source)`), [`plugin/chatbot/panel_resize.py`](../../plugin/chatbot/panel_resize.py) (`on_window_resized(self, rEvent)` and use of `rEvent.Source`).
+
+### 4. `queryInterface` and dynamic objects
+
+Runtime UNO uses **`queryInterface`** heavily; return types are often opaque. Class-based `queryInterface` can be unreliable under pyuno (see `AGENTS.md`); typing-wise, code may need **`# type: ignore[attr-defined]`** or narrow casts after a successful query. Draw/Writer code that obtains `XSelectionSupplier` and similar follows this pattern.
+
+### 5. Mixins: **`Protocol` for the host**
+
+`ToolCallingMixin` and send handlers are mixed into large panel classes. **`ToolLoopHost`** in [`plugin/chatbot/tool_loop.py`](../../plugin/chatbot/tool_loop.py) and **`SendHandlerHost`** in [`plugin/chatbot/send_handlers.py`](../../plugin/chatbot/send_handlers.py) declare the attributes and methods the mixin expects so `self` is checkable without circular imports.
+
+### 6. `TYPE_CHECKING` imports
+
+Heavy or circular imports (e.g. `LlmClient`, `ChatSession`) are imported under **`if TYPE_CHECKING:`** at the top of the mixin modules so runtime import order stays unchanged but static analysis sees the types.
+
+### 7. Dynamic attributes on events / worker glue
+
+When attaching extra fields to objects (e.g. approval flows on events), the code uses **`setattr` / `getattr`** so the analyzer does not treat unknown attributes as errors—see tool-loop paths that set things like `query_override` on events ([`plugin/chatbot/tool_loop.py`](../../plugin/chatbot/tool_loop.py)).
+
+### 8. Context and services
+
+[`plugin/framework/i18n.py`](../../plugin/framework/i18n.py) uses **`cast(Any, ctx).getServiceManager()`** (or similar) because the UNO context type surface does not always expose what we need cleanly in stubs.
+
+### 9. Targeted `# type: ignore` codes
+
+Prefer **specific** ignore codes (`attr-defined`, `override`, `unresolved-import`, …) over blanket ignores. Reserve them for **pyuno/UNO boundaries**, third-party quirks, or legacy hotspots—not for silencing ordinary Python mistakes.
+
+---
+
+## Other recurring fixes (non-UNO)
+
+- **`Protocol`** for mixin hosts (e.g. tool-loop mixins).
+- **`TYPE_CHECKING`** + **`ruff`** `TC` rules for imports used only in hints.
+- **Explicit generics**: `list[str]`, `dict[str, Any]`, `str | None` instead of untyped collections.
+- **Narrowing**: `if x is not None` before use; avoid forcing the checker to assume values are defined.
+- **`cast(Any, …)`** / **`cast(Iterable, …)`** where stubs are thin or generators are not inferred as iterable.
+- **UNO interface overrides:** match stub parameter names exactly (e.g. `actionPerformed(self, rEvent)`) or **`ty`/pyright** report `invalid-method-override`.
+- **Registry / service construction**: dynamic class registration may need small ignores where instantiation is reflection-like ([`plugin/framework/service_registry.py`](../../plugin/framework/service_registry.py)).
+- **`threading.Lock | None` (and similar):** On Python before 3.13, `threading.Lock` is a factory (`builtin_function_or_method`), not a class — evaluating `Lock | None` at import time raises `TypeError` and can abort whole module loads (e.g. ChatbotModule → missing `librarian_onboarding`). Prefer **`from __future__ import annotations`** so PEP 604 unions are not evaluated at runtime (see [`plugin/chatbot/web_research.py`](../../plugin/chatbot/web_research.py)). Dev `.venv` is 3.13+ where `Lock` is a real type, so this bug is easy to miss locally; LibreOffice’s bundled Python is often older.
+
+---
+
+## Files touched (representative list from the cleanup)
+
+Roughly **40+** files were edited; groupings below match the original tracking notes.
+
+**Framework**
+
+- [`plugin/framework/errors.py`](../../plugin/framework/errors.py), [`image_utils.py`](../../plugin/writer/image_utils.py), [`legacy_ui.py`](../../plugin/chatbot/legacy_ui.py), [`logging.py`](../../plugin/framework/logging.py), [`service.py`](../../plugin/framework/service.py), [`settings_dialog.py`](../../plugin/chatbot/settings_dialog.py), [`smol_agent.py`](../../plugin/chatbot/smol_agent.py), [`tool.py`](../../plugin/framework/tool.py)
+
+**Entry / backends**
+
+- [`plugin/main.py`](../../plugin/main.py), [`plugin/agent_backend/builtin.py`](../../plugin/agent_backend/builtin.py)
+
+**Calc**
+
+- [`plugin/calc/analyzer.py`](../../plugin/calc/analyzer.py), [`error_detector.py`](../../plugin/calc/error_detector.py), [`formulas.py`](../../plugin/calc/formulas.py), [`inspector.py`](../../plugin/calc/inspector.py), [`editselection.py`](../../plugin/calc/editselection.py), [`manipulator.py`](../../plugin/calc/manipulator.py)
+
+**Chatbot / sidebar**
+
+- Panel, factory, wiring, resize, state machine, send handlers, tool loop, web research, history, audio paths, etc. under [`plugin/chatbot/`](../../plugin/chatbot/)
+
+**Writer / HTTP / infra**
+
+- Writer tools and format paths; HTTP client/errors; plus build/docs updates (`Makefile`, `AGENTS.md`, locales where relevant).
+
+---
+
+## Code examples (patterns from the old notes)
+
+**Narrow ignores at UNO boundaries**
+
+```python
+obj.method_call()  # type: ignore[attr-defined]
+```
+
+**Explicit annotations where the body is still dynamic**
+
+```python
+def process_data(data: Any) -> Any:
+    return data.process()  # type: ignore[no-any-return]
+```
+
+**Unions and optional values**
+
+```python
+variable: str | int | None = get_value()
+if obj is not None:
+    obj.method()
+```
+
+**Override compatibility with stubs**
+
+```python
+def actionPerformed(self, rEvent: ActionEvent) -> None:  # type: ignore[override]
+    ...
+```
+
+(Prefer matching stub **parameter names** exactly so `ignore[override]` is unnecessary when possible.)
+
+---
+
+## Lessons learned
+
+1. **Incremental fixes** (small batches + `ty check`) beat large single dumps.
+2. **Many errors share one pattern** (especially overrides and `com.sun.star` imports).
+3. **UNO needs explicit boundaries**: ignores and casts at pyuno edges, not scattered through pure Python logic.
+4. **Keep stub names** for listeners/interfaces aligned with `types-unopy`.
+
+---
+
+## What developers should run
+
+1. **`make fix-uno`** when `import uno` fails in the venv.
+2. When adding features, follow the UNO patterns above, [Other recurring fixes](#other-recurring-fixes-non-uno), and—if you use Basedpyright—the **Basedpyright vs `ty` and mypy** section for strictness that may not show up in **`make ty`**.
+

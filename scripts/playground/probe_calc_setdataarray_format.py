@@ -2,7 +2,7 @@
 """Probe M3: does setDataArray preserve NumberFormat for floats?
 
 String setDataArray of a number-like ISO date is already known to force `@`
-(see probe_calc_setformula_datetime.py / calc-date-time-handling.md §8.3).
+(see probe_calc_setformula_datetime.py / calc/date-time-handling.md §8.3).
 This probe measures the float path on a pre-formatted date cell, plus controls.
 
 Usage:

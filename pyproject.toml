@@ -213,7 +213,7 @@ reportUnknownVariableType = false
 reportUnknownParameterType = false
 reportMissingParameterType = false
 reportUnknownArgumentType = false
-# UNO try/except fallback: NAME = cast(Any, n) after ImportError (see docs/framework-type-checking.md)
+# UNO try/except fallback: NAME = cast(Any, n) after ImportError (see docs/framework/type-checking.md)
 reportConstantRedefinition = false
 # Tool *Base classes intentionally omit execute; concrete tools implement it
 reportImplicitAbstractClass = false

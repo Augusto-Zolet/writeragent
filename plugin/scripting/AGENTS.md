@@ -8,11 +8,11 @@ Root **Do not redo** still applies. This file is the local map.
 - LibrePy bootstrap: `plugin/main_core.py`, `plugin/librepy/`, `plugin/calc/python/addin_librepy.py`
 - Bundle file list: `scripts/librepy_bundle_paths.py`
 
-Topic docs: [docs/scripting-librepy-split.md](../../docs/scripting-librepy-split.md),
-[docs/scripting-numpy-serialization.md](../../docs/scripting-numpy-serialization.md),
-[docs/scripting-serialization-verification.md](../../docs/scripting-serialization-verification.md),
-[docs/scripting-numpy-domains.md](../../docs/scripting-numpy-domains.md),
-[docs/scripting-ms-py-compatibility.md](../../docs/scripting-ms-py-compatibility.md),
+Topic docs: [docs/scripting/librepy-split.md](../../docs/scripting/librepy-split.md),
+[docs/scripting/numpy-serialization.md](../../docs/scripting/numpy-serialization.md),
+[docs/scripting/serialization-verification.md](../../docs/scripting/serialization-verification.md),
+[docs/scripting/numpy-domains.md](../../docs/scripting/numpy-domains.md),
+[docs/scripting/ms-py-compatibility.md](../../docs/scripting/ms-py-compatibility.md),
 [docs/archive/scripting-domain-debt-dev-plan.md](../../docs/archive/scripting-domain-debt-dev-plan.md).
 
 ## Sharp edges
@@ -25,6 +25,7 @@ Topic docs: [docs/scripting-librepy-split.md](../../docs/scripting-librepy-split
 - Do **not** slim `trusted_action_registry.py` / `venv_diagnostics.py` for LibrePy while those modules still work.
 - Worker and editor pickle reads must pass `ipc.DEFAULT_MAX_PAYLOAD_BYTES`; do not call `read_frame_payload` unbounded.
 - Do **not** drop `plugin/calc/analyzer.py` from the LibrePy bundle.
+- Jupyter import (`plugin/notebook/`, vendored `plugin/contrib/nbformat/`) ships in LibrePy; do not exclude it from the allowlist.
 - Shipped LibrePy (`make deploy-core`) defaults to `log_level` WARN; a checkout that still has `plugin/tests/` defaults to DEBUG.
 - Python sidebar header/hamburger (`plugin/librepy/sidebar_menus.py`) must not import `plugin.main`, `llm_client`, embeddings, or MCP.
 - Python deck is Calc + Writer (not NotebookBar-only). Writer hides `=PY()` cell chrome; do not fall back to a Calc document from a Writer frame.

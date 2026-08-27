@@ -188,7 +188,7 @@ def _send_mcp_response_headers(handler, *, session_id: str | None = None) -> Non
 
 
 # Backpressure — one fast MCP tool at a time on the main thread (_execute_with_backpressure).
-# Long-running tools skip this; see docs/framework-threading.md § MCP tool execution paths.
+# Long-running tools skip this; see docs/framework/threading.md § MCP tool execution paths.
 _tool_semaphore = threading.Semaphore(1)
 _WAIT_TIMEOUT = 5.0
 _PROCESS_TIMEOUT = 60.0

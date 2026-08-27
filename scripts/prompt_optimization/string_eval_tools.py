@@ -10,7 +10,7 @@ JSON shapes so the LlmClient tool loop matches production tool names without UNO
 
 Extended with basic DrawDocState for shapes/flowcharts (get_draw_tree, create_shape) and
 CalcStringState for sorting and basic formula/column ops. This enables non-LO evaluation of
-selected Calc tests (data sorting, tax column) from docs/archive/eval-ideas.md.
+selected Calc tests (data sorting, tax column) from docs/archive/eval/ideas.md.
 """
 from __future__ import annotations
 
@@ -188,7 +188,7 @@ class StringDocState:
 class DrawDocState:
     """Simple in-memory state for Draw shapes and get_draw_tree (no LO).
 
-    Supports flowchart tests from eval-ideas.md without screenshots. Maintains
+    Supports flowchart tests from eval/ideas.md without screenshots. Maintains
     a list of shapes; builds semantic tree similar to plugin/draw/tree.py.
     """
 
@@ -293,7 +293,7 @@ class DrawDocState:
 
 
 class CalcStringState:
-    """In-memory grid for non-LO Calc tests (data sorting, tax column from eval-ideas.md).
+    """In-memory grid for non-LO Calc tests (data sorting, tax column from eval/ideas.md).
 
     Single active sheet as list-of-lists. Supports read/sort/write for range ops.
     Final snapshot returns JSON grid for judging (parallel to DrawDocState tree).

@@ -28,7 +28,7 @@ When active:
 
 When inactive, violations log a warning with full stack (no crash).
 
-See docs/framework-uno-thread-safety.md (Layer A).
+See docs/framework/uno-thread-safety.md (Layer A).
 
 Concurrency: each background job is tagged with a name in
 **thread-local** storage when ``run_in_background`` starts, so a
@@ -88,7 +88,7 @@ _designated_main_thread: threading.Thread | None = None
 
 
 def set_designated_main_thread(thread: threading.Thread | None) -> None:
-    """Test hook: designate which thread may touch UNO (see docs/framework-uno-thread-safety.md Layer B)."""
+    """Test hook: designate which thread may touch UNO (see docs/framework/uno-thread-safety.md Layer B)."""
     global _designated_main_thread
     _designated_main_thread = thread
 
@@ -201,7 +201,7 @@ def background(fn):
     """Decorator: mark a function as background-only (blue for Layer C Semgrep).
 
     Warns if invoked on the main thread; documents intent for static analysis.
-    See docs/framework-uno-thread-safety.md (Layer C).
+    See docs/framework/uno-thread-safety.md (Layer C).
     """
     @functools.wraps(fn)
     def wrapper(*a, **k):

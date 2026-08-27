@@ -17,7 +17,7 @@ transpositions or Base64 decoding overhead.
 Adjust thresholds below if product policy changes; bench and production share this module.
 
 Do not split pack/unpack without serialization A/B tests
-(docs/scripting-numpy-serialization.md). Do not move ``_deal_*`` scaffolding
+(docs/scripting/numpy-serialization.md). Do not move ``_deal_*`` scaffolding
 to test-support: the contracts live on the pack functions.
 """
 from __future__ import annotations

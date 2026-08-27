@@ -20,7 +20,7 @@ PRESERVE_REASONING_IN_SESSION = True
 # Truncate string reasoning fields only; 0 = unlimited. Never truncates reasoning_details.
 PRESERVE_REASONING_MAX_CHARS = 32000
 
-# OpenAI-compat stream: thinking lives on choices[0].delta (see docs/framework-streaming-and-threading.md).
+# OpenAI-compat stream: thinking lives on choices[0].delta (see docs/framework/streaming-and-threading.md).
 _THINKING_STRING_FIELDS = ("reasoning_content", "reasoning", "thought", "thinking")
 _THINKING_HINT_KEYS = frozenset(_THINKING_STRING_FIELDS) | {"reasoning_details"}
 _REASONING_REPLAY_STRING_KEYS = ("reasoning", "reasoning_content")
@@ -36,7 +36,7 @@ def new_streaming_thinking_meta() -> dict[str, Any]:
 
     **OpenRouter (implemented):** ``reasoning_details`` replay with one merged
     ``reasoning.text`` entry plus ``reasoning.encrypted`` blobs (``data`` merged by
-    index). See docs/framework-streaming-and-threading.md §3.4 and OpenRouter reasoning-tokens docs.
+    index). See docs/framework/streaming-and-threading.md §3.4 and OpenRouter reasoning-tokens docs.
 
     **Future provider-specific work (not implemented — extend here or in a small
     replay filter before the next request):**
@@ -198,7 +198,7 @@ def extract_reasoning_replay_from_response(
     streaming_meta: Mapping[str, Any] | None = None,
     sync_message: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Build one consolidated reasoning block for the next API request. See docs/framework-streaming-and-threading.md §3.4."""
+    """Build one consolidated reasoning block for the next API request. See docs/framework/streaming-and-threading.md §3.4."""
     if not PRESERVE_REASONING_IN_SESSION:
         return {}
     if streaming_text is not None:

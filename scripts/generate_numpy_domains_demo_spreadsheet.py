@@ -335,7 +335,7 @@ def _readme_lines() -> list[str]:
         "REGENERATE",
         "python scripts/generate_numpy_domains_demo_spreadsheet.py",
         "",
-        "See tests/fixtures/numpy_domains_demo.README.md and docs/scripting-numpy-domains.md",
+        "See tests/fixtures/numpy_domains_demo.README.md and docs/scripting/numpy-domains.md",
     ]
 
 

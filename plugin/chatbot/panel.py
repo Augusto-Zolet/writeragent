@@ -395,7 +395,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         ``StartSendEffect`` clears ``_send_cancellation`` when the drain loop exits while
         web-research / tool workers may still run — pass this checker (not
         ``lambda: self.stop_requested`` alone) into ``LlmClient`` and stream drains.
-        See ``docs/framework-streaming-and-threading.md`` § Stop / cancellation.
+        See ``docs/framework/streaming-and-threading.md`` § Stop / cancellation.
         """
         from plugin.framework.queue_executor import bind_send_stop_checker
 

@@ -21,7 +21,7 @@ Start here by task.
 | LibrePy bootstrap | Core OXT: `=PY()`, Python menus, Settings → Python; no chat/MCP | [`plugin/main_core.py`](../plugin/main_core.py), [`plugin/librepy/`](../plugin/librepy/), [`plugin/calc/python/addin_librepy.py`](../plugin/calc/python/addin_librepy.py) |
 | Sidebar / send | Sidebar factory, panel, document resolution | [`plugin/chatbot/panel_factory.py`](../plugin/chatbot/panel_factory.py), [`plugin/chatbot/panel.py`](../plugin/chatbot/panel.py) |
 | Tool loop / chat FSM | Main chat tool loop and state machine | [`plugin/chatbot/tool_loop.py`](../plugin/chatbot/tool_loop.py), [`plugin/chatbot/tool_loop_state.py`](../plugin/chatbot/tool_loop_state.py) |
-| Smol / librarian ReAct | Separate ReAct runtime (shares `LlmClient`); do **not** merge with the main chat FSM | [`plugin/chatbot/smol_agent.py`](../plugin/chatbot/smol_agent.py) — [docs/chat-smol-tool-architecture.md](chat-smol-tool-architecture.md) |
+| Smol / librarian ReAct | Separate ReAct runtime (shares `LlmClient`); do **not** merge with the main chat FSM | [`plugin/chatbot/smol_agent.py`](../plugin/chatbot/smol_agent.py) — [chat/smol-tool-architecture.md](chat/smol-tool-architecture.md) |
 | Agent backends | Optional external backends (`agent_backend.backend_id` when not `builtin`). ACP CLIs share [`acp_backend.py`](../plugin/agent_backend/acp_backend.py); set immutable `default_extra_args` when the official CLI needs a subcommand and settings args are empty. Grok overrides `_apply_default_extra_args` for `startswith("grok")`. Base `send()` drains prompt-result `contentBlocks`. | [`plugin/agent_backend/`](../plugin/agent_backend/) |
 | HTTP / LLM | Chat requests, tools, token stripping, pacing | [`plugin/framework/client/llm_client.py`](../plugin/framework/client/llm_client.py) (`make_chat_request`, `request_with_tools`, …), [`plugin/framework/client/http_transport.py`](../plugin/framework/client/http_transport.py), [`plugin/framework/client/auth.py`](../plugin/framework/client/auth.py) |
 | Tools registry | Tool registration and schemas | [`plugin/framework/tool.py`](../plugin/framework/tool.py) |
@@ -41,13 +41,13 @@ Start here by task.
 | Extension update check | Weekly WriterAgent / LibrePy / LibreHarper update check | [`plugin/chatbot/extension_update_check.py`](../plugin/chatbot/extension_update_check.py) |
 | Calc `=PROMPT()` / `=PYTHON()` | Calc spreadsheet function add-ins (LibrePy uses `addin_librepy.py` instead of `addin.py`) | [`plugin/calc/prompt_addin.py`](../plugin/calc/prompt_addin.py), [`plugin/calc/prompt_function.py`](../plugin/calc/prompt_function.py), [`plugin/calc/python/addin.py`](../plugin/calc/python/addin.py), [`plugin/calc/python/addin_librepy.py`](../plugin/calc/python/addin_librepy.py), [`plugin/calc/python/function.py`](../plugin/calc/python/function.py) |
 | Scripting / venv | Public script API, sandbox policy, venv worker (not for user imports) | [`plugin/scripting/`](../plugin/scripting/), [`plugin/scripting/venv/`](../plugin/scripting/venv/), [`plugin/scripting/import_policy.py`](../plugin/scripting/import_policy.py), [`plugin/scripting/sandbox.py`](../plugin/scripting/sandbox.py), [`plugin/scripting/venv_worker.py`](../plugin/scripting/venv_worker.py), [`plugin/scripting/venv_diagnostics.py`](../plugin/scripting/venv_diagnostics.py) |
-| Embeddings / folder FTS | Host indexers + venv worker + RPC | [`plugin/embeddings/`](../plugin/embeddings/), [`plugin/embeddings/venv/`](../plugin/embeddings/venv/), [`plugin/framework/client/embeddings_service.py`](../plugin/framework/client/embeddings_service.py), [`plugin/framework/client/embedding_client.py`](../plugin/framework/client/embedding_client.py), [`plugin/framework/client/folder_fts_service.py`](../plugin/framework/client/folder_fts_service.py) — [docs/embeddings.md](embeddings.md) |
-| Vision / OCR | Host runner + venv worker + `run_vision` | [`plugin/vision/`](../plugin/vision/), [`plugin/vision/venv/`](../plugin/vision/venv/), [`plugin/scripting/client.py`](../plugin/scripting/client.py), [`plugin/vision/vision_availability.py`](../plugin/vision/vision_availability.py) — [docs/image-recognition.md](image-recognition.md) |
+| Embeddings / folder FTS | Host indexers + venv worker + RPC | [`plugin/embeddings/`](../plugin/embeddings/), [`plugin/embeddings/venv/`](../plugin/embeddings/venv/), [`plugin/framework/client/embeddings_service.py`](../plugin/framework/client/embeddings_service.py), [`plugin/framework/client/embedding_client.py`](../plugin/framework/client/embedding_client.py), [`plugin/framework/client/folder_fts_service.py`](../plugin/framework/client/folder_fts_service.py) — [embeddings.md](embeddings.md) |
+| Vision / OCR | Host runner + venv worker + `run_vision` | [`plugin/vision/`](../plugin/vision/), [`plugin/vision/venv/`](../plugin/vision/venv/), [`plugin/scripting/client.py`](../plugin/scripting/client.py), [`plugin/vision/vision_availability.py`](../plugin/vision/vision_availability.py) — [image/recognition.md](image/recognition.md) |
 | PPT-Master | Impress/Draw adapters and session | [`plugin/contrib/ppt_master/`](../plugin/contrib/ppt_master/) ([README](../plugin/contrib/ppt_master/README.md)), [`plugin/ppt_master/`](../plugin/ppt_master/), [`plugin/chatbot/ppt_master.py`](../plugin/chatbot/ppt_master.py) — [integration plan](archive/ppt-master-integration-plan.md#roadmap) |
 | Tests (unit pytest) | Headless pytest; no live soffice | `make pytest` — `-m "not slow and not integration" --ignore-glob='*_uno.py'` |
 | Tests (UNO runner) | Native UNO tests (`@native_test`, `ctx`) | [`plugin/testing_runner.py`](../plugin/testing_runner.py) (`make test-uno`; `make test-run` includes pytest) |
 | Eval / benchmarks | CLI eval harness and prompt optimization | [`scripts/benchmark.py`](../scripts/benchmark.py), [`scripts/prompt_optimization/`](../scripts/prompt_optimization/) |
-| Mock LLM (dev) | Fake OpenAI `/v1/chat/completions` for sidebar HTML + web-research soak (`make mock-llm`, port 18766) | [`scripts/mock_llm_server.py`](../scripts/mock_llm_server.py) — [chat-rich-text-control-sidebar.md](chat-rich-text-control-sidebar.md#mock-llm-for-sidebar-soak) |
+| Mock LLM (dev) | Fake OpenAI `/v1/chat/completions` for sidebar HTML + web-research soak (`make mock-llm`, port 18766) | [`scripts/mock_llm_server.py`](../scripts/mock_llm_server.py) — [chat/rich-text-control-sidebar.md](chat/rich-text-control-sidebar.md#mock-llm-for-sidebar-soak) |
 | Extension packaging | OXT resources; register new components in manifest | [`extension/`](../extension/) (`Dialogs/`, `idl/`, `metadata/`), [`extension/META-INF/manifest.xml`](../extension/META-INF/manifest.xml) |
 | Build / tooling | Make targets, package metadata, Python pin, LibrePy file list | [`Makefile`](../Makefile), [`pyproject.toml`](../pyproject.toml), [`.python-version`](../.python-version), [`scripts/librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py) |
 
@@ -55,44 +55,44 @@ Start here by task.
 
 | Topic | Doc |
 |-------|-----|
-| Chat sidebar implementation | [docs/chat-sidebar-implementation.md](chat-sidebar-implementation.md) |
-| Rich text control sidebar | [docs/chat-rich-text-control-sidebar.md](chat-rich-text-control-sidebar.md) |
-| Streaming / threading | [docs/framework-streaming-and-threading.md](framework-streaming-and-threading.md) |
-| Threading architecture (pool, marshal, MCP) | [docs/framework-threading.md](framework-threading.md) |
-| UNO thread-safety enforcement | [docs/framework-uno-thread-safety.md](framework-uno-thread-safety.md) |
-| Smol vs main chat HTTP | [docs/chat-smol-tool-architecture.md](chat-smol-tool-architecture.md) |
-| Writer specialized tool tiers | [docs/writer-specialized-toolsets.md](writer-specialized-toolsets.md) |
-| Styles / LLM styling | [docs/writer-llm-styles.md](writer-llm-styles.md) |
-| Writer API references | [docs/writer-bookmarks-api-reference.md](writer-bookmarks-api-reference.md), [docs/writer-footnotes-api-reference.md](writer-footnotes-api-reference.md), [docs/writer-page-api-reference.md](writer-page-api-reference.md), [docs/writer-tracking-api-reference.md](writer-tracking-api-reference.md) |
-| Reviewable agent edits (surgical redlines, toolbar) | [docs/writer-reviewable-agent-edits.md](writer-reviewable-agent-edits.md) |
-| LO-DOM & Semantic Tree | [docs/writer-lo-dom-semantic-tree.md](writer-lo-dom-semantic-tree.md) |
-| Draw/Impress specialized | [docs/draw-impress-specialized-toolsets.md](draw-impress-specialized-toolsets.md), [docs/draw-shape-support.md](draw-shape-support.md) |
-| Calc specialized | [docs/calc-specialized-toolsets.md](calc-specialized-toolsets.md) |
-| Calc filters / formatting | [docs/calc-conditional-formatting.md](calc-conditional-formatting.md), [docs/calc-sheet-filter.md](calc-sheet-filter.md) |
-| Calc date / time lifecycle | [docs/calc-date-time-handling.md](calc-date-time-handling.md) |
-| Embeddings / folder FTS | [docs/embeddings.md](embeddings.md) |
-| LibrePy / WriterAgent packaging split | [docs/scripting-librepy-split.md](scripting-librepy-split.md) |
-| NumPy / Python venv bridge | [docs/enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md), [docs/calc-py-data-shapes.md](calc-py-data-shapes.md), [docs/scripting-numpy-serialization.md](scripting-numpy-serialization.md) |
-| Scripting domain registries (shipped) | [docs/archive/scripting-domain-debt-dev-plan.md](archive/scripting-domain-debt-dev-plan.md) |
-| NumPy domain helpers (Viz, Symbolic, Units, Text, …) | [docs/scripting-numpy-domains.md](scripting-numpy-domains.md) |
-| Excel / Calc `=PY` design stance | [docs/scripting-ms-py-compatibility.md](scripting-ms-py-compatibility.md) |
-| Jupyter notebook import & execution | [docs/writer-jupyter-notebook-import.md](writer-jupyter-notebook-import.md) |
-| Agent Search / Web | [docs/agent-search.md](agent-search.md) |
-| MCP protocol | [docs/mcp-protocol.md](mcp-protocol.md) |
-| Localization / translations | [docs/localization.md](localization.md), [locales/README.md](../locales/README.md) |
-| Audio Architecture | [docs/audio-architecture.md](audio-architecture.md) |
-| Image generation | [docs/image-generation.md](image-generation.md) |
-| Image recognition (local OCR / detection) | [docs/image-recognition.md](image-recognition.md) |
-| PPT-Master (Impress/Draw) | [docs/archive/ppt-master-integration-plan.md](archive/ppt-master-integration-plan.md) (architecture + [roadmap](archive/ppt-master-integration-plan.md#roadmap)) |
-| Math / HTML import design | [docs/writer-math-tex.md](writer-math-tex.md) |
-| Grammar pipeline (cache, queue) | [docs/writer-grammar-checker-plan.md](writer-grammar-checker-plan.md) |
-| Test Architecture | [docs/archive/test_architecture_analysis.md](archive/test_architecture_analysis.md) |
-| Type checking | [docs/framework-type-checking.md](framework-type-checking.md) |
-| UNO Dialogs & Wizards | [docs/framework-uno-dialogs.md](framework-uno-dialogs.md) |
-| UNO exception policy (disposed vs leaf catches) | [docs/framework-exception-policy.md](framework-exception-policy.md) |
-| LLM Hacks & Workarounds | [docs/chat-llm-hacks.md](chat-llm-hacks.md) |
-| Experimental memory / roadmap | [docs/archive/hermes-agent-patterns.md](archive/hermes-agent-patterns.md), [docs/ROADMAP.md](ROADMAP.md), [docs/framework-robustness-roadmap.md](framework-robustness-roadmap.md) |
-| LLM evals / benchmarks | [docs/eval-benchmarks.md](eval-benchmarks.md), [scripts/prompt_optimization/README.md](../scripts/prompt_optimization/README.md) |
+| Chat sidebar implementation | [chat/sidebar-implementation.md](chat/sidebar-implementation.md) |
+| Rich text control sidebar | [chat/rich-text-control-sidebar.md](chat/rich-text-control-sidebar.md) |
+| Streaming / threading | [framework/streaming-and-threading.md](framework/streaming-and-threading.md) |
+| Threading architecture (pool, marshal, MCP) | [framework/threading.md](framework/threading.md) |
+| UNO thread-safety enforcement | [framework/uno-thread-safety.md](framework/uno-thread-safety.md) |
+| Smol vs main chat HTTP | [chat/smol-tool-architecture.md](chat/smol-tool-architecture.md) |
+| Writer specialized tool tiers | [writer/specialized-toolsets.md](writer/specialized-toolsets.md) |
+| Styles / LLM styling | [writer/llm-styles.md](writer/llm-styles.md) |
+| Writer API references | [writer/bookmarks-api-reference.md](writer/bookmarks-api-reference.md), [writer/footnotes-api-reference.md](writer/footnotes-api-reference.md), [writer/page-api-reference.md](writer/page-api-reference.md), [writer/tracking-api-reference.md](writer/tracking-api-reference.md) |
+| Reviewable agent edits (surgical redlines, toolbar) | [writer/reviewable-agent-edits.md](writer/reviewable-agent-edits.md) |
+| LO-DOM & Semantic Tree | [writer/lo-dom-semantic-tree.md](writer/lo-dom-semantic-tree.md) |
+| Draw/Impress specialized | [draw/impress-specialized-toolsets.md](draw/impress-specialized-toolsets.md), [draw/shape-support.md](draw/shape-support.md) |
+| Calc specialized | [calc/specialized-toolsets.md](calc/specialized-toolsets.md) |
+| Calc filters / formatting | [calc/conditional-formatting.md](calc/conditional-formatting.md), [calc/sheet-filter.md](calc/sheet-filter.md) |
+| Calc date / time lifecycle | [calc/date-time-handling.md](calc/date-time-handling.md) |
+| Embeddings / folder FTS | [embeddings.md](embeddings.md) |
+| LibrePy / WriterAgent packaging split | [scripting/librepy-split.md](scripting/librepy-split.md) |
+| NumPy / Python venv bridge | [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md), [calc/py-data-shapes.md](calc/py-data-shapes.md), [scripting/numpy-serialization.md](scripting/numpy-serialization.md) |
+| Scripting domain registries (shipped) | [archive/scripting-domain-debt-dev-plan.md](archive/scripting-domain-debt-dev-plan.md) |
+| NumPy domain helpers (Viz, Symbolic, Units, Text, …) | [scripting/numpy-domains.md](scripting/numpy-domains.md) |
+| Excel / Calc `=PY` design stance | [scripting/ms-py-compatibility.md](scripting/ms-py-compatibility.md) |
+| Jupyter notebook import & execution | [writer/jupyter-notebook-import.md](writer/jupyter-notebook-import.md) |
+| Agent Search / Web | [agent/search.md](agent/search.md) |
+| MCP protocol | [mcp/protocol.md](mcp/protocol.md) |
+| Localization / translations | [localization.md](localization.md), [locales/README.md](../locales/README.md) |
+| Audio Architecture | [audio-architecture.md](audio-architecture.md) |
+| Image generation | [image/generation.md](image/generation.md) |
+| Image recognition (local OCR / detection) | [image/recognition.md](image/recognition.md) |
+| PPT-Master (Impress/Draw) | [archive/ppt-master-integration-plan.md](archive/ppt-master-integration-plan.md) (architecture + [roadmap](archive/ppt-master-integration-plan.md#roadmap)) |
+| Math / HTML import design | [writer/math-tex.md](writer/math-tex.md) |
+| Grammar pipeline (cache, queue) | [writer/grammar-checker-plan.md](writer/grammar-checker-plan.md) |
+| Test Architecture | [archive/test_architecture_analysis.md](archive/test_architecture_analysis.md) |
+| Type checking | [framework/type-checking.md](framework/type-checking.md) |
+| UNO Dialogs & Wizards | [framework/uno-dialogs.md](framework/uno-dialogs.md) |
+| UNO exception policy (disposed vs leaf catches) | [framework/exception-policy.md](framework/exception-policy.md) |
+| LLM Hacks & Workarounds | [chat/llm-hacks.md](chat/llm-hacks.md) |
+| Experimental memory / roadmap | [archive/hermes-agent-patterns.md](archive/hermes-agent-patterns.md), [ROADMAP.md](ROADMAP.md), [framework/robustness-roadmap.md](framework/robustness-roadmap.md) |
+| LLM evals / benchmarks | [eval/benchmarks.md](eval/benchmarks.md), [scripts/prompt_optimization/README.md](../scripts/prompt_optimization/README.md) |
 
 ## References
 

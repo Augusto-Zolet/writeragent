@@ -143,7 +143,7 @@ def test_analyze_data_forces_data_range_in_analysis_domain(calc_ctx):
 
     Raw `data` values are stripped from the schema (get_parameters) and rejected at
     runtime. This keeps bulk data out of the sub-agent LLM context (see
-    docs/calc-analysis-sub-agent.md § Data Handoff).
+    docs/calc/analysis-sub-agent.md § Data Handoff).
     """
     calc_ctx.active_domain = "analysis"
     tool = AnalyzeDataTool()

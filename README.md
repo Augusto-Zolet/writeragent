@@ -16,7 +16,7 @@ The project is distributed as three standalone extension packages (*install only
 | Package | What's Included | Best For |
 | :--- | :--- | :--- |
 | 🤖 **[WriterAgent](docs/features.md)** (`WriterAgent.oxt`) *(Full stack)* | Everything in LibrePy and LibreHarper + AI sidebar, `=PROMPT()`, web research, Calc → Python converter, MCP server | Users wanting the complete AI assistant, spreadsheet converter, and scientific compute suite |
-| 🐍 **[LibrePy](docs/scripting-librepy-split.md)** (`LibrePy.oxt`) | Python runtime, `=PY()`, NumPy, pandas, SymPy, Monaco code editor, domain helpers, OCR | Users who want Python and Data Science in Calc/Writer without AI or API keys |
+| 🐍 **[LibrePy](docs/scripting/librepy-split.md)** (`LibrePy.oxt`) | Python runtime, `=PY()`, NumPy, pandas, SymPy, Monaco, Jupyter **File → Open** `.ipynb`, domain helpers, OCR | Users who want Python and Data Science in Calc/Writer without AI or API keys |
 | ✍️ **LibreHarper** (`LibreHarper.oxt`) | Standalone offline [Harper](https://github.com/Automattic/harper) grammar engine for Writer | Users who only want fast, local grammar checking without AI or Python stacks |
 
 **[Download .oxt Releases](https://github.com/KeithCu/writeragent/releases/latest)** · [Feature Index](docs/features.md) · [NumPy in LibreOffice Guide](docs/enabling_numpy_in_libreoffice.md) · [Discussions](https://github.com/KeithCu/writeragent/discussions)
@@ -30,30 +30,30 @@ The project is distributed as three standalone extension packages (*install only
 - **Native `=PY()` Spreadsheet Formulas** — Execute Python, NumPy, and pandas expressions directly inside Calc cells with automatic array spill, shared workbook kernels, and persistent scripts.
   - `=PY("np.mean(data)"; A1:A10)` — Calculate array statistics directly on Calc ranges.
   - `=PY("data.to_pandas(date_cols=True)"; A1:C10)` — Load sheet data into pandas with automatic type and date parsing.
-  - [NumPy in LibreOffice Guide](docs/enabling_numpy_in_libreoffice.md) · [Data Shapes & Type Mapping](docs/calc-py-data-shapes.md)
+  - [NumPy in LibreOffice Guide](docs/enabling_numpy_in_libreoffice.md) · [Data Shapes & Type Mapping](docs/calc/py-data-shapes.md)
 - **Embedded Monaco Code Editor** — Write, test, and debug multi-line Python scripts directly inside cells or through the **Tools → Run Python Script** environment with syntax highlighting, autocomplete, and diagnostics.
-- **Built-in Scientific & Analytics Domains** — Ready-to-use helpers for EDA, outlier detection, OLS regression, KMeans clustering, Monte Carlo simulations, symbolic algebra (SymPy), plotting, and physical unit conversions (`convert_quantity(60, "mph", "m/s")` → `26.8224 m/s`). [Domain Reference](docs/scripting-numpy-domains.md) · [Analysis Helpers](docs/calc-analysis-tools.md)
-- **Spreadsheet → Python Converter *(WriterAgent)*** — Translate 235+ classic Calc/Excel formulas into clean Python expressions using the built-in `calc.*` parity library while preserving constants, dates, and cell formats. [Details](docs/calc-spreadsheet-to-python-import.md)
-- **Local Vision & OCR** — Extract text from embedded images or scanned documents directly into Writer and Calc via offline Docling OCR. [Vision Guide](docs/image-recognition.md)
-- <img src="Showcase/jupyter_logo.png" alt="Jupyter logo" height="22" align="absmiddle"> **Jupyter Notebook Support** — **File → Open…** a `.ipynb` (or double-click / `soffice notebook.ipynb`) creates a Writer document with markdown, editable code fields, and ▶ run buttons against a shared Python kernel. [Jupyter in Writer](docs/writer-jupyter-notebook-import.md)
+- **Built-in Scientific & Analytics Domains** — Ready-to-use helpers for EDA, outlier detection, OLS regression, KMeans clustering, Monte Carlo simulations, symbolic algebra (SymPy), plotting, and physical unit conversions (`convert_quantity(60, "mph", "m/s")` → `26.8224 m/s`). [Domain Reference](docs/scripting/numpy-domains.md) · [Analysis Helpers](docs/calc/analysis-tools.md)
+- **Spreadsheet → Python Converter *(WriterAgent)*** — Translate 235+ classic Calc/Excel formulas into clean Python expressions using the built-in `calc.*` parity library while preserving constants, dates, and cell formats. [Details](docs/calc/spreadsheet-to-python-import.md)
+- **Local Vision & OCR** — Extract text from embedded images or scanned documents directly into Writer and Calc via offline Docling OCR. [Vision Guide](docs/image/recognition.md)
+- <img src="Showcase/jupyter_logo.png" alt="Jupyter logo" height="22" align="absmiddle"> **Jupyter Notebook Support** — **File → Open…** a `.ipynb` (or double-click / `soffice notebook.ipynb`) creates a Writer document with markdown, editable code fields, and ▶ run buttons against a shared Python kernel. [Jupyter in Writer](docs/writer/jupyter-notebook-import.md)
 
 ### 🤖 Local-First Agentic AI & Writing (Writer)
 
-- **Sidebar Chat with Multi-turn Tool Calling** — Edit, restructure, or expand documents using natural language. 9 core tools plus dozens of [specialized sub-agents](docs/writer-specialized-toolsets.md) for page layout, footnotes, bookmarks, revisions, and forms.
+- **Sidebar Chat with Multi-turn Tool Calling** — Edit, restructure, or expand documents using natural language. 9 core tools plus dozens of [specialized sub-agents](docs/writer/specialized-toolsets.md) for page layout, footnotes, bookmarks, revisions, and forms.
 - **Format-Preserving Edits** — Surgical redlines and section rewrites maintain your existing formatting (bold, italics, highlights, font sizes, tables, and nested lists) without clobbering styles.
-- **Autonomous Web Research** — Integrated private [smolagents](https://github.com/huggingface/smolagents) loop with DuckDuckGo. Synthesizes multiple web sources and updates open documents with real-time facts and citations. [Agent Search](docs/agent-search.md)
-- **Real-Time Grammar & Proofreading** — Local, privacy-preserving grammar checking via [Harper](https://github.com/Automattic/harper) (fast, auto-installing), [LanguageTool](https://languagetool.org), or LLM endpoints with mixed-language sentence detection. [Details](docs/writer-grammar-checker-plan.md)
-- **Math & LaTeX Import** — Converts LaTeX and MathML into native, editable LibreOffice Math objects. [Math Guide](docs/writer-math-tex.md)
+- **Autonomous Web Research** — Integrated private [smolagents](https://github.com/huggingface/smolagents) loop with DuckDuckGo. Synthesizes multiple web sources and updates open documents with real-time facts and citations. [Agent Search](docs/agent/search.md)
+- **Real-Time Grammar & Proofreading** — Local, privacy-preserving grammar checking via [Harper](https://github.com/Automattic/harper) (fast, auto-installing), [LanguageTool](https://languagetool.org), or LLM endpoints with mixed-language sentence detection. [Details](docs/writer/grammar-checker-plan.md)
+- **Math & LaTeX Import** — Converts LaTeX and MathML into native, editable LibreOffice Math objects. [Math Guide](docs/writer/math-tex.md)
 
 ### 📊 Diagrams, Slides & Multi-Modal (Draw & Impress)
 
-- **Diagram & Presentation Generation** — Generate, adjust, and style flowcharts, shapes, connectors, speaker notes, and slide transitions through chat commands or Python scripts. [Details](docs/draw-impress-specialized-toolsets.md)
-- **LO-DOM Semantic Tree** — Structural understanding of headings, sections, tables, and relationships across entire documents. [Semantic Tree](docs/writer-lo-dom-semantic-tree.md)
+- **Diagram & Presentation Generation** — Generate, adjust, and style flowcharts, shapes, connectors, speaker notes, and slide transitions through chat commands or Python scripts. [Details](docs/draw/impress-specialized-toolsets.md)
+- **LO-DOM Semantic Tree** — Structural understanding of headings, sections, tables, and relationships across entire documents. [Semantic Tree](docs/writer/lo-dom-semantic-tree.md)
 - **Cross-Document Search & Memory** — Query other documents in the same folder via local embeddings / hybrid search, with persistent cross-session agent memory. [Embeddings](docs/embeddings.md) · [Memory](docs/hermes-agent-patterns.md)
 
 ### 🔌 Integrations & Extensibility
 
-- **Model Context Protocol (MCP) Server** — Connect external IDEs and agents (Cursor, Claude Desktop, LM Studio) to read and edit open LibreOffice documents over `http://localhost:18765/mcp`. [MCP Protocol](docs/mcp-protocol.md)
+- **Model Context Protocol (MCP) Server** — Connect external IDEs and agents (Cursor, Claude Desktop, LM Studio) to read and edit open LibreOffice documents over `http://localhost:18765/mcp`. [MCP Protocol](docs/mcp/protocol.md)
 - **Pluggable Agent Backends** — Switch the chat engine to external agents such as [Hermes](https://github.com/NousResearch/hermes-agent), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Mistral Vibe](https://github.com/mistralai/mistral-vibe), [Grok Build](https://zed.dev/acp/agent/grok-build), or [OpenCode](https://opencode.ai/docs/acp/) via ACP. [Cursor Plugin](https://github.com/KeithCu/cursor-libreoffice) · [LO Skill](https://github.com/KeithCu/libreoffice-skill)
 
 Full catalog of capabilities: **[docs/features.md](docs/features.md)**.
@@ -126,7 +126,7 @@ Apr 2026 snapshot — slugs and prices may be stale. Current default eval models
 | 14   | allenai/olmo-3.1-32b-instruct          | 0.323           | 0.306     | 1912.4     | 0.00046      | 226.704      |
 | 15   | z-ai/glm-5.1                           | 0.890           | 0.843     | 4677.8     | 0.00524      | 151.141      |
 
-See [docs/eval-benchmarks.md](docs/eval-benchmarks.md) for scoring methodology and insights.
+See [docs/eval/benchmarks.md](docs/eval/benchmarks.md) for scoring methodology and insights.
 
 ---
 
@@ -135,13 +135,13 @@ See [docs/eval-benchmarks.md](docs/eval-benchmarks.md) for scoring methodology a
 | Topic | Documentation Link |
 | :--- | :--- |
 | **Feature Index** | [docs/features.md](docs/features.md) |
-| **NumPy & Python in Calc** | [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md) · [docs/calc-py-data-shapes.md](docs/calc-py-data-shapes.md) |
-| **LibrePy Core Architecture** | [docs/scripting-librepy-split.md](docs/scripting-librepy-split.md) |
-| **Domain Helper Functions** | [docs/scripting-numpy-domains.md](docs/scripting-numpy-domains.md) · [docs/calc-analysis-tools.md](docs/calc-analysis-tools.md) |
-| **Full Architecture** | [docs/writeragent-architecture.md](docs/writeragent-architecture.md) · [docs/framework-formal-verification.md](docs/framework-formal-verification.md) |
-| **Model Context Protocol (MCP)** | [docs/mcp-protocol.md](docs/mcp-protocol.md) |
+| **NumPy & Python in Calc** | [docs/enabling_numpy_in_libreoffice.md](docs/enabling_numpy_in_libreoffice.md) · [docs/calc/py-data-shapes.md](docs/calc/py-data-shapes.md) |
+| **LibrePy Core Architecture** | [docs/scripting/librepy-split.md](docs/scripting/librepy-split.md) |
+| **Domain Helper Functions** | [docs/scripting/numpy-domains.md](docs/scripting/numpy-domains.md) · [docs/calc/analysis-tools.md](docs/calc/analysis-tools.md) |
+| **Full Architecture** | [docs/writeragent-architecture.md](docs/writeragent-architecture.md) · [docs/framework/formal-verification.md](docs/framework/formal-verification.md) |
+| **Model Context Protocol (MCP)** | [docs/mcp/protocol.md](docs/mcp/protocol.md) |
 | **Embeddings & Search** | [docs/embeddings.md](docs/embeddings.md) |
-| **Benchmarks** | [docs/eval-benchmarks.md](docs/eval-benchmarks.md) |
+| **Benchmarks** | [docs/eval/benchmarks.md](docs/eval/benchmarks.md) |
 | **Localization (34 Locales)** | [docs/localization.md](docs/localization.md) |
 | **Code Explorer** | [DeepWiki](https://deepwiki.com/KeithCu/writeragent) |
 | **Cursor / Agent Skills** | [cursor-libreoffice](https://github.com/KeithCu/cursor-libreoffice) · [libreoffice-skill](https://github.com/KeithCu/libreoffice-skill) |
@@ -160,7 +160,7 @@ A chronicle of building a Python runtime and AI suite inside LibreOffice:
 - **Week 2 & 3**: [MCP, research sub-agent, voice support, and evaluation dashboard](https://keithcu.com/wordpress/?p=5112)
 - **Week 4–6**: [State machines, formal verification, and specialized toolsets](https://keithcu.com/wordpress/?p=5245)
 - **Week 6 & 7**: [Async grammar checking and TeX import support](https://keithcu.com/wordpress/?p=5276)
-- **Week 8+**: [NumPy compute bridge, `=PY()` Calc add-in, Monaco editor, and LibrePy core split](docs/scripting-librepy-split.md)
+- **Week 8+**: [NumPy compute bridge, `=PY()` Calc add-in, Monaco editor, and LibrePy core split](docs/scripting/librepy-split.md)
 
 ---
 
@@ -192,7 +192,7 @@ make build-harper    # Produces build/LibreHarper.oxt
 make deploy-harper   # Installs LibreHarper.oxt
 ```
 
-See [AGENTS.md](AGENTS.md) (invariants), [docs/repo-map.md](docs/repo-map.md) (entry points), and [docs/scripting-librepy-split.md](docs/scripting-librepy-split.md) for architecture details.
+See [AGENTS.md](AGENTS.md) (invariants), [docs/repo-map.md](docs/repo-map.md) (entry points), and [docs/scripting/librepy-split.md](docs/scripting/librepy-split.md) for architecture details.
 
 ---
 

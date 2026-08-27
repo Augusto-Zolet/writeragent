@@ -2,7 +2,7 @@
 
 VCL fires textChanged/itemStateChanged on programmatic setText/addItems.
 Without _in_refresh_controls that re-enters _refresh_controls_from_config
-on the main thread (docs/framework-uno-thread-safety.md §12).
+on the main thread (docs/framework/uno-thread-safety.md §12).
 """
 
 from __future__ import annotations

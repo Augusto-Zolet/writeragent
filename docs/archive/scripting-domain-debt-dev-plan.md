@@ -40,7 +40,7 @@ Phased cleanup of trusted-helper host glue: declarative registries, shared RPC, 
 
 **Tests:** `tests/scripting/test_trusted_action_registry.py`, `tests/scripting/test_worker_harness_trusted_action.py`, updated embeddings/client contract tests.
 
-See also [enabling_numpy_in_libreoffice.md §Trusted extension code](enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv).
+See also [../enabling_numpy_in_libreoffice.md §Trusted extension code](../enabling_numpy_in_libreoffice.md#trusted-extension-code-in-the-venv).
 
 ## Phase 6 — Finish registry pattern (shipped)
 
@@ -73,9 +73,9 @@ Follow-ons from the Phase 6 planning pass. Prefer least-code reuse of existing f
 | Idea | Notes |
 |------|--------|
 | Shared `DOMAIN_SPECS` generating all registries | One table (or small codegen) feeding trusted-action wiring, RPS `WIRING_TABLE`, and `PICKER_WIRING`. Seed from existing tables; avoid a fourth ad-hoc registry. |
-| Careful [`payload_codec.py`](../plugin/scripting/payload_codec.py) split | Extract read-only helpers / Cython loader only. **Do not** split the flatten/unpack hot loop without re-running serialization A/B + worker tests — see [scripting-numpy-serialization.md](scripting-numpy-serialization.md). Envelope-detector `@deal` + Hypothesis oracles (`is_split_grid`, `is_multi_data`, image / dataframe / calc_range) are **shipped**; see [scripting-serialization-verification.md](scripting-serialization-verification.md). |
+| Careful [`payload_codec.py`](../plugin/scripting/payload_codec.py) split | Extract read-only helpers / Cython loader only. **Do not** split the flatten/unpack hot loop without re-running serialization A/B + worker tests — see [../scripting/numpy-serialization.md](../scripting/numpy-serialization.md). Envelope-detector `@deal` + Hypothesis oracles (`is_split_grid`, `is_multi_data`, image / dataframe / calc_range) are **shipped**; see [../scripting/serialization-verification.md](../scripting/serialization-verification.md). |
 | Do not merge [`venv/calc_functions_*.py`](../plugin/scripting/venv/) | Alphabet splits keep host import light; Excel-parity risk is high. Optional index doc only. |
-| Venv ↔ LO tool RPC | Product feature (`writeragent_api` stubs / [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) §7), not structural cleanup. |
+| Venv ↔ LO tool RPC | Product feature (`writeragent_api` stubs / [../enabling_numpy_in_libreoffice.md](../enabling_numpy_in_libreoffice.md) §7), not structural cleanup. |
 | Live UNO suites | Multi-range Calc, `=PY()` plot e2e — valuable harness cost, not debt structure. |
 
 ### Intentional non-goals

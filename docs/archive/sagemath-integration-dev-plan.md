@@ -4,7 +4,7 @@
 > **Product note (2026-06):** SymPy trusted helpers (`symbolic_math`, Run Python Script **[Math]**) ship first; Sage integration below remains optional future work.  
 > **Last updated:** 2026-06-07  
 > **Owner:** WriterAgent core  
-> **Related:** [Scientific Python bridge](enabling_numpy_in_libreoffice.md) · [Symbolic Math roadmap](scripting-numpy-domains.md#symbolic-math) · [Analysis sub-agent](calc-analysis-sub-agent.md) · [Jupyter notebook import](writer-jupyter-notebook-import.md) · [Math / TeX design](writer-math-tex.md) · [Community integration strategy](../community_integration_strategy.md)
+> **Related:** [Scientific Python bridge](../enabling_numpy_in_libreoffice.md) · [Symbolic Math roadmap](../scripting/numpy-domains.md#symbolic-math) · [Analysis sub-agent](../calc/analysis-sub-agent.md) · [Jupyter notebook import](../writer/jupyter-notebook-import.md) · [Math / TeX design](../writer/math-tex.md) · [Community integration strategy](../community_integration_strategy.md)
 
 ---
 
@@ -43,7 +43,7 @@ They want:
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Zero Calc power-user feedback loop today** | Sage/math is a **differentiated wedge** — a concrete persona (math grad student, engineering TA, small-university LO deploy) even if small in absolute numbers          |
 | **Scientific Python bridge already shipped** | `=PYTHON()`, `run_venv_python_script`, shared Calc kernel, Jupyter import — Sage plugs into **existing** plumbing                                                       |
-| **Symbolic Math helpers already on roadmap** | [scripting-numpy-domains.md §3](scripting-numpy-domains.md#symbolic-math) lists `solve_equation`, `latex_to_math_object` — **Sage extends that plan**, not a parallel product |
+| **Symbolic Math helpers already on roadmap** | [../scripting/numpy-domains.md §3](../scripting/numpy-domains.md#symbolic-math) lists `solve_equation`, `latex_to_math_object` — **Sage extends that plan**, not a parallel product |
 | **SymPy already in venv**                    | Default path works without Sage; Sage is **optional depth**, not a hard dependency                                                                                      |
 | **GPL + FOSS alignment**                     | Natural conversation with SageMath / Passagemath community (local tools, no proprietary CAS lock-in)                                                                    |
 
@@ -101,11 +101,11 @@ flowchart LR
 | Venv subprocess worker  | `[plugin/scripting/venv_worker.py](../plugin/scripting/venv_worker.py)`, `[worker_harness.py](../plugin/scripting/worker_harness.py)`     | Warm process; Pickle5 IPC                                              |
 | AST sandbox + whitelist | `[plugin/scripting/venv_sandbox.py](../plugin/scripting/venv_sandbox.py)`, `[sandbox.py](../plugin/scripting/sandbox.py)` | `**sympy` whitelisted; `sage` not**                                    |
 | Auto-imports            | `[AUTO_IMPORTS](../plugin/framework/constants.py)`                                                                                        | `np`, `pd`, `sp`, `st`, `plt`, `math`, `dt`, … — **do not auto-import Sage** (slow, clashes) |
-| Writer Math insert      | `[math_formula_insert.py](../plugin/writer/math/math_formula_insert.py)`, [writer-math-tex.md](writer-math-tex.md)                                      | LaTeX → StarMath → OLE                                                 |
+| Writer Math insert      | `[math_formula_insert.py](../plugin/writer/math/math_formula_insert.py)`, [../writer/math-tex.md](../writer/math-tex.md)                                      | LaTeX → StarMath → OLE                                                 |
 | Trusted helper RPC      | `[analysis_client.py](../plugin/framework/client/analysis_client.py)` → `[analysis.py](../plugin/scripting/analysis.py)`                  | **Template for `symbolic_client.py`**                                  |
 | Jupyter import + kernel | `[plugin/notebook/](../plugin/notebook/)`                                                                                                 | Cells run in WriterAgent venv, not Sage kernel                         |
 | Settings Test           | `[run_venv_self_check](../plugin/scripting/venv_worker.py)`                                                                               | Scientific / EDA / Vision groups — **no Sage probe yet**               |
-| Symbolic roadmap        | [scripting-numpy-domains.md §3](scripting-numpy-domains.md#symbolic-math)                                                                       | Helpers **not shipped**                                                |
+| Symbolic roadmap        | [../scripting/numpy-domains.md §3](../scripting/numpy-domains.md#symbolic-math)                                                                       | Helpers **not shipped**                                                |
 
 
 ### Architecture (target state)
@@ -151,7 +151,7 @@ Official flow (Sage ≥ 10.7): `python3 -m venv ~/sage-venv` → `pip install sa
 | **Settings**      | `scripting.python_venv_path` = venv root (e.g. `~/sage-venv`)                                               |
 | **Compatibility** | `[resolve_venv_python](../plugin/scripting/venv_worker.py)` finds `bin/python` — **works today**            |
 | **Constraints**   | Python 3.12–3.14; large download/build; first import slow                                                   |
-| **User doc**      | One-page “Sage venv for WriterAgent” section (link from [enabling_numpy](enabling_numpy_in_libreoffice.md)) |
+| **User doc**      | One-page “Sage venv for WriterAgent” section (link from [enabling_numpy](../enabling_numpy_in_libreoffice.md)) |
 
 
 ### Model B — System / distro Sage (`sage -python`)
@@ -212,7 +212,7 @@ result = integrate(sin(x), x)        # symbolic
 
 | Today                                                                                    | Sage risk                               |
 | ---------------------------------------------------------------------------------------- | --------------------------------------- |
-| Default user timeout **10s** ([Settings](enabling_numpy_in_libreoffice.md#3-user-guide)) | Cold `import sage` may exceed 10s       |
+| Default user timeout **10s** ([Settings](../enabling_numpy_in_libreoffice.md#3-user-guide)) | Cold `import sage` may exceed 10s       |
 | Warm worker ~30s internal budget                                                         | May need longer warm for Sage-only pool |
 
 
@@ -255,7 +255,7 @@ Phases are **ordered by risk reduction**, not by marketing flash. Sage is niche 
 | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | User section: Sage venv + system Sage paths, timeouts, SymPy vs Sage                                 | Docs                                                           |
 | Settings **Test** group: **Computer Algebra** (`sympy`, `sage`)                                      | Small — `[venv_worker.py](../plugin/scripting/venv_worker.py)` |
-| Link from [enabling_numpy Related](enabling_numpy_in_libreoffice.md)                                 | Docs                                                           |
+| Link from [enabling_numpy Related](../enabling_numpy_in_libreoffice.md)                                 | Docs                                                           |
 | Optional: `[community_integration_strategy.md](../community_integration_strategy.md)` Sage paragraph | Docs                                                           |
 
 
@@ -267,7 +267,7 @@ Phases are **ordered by risk reduction**, not by marketing flash. Sage is niche 
 
 **Goal:** Reliable CAS for LLM + Run Python Script — **implements existing Symbolic Math roadmap** with optional Sage backend.
 
-Aligns with [scripting-numpy-domains.md §3 Symbolic Math](scripting-numpy-domains.md#symbolic-math).
+Aligns with [../scripting/numpy-domains.md §3 Symbolic Math](../scripting/numpy-domains.md#symbolic-math).
 
 
 | Component                                                                   | Pattern                                                                                        |
@@ -310,7 +310,7 @@ Aligns with [scripting-numpy-domains.md §3 Symbolic Math](scripting-numpy-domai
 
 | Step           | Scope                                                                                                                                     |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| **4a (docs)**  | Import `.ipynb` via [jupyter-notebook-import](writer-jupyter-notebook-import.md); cells use WriterAgent venv — document Sage syntax requirements |
+| **4a (docs)**  | Import `.ipynb` via [jupyter-notebook-import](../writer/jupyter-notebook-import.md); cells use WriterAgent venv — document Sage syntax requirements |
 | **4b**         | Detect `kernelspec.name == "sage"` → actionable Settings message                                                                          |
 | **4c (defer)** | External Sage Jupyter kernel subprocess — only if 4a–4b insufficient                                                                      |
 
@@ -325,7 +325,7 @@ Aligns with [scripting-numpy-domains.md §3 Symbolic Math](scripting-numpy-domai
 | Item                           | Reason                                                                                                  |
 | ------------------------------ | ------------------------------------------------------------------------------------------------------- |
 | Sage inside OXT                | Size, build, GPL bundling complexity                                                                    |
-| Extension-managed Sage install | Same deferral as Strategy 2 in [enabling_numpy §7](enabling_numpy_in_libreoffice.md#7-deferred-roadmap) |
+| Extension-managed Sage install | Same deferral as Strategy 2 in [enabling_numpy §7](../enabling_numpy_in_libreoffice.md#7-deferred-roadmap) |
 | SageCell / cloud CAS           | Network, auth, local-first brand                                                                        |
 | In-process Sage in LO Python   | ABI crash risk (rejected for NumPy)                                                                     |
 | Replacing SymPy as default     | SymPy stays default; Sage optional                                                                      |
@@ -341,7 +341,7 @@ Aligns with [scripting-numpy-domains.md §3 Symbolic Math](scripting-numpy-domai
 | Phase | Primary touch points                                                                                                                                                                                                     |
 | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 0     | Spike branch only; update this doc                                                                                                                                                                                       |
-| 1     | `[venv_worker.py](../plugin/scripting/venv_worker.py)`, [enabling_numpy](enabling_numpy_in_libreoffice.md), this doc                                                                                                     |
+| 1     | `[venv_worker.py](../plugin/scripting/venv_worker.py)`, [enabling_numpy](../enabling_numpy_in_libreoffice.md), this doc                                                                                                     |
 | 2     | `symbolic.py`, `symbolic_client.py`, calc/writer tools, `[document_scripts.py](../plugin/scripting/document_scripts.py)`, `[sandbox.py](../plugin/scripting/sandbox.py)` (whitelist trusted module only) |
 | 3     | `[venv_sandbox.py](../plugin/scripting/venv_sandbox.py)`, `[import_policy.py](../plugin/scripting/import_policy.py)`, `[constants.py](../plugin/framework/constants.py)`                                                 |
 | 4     | `[plugin/notebook/](../plugin/notebook/)`, jupyter docs                                                                                                                                                                  |
@@ -464,7 +464,7 @@ gantt
 
 ## Appendix — SymPy roadmap overlap
 
-Phase 2 **does not duplicate work** — it **implements** the deferred item in [enabling_numpy §8](enabling_numpy_in_libreoffice.md#8-implementation-status):
+Phase 2 **does not duplicate work** — it **implements** the deferred item in [enabling_numpy §8](../enabling_numpy_in_libreoffice.md#8-implementation-status):
 
 > Scientific domain roadmaps — trusted helpers for … **Symbolic Math** …
 

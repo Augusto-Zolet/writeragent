@@ -7,7 +7,7 @@
 
 Provides actual `deal` decorators when deal is installed, or no-op stubs
 when running under standard LibreOffice Python runtime where deal is absent.
-See docs/framework-formal-verification.md §8.1 E for string contract conventions.
+See docs/framework/formal-verification.md §8.1 E for string contract conventions.
 
 ``DEAL_MAX_*`` are finite ``@deal.pre`` domains, not production limits (release
 OXTs strip ``@deal.*``; LibreOffice uses this shim as a no-op). Pytest /

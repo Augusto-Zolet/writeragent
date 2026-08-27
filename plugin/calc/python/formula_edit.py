@@ -588,7 +588,7 @@ def format_excel_data_range(range_addr: str) -> str:
     return _format_excel_data_range_body(range_addr)
 
 
-# Defaulted kwargs: deal only forwards provided args + result= (see framework-formal-verification.md §8.1 A).
+# Defaulted kwargs: deal only forwards provided args + result= (see framework/formal-verification.md §8.1 A).
 @deal.pre(lambda data_args, *_unused, **__: _deal_data_args_ok(data_args))
 @deal.post(lambda result: isinstance(result, str) and result.endswith(")"))
 @deal.ensure(lambda *args, result=None, **kwargs: isinstance(result, str) and result.endswith(")"))

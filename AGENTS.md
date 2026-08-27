@@ -39,7 +39,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 - **Settings:** `writeragent.json` under the LibreOffice user profile—see `config` module doc.
 - **Memory (experimental):** `memory` + `MEMORY_GUIDANCE` in `prompts` — [docs/archive/hermes-agent-patterns.md](docs/archive/hermes-agent-patterns.md).
 - **Calc:** `=PROMPT()` and `=PYTHON()` add-ins (see [`docs/repo-map.md`](docs/repo-map.md)).
-- **Eval / benchmarks:** `make run_eval` / `scripts/benchmark.py` → `scripts/prompt_optimization/` — [scripts/prompt_optimization/README.md](scripts/prompt_optimization/README.md), [docs/eval-dev-plan.md](docs/eval-dev-plan.md).
+- **Eval / benchmarks:** `make run_eval` / `scripts/benchmark.py` → `scripts/prompt_optimization/` — [scripts/prompt_optimization/README.md](scripts/prompt_optimization/README.md), [docs/eval/dev-plan.md](docs/eval/dev-plan.md).
 
 **Python:** Dev/tooling **3.11–3.13** (`pyproject.toml`); dev `.venv` is pinned to **3.13** via `.python-version` (3.14 lacks wheels for some dev deps such as spaCy). **Extension runtime** is whatever LibreOffice bundles (often older). **Shipped code under `plugin/` must not rely on stdlib newer than that runtime.**
 
@@ -51,7 +51,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 
 | Command | When to use |
 |---------|-------------|
-| `make typecheck` | After edits (required with targeted tests). basedpyright, bandit, opengrep, pyspector, ty, thread-safety, and mypy in parallel. Details: [docs/framework-type-checking.md](docs/framework-type-checking.md) |
+| `make typecheck` | After edits (required with targeted tests). basedpyright, bandit, opengrep, pyspector, ty, thread-safety, and mypy in parallel. Details: [docs/framework/type-checking.md](docs/framework/type-checking.md) |
 | `make deploy` | WriterAgent OXT: build + install/cache sync; **restart LibreOffice** (or `make deploy writer/calc/draw/impress` to launch) |
 | `make deploy-core` | LibrePy OXT only (`build/LibrePy.oxt`); **removes WriterAgent**. Install one OXT at a time. |
 | `make pytest` | Unit pytest only: `-m "not slow and not integration" --ignore-glob='*_uno.py'` plus xdist (`-n -1`; `PYTEST_WORKERS=0` for serial). No live soffice. |
@@ -69,7 +69,7 @@ Usual targets generate `plugin/_manifest.py` when needed. Other Makefile targets
 
 Chat and tool calls go through `llm_client` (see its module doc). Persistent connections live in the HTTP client; auth headers in `auth`.
 
-The librarian / smolagents path must use `WriterAgentSmolModel` in `smol_agent`—do not add a second HTTP client. Details: [docs/chat-smol-tool-architecture.md](docs/chat-smol-tool-architecture.md), [docs/chat-llm-hacks.md](docs/chat-llm-hacks.md).
+The librarian / smolagents path must use `WriterAgentSmolModel` in `smol_agent`—do not add a second HTTP client. Details: [docs/chat/smol-tool-architecture.md](docs/chat/smol-tool-architecture.md), [docs/chat/llm-hacks.md](docs/chat/llm-hacks.md).
 
 ---
 
@@ -81,17 +81,17 @@ Rules that apply in many places. Breaking them causes wrong-document bugs, froze
 
 - **Keep the chat FSM pure.** In `service`, `next_state` only computes the next state—no UNO calls and no I/O. Side effects (UI updates, MCP, document work) belong in the panel or MCP layers.
 
-- **Stream on a worker; drain on the UI thread.** Background work pushes tuples onto a `queue.Queue`. The first element must be a `StreamQueueKind` **enum member**, not a bare string. Drain with `run_async_worker_with_drain` / `get_toolkit(ctx)` so the UI processes events via `toolkit.processEventsToIdle()`. Do not use UNO `XTimerListener` for sidebar streaming. More: [docs/framework-streaming-and-threading.md](docs/framework-streaming-and-threading.md).
+- **Stream on a worker; drain on the UI thread.** Background work pushes tuples onto a `queue.Queue`. The first element must be a `StreamQueueKind` **enum member**, not a bare string. Drain with `run_async_worker_with_drain` / `get_toolkit(ctx)` so the UI processes events via `toolkit.processEventsToIdle()`. Do not use UNO `XTimerListener` for sidebar streaming. More: [docs/framework/streaming-and-threading.md](docs/framework/streaming-and-threading.md).
 
 - **Refresh document context each chat send.** Each user send replaces the `[DOCUMENT CONTENT]` system message so the model sees the current document, not a stale snapshot.
 
 - **Register tools so schemas and execution agree.** Matching uses `uno_services` first, then `doc_types`. Anything advertised by `get_schemas` must be runnable via `execute`. Default main-chat tools are `tier="core"`; nested specialized sets use `specialized` / `specialized_control` and are omitted from default lists. Gateway tools must list **every** UNO service they support (e.g. Draw **and** Impress). Writer `charts` / `shapes` share tool **names** with Calc/Draw—the Writer class must declare the **union** of those services or execution rejects the document.
 
-- **Do not start raw threads for background work.** Use `run_in_background`. Short fire-and-forget jobs share a daemon pool with a fixed worker count (unbounded submit queue); pass `dedicated=True` (or `daemon=False`) for servers, pipe drains, infinite loops, and any job another thread will `join()`. Long subprocesses use `AsyncProcess`; if stderr is piped, drain it continuously or redirect it, or the process can deadlock ([docs/framework-threading.md](docs/framework-threading.md)). Dev builds enable a UNO thread guard by default (`thread_guard`; set `WRITERAGENT_UNO_THREAD_GUARD=0` to opt out; release OXTs stub it off). Wrap document-model access at boundaries with `guard_uno` (e.g. `get_active_document`, frame `_get_document_model`, `resolve_document_by_url`, `open_document_for_read`). For `ToolContext`, use `get_ctx()`—not the raw bootstrap `self.ctx`. Details: [docs/framework-uno-thread-safety.md](docs/framework-uno-thread-safety.md).
+- **Do not start raw threads for background work.** Use `run_in_background`. Short fire-and-forget jobs share a daemon pool with a fixed worker count (unbounded submit queue); pass `dedicated=True` (or `daemon=False`) for servers, pipe drains, infinite loops, and any job another thread will `join()`. Long subprocesses use `AsyncProcess`; if stderr is piped, drain it continuously or redirect it, or the process can deadlock ([docs/framework/threading.md](docs/framework/threading.md)). Dev builds enable a UNO thread guard by default (`thread_guard`; set `WRITERAGENT_UNO_THREAD_GUARD=0` to opt out; release OXTs stub it off). Wrap document-model access at boundaries with `guard_uno` (e.g. `get_active_document`, frame `_get_document_model`, `resolve_document_by_url`, `open_document_for_read`). For `ToolContext`, use `get_ctx()`—not the raw bootstrap `self.ctx`. Details: [docs/framework/uno-thread-safety.md](docs/framework/uno-thread-safety.md).
 
-- **Surface errors through the shared helpers.** Prefer `WriterAgentException` and `format_error_payload` (`errors`). Tools should fail via `_tool_error`. UI lifecycle uses `suppress_disposed`; document tools re-raise disposal via `is_disposed_exception` / `DocumentDisposedError` — do not catch `uno.Exception` to “avoid” `DisposedException`. There is no active `DocumentCache`—do not assume one. Details: [docs/framework-exception-policy.md](docs/framework-exception-policy.md).
+- **Surface errors through the shared helpers.** Prefer `WriterAgentException` and `format_error_payload` (`errors`). Tools should fail via `_tool_error`. UI lifecycle uses `suppress_disposed`; document tools re-raise disposal via `is_disposed_exception` / `DocumentDisposedError` — do not catch `uno.Exception` to “avoid” `DisposedException`. There is no active `DocumentCache`—do not assume one. Details: [docs/framework/exception-policy.md](docs/framework/exception-policy.md).
 
-- **Two products, one OXT at a time.** WriterAgent (`make deploy`, `plugin/main.py`) vs LibrePy (`make build-core` / `deploy-core`, `plugin/main_core.py`, `extension-core/`). `deploy-core` removes WriterAgent; `register-built-oxt` / `make release` removes LibrePy. Dual-install overlay is **not shipped**. File list: [`scripts/librepy_bundle_paths.py`](scripts/librepy_bundle_paths.py). Packaging: [docs/scripting-librepy-split.md](docs/scripting-librepy-split.md).
+- **Two products, one OXT at a time.** WriterAgent (`make deploy`, `plugin/main.py`) vs LibrePy (`make build-core` / `deploy-core`, `plugin/main_core.py`, `extension-core/`). `deploy-core` removes WriterAgent; `register-built-oxt` / `make release` removes LibrePy. Dual-install overlay is **not shipped**. File list: [`scripts/librepy_bundle_paths.py`](scripts/librepy_bundle_paths.py). Packaging: [docs/scripting/librepy-split.md](docs/scripting/librepy-split.md).
 
 - **LibrePy-safe document helpers.** Linebreaks, tracked-deletion reads, heading trees, path, selection text, Writer text slices, and selection range / char count: `plugin/doc/text_helpers.py`. Type guards: `doc_type.py`. Document properties: `udprops.py`. Do **not** import `document_helpers` from LibrePy paths (WriterAgent chat context / `DocumentService`). Do **not** re-export the light helpers from `document_helpers`.
 
@@ -114,7 +114,7 @@ when you open that tree; other agents should open them explicitly.
 
 **Config:** Call `init_config(ctx)` once at bootstrap. Later config I/O does not take `ctx` — see the `config` module doc.
 
-**Logging / MCP:** Logs go to `writeragent_debug.log` next to `writeragent.json`. `enable_agent_log` is separate (structured agent traces only). In unexpected `except` blocks, use **`log.exception("Context")`**. MCP work drains on the main thread ([docs/mcp-protocol.md](docs/mcp-protocol.md)). Do not read API keys from the environment in production; do not use **`tempfile.mktemp()`**. For scratch debug files under `/tmp`, prefer `flush=True`.
+**Logging / MCP:** Logs go to `writeragent_debug.log` next to `writeragent.json`. `enable_agent_log` is separate (structured agent traces only). In unexpected `except` blocks, use **`log.exception("Context")`**. MCP work drains on the main thread ([docs/mcp/protocol.md](docs/mcp/protocol.md)). Do not read API keys from the environment in production; do not use **`tempfile.mktemp()`**. For scratch debug files under `/tmp`, prefer `flush=True`.
 
 **Tests / packaging:** UNO tests go through `testing_runner`; debug-menu suites run on the UI thread ([docs/archive/test_architecture_analysis.md](docs/archive/test_architecture_analysis.md)). New extension components must be registered in `extension/META-INF/manifest.xml`.
 
@@ -125,8 +125,8 @@ Do not reuse the names **`logging`**, module **`log`**, or gettext **`_`** for u
 ### Do not redo (already shipped)
 
 - Do **not** invent `python_config.py` or rename `writeragent.json` for LibrePy.
-- Do **not** split `payload_codec.py` flatten/unpack without serialization A/B tests ([docs/scripting-numpy-serialization.md](docs/scripting-numpy-serialization.md)).
-- Envelope-detector `@deal` + Hypothesis oracles on `payload_codec` (`is_split_grid`, `is_multi_data`, image / dataframe / calc_range) are **shipped**. Source of truth: [docs/scripting-serialization-verification.md](docs/scripting-serialization-verification.md).
+- Do **not** split `payload_codec.py` flatten/unpack without serialization A/B tests ([docs/scripting/numpy-serialization.md](docs/scripting/numpy-serialization.md)).
+- Envelope-detector `@deal` + Hypothesis oracles on `payload_codec` (`is_split_grid`, `is_multi_data`, image / dataframe / calc_range) are **shipped**. Source of truth: [docs/scripting/serialization-verification.md](docs/scripting/serialization-verification.md).
 - Scripting domain registries (Phases 1–6) are shipped — do not add a fourth ad-hoc registry ([docs/archive/scripting-domain-debt-dev-plan.md](docs/archive/scripting-domain-debt-dev-plan.md)).
 - `calc_functions_*.py` alphabet splits are intentional; do not merge them.
 - Do **not** drop `plugin/calc/analyzer.py` from the LibrePy bundle (reserved for later use).

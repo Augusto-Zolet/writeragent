@@ -14,7 +14,7 @@ hits Stop, another thread calls ``close()`` and shuts the socket while the
 worker may still be blocked in ``getresponse``. That abort is intentional.
 Do not put a lock around ``send()`` to “make HTTP thread-safe”: Stop would
 then wait for the full network timeout. Details:
-docs/framework-threading.md.
+docs/framework/threading.md.
 """
 
 import http.client

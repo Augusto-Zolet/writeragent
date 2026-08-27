@@ -28,7 +28,7 @@ forever. ``_pool_lock`` only covers creating/resetting that pool;
 submitting work uses a thread-safe queue. ``StderrTail``’s lock is only
 the bounded stderr buffer from a child process. Never ``join()`` a pooled
 job from another pooled job (the pool can deadlock). Map:
-docs/framework-threading.md.
+docs/framework/threading.md.
 """
 
 from __future__ import annotations

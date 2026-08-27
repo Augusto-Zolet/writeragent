@@ -28,7 +28,7 @@ This document evaluates Odysseus's architectural components, details 9 high-impa
 | **6. Document Ingestion** | `src/markitdown_runtime.py` (Microsoft `markitdown` for PDF/Office parsing) | Host-based folder FTS & venv embeddings indexer | **Medium**: Upgraded text extraction for reference PDFs/XLSX/DOCX in RAG indexer |
 | **7. Multi-Model Drafting** | `routes/compare/compare_routes.py` (Parallel dual-model query & synthesis) | Single active model per generation | **Medium**: Side-by-side alternative drafting & synthesis in Writer sidebar |
 | **8. Search Quality & Recency** | `services/search/ranking.py` (Recency decay + domain quality scoring) | Raw search API results without recency or content-farm filtering | **Medium**: Higher relevance and freshness in web research results |
-| **9. Speech-to-Text Dictation** | `services/stt/stt_service.py` (Local Faster-Whisper audio transcription) | Audio architecture documented (`docs/audio-architecture.md`) | **Medium**: Hands-free voice prompts and dictation directly into Writer |
+| **9. Speech-to-Text Dictation** | `services/stt/stt_service.py` (Local Faster-Whisper audio transcription) | Audio architecture documented (`audio-architecture.md`) | **Medium**: Hands-free voice prompts and dictation directly into Writer |
 
 ---
 
@@ -193,7 +193,7 @@ This document evaluates Odysseus's architectural components, details 9 high-impa
 - **Target Integration:** [`plugin/embeddings/venv/`](file:///home/keithcu/Desktop/Python/writeragent/plugin/embeddings/venv/) & [`plugin/framework/client/folder_fts_service.py`](file:///home/keithcu/Desktop/Python/writeragent/plugin/framework/client/folder_fts_service.py)
 
 - **Execution Safety:**
-  - `markitdown` executes inside the isolated Python venv worker (matching the architecture in [`docs/embeddings.md`](file:///home/keithcu/Desktop/Python/writeragent/docs/embeddings.md)).
+  - `markitdown` executes inside the isolated Python venv worker (matching the architecture in [`embeddings.md`](file:embeddings.md)).
   - Shipped extension runtime (LibreOffice bundled Python) is not polluted with heavy conversion dependencies.
 
 ---
@@ -241,7 +241,7 @@ This document evaluates Odysseus's architectural components, details 9 high-impa
 
 #### Technical Specification (Senior Devs)
 - **Source Pattern:** `odysseus/services/stt/stt_service.py`
-- **Target Integration:** [`docs/audio-architecture.md`](file:///home/keithcu/Desktop/Python/writeragent/docs/audio-architecture.md) & [`plugin/scripting/venv_worker.py`](file:///home/keithcu/Desktop/Python/writeragent/plugin/scripting/venv_worker.py)
+- **Target Integration:** [`audio-architecture.md`](file:audio-architecture.md) & [`plugin/scripting/venv_worker.py`](file:///home/keithcu/Desktop/Python/writeragent/plugin/scripting/venv_worker.py)
 
 ---
 
@@ -262,7 +262,7 @@ This document evaluates Odysseus's architectural components, details 9 high-impa
 │ PHASE 3: Ecosystem & Advanced Polish (Future)                           │
 │ ├─ markitdown Ingestion Integration (plugin/embeddings/venv/)           │
 │ ├─ Multi-Model Side-by-Side Drafting (plugin/chatbot/panel.py)          │
-│ └─ Speech-to-Text Dictation Pipeline (docs/audio-architecture.md)       │
+│ └─ Speech-to-Text Dictation Pipeline (audio-architecture.md)       │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -285,7 +285,7 @@ This document evaluates Odysseus's architectural components, details 9 high-impa
 ## 6. References & Related Documentation
 
 - Odysseus Repository: [`odysseus/`](file:///home/keithcu/Desktop/Python/writeragent/odysseus/)
-- Main Chat Architecture: [docs/chat-smol-tool-architecture.md](file:///home/keithcu/Desktop/Python/writeragent/docs/chat-smol-tool-architecture.md)
+- Main Chat Architecture: [chat/smol-tool-architecture.md](file:///home/keithcu/Desktop/Python/writeragent/docs/chat/smol-tool-architecture.md)
 - Memory Guidance & Roadmap: [docs/hermes-agent-patterns.md](file:///home/keithcu/Desktop/Python/writeragent/docs/hermes-agent-patterns.md)
-- Embeddings & Folder Indexing: [docs/embeddings.md](file:///home/keithcu/Desktop/Python/writeragent/docs/embeddings.md)
-- Audio Architecture: [docs/audio-architecture.md](file:///home/keithcu/Desktop/Python/writeragent/docs/audio-architecture.md)
+- Embeddings & Folder Indexing: [embeddings.md](file:embeddings.md)
+- Audio Architecture: [audio-architecture.md](file:audio-architecture.md)

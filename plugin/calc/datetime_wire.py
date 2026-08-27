@@ -15,7 +15,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """Pure helpers for Calc date/time LLM wire contract (gate, preserve, elapsed, format runs).
 
-No UNO imports — unit-testable. See docs/calc-date-time-handling.md.
+No UNO imports — unit-testable. See docs/calc/date-time-handling.md.
 Duration parse uses vendored ``isodate``; emit is a thin hours-may-exceed-24 formatter
 so the wire stays ``PT30H`` rather than ``P1DT6H``.
 """

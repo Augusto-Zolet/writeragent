@@ -6,7 +6,7 @@ rules:
     message: >-
       UNO accessed from a background context. Marshal via
       execute_on_main_thread()/post_to_main_thread(). See
-      docs/framework-uno-thread-safety.md (Layer C).
+      docs/framework/uno-thread-safety.md (Layer C).
     pattern-sources:
       # Explicit blue marker (module-level worker entrypoints).
       - patterns:
@@ -111,7 +111,7 @@ rules:
     severity: ERROR
     message: >-
       Spawn background work via run_in_background, not raw threading.Thread/Timer.
-      See docs/framework-uno-thread-safety.md (Layer C).
+      See docs/framework/uno-thread-safety.md (Layer C).
     pattern-either:
       - pattern: threading.Thread(...)
       - pattern: threading.Timer(...)
@@ -137,7 +137,7 @@ rules:
     severity: WARNING
     message: >-
       Module-level worker passed to run_in_background should be decorated @background
-      so Opengrep can track cross-file UNO taint. See docs/framework-uno-thread-safety.md.
+      so Opengrep can track cross-file UNO taint. See docs/framework/uno-thread-safety.md.
     patterns:
       - pattern: run_in_background($F, ...)
       - pattern-not-inside: |
@@ -184,7 +184,7 @@ rules:
     severity: ERROR
     message: >-
       Call process_events_to_idle()/pump_ui_idle() instead of raw
-      toolkit.processEventsToIdle(). See docs/framework-threading.md.
+      toolkit.processEventsToIdle(). See docs/framework/threading.md.
     patterns:
       - pattern-either:
           - pattern: $TK.processEventsToIdle()
@@ -209,7 +209,7 @@ rules:
     severity: WARNING
     message: >-
       Long-lived Popen with stderr=PIPE needs start_stderr_drain() (or DEVNULL).
-      See docs/framework-threading.md.
+      See docs/framework/threading.md.
     patterns:
       - pattern: subprocess.Popen(..., stderr=subprocess.PIPE, ...)
       - pattern-not-inside: |
@@ -234,7 +234,7 @@ rules:
     severity: WARNING
     message: >-
       UNO document model access should check disposal status via check_disposed or is_document_disposed.
-      See docs/framework-uno-thread-safety.md.
+      See docs/framework/uno-thread-safety.md.
     patterns:
       - pattern: $DOC.getImplementationName()
       - pattern-not-inside: |

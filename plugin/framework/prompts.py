@@ -81,13 +81,13 @@ SPECIALIZED_TASK_RULES = (
 # ---------------------------------------------------------------------------
 
 # Tag-level rules shared by sidebar chat and apply_document_content fragments.
-# Container differs: single HTML string (sidebar) vs JSON array (document) — docs/chat-sidebar-implementation.md § Chat prompt constants.
+# Container differs: single HTML string (sidebar) vs JSON array (document) — docs/chat/sidebar-implementation.md § Chat prompt constants.
 HTML_FRAGMENT_RULES = """
 - Use <br> for line breaks within an element; <p> for paragraphs.
 - Raw Unicode (é, ü, ©); straight double quotes ("), not curly/smart quotes or HTML entities. Send <h1> not &lt;h1&gt;. Preserve intentional spacing.
 - Do NOT use Markdown (#, **, ```, etc.)."""
 
-# Sidebar / sub-agent examples (single HTML string — not apply_document_content's array). See docs/chat-sidebar-implementation.md § Chat prompt constants.
+# Sidebar / sub-agent examples (single HTML string — not apply_document_content's array). See docs/chat/sidebar-implementation.md § Chat prompt constants.
 CHAT_SIDEBAR_HTML_EXAMPLES = """
 CHAT HTML EXAMPLES:
 - Good: "<p>Paragraph with <strong>bold</strong> text.</p>"
@@ -239,7 +239,7 @@ WRITER_REVIEW_MODES_RULES = """TRACKED CHANGES / REVIEW MODES:
 - When reading, get_document_content lists pending changes under tracked_changes — they are pending review, not errors to fix."""
 
 
-# apply_document_content only — design notes in docs/chat-sidebar-implementation.md § Chat prompt constants and docs/writer-math-tex.md.
+# apply_document_content only — design notes in docs/chat/sidebar-implementation.md § Chat prompt constants and docs/writer/math-tex.md.
 WRITER_APPLY_DOCUMENT_HTML_RULES = f"""APPLY_DOCUMENT_CONTENT AND HTML (CRITICAL):
 - Required: `content` and `target`.
   Targets: 'beginning', 'end', 'selection', 'full_document' (preferred for rewrites/translations), 'search' (substring find/replace; also `old_content` as a **substring** — HTML in old_content is matched as plain text).

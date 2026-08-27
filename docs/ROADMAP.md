@@ -19,17 +19,17 @@ Planned features, technical debt, and product gaps. For day-to-day orientation u
 
 Backlog for a later pass. Goal: **great living docs**, not a dump directory and not an exploding count of one-shot checklists.
 
-**Living feature docs stay in `docs/`.** Files like [scripting-monaco-editor-dev-plan.md](scripting-monaco-editor-dev-plan.md) are the right shape: architecture people can read to understand the feature, plus an **Open** / next-phase list so you can pick the work up later. Implemented does **not** mean archive. Keep those visible; update “what shipped” and “what’s next” in place.
+**Living feature docs stay in `docs/`.** Files like [scripting/monaco-editor-dev-plan.md](scripting/monaco-editor-dev-plan.md) are the right shape: architecture people can read to understand the feature, plus an **Open** / next-phase list so you can pick the work up later. Implemented does **not** mean archive. Keep those visible; update “what shipped” and “what’s next” in place.
 
 **Policy (agreed):**
 - **Stay visible:** do **not** mass-move feature plans, comparison writeups, or idea notes into `archive/` just to shrink `ls docs/`.
-- Fold only when two files are the **same topic** and one is leftover after the content already lives in a hub (example: background-thread-pool plan → [framework-threading.md](framework-threading.md)). Then delete the leftover so links do not 404.
-- Keep **large feature hubs** large when the code is large (NumPy: `enabling_numpy_in_libreoffice.md`, `scripting-numpy-serialization.md`, `scripting-numpy-domains.md`). Do not smash everything into one mega-file.
+- Fold only when two files are the **same topic** and one is leftover after the content already lives in a hub (example: background-thread-pool plan → [framework/threading.md](framework/threading.md)). Then delete the leftover so links do not 404.
+- Keep **large feature hubs** large when the code is large (NumPy: `enabling_numpy_in_libreoffice.md`, `scripting/numpy-serialization.md`, `scripting/numpy-domains.md`). Do not smash everything into one mega-file.
 - **Archive only a few** files that are truly dead: “we looked at X and said no” with no remaining pointer value (`archive/litellm-integration-notworthit.md` is the model). Do not archive a doc that still has an Open/next list.
-- [`docs/repo-map.md`](repo-map.md) Deep dives is the catalog of **hubs**, not every markdown file. Living feature plans can sit beside hubs without being in that table. Root [`AGENTS.md`](../AGENTS.md) keeps invariants only (Hermes 20k cap).
+- [`repo-map.md`](repo-map.md) Deep dives is the catalog of **hubs**, not every markdown file. Living feature plans can sit beside hubs without being in that table. Root [`AGENTS.md`](../AGENTS.md) keeps invariants only (Hermes 20k cap).
 
 **Optional later folds (only if they actually duplicate a hub):**
-- Threading: remaining reentrancy-plan invariants into `framework-threading.md` / `framework-uno-thread-safety.md` (keep streaming, architecture, and UNO guard as distinct living docs).
+- Threading: remaining reentrancy-plan invariants into `framework/threading.md` / `framework/uno-thread-safety.md` (keep streaming, architecture, and UNO guard as distinct living docs).
 - Grammar / eval / calc: merge only where two files tell the same story; keep CF, sheet-filter, date-time, Monaco, embeddings, etc. as living docs with next-work lists.
 
 ---
@@ -41,7 +41,7 @@ Primary product focus: close the gap between the agent and the full UNO surface 
 - **Writer**: Mail Merge (CSV/DB/Sheets), bibliographies, watermarks; Sections lifecycle (multi-column, conditional visibility, password protection).
 - **Calc**: Macros & VBA compatibility, Scenarios, external data (SQL/Web), table slicers, sheet protection; deepen [Python/NumPy](enabling_numpy_in_libreoffice.md).
 - **Draw & Impress**: Slide animations, layer management, slide show controls; audio/video insertion and 3D shape manipulation.
-- **Cross-document** (partially shipped): sibling-folder reads work today ([multi-document plan](chat-multi-document-dev-plan.md)); still ahead: configurable extra directories, `@` mention UI, headless opens, broader directory-wide synthesis.
+- **Cross-document** (partially shipped): sibling-folder reads work today ([multi-document plan](chat/multi-document-dev-plan.md)); still ahead: configurable extra directories, `@` mention UI, headless opens, broader directory-wide synthesis.
 - **Long documents**: page-at-a-time navigation and caching for 100+ page files.
 
 User-facing feature map: [features.md](features.md).

@@ -23,7 +23,7 @@ and would block two legitimate same-named events from different threads.
 ``subscribe`` during an emit is not in that fan-out. Snapshotting is not
 UNO safety: a handler that touches Writer still belongs on the main
 thread. Full rules on the ``EventBus`` class and
-docs/framework-threading.md.
+docs/framework/threading.md.
 """
 
 import sys
@@ -50,7 +50,7 @@ class EventBus:
     mutex across callbacks: a lock held while handlers run would deadlock
     UI vs workers and would serialize same-name emits that other threads
     are allowed to run. Handlers that touch UNO still belong on the main
-    thread (see docs/framework-threading.md); a snapshot is not UNO safety.
+    thread (see docs/framework/threading.md); a snapshot is not UNO safety.
 
     Re-entrant ``emit`` of the *same* event on the same thread is dropped
     (warning logged). That stops the sidebar config-refresh loop where

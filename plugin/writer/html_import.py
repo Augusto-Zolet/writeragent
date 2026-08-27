@@ -193,7 +193,7 @@ def _resolve_paragraph_style_token(model, fam, token):
     ambiguous** (e.g. a literal ``Heading1`` coexisting with built-in ``Heading 1``); fail safe
     to ``Standard`` instead of silently picking one. No candidate -> case-insensitive resolve,
     then ``Standard``. The ambiguity gate runs BEFORE any exact-name shortcut so a colliding
-    token can never silently land on the wrong style (per docs/writer-html-style-model-plan.md)."""
+    token can never silently land on the wrong style (per docs/writer/html-style-model-plan.md)."""
     if fam is not None:
         candidates = []
         try:

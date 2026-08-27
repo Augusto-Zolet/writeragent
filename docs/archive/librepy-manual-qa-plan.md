@@ -11,12 +11,12 @@
 **Out of scope for this pass (do later):**
 
 - Syntax/runtime junk (`=PY("1 + E")`, empty code, nested quotes).
-- WriterAgent-only features even if the WriterAgent OXT is installed: chat, `=PROMPT()`, `analyze_data` / `run_venv_python_script` / MCP, embeddings, DuckDB, Jupyter import, spreadsheet → Python converter.
+- WriterAgent-only features even if the WriterAgent OXT is installed: chat, `=PROMPT()`, `analyze_data` / `run_venv_python_script` / MCP, embeddings, DuckDB, spreadsheet → Python converter. Jupyter File → Open is in LibrePy.
 - `calc.*` parity helpers (not in the LibrePy *feature* set; ignore if they happen to work under WriterAgent).
-- Collabora Online / jail-safe C++ path ([scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md)).
+- Collabora Online / jail-safe C++ path ([../scripting/numpy-jailsafe.md](../scripting/numpy-jailsafe.md)).
 - Geospatial, Audio analysis, SageMath, Prophet.
 
-Related docs: [extension split](scripting-librepy-split.md), [user guide](enabling_numpy_in_libreoffice.md), [data shapes](calc-py-data-shapes.md), [domains](scripting-numpy-domains.md), [showcase](python-in-calc-showcase.md).
+Related docs: [extension split](../scripting/librepy-split.md), [user guide](../enabling_numpy_in_libreoffice.md), [data shapes](../calc/py-data-shapes.md), [domains](../scripting/numpy-domains.md), [showcase](python-in-calc-showcase.md).
 
 ---
 
@@ -34,7 +34,7 @@ Each **work packet** below is independent after **P0** (venv + smoke). Assign on
 
 **Fail rule:** `#VALUE!`, `#NUM!` from a successful computation we expected to be a number, empty when a value is expected, LO crash, hang past timeout, or missing menu.
 
-Slow open of `numpy_domains_demo.ods`: set `PYTHON_TIMINGS_LOG = True` in `plugin/calc/python/function.py`, deploy, then grep `py_timing` in `writeragent_debug.log` (DEBUG). Use `ipc_ms` / last line `pass_*`, not `asctime` deltas — [enabling_numpy.md §5](enabling_numpy_in_libreoffice.md).
+Slow open of `numpy_domains_demo.ods`: set `PYTHON_TIMINGS_LOG = True` in `plugin/calc/python/function.py`, deploy, then grep `py_timing` in `writeragent_debug.log` (DEBUG). Use `ipc_ms` / last line `pass_*`, not `asctime` deltas — [enabling_numpy.md §5](../enabling_numpy_in_libreoffice.md).
 
 ---
 
@@ -564,10 +564,10 @@ Agents 4–7 can share one running LO if they use **separate workbooks** and do 
 
 ## After this pass (not now)
 
-- Lexer/quoting, `#SPILL!` geometry, jagged ranges, NaN vs blank tables ([calc-py-data-shapes.md](calc-py-data-shapes.md)).
+- Lexer/quoting, `#SPILL!` geometry, jagged ranges, NaN vs blank tables ([../calc/py-data-shapes.md](../calc/py-data-shapes.md)).
 - Matrix `ROW()-1` fast path UNO tests (`test_prompt_function_matrix_uno.py`).
 - Excel `.xlsx` round-trip (`PythonExcelSamples/`) — WriterAgent converter, not LibrePy.
-- Jail-safe Online (`compute_service/`, [scripting-numpy-jailsafe.md](scripting-numpy-jailsafe.md)).
+- Jail-safe Online (`compute_service/`, [../scripting/numpy-jailsafe.md](../scripting/numpy-jailsafe.md)).
 - Turn passing live cases into UNO `@native_test` only where mocks already lie.
 
 ---

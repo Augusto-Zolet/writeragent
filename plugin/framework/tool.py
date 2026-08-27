@@ -219,7 +219,7 @@ def to_mcp_schema(tool, *, doc_type: str | None = None):
     input_schema = _normalize_schema_for_strict_providers(input_schema)
     # MCP hosts validate args against inputSchema before tools/call. Keep string|array for
     # write_formula_range so native JSON arrays are accepted (OpenAI/Gemini stay string-only
-    # via to_openai_schema collapse — see docs/calc-date-time-handling.md §4.3).
+    # via to_openai_schema collapse — see docs/calc/date-time-handling.md §4.3).
     props = input_schema.get("properties")
     if isinstance(props, dict):
         if tool.name == "write_formula_range" and "values" in props:
@@ -403,7 +403,7 @@ class ToolBase(ABC):
 
         Defaults to :meth:`detects_mutation`. Override when a tool is sometimes read-only
         depending on ``arguments`` (e.g. delegate gateway domains). See
-        docs/framework-threading.md § MCP tool execution paths.
+        docs/framework/threading.md § MCP tool execution paths.
         """
         return self.detects_mutation()
 
@@ -939,7 +939,7 @@ class ToolRegistry:
             # scripting_only_parameters (e.g. set_style number_format) are only kept
             # for scripting callers — chat/MCP models must not apply hidden parameters
             # from training memory when the property was removed from the schema
-            # (see docs/calc-date-time-handling.md S26).
+            # (see docs/calc/date-time-handling.md S26).
             schema = tool.get_parameters(ctx.doc_type) or {}
             props = (schema or {}).get("properties", {})
             extra_ok = (getattr(tool, "scripting_only_parameters", None) or frozenset()) if ctx.caller == "script" else frozenset()

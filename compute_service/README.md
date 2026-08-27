@@ -236,7 +236,7 @@ Two stacked protocols:
 
 Vision workers share the pickle framing. HTTP `image_b64` is decoded to raw `bytes` (`image_bytes`) on the pipe so the child does not re-decode Base64.
 
-Wire-format detail for `split_grid` and Pickle5: [`docs/scripting-numpy-serialization.md`](../docs/scripting-numpy-serialization.md). Kit-side dumb JSON contract: [`docs/scripting-numpy-jailsafe.md`](../docs/scripting-numpy-jailsafe.md).
+Wire-format detail for `split_grid` and Pickle5: [`docs/scripting/numpy-serialization.md`](../docs/scripting/numpy-serialization.md). Kit-side dumb JSON contract: [`docs/scripting/numpy-jailsafe.md`](../docs/scripting/numpy-jailsafe.md).
 
 ### 2. Tier 1: Formula Compute Pool (`FormulaProcessPool`)
 - Manages persistent worker subprocesses (`workers`, default `1`).
@@ -362,4 +362,4 @@ python scripts/benchmark_compute_service.py --concurrency 1,2,4,8,16,32 --reques
 - **`stateful_session` (`mode="shared"`)**: Fast in-memory stateful recalculations (400–430 RPS) with median latency under 10ms for multi-tenant sessions.
 - **`pure_python` (GIL Held)**: Constant CPU throughput (~30 RPS) bounded by single-interpreter bytecode execution.
 
-See also [`docs/scripting-numpy-jailsafe.md`](../docs/scripting-numpy-jailsafe.md) (kit JSON contract) and [`docs/scripting-numpy-serialization.md`](../docs/scripting-numpy-serialization.md) (Pickle5 + `split_grid`).
+See also [`docs/scripting/numpy-jailsafe.md`](../docs/scripting/numpy-jailsafe.md) (kit JSON contract) and [`docs/scripting/numpy-serialization.md`](../docs/scripting/numpy-serialization.md) (Pickle5 + `split_grid`).

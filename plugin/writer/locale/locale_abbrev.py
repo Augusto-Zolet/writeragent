@@ -13,7 +13,7 @@ Merged only — per-language subsets are not emitted (unused at runtime).
 Future work: when CLDR adds suppressions for more languages, bump CLDR_TAG and
 regenerate. Do not append LLM-invented locale dumps here; see the Future work
 block above ``_COMMON_ABBREVIATIONS`` in grammar_proofread_locale.py and
-docs/writer-grammar-checker-plan.md (Abbreviation detection / Future work).
+docs/writer/grammar-checker-plan.md (Abbreviation detection / Future work).
 """
 
 from __future__ import annotations

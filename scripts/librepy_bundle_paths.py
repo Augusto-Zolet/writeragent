@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 # Spreadsheet-import xl parity helpers — WriterAgent only for now; see
-# docs/scripting-librepy-split.md (Explicit exclusions).
+# docs/scripting/librepy-split.md (Explicit exclusions).
 LIBREPY_CALC_FUNCTIONS_EXCLUDES: tuple[str, ...] = (
     "calc_functions.py",
     "venv/calc_functions.py",
@@ -34,6 +34,8 @@ LIBREPY_PLUGIN_DIRS: dict[str, tuple[str, ...]] = {
     ),
     "plugin/vision/": ("vision_tools.py",),
     "plugin/contrib/scripting/assets/editor/": (),
+    "plugin/contrib/nbformat/": (),
+    "plugin/notebook/": (),
     # Excel Python-in-Excel → DAG =PY auto-convert on open (stdlib OOXML + optional openpyxl write).
     "plugin/calc/excel_py_convert/": (),
 }
@@ -124,6 +126,7 @@ LIBREPY_PLUGIN_FILES: tuple[str, ...] = (
     "plugin/framework/worker_pool.py",
     "plugin/framework/appearance.py",
     "plugin/framework/async_drain_guard.py",
+    "plugin/framework/async_stream.py",
     "plugin/framework/queue_executor.py",
     "plugin/framework/uno_listeners.py",
     "plugin/framework/module_base.py",

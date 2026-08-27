@@ -5,7 +5,7 @@ ALL_EXAMPLES is 15 tasks: 12 Writer (including style_consistency, smart_summariz
 section_refactor, comment_management) + flowchart_gen (Draw) + data_sorting / tax_column (Calc).
 Structural tasks are scored from the exported final document (oracles + honest substring
 checks). Creative tasks (resume, logical_rewriting, summarization) keep an LLM judge when
-one is configured. See docs/eval-dev-plan.md.
+one is configured. See docs/eval/dev-plan.md.
 """
 import sys
 from pathlib import Path
@@ -239,7 +239,7 @@ BULLET_CONSISTENCY = {
 }
 
 # ---------------------------------------------------------------------------
-# Additional tests from docs/archive/eval-ideas.md (string-backend compatible; some hardened)
+# Additional tests from docs/archive/eval/ideas.md (string-backend compatible; some hardened)
 # ---------------------------------------------------------------------------
 
 # Style Consistency (archive Writer #12, #18)
@@ -326,7 +326,7 @@ ALL_EXAMPLES = [
     COMMENT_MANAGEMENT,
 ]
 
-# Flowchart Gen (from archive/eval-ideas.md Draw #3) - tests non-LO shapes via DrawDocState
+# Flowchart Gen (from archive/eval/ideas.md Draw #3) - tests non-LO shapes via DrawDocState
 FLOWCHART_GEN = {
     "document_content": "Create a simple login flowchart.",
     "user_question": "Create a 'Start' oval connected to a 'Process' box for user login, then a 'Decision' diamond for credentials valid?, with Yes to 'End' and No back to Process. Use get_draw_tree to verify connections.",
@@ -337,7 +337,7 @@ FLOWCHART_GEN = {
     "rubric": "Uses shape_upsert for flowchart-* types (oval, rectangle, diamond). Connections via shape_connect or tree. Final get_draw_tree shows proper hierarchy and connected_start/connected_end. Matches production Draw tree structure.",
 }
 
-# Data Sorting (eval-ideas.md Calc #6) - non-LO test using CalcStringState.sort_range
+# Data Sorting (eval/ideas.md Calc #6) - non-LO test using CalcStringState.sort_range
 DATA_SORTING = {
     "document_content": "Product\tRevenue\nWidget\t1200\nGadget\t850\nTool\t2100\nDevice\t950",
     "user_question": "Sort this data by Revenue descending. Use sort_range on the Revenue column.",
@@ -349,7 +349,7 @@ DATA_SORTING = {
     "rubric": "Correct descending sort by Revenue. Final snapshot JSON shows Tool first. Uses CalcStringState.",
 }
 
-# Basic Tax Column (eval-ideas.md Calc #1, hardened) - non-LO test using CalcStringState.write_cell_range
+# Basic Tax Column (eval/ideas.md Calc #1, hardened) - non-LO test using CalcStringState.write_cell_range
 TAX_COLUMN = {
     "document_content": "Item\tPrice\nApple\t10\nBanana\t5\nOrange\t8\nPear\t12.5\nTotal\t?",
     "user_question": "First use get_sheet_summary or get_document_content to verify data, then calculate exact 8% tax (round appropriately) for each Price and write to a new Tax column using write_cell_range. Add Total if appropriate. Verify final with get_sheet_summary.",

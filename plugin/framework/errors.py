@@ -548,7 +548,7 @@ def safe_uno_call(default=None):
     Unlike :func:`handle_errors` / :func:`safe_call`, a UNO ``RuntimeException``
     is *not* treated as disposal here: probes (e.g. ``doc_type``) must fall back
     to ``default``. Re-raise only ``DisposedException`` / ``DocumentDisposedError``.
-    See ``docs/framework-uno-thread-safety.md`` and
+    See ``docs/framework/uno-thread-safety.md`` and
     ``test_safe_uno_call_returns_default_on_runtime_error``.
     """
 
