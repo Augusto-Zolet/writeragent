@@ -57,14 +57,4 @@ The quality of a product is hidden in the details. WriterAgent includes:
 
 ---
 
-## The Vision for Sponsors & Contributors
-
-WriterAgent is ready for its next phase. We are looking for partners to help us:
-
-1.  **Scale the Toolsets**: Build out specialized "Frontier" tools for database integration, automated mail merge, and advanced multimodal chart analysis.
-3.  **Local-First Privacy**: Optimize the engine for local AI models (like Ollama), providing 100% private, offline intelligence.
-
-SO MUCH MORE.
-**WriterAgent is the bridge to the future of work.** We have built the engine; now we are looking for the team to help us drive it to the world.
-
 ---
