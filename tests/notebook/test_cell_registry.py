@@ -64,6 +64,8 @@ def test_state_from_json_corrupt_returns_none():
     assert state_from_json("{not json") is None
     assert state_from_json('{"version": 99, "code_cells": []}') is None
     assert state_from_json("") is None
+    # Self-authored registry is json.dumps; do not accept Python literals via repair.
+    assert state_from_json("{'version': 1, 'code_cells': []}") is None
 
 
 def test_state_from_json_missing_required_cell_field_returns_none():

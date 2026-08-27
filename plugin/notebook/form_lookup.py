@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Iterator
 
 log = logging.getLogger("writeragent.notebook")
 
@@ -45,8 +45,8 @@ def _model_from_text_portion(portion: Any) -> Any | None:
     return None
 
 
-def _collect_models_from_draw_page(doc: Any, by_name: dict[str, Any]) -> None:
-    """Writer registers in-flow ``ControlShape`` objects on the document draw page."""
+def _iter_control_shapes(doc: Any) -> Iterator[tuple[str, Any, Any]]:
+    """Yield ``(name, model, shape)`` for in-flow ``ControlShape`` objects on the draw page."""
     if not hasattr(doc, "getDrawPage"):
         return
     try:
@@ -66,10 +66,17 @@ def _collect_models_from_draw_page(doc: Any, by_name: dict[str, Any]) -> None:
         if model is None:
             continue
         try:
-            name = getattr(model, "Name", "") or ""
+            name = str(getattr(model, "Name", "") or "")
         except Exception:
             name = ""
-        if name and name not in by_name:
+        if name:
+            yield name, model, shape
+
+
+def _collect_models_from_draw_page(doc: Any, by_name: dict[str, Any]) -> None:
+    """Writer registers in-flow ``ControlShape`` objects on the document draw page."""
+    for name, model, _shape in _iter_control_shapes(doc):
+        if name not in by_name:
             by_name[name] = model
 
 
@@ -112,3 +119,17 @@ def find_form_control_model_by_name(doc: Any, control_name: str) -> Any | None:
     if not control_name:
         return None
     return index_form_control_models(doc).get(control_name)
+
+
+def find_control_shape_by_name(doc: Any, control_name: str) -> Any | None:
+    """Return the draw-page ``ControlShape`` with ``Name == control_name``, or None.
+
+    Used to reach ``shape.getAnchor()`` (paragraph of an in-flow field). Text-portion
+    fallback in ``index_form_control_models`` has no shape, so this is draw-page only.
+    """
+    if not control_name:
+        return None
+    for name, _model, shape in _iter_control_shapes(doc):
+        if name == control_name:
+            return shape
+    return None

@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any, Iterator
 
-from com.sun.star.awt import Point, Size
+from com.sun.star.awt import Size
 from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
 
 from plugin.contrib.nbformat import read_ipynb
@@ -58,9 +58,6 @@ _WRAP_SLACK = _LINE_HEIGHT
 # AS_CHARACTER cannot split; cap near one page body so a huge cell page-breaks as a
 # unit. Do not use a 9 cm cap — that sliced 15-line cells.
 _MAX_FIELD_HEIGHT = 24000
-_STACK_MARGIN_X = 5000
-_STACK_GAP = 400
-_STACK_INITIAL_BOTTOM = 800
 # Small gutter ▶ — a 6 mm bordered square sat inside the first code line.
 _RUN_BUTTON_SIZE = 320
 _PROGRESS_EVERY_N_CELLS = 10
@@ -122,41 +119,6 @@ _IN_PROMPT_RE = re.compile(r"^In \[[0-9 ]*\]:")
 
 def _mono_ms(t0: float) -> int:
     return int((time.monotonic() - t0) * 1000)
-
-
-class _ImportStackCursor:  # pyright: ignore[reportUnusedClass]  # notebook import stack; used by importer tests
-    """O(1) vertical stacking for code-cell form controls on the draw page."""
-
-    __slots__ = ("_margin_x", "_gap", "_max_bottom", "shape_count")
-
-    def __init__(self, dp: Any) -> None:
-        self._margin_x = _STACK_MARGIN_X
-        self._gap = _STACK_GAP
-        self._max_bottom = _STACK_INITIAL_BOTTOM
-        self.shape_count = 0
-        self._seed_from_draw_page(dp)
-
-    def _seed_from_draw_page(self, dp: Any) -> None:
-        try:
-            count = dp.getCount()
-        except Exception:
-            log.debug("draw page getCount failed during stack seed", exc_info=True)
-            return
-        for i in range(count):
-            try:
-                s = dp.getByIndex(i)
-                pos = s.getPosition()
-                sz = s.getSize()
-                self._max_bottom = max(self._max_bottom, pos.Y + sz.Height)
-                self.shape_count += 1
-            except Exception:
-                continue
-
-    def place(self, height: int) -> Point:
-        y = self._max_bottom + self._gap
-        self._max_bottom = y + height
-        self.shape_count += 1
-        return Point(self._margin_x, y)
 
 
 def _strip_ansi(text: str) -> str:
@@ -1740,7 +1702,12 @@ def _import_cells(
         lead = not first_cell
         first_cell = False
 
-        if cell_type == "code":
+        if cell_type == "markdown":
+            stats["markdown"] += 1
+            _append_markdown_cell(
+                doc, source, lead_break=lead, notebook_dir=notebook_dir, ctx=ctx
+            )
+        elif cell_type == "code":
             # Previous markdown (Heading 2 keep-with-next, HTML lists) must not
             # glue onto this cell's unsplittable field.
             _unglue_last_paragraph(doc)
@@ -1770,15 +1737,7 @@ def _import_cells(
                 stats["shapes"] += 1
             _append_paragraph_break_at_end(doc)
             _style_control_paragraph(doc)
-
-        if cell_type == "markdown":
-            stats["markdown"] += 1
-            _append_markdown_cell(
-                doc, source, lead_break=lead, notebook_dir=notebook_dir, ctx=ctx
-            )
-        elif cell_type == "code":
             stats["code"] += 1
-            field_name = f"nb_cell_{idx}_code"
             _insert_code_input_in_flow(
                 doc,
                 name=field_name,

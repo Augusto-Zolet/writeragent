@@ -9,8 +9,11 @@ from __future__ import annotations
 import inspect
 import os
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Any
 from unittest.mock import Mock, patch
+
+import pytest
 
 
 # We mock these before importing JupyterNotebookImportFilter so it works without real UNO.
@@ -147,16 +150,31 @@ def _repo_root() -> str:
     return os.path.abspath(os.path.join(_resolved, "..", "..", ".."))
 
 
-def test_types_xcu_structural():
-    path = os.path.join(
-        _repo_root(),
-        "extension",
-        "registry",
-        "org",
-        "openoffice",
-        "TypeDetection",
-        "Types.xcu",
+def _typedetection_xcu(name: str, *, root: str | None = None) -> str:
+    """Checkout keeps TypeDetection under ``extension/registry/``; the OXT / ``make release``
+    tree remaps that prefix so the same files sit at ``registry/`` (see ``build_oxt.remap_path``).
+    """
+    root = _repo_root() if root is None else root
+    candidates = (
+        os.path.join(root, "extension", "registry", "org", "openoffice", "TypeDetection", name),
+        os.path.join(root, "registry", "org", "openoffice", "TypeDetection", name),
     )
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    pytest.fail(f"{name} not found; tried {candidates}")
+
+
+def test_typedetection_xcu_uses_bundle_registry_when_extension_prefix_missing(tmp_path: Path) -> None:
+    rel = Path("registry/org/openoffice/TypeDetection")
+    (tmp_path / rel).mkdir(parents=True)
+    (tmp_path / rel / "Types.xcu").write_text("<ok/>", encoding="utf-8")
+    found = _typedetection_xcu("Types.xcu", root=str(tmp_path))
+    assert found == str(tmp_path / rel / "Types.xcu")
+
+
+def test_types_xcu_structural():
+    path = _typedetection_xcu("Types.xcu")
     root = ET.parse(path).getroot()
     assert root.tag.endswith("component-data")
     assert root.get("{http://openoffice.org/2001/registry}name") == "Types"
@@ -188,15 +206,7 @@ def test_types_xcu_structural():
 
 
 def test_filters_xcu_structural():
-    path = os.path.join(
-        _repo_root(),
-        "extension",
-        "registry",
-        "org",
-        "openoffice",
-        "TypeDetection",
-        "Filters.xcu",
-    )
+    path = _typedetection_xcu("Filters.xcu")
     root = ET.parse(path).getroot()
     assert root.tag.endswith("component-data")
     
@@ -234,15 +244,7 @@ def test_filters_xcu_structural():
 
 
 def test_misc_xcu_structural():
-    path = os.path.join(
-        _repo_root(),
-        "extension",
-        "registry",
-        "org",
-        "openoffice",
-        "TypeDetection",
-        "Misc.xcu",
-    )
+    path = _typedetection_xcu("Misc.xcu")
     root = ET.parse(path).getroot()
     assert root.tag.endswith("component-data")
     assert root.get("{http://openoffice.org/2001/registry}name") == "Misc"
@@ -264,28 +266,39 @@ def test_misc_xcu_structural():
     assert filter_node is not None
 
 
+def _assert_manifest_lists_import_filter(body: str) -> None:
+    assert "plugin/notebook/import_filter.py" in body
+    assert "registry/org/openoffice/TypeDetection/Types.xcu" in body
+    assert "registry/org/openoffice/TypeDetection/Filters.xcu" in body
+    assert "registry/org/openoffice/TypeDetection/Misc.xcu" in body
+
+
 def test_generated_manifest_includes_import_filter():
-    import sys
-    import os
-    from unittest.mock import patch
-    # Temporarily append scripts to sys.path to allow imports within the test
-    sys.path.insert(0, _repo_root())
-    sys.path.insert(0, os.path.join(_repo_root(), "scripts"))
-    try:
-        from scripts.manifest_registry import generate_manifest_xml
+    # Checkout: regenerate via scripts/. Release tree has no scripts/, only the
+    # assembled META-INF/manifest.xml (extension/ prefix already stripped).
+    scripts_dir = os.path.join(_repo_root(), "scripts")
+    if os.path.isdir(scripts_dir):
+        sys.path.insert(0, _repo_root())
+        sys.path.insert(0, scripts_dir)
+        try:
+            from scripts.manifest_registry import generate_manifest_xml
 
-        with patch("scripts.manifest_registry._write_if_changed") as mock_write:
-            generate_manifest_xml([], "dummy")
-            assert mock_write.called
-            body = mock_write.call_args[0][1]
+            with patch("scripts.manifest_registry._write_if_changed") as mock_write:
+                generate_manifest_xml([], "dummy")
+                assert mock_write.called
+                body = mock_write.call_args[0][1]
+        finally:
+            sys.path.pop(0)
+            sys.path.pop(0)
+        _assert_manifest_lists_import_filter(body)
+        return
 
-        assert "plugin/notebook/import_filter.py" in body
-        assert "registry/org/openoffice/TypeDetection/Types.xcu" in body
-        assert "registry/org/openoffice/TypeDetection/Filters.xcu" in body
-        assert "registry/org/openoffice/TypeDetection/Misc.xcu" in body
-    finally:
-        sys.path.pop(0)
-        sys.path.pop(0)
+    for rel in ("META-INF/manifest.xml", "extension/META-INF/manifest.xml"):
+        path = Path(_repo_root()) / rel
+        if path.is_file():
+            _assert_manifest_lists_import_filter(path.read_text(encoding="utf-8"))
+            return
+    pytest.fail("neither scripts/ nor META-INF/manifest.xml present")
 
 
 def test_detect_method():

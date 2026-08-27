@@ -104,15 +104,14 @@ def find_cell_by_hex(state: NotebookDocState, hex_id: str) -> NotebookCodeCell |
     if uuid_form is None:
         return None
     for cell in state.code_cells:
-        if cell.cell_id == uuid_form or cell_id_to_hex(cell.cell_id) == hex_id.strip().lower():
+        if cell.cell_id == uuid_form:
             return cell
     return None
 
 
 def _bookmark_name_for_cell_id(cell_id: str) -> str:
     """LO bookmark name: ``nb_out_`` + hex id (no dashes)."""
-    hex_id = cell_id.replace("-", "")
-    return f"nb_out_{hex_id}"
+    return f"nb_out_{cell_id_to_hex(cell_id)}"
 
 
 def new_code_cell_entry(
@@ -147,7 +146,7 @@ def state_from_json(raw: str) -> NotebookDocState | None:
     """Parse registry JSON; return ``None`` on empty or corrupt payload."""
     if not (raw or "").strip():
         return None
-    parsed = safe_json_loads(raw.strip())
+    parsed = safe_json_loads(raw.strip(), strict=True)
     if not isinstance(parsed, dict):
         log.warning("notebook registry: expected object, got %s", type(parsed).__name__)
         return None

@@ -258,7 +258,7 @@ g_ImplementationHelper.addImplementation(
 
 - **`TypeDetection/Types.xcu`**: Registers file extension `ipynb` and MIME type `application/x-ipynb+json`.
 - **`TypeDetection/Filters.xcu`**: Maps `writer_WriterAgent_Jupyter_Notebook` to `com.sun.star.text.TextDocument` and FilterService `org.extension.writeragent.JupyterNotebookImportFilter` with flags `IMPORT ALIEN 3RDPARTYFILTER`.
-- **`META-INF/manifest.xml`**: Registers `plugin/notebook/import_filter.py` and the two `.xcu` files as active extension entries. (Note: Updated statically in `scripts/manifest_registry.py` and regenerated via `python3 scripts/generate_manifest.py`).
+- **`META-INF/manifest.xml`**: Registers `plugin/notebook/import_filter.py` and the TypeDetection `.xcu` files as active extension entries (generated from `scripts/manifest_registry.py`). Checkout sources live under `extension/registry/...`; the OXT / `make release` tree remaps that prefix to `registry/...`.
 
 ---
 
@@ -271,7 +271,7 @@ g_ImplementationHelper.addImplementation(
 | `import_filter.py` | [`plugin/notebook/import_filter.py`](../plugin/notebook/import_filter.py) | Native File Open XFilter+XImporter (no FilePicker / no completion msgbox) |
 | `notebook_controls.py` | [`plugin/notebook/notebook_controls.py`](../plugin/notebook/notebook_controls.py) | ▶ button wiring and PyUNO form listener management |
 | `notebook_runner.py` | [`plugin/notebook/notebook_runner.py`](../plugin/notebook/notebook_runner.py) | Field reading, execution, output replacement |
-| `form_lookup.py` | [`plugin/notebook/form_lookup.py`](../plugin/notebook/form_lookup.py) | Draw page indexer for form controls |
+| `form_lookup.py` | [`plugin/notebook/form_lookup.py`](../plugin/notebook/form_lookup.py) | Draw page indexer: control models by name, ``ControlShape`` by name (`getAnchor`) |
 
 Entry Points:
 - [`plugin/main.py`](../plugin/main.py): `notebook.run_cell.*` protocol dispatch and bootstrap listener wiring.

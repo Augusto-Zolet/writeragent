@@ -915,6 +915,7 @@ basedpyright-run: ensure-uno
 	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright "$(PYTHON)" -m basedpyright
 
 basedpyright-full-run: ensure-uno
+	@test -f pyrightconfig.full.json || (echo "pyrightconfig.full.json missing — without -p config basedpyright scans .venv and hangs" && exit 1)
 	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright-full "$(PYTHON)" -m basedpyright -p pyrightconfig.full.json
 
 pyrefly-run: ensure-uno

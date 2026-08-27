@@ -25,6 +25,7 @@ from plugin.notebook.cell_registry import (
     load_registry,
     save_registry,
 )
+from plugin.notebook.form_lookup import find_control_shape_by_name as _find_control_shape_by_name
 from plugin.notebook.writer_importer import (
     _IN_PROMPT_RE,
     _PARAGRAPH_BREAK,
@@ -187,7 +188,6 @@ def _bookmark_exists(doc: Any, bookmark_name: str) -> bool:
 _ENUM_SAFETY_CAP = 10000
 _OUT_PROMPT_RE = re.compile(r"^Out \[[0-9 ]*\]:")
 _LEGACY_CHROME_RE = re.compile(r"^Cell \d+: (Markdown|Raw|Code)\b")
-_CELL_CHROME_RE = _LEGACY_CHROME_RE
 
 
 def _style_compact(para_style: str) -> str:
@@ -334,27 +334,6 @@ def _paragraph_has_frame(cursor: Any) -> bool:
                 return True
         return False
     return False
-
-
-def _find_control_shape_by_name(doc: Any, name: str) -> Any | None:
-    if not name or not hasattr(doc, "getDrawPage"):
-        return None
-    try:
-        dp = doc.getDrawPage()
-        count = int(dp.getCount())
-    except Exception:
-        return None
-    for i in range(count):
-        try:
-            shape = dp.getByIndex(i)
-            if shape.getShapeType() != "com.sun.star.drawing.ControlShape":
-                continue
-            model = shape.Control
-            if str(getattr(model, "Name", "") or "") == name:
-                return shape
-        except Exception:
-            continue
-    return None
 
 
 def _code_field_paragraph_end(doc: Any, cell: NotebookCodeCell) -> Any | None:
@@ -507,7 +486,6 @@ def _collapse_leading_empty_paragraphs(
 # Next-cell boundary: In [n]: gutter, markdown Heading 1/2 / Text Body, or
 # leftover Cell N chrome from older imports. Empty ▶+field rows are not
 # boundaries (getString omits ControlShapes).
-_CELL_CHROME_RE = _LEGACY_CHROME_RE
 
 
 def _is_next_cell_boundary(para_style: str, content: str, notebook_in_resolved: str | None) -> bool:

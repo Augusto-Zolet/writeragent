@@ -11,7 +11,6 @@ from unittest.mock import MagicMock
 import pytest
 
 from plugin.notebook.writer_importer import (
-    _ImportStackCursor,
     _MAX_IMAGE_DECODE_BYTES,
     _MAX_IMPORT_TEXT_CHARS,
     _PARAGRAPH_BREAK,
@@ -142,12 +141,6 @@ def test_format_all_outputs_joins():
     assert "a" in text and "b" in text
 
 
-class _FakePoint:
-    def __init__(self, x, y):
-        self.X = x
-        self.Y = y
-
-
 def test_trim_trailing_empty_paragraph_deletes_when_empty():
     doc, body_text, body_cursor = _writer_doc_mock()
     body_cursor.getString.return_value = "   "
@@ -241,34 +234,6 @@ def test_insert_html_at_body_end_calls_trim(monkeypatch):
     wi._insert_html_at_body_end(doc, "<p>html</p>", lead_break=False)
 
     assert trim_called is True
-
-
-def test_import_stack_cursor_place_advances(monkeypatch):
-    monkeypatch.setattr("plugin.notebook.writer_importer.Point", _FakePoint)
-    dp = MagicMock()
-    dp.getCount.return_value = 0
-    stack = _ImportStackCursor(dp)
-    stack.place(700)
-    first_bottom = stack._max_bottom
-    stack.place(600)
-    assert stack.shape_count == 2
-    assert first_bottom == 800 + 400 + 700
-    assert stack._max_bottom == first_bottom + 400 + 600
-
-
-def test_import_stack_cursor_seeds_existing_shapes(monkeypatch):
-    monkeypatch.setattr("plugin.notebook.writer_importer.Point", _FakePoint)
-    shape = MagicMock()
-    shape.getPosition.return_value = MagicMock(Y=1000, X=0)
-    shape.getSize.return_value = MagicMock(Height=500, Width=100)
-    dp = MagicMock()
-    dp.getCount.return_value = 1
-    dp.getByIndex.return_value = shape
-    stack = _ImportStackCursor(dp)
-    assert stack.shape_count == 1
-    assert stack._max_bottom == 1500
-    stack.place(100)
-    assert stack._max_bottom == 1500 + 400 + 100
 
 
 def _writer_doc_mock(*, with_bookmarks: bool = False):

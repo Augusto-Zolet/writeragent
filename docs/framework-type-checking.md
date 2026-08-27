@@ -10,7 +10,7 @@ WriterAgent uses [Astral’s `ty`](https://docs.astral.sh/ty/) on the `plugin/` 
 |--------|--------|
 | Initial | On the order of **1000+** diagnostics before scoping (including vendored `plugin/contrib` and noisy test-only code). |
 | After narrowing | Excluding **`plugin/contrib`**, **`plugin/lib`** (vendored wheels / pip `--target` trees), and **`plugin/tests`** via `pyproject.toml` focused work on application code; one documented pass fixed on the order of **~141** categorized issues in that scope. |
-| Final | **`ty check`** reports **no errors** for the configured include set. **`make typecheck`** runs **`ruff-for-build`**, then **`basedpyright`**, **bandit**, **opengrep**, **`pyspector`**, **`ty`**, thread-safety lint, and **`mypy`** in one parallel batch; **`scripts/run_timed.py`** buffers each tool’s stdout/stderr and prints one labeled block when that tool finishes so progress bars do not interleave. **`make test`** runs **`typecheck`**, then pytest and LO tests. **`make release`** runs **`typecheck`** (bandit included) before the stripped-bundle verification (see **`Makefile`**). |
+| Final | **`ty check`** reports **no errors** for the configured include set. **`make typecheck`** runs **`ruff-for-build`**, then **`basedpyright`**, **bandit**, **opengrep**, **`pyspector`**, **`ty`**, thread-safety lint, and **`mypy`** in one parallel batch; **`scripts/run_timed.py`** buffers each tool’s stdout/stderr and prints one labeled block when that tool finishes so progress bars do not interleave. **`make test`** runs **`typecheck`**, then pytest and LO tests. **`make release`** runs **`typecheck-full`** (same checkers; Basedpyright uses **`pyrightconfig.full.json`** with **`useLibraryCodeForTypes = true`**) before the stripped-bundle verification (see **`Makefile`**). |
 
 Static checking does **not** prove LibreOffice runtime behavior: UNO remains highly dynamic. The goal is consistent annotations, usable stubs, and fewer accidental mistakes in Python code.
 
@@ -32,8 +32,9 @@ Static checking does **not** prove LibreOffice runtime behavior: UNO remains hig
 
 ### Basedpyright
 
-- **`make basedpyright`** — same prelude as **`ty`** / **`mypy`** (`make manifest`, then **`import uno`** → **`make fix-uno`** if needed), then **`python -m basedpyright`** using **`[tool.basedpyright]`** in **`pyproject.toml`** (`include` / **`exclude`** mirror **`ty`**).
-- **Not** part of **`make build`** alone; it **is** part of **`make typecheck`** and **`make test`** (and thus **`make release`**). Diagnostics overlap Pylance in the editor; use standalone **`make basedpyright`** for a quick CLI pass.
+- **`make basedpyright`** — same prelude as **`ty`** / **`mypy`** (`make manifest`, then **`import uno`** → **`make fix-uno`** if needed), then **`python -m basedpyright`** using **`[tool.basedpyright]`** in **`pyproject.toml`** (`include` / **`exclude`** mirror **`ty`**). Daily **`make typecheck`** sets **`useLibraryCodeForTypes = false`** so Basedpyright does not parse numpy/pandas implementation.
+- **`make typecheck-full`** / **`make release`** use **`pyrightconfig.full.json`** (same include/exclude and report flags, **`useLibraryCodeForTypes = true`**). That file must stay in the repo: **`basedpyright -p`** on a missing path does not reuse **`pyproject.toml`**; it falls back to default include (the whole checkout, including **`.venv`**) and can run for many minutes. **`basedpyright-full-run`** fails fast if the file is absent.
+- **Not** part of **`make build`** alone; **`make typecheck`** and **`make test`** use the fast Basedpyright pass; **`make release`** uses **`typecheck-full`**. Diagnostics overlap Pylance in the editor; use standalone **`make basedpyright`** for a quick CLI pass.
 - **Mode**: `typeCheckingMode = "all"` with unknown-type rules and project-idiom rules turned off so the gate stays useful. Intentionally disabled (see comments in **`pyproject.toml`**):
   - **Idiom conflicts:** `reportConstantRedefinition` (UNO ImportError fallbacks), `reportImplicitAbstractClass` (tool `*Base` without `execute`), `reportPrivateLocalImportUsage` (facade re-exports), `reportUnnecessaryIsInstance` / `Cast` / `Comparison`, `reportUnreachable`, `reportMissingTypeStubs`, `reportCallInDefaultInitializer`, `reportUnsafeMultipleInheritance`, `reportMissingSuperCall` (UNO listeners / mixins skipping `super().__init__()`).
   - **Style / noise:** `reportImplicitStringConcatenation` (long prompts), `reportUnnecessaryTypeIgnoreComment` (ty/mypy ignores), plus the existing unused-parameter / deprecated / import-cycle disables.
@@ -51,7 +52,7 @@ Static checking does **not** prove LibreOffice runtime behavior: UNO remains hig
 
 ## Basedpyright vs `ty` and mypy (what differed in practice)
 
-All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plugin/`** scope (contrib, lib, and tests excluded). **`make typecheck`** runs **`ruff-for-build`**, then **`basedpyright`**, **bandit**, **opengrep**, **`pyspector`**, **`ty`**, thread-safety lint, and **`mypy`** in parallel. **`make test`** runs **`typecheck`**, then tests. **`make release`** runs **`typecheck`** before the stripped-bundle verification. A full Basedpyright pass still finds **real issues and strictness gaps** that **`ty`** (and **`mypy`**) often did not report on the same codebase, or reported much less loudly.
+All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plugin/`** scope (contrib, lib, and tests excluded). **`make typecheck`** runs **`ruff-for-build`**, then **`basedpyright`**, **bandit**, **opengrep**, **`pyspector`**, **`ty`**, thread-safety lint, and **`mypy`** in parallel. **`make test`** runs **`typecheck`**, then tests. **`make release`** runs **`typecheck-full`**. A full Basedpyright pass still finds **real issues and strictness gaps** that **`ty`** (and **`mypy`**) often did not report on the same codebase, or reported much less loudly.
 
 ### Optional and `None` narrowing
 
