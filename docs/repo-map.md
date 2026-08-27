@@ -47,6 +47,7 @@ Start here by task.
 | Tests (unit pytest) | Headless pytest; no live soffice | `make pytest` — `-m "not slow and not integration" --ignore-glob='*_uno.py'` |
 | Tests (UNO runner) | Native UNO tests (`@native_test`, `ctx`) | [`plugin/testing_runner.py`](../plugin/testing_runner.py) (`make test-uno`; `make test-run` includes pytest) |
 | Eval / benchmarks | CLI eval harness and prompt optimization | [`scripts/benchmark.py`](../scripts/benchmark.py), [`scripts/prompt_optimization/`](../scripts/prompt_optimization/) |
+| Mock LLM (dev) | Fake OpenAI `/v1/chat/completions` for sidebar HTML + web-research soak (`make mock-llm`, port 18766) | [`scripts/mock_llm_server.py`](../scripts/mock_llm_server.py) — [chat-rich-text-control-sidebar.md](chat-rich-text-control-sidebar.md#mock-llm-for-sidebar-soak) |
 | Extension packaging | OXT resources; register new components in manifest | [`extension/`](../extension/) (`Dialogs/`, `idl/`, `metadata/`), [`extension/META-INF/manifest.xml`](../extension/META-INF/manifest.xml) |
 | Build / tooling | Make targets, package metadata, Python pin, LibrePy file list | [`Makefile`](../Makefile), [`pyproject.toml`](../pyproject.toml), [`.python-version`](../.python-version), [`scripts/librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py) |
 

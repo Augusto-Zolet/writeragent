@@ -155,7 +155,7 @@ endif
         writer calc draw impress \
         set-config vendor docker-build compile-translations compile-translations-core merge-translations refresh-pot reset-lang preview-translations check ty mypy pyright pyrefly bandit pyspector pyspector-report ty-run mypy-run pyright-run basedpyright basedpyright-run basedpyright-full-run pyrefly-run \
         ruff ruff-fix ruff-for-build ruff-format-check ruff-format-grammar \
-        eval-deps run_eval run_eval-smoke run_eval-lo-scripted schema-docs
+        eval-deps run_eval run_eval-smoke run_eval-lo-scripted schema-docs mock-llm
 
 # ── Help ─────────────────────────────────────────────────────────────────────
 
@@ -216,6 +216,7 @@ help:
 	@echo "  make set-config             List all config keys"
 	@echo "  make test                   Run ty, mypy, pyright, pyspector, bandit, pytest + LO tests + excel-py-roundtrip"
 	@echo "  make pytest                 Unit pytest only (xdist -n -1; PYTEST_WORKERS=0 for serial)"
+	@echo "  make mock-llm               Fake OpenAI chat server on :18766 (sidebar soak / rich-text scroll)"
 	@echo "  make test-uno               UNO tests only via testing_runner (serial live soffice)"
 	@echo "  make excel-py-roundtrip     Excel↔DAG sample fidelity over PythonExcelSamples/"
 	@echo ""
@@ -689,6 +690,10 @@ PYTEST_UNIT = WRITERAGENT_PYTEST_PROGRESS=1 PYTHONUNBUFFERED=1 "$(PYTHON)" -u -m
 pytest:
 	@echo "=== pytest ==="
 	$(PYTEST_UNIT)
+
+# Dev-only OpenAI-compatible stub (not MCP: 18766, not 8765/18765). See docs/chat-rich-text-control-sidebar.md
+mock-llm:
+	$(PYTHON) scripts/mock_llm_server.py
 
 test-uno:
 	@$(MAKE) lo-kill
