@@ -71,7 +71,7 @@ Release default remains `x86-64` in [`setup.py`](../native/writeragent_vec/setup
 
 ## How Audio Worked (Historical) vs Host Natives Today
 
-Sidebar **microphone capture** no longer ships vendored PortAudio wheels in the OXT. It runs in the **user venv** via `sounddevice` ([../audio-architecture.md](../audio-architecture.md)). Host-side **small native helpers** (e.g. future `plugin/contrib/vec_pack/` for pack/unpack) still follow the contrib pattern below.
+Sidebar **microphone capture** no longer ships vendored PortAudio wheels in the OXT. It runs in the **user venv** via `sounddevice` ([../chat/audio-architecture.md](../chat/audio-architecture.md)). Host-side **small native helpers** (e.g. future `plugin/contrib/vec_pack/` for pack/unpack) still follow the contrib pattern below.
 
 For **vec_pack** (or similar), maintainers **download or build prebuilt wheels** and copy tagged artifacts into `plugin/contrib/vec_pack/`:
 

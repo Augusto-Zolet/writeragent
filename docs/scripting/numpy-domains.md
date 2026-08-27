@@ -643,7 +643,7 @@ Results are inserted as compact tables and usable from scripts.
 
 ### 7. Audio / Signal Processing {#audio-signal}
 
-**Status:** **Partial.** Voice recording runs in the user venv ([../audio-architecture.md](../audio-architecture.md)); venv analysis helpers (librosa) not shipped yet.
+**Status:** **Partial.** Voice recording runs in the user venv ([../chat/audio-architecture.md](../chat/audio-architecture.md)); venv analysis helpers (librosa) not shipped yet.
 
 **Goal:** Analyze imported audio (including recordings saved from the chat panel): spectrograms, basic features, optional transcription post-processing.
 
@@ -660,7 +660,7 @@ Results are inserted as compact tables and usable from scripts.
 
 **Packages:** `librosa` (optional Test group); matplotlib for plots.
 
-**Sub-agent:** Writer main or specialized; optional link to STT pipeline in [../audio-architecture.md](../audio-architecture.md).
+**Sub-agent:** Writer main or specialized; optional link to STT pipeline in [../chat/audio-architecture.md](../chat/audio-architecture.md).
 
 ---
 

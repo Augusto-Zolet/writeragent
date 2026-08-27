@@ -66,7 +66,7 @@ Contracts and RPC: [calc/analysis-tools.md](calc/analysis-tools.md).
 | Web research | [chat/search.md](chat/search.md) · [chat/search-engine-integration.md](chat/search-engine-integration.md) |
 | Image generation | [images/generation.md](images/generation.md) |
 | Vision / OCR | [images/recognition.md](images/recognition.md) |
-| Audio | [audio-architecture.md](audio-architecture.md) |
+| Audio | [chat/audio-architecture.md](chat/audio-architecture.md) |
 
 ## Cross-document & intelligence
 

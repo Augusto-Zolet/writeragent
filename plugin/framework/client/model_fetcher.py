@@ -385,7 +385,7 @@ def has_native_audio(model_id, endpoint):
     """True if the model accepts input_audio on POST /v1/chat/completions.
 
     This is not the same as "can transcribe": STT-only models (Voxtral, Whisper)
-    transcribe via POST /v1/audio/transcriptions instead. See docs/audio-architecture.md.
+    transcribe via POST /v1/audio/transcriptions instead. See docs/chat/audio-architecture.md.
 
     Uses persistent cache first, then catalog/heuristics.
     Returns: True if supported, False if unsupported, None if unknown.

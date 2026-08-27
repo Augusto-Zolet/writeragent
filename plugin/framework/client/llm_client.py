@@ -432,7 +432,7 @@ class LlmClient:
         """Transcribe audio via POST /v1/audio/transcriptions (or chat if STT model supports input_audio).
 
         STT-only models use the transcription endpoint only; chat+audio STT models may
-        try chat completions first. See docs/audio-architecture.md.
+        try chat completions first. See docs/chat/audio-architecture.md.
         """
         import uuid
         import os
