@@ -1,6 +1,202 @@
 {
-  "updated_at": "2026-08-20T02:30:12.494Z",
+  "updated_at": "2026-08-27T00:30:22.995Z",
   "models": [
+    {
+      "id": "qwen/qwen3.8-flash",
+      "name": "Qwen3.8 Flash",
+      "author_name": "Qwen",
+      "input_modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "qwen/qwen3.8-flash-20260826",
+      "created_at": "2026-08-26T19:37:40.864Z",
+      "context_length": 1000000,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logprobs",
+        "max_tokens",
+        "presence_penalty",
+        "reasoning",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 1.6e-08,
+        "text_cache_write": 2e-07,
+        "text_input": 1.6e-07,
+        "text_output": 4.7e-07
+      }
+    },
+    {
+      "id": "z-ai/glm-5.3-flash",
+      "name": "GLM 5.3 Flash",
+      "author_name": "Z.ai",
+      "input_modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "z-ai/glm-5.3-flash-20260826",
+      "created_at": "2026-08-26T13:59:01.772Z",
+      "context_length": 1310720,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logit_bias",
+        "logprobs",
+        "max_tokens",
+        "min_p",
+        "presence_penalty",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2.3571e-08,
+        "text_cache_write": null,
+        "text_input": 1.17857e-07,
+        "text_output": 3.92857e-07
+      }
+    },
+    {
+      "id": "meta/muse-spark-1.2-contributor",
+      "name": "Muse Spark 1.2 Contributor",
+      "author_name": "Meta",
+      "input_modalities": [
+        "audio",
+        "file",
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "meta/muse-spark-1.2-contributor-20260805",
+      "created_at": "2026-08-21T18:21:16.610Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "repetition_penalty",
+        "response_format",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_k",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": true,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 2e-09,
+        "text_cache_write": null,
+        "text_input": 1e-07,
+        "text_output": 2e-07
+      }
+    },
+    {
+      "id": "deepseek/deepseek-v4-flash-vision-exp",
+      "name": "DeepSeek V4 Flash Vision Exp",
+      "author_name": "DeepSeek",
+      "input_modalities": [
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "standard",
+      "version_id": "deepseek/deepseek-v4-flash-vision-exp-20260821",
+      "created_at": "2026-08-21T11:26:03.963Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "logprobs",
+        "max_tokens",
+        "presence_penalty",
+        "reasoning",
+        "response_format",
+        "stop",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_logprobs",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 7e-09,
+        "text_cache_write": null,
+        "text_input": 2.2e-07,
+        "text_output": 6.6e-07
+      }
+    },
     {
       "id": "z-ai/glm-5.3",
       "name": "GLM 5.3",
@@ -65,6 +261,7 @@
         "logit_bias",
         "logprobs",
         "max_tokens",
+        "min_p",
         "presence_penalty",
         "reasoning",
         "repetition_penalty",
@@ -88,10 +285,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.125e-07,
-        "text_cache_write": 6.875e-07,
-        "text_input": 4.61429e-07,
-        "text_output": 3.214286e-06
+        "text_cache_read": 1.025e-07,
+        "text_cache_write": 5.3125e-07,
+        "text_input": 4.255e-07,
+        "text_output": 3.005e-06
       }
     },
     {
@@ -307,10 +504,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.80357e-07,
+        "text_cache_read": 2.9375e-07,
         "text_cache_write": 2.5e-06,
-        "text_input": 2.142857e-06,
-        "text_output": 6.25e-06
+        "text_input": 2.166667e-06,
+        "text_output": 6.291667e-06
       }
     },
     {
@@ -403,10 +600,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.058e-07,
+        "text_cache_read": 1.03829e-07,
         "text_cache_write": null,
-        "text_input": 1.309e-06,
-        "text_output": 3.927e-06
+        "text_input": 1.205286e-06,
+        "text_output": 3.523714e-06
       }
     },
     {
@@ -433,10 +630,12 @@
         "reasoning",
         "response_format",
         "seed",
+        "stop",
         "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
+        "top_k",
         "top_logprobs",
         "top_p"
       ],
@@ -449,10 +648,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5e-07,
+        "text_cache_read": 5.16667e-07,
         "text_cache_write": null,
-        "text_input": 2e-06,
-        "text_output": 6e-06
+        "text_input": 2.066667e-06,
+        "text_output": 6.2e-06
       }
     },
     {
@@ -469,7 +668,7 @@
       "variant": "free",
       "version_id": "liquid/lfm-2.5-2.6b-20260811",
       "created_at": "2026-08-11T17:48:39.909Z",
-      "context_length": 128000,
+      "context_length": 65536,
       "supported_parameters": [
         "frequency_penalty",
         "include_reasoning",
@@ -538,7 +737,7 @@
       "variant": "standard",
       "version_id": "nvidia/nemotron-3.5-lightning-20260807",
       "created_at": "2026-08-11T12:52:31.833Z",
-      "context_length": 1000000,
+      "context_length": 262144,
       "supported_parameters": [
         "frequency_penalty",
         "include_reasoning",
@@ -571,8 +770,8 @@
         "reasoning_output": null,
         "text_cache_read": 4.5e-08,
         "text_cache_write": null,
-        "text_input": 9.3333e-08,
-        "text_output": 2.33333e-07
+        "text_input": 9e-08,
+        "text_output": 2.25e-07
       }
     },
     {
@@ -855,10 +1054,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.3653e-08,
+        "text_cache_read": 2.801e-08,
         "text_cache_write": null,
-        "text_input": 1.38753e-07,
-        "text_output": 3.08007e-07
+        "text_input": 1.85884e-07,
+        "text_output": 4.85752e-07
       }
     },
     {
@@ -877,7 +1076,7 @@
       "variant": "standard",
       "version_id": "thinkingmachines/inkling-small-20260730",
       "created_at": "2026-07-30T20:25:17.934Z",
-      "context_length": 524288,
+      "context_length": 1048576,
       "supported_parameters": [
         "frequency_penalty",
         "include_reasoning",
@@ -890,7 +1089,6 @@
         "repetition_penalty",
         "seed",
         "stop",
-        "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
@@ -909,9 +1107,42 @@
         "reasoning_output": null,
         "text_cache_read": 1e-07,
         "text_cache_write": null,
-        "text_input": 4.75e-07,
+        "text_input": 4.83333e-07,
         "text_output": 1.2e-06
       }
+    },
+    {
+      "id": "thinkingmachines/inkling-small:free",
+      "name": "Inkling Small (free)",
+      "author_name": "Thinking Machines",
+      "input_modalities": [
+        "audio",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "free",
+      "version_id": "thinkingmachines/inkling-small-20260730",
+      "created_at": "2026-07-30T20:25:17.934Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "max_tokens",
+        "presence_penalty",
+        "reasoning",
+        "seed",
+        "stop",
+        "temperature",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": null
     },
     {
       "id": "qwen/qwen3.7-flash",
@@ -1332,16 +1563,16 @@
       "chat_completions": true,
       "native_web_search": true,
       "pricing": {
-        "audio_cache_write": 3.1e-08,
-        "audio_input": 3.1e-07,
-        "image_input": 3.1e-07,
+        "audio_cache_write": 3.15e-08,
+        "audio_input": 3.15e-07,
+        "image_input": 3.15e-07,
         "image_output": null,
         "per_request": null,
-        "reasoning_output": 2.583333e-06,
-        "text_cache_read": 3.1e-08,
+        "reasoning_output": 2.625e-06,
+        "text_cache_read": 3.15e-08,
         "text_cache_write": 8.3333e-08,
-        "text_input": 3.1e-07,
-        "text_output": 2.583333e-06
+        "text_input": 3.15e-07,
+        "text_output": 2.625e-06
       }
     },
     {
@@ -1535,6 +1766,39 @@
       }
     },
     {
+      "id": "thinkingmachines/inkling:free",
+      "name": "Inkling (free)",
+      "author_name": "Thinking Machines",
+      "input_modalities": [
+        "audio",
+        "image",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "free",
+      "version_id": "thinkingmachines/inkling-20260715",
+      "created_at": "2026-07-17T22:05:56.456Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "frequency_penalty",
+        "include_reasoning",
+        "max_tokens",
+        "presence_penalty",
+        "reasoning",
+        "seed",
+        "stop",
+        "temperature",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": null
+    },
+    {
       "id": "moonshotai/kimi-k3",
       "name": "Kimi K3",
       "author_name": "MoonshotAI",
@@ -1581,10 +1845,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 4.11538e-07,
+        "text_cache_read": 3.27562e-07,
         "text_cache_write": null,
-        "text_input": 3.161538e-06,
-        "text_output": 1.5230769e-05
+        "text_input": 3.26875e-06,
+        "text_output": 1.5875e-05
       }
     },
     {
@@ -2097,10 +2361,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 4.33333e-07,
-        "text_cache_write": 5.416667e-06,
-        "text_input": 4.333333e-06,
-        "text_output": 2.6e-05
+        "text_cache_read": 4.16667e-07,
+        "text_cache_write": 5.208333e-06,
+        "text_input": 4.166667e-06,
+        "text_output": 2.4333333e-05
       }
     },
     {
@@ -2139,10 +2403,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.25e-07,
-        "text_cache_write": null,
-        "text_input": 1.25e-06,
-        "text_output": 7.5e-06
+        "text_cache_read": 1e-07,
+        "text_cache_write": 1.25e-06,
+        "text_input": 1e-06,
+        "text_output": 5e-06
       }
     },
     {
@@ -2182,10 +2446,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 4.8e-07,
-        "text_cache_write": 6e-06,
-        "text_input": 4.8e-06,
-        "text_output": 2.88e-05
+        "text_cache_read": 4.7e-07,
+        "text_cache_write": 5.875e-06,
+        "text_input": 4.7e-06,
+        "text_output": 2.78e-05
       }
     },
     {
@@ -2224,10 +2488,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.25e-07,
-        "text_cache_write": null,
-        "text_input": 1.25e-06,
-        "text_output": 7.5e-06
+        "text_cache_read": 1e-07,
+        "text_cache_write": 1.25e-06,
+        "text_input": 1e-06,
+        "text_output": 5e-06
       }
     },
     {
@@ -2401,10 +2665,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.625e-08,
+        "text_cache_read": 3.6786e-08,
         "text_cache_write": null,
-        "text_input": 1.45e-07,
-        "text_output": 5.89667e-07
+        "text_input": 1.45714e-07,
+        "text_output": 5.96857e-07
       }
     },
     {
@@ -2768,58 +3032,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.03733e-07,
+        "text_cache_read": 1.95521e-07,
         "text_cache_write": null,
-        "text_input": 1.218807e-06,
-        "text_output": 3.901307e-06
-      }
-    },
-    {
-      "id": "z-ai/glm-5.2:batch",
-      "name": "GLM 5.2 (batch)",
-      "author_name": "Z.ai",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "batch",
-      "version_id": "z-ai/glm-5.2-20260616",
-      "created_at": "2026-06-16T17:45:30.803Z",
-      "context_length": 512000,
-      "supported_parameters": [
-        "frequency_penalty",
-        "include_reasoning",
-        "logit_bias",
-        "max_tokens",
-        "min_p",
-        "presence_penalty",
-        "reasoning",
-        "repetition_penalty",
-        "response_format",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_k",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 2.6e-07,
-        "text_cache_write": null,
-        "text_input": 1.4e-06,
-        "text_output": 4.4e-06
+        "text_input": 1.224697e-06,
+        "text_output": 3.925118e-06
       }
     },
     {
@@ -2906,10 +3122,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.83021e-07,
+        "text_cache_read": 1.98021e-07,
         "text_cache_write": null,
-        "text_input": 9.05073e-07,
-        "text_output": 4.01125e-06
+        "text_input": 9.64447e-07,
+        "text_output": 4.26125e-06
       }
     },
     {
@@ -3314,10 +3530,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 6.5818e-08,
+        "text_cache_read": 7.2364e-08,
         "text_cache_write": null,
-        "text_input": 3.25e-07,
-        "text_output": 1.301667e-06
+        "text_input": 3.8e-07,
+        "text_output": 1.521667e-06
       }
     },
     {
@@ -3369,6 +3585,38 @@
         "text_input": 3e-07,
         "text_output": 1.2e-06
       }
+    },
+    {
+      "id": "minimax/minimax-m3:free",
+      "name": "MiniMax M3 (free)",
+      "author_name": "MiniMax",
+      "input_modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "free",
+      "version_id": "minimax/minimax-m3-20260531",
+      "created_at": "2026-05-31T16:36:14.509Z",
+      "context_length": 1048576,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": null
     },
     {
       "id": "stepfun/step-3.7-flash",
@@ -3786,52 +4034,6 @@
       }
     },
     {
-      "id": "inclusionai/ring-2.6-1t",
-      "name": "Ring-2.6-1T",
-      "author_name": "inclusionAI",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "standard",
-      "version_id": "inclusionai/ring-2.6-1t-20260508",
-      "created_at": "2026-05-08T13:37:20.749Z",
-      "context_length": 262144,
-      "supported_parameters": [
-        "frequency_penalty",
-        "include_reasoning",
-        "max_tokens",
-        "presence_penalty",
-        "reasoning",
-        "repetition_penalty",
-        "response_format",
-        "seed",
-        "stop",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_k",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 1.5e-08,
-        "text_cache_write": null,
-        "text_input": 7.5e-08,
-        "text_output": 6.25e-07
-      }
-    },
-    {
       "id": "google/gemini-3.1-flash-lite",
       "name": "Gemini 3.1 Flash Lite",
       "author_name": "Google",
@@ -3866,16 +4068,16 @@
       "chat_completions": true,
       "native_web_search": true,
       "pricing": {
-        "audio_cache_write": 5.1667e-08,
-        "audio_input": 5.16667e-07,
-        "image_input": 2.58333e-07,
+        "audio_cache_write": 5.25e-08,
+        "audio_input": 5.25e-07,
+        "image_input": 2.625e-07,
         "image_output": null,
         "per_request": null,
-        "reasoning_output": 1.55e-06,
-        "text_cache_read": 2.5833e-08,
+        "reasoning_output": 1.575e-06,
+        "text_cache_read": 2.625e-08,
         "text_cache_write": 8.3333e-08,
-        "text_input": 2.58333e-07,
-        "text_output": 1.55e-06
+        "text_input": 2.625e-07,
+        "text_output": 1.575e-06
       }
     },
     {
@@ -4101,8 +4303,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 1.5e-06,
-        "text_output": 7.5e-06
+        "text_input": 1.55e-06,
+        "text_output": 7.75e-06
       }
     },
     {
@@ -4286,8 +4488,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.252e-07,
         "text_cache_write": null,
-        "text_input": 1.68222e-07,
-        "text_output": 1.147083e-06
+        "text_input": 1.586e-07,
+        "text_output": 1.107375e-06
       }
     },
     {
@@ -4429,8 +4631,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 3e-05,
-        "text_output": 0.00018
+        "text_input": 2.25e-05,
+        "text_output": 0.000135
       }
     },
     {
@@ -4512,10 +4714,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5.3e-07,
+        "text_cache_read": 5.92857e-07,
         "text_cache_write": null,
-        "text_input": 5.3e-06,
-        "text_output": 3.18e-05
+        "text_input": 5.928571e-06,
+        "text_output": 3.5571429e-05
       }
     },
     {
@@ -4606,10 +4808,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.34667e-07,
+        "text_cache_read": 1.41465e-07,
         "text_cache_write": null,
-        "text_input": 1.436701e-06,
-        "text_output": 3.043e-06
+        "text_input": 1.442389e-06,
+        "text_output": 2.955647e-06
       }
     },
     {
@@ -4659,57 +4861,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3.1148e-08,
+        "text_cache_read": 3.2206e-08,
         "text_cache_write": null,
-        "text_input": 1.65528e-07,
-        "text_output": 3.99456e-07
-      }
-    },
-    {
-      "id": "inclusionai/ling-2.6-1t",
-      "name": "Ling-2.6-1T",
-      "author_name": "inclusionAI",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": false,
-      "variant": "standard",
-      "version_id": "inclusionai/ling-2.6-1t-20260423",
-      "created_at": "2026-04-23T12:43:58.266Z",
-      "context_length": 262144,
-      "supported_parameters": [
-        "frequency_penalty",
-        "logprobs",
-        "max_tokens",
-        "presence_penalty",
-        "repetition_penalty",
-        "response_format",
-        "seed",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_k",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 1.5e-08,
-        "text_cache_write": null,
-        "text_input": 7.5e-08,
-        "text_output": 6.25e-07
+        "text_input": 1.49834e-07,
+        "text_output": 3.47867e-07
       }
     },
     {
@@ -4797,10 +4952,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 4.2611e-08,
+        "text_cache_read": 2.5182e-08,
         "text_cache_write": null,
-        "text_input": 5.10963e-07,
-        "text_output": 1.264783e-06
+        "text_input": 4.2382e-07,
+        "text_output": 1.003354e-06
       }
     },
     {
@@ -4858,53 +5013,6 @@
       }
     },
     {
-      "id": "inclusionai/ling-2.6-flash",
-      "name": "Ling-2.6-flash",
-      "author_name": "inclusionAI",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": false,
-      "variant": "standard",
-      "version_id": "inclusionai/ling-2.6-flash-20260421",
-      "created_at": "2026-04-21T18:24:46.183Z",
-      "context_length": 262144,
-      "supported_parameters": [
-        "frequency_penalty",
-        "logprobs",
-        "max_tokens",
-        "presence_penalty",
-        "repetition_penalty",
-        "response_format",
-        "seed",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_k",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": 2e-09,
-        "text_cache_write": null,
-        "text_input": 1e-08,
-        "text_output": 3e-08
-      }
-    },
-    {
       "id": "moonshotai/kimi-k2.6",
       "name": "Kimi K2.6",
       "author_name": "MoonshotAI",
@@ -4951,10 +5059,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.7238e-07,
+        "text_cache_read": 1.65665e-07,
         "text_cache_write": null,
-        "text_input": 8.0425e-07,
-        "text_output": 3.59048e-06
+        "text_input": 8.01035e-07,
+        "text_output": 3.59909e-06
       }
     },
     {
@@ -5091,7 +5199,7 @@
         "reasoning_output": null,
         "text_cache_read": 2.76775e-07,
         "text_cache_write": null,
-        "text_input": 1.234765e-06,
+        "text_input": 1.253882e-06,
         "text_output": 4.029176e-06
       }
     },
@@ -5144,8 +5252,8 @@
         "reasoning_output": null,
         "text_cache_read": 5e-08,
         "text_cache_write": null,
-        "text_input": 1.1625e-07,
-        "text_output": 4.05e-07
+        "text_input": 1.08e-07,
+        "text_output": 3.84444e-07
       }
     },
     {
@@ -5166,22 +5274,14 @@
       "created_at": "2026-04-03T14:53:09.504Z",
       "context_length": 262144,
       "supported_parameters": [
-        "frequency_penalty",
         "include_reasoning",
-        "logprobs",
         "max_tokens",
-        "presence_penalty",
         "reasoning",
-        "repetition_penalty",
         "response_format",
         "seed",
-        "stop",
-        "structured_outputs",
         "temperature",
         "tool_choice",
         "tools",
-        "top_k",
-        "top_logprobs",
         "top_p"
       ],
       "chat_completions": true,
@@ -5235,10 +5335,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.277e-07,
+        "text_cache_read": 2.51889e-07,
         "text_cache_write": null,
-        "text_input": 2.52778e-07,
-        "text_output": 6.01667e-07
+        "text_input": 2.62941e-07,
+        "text_output": 6.16471e-07
       }
     },
     {
@@ -5603,11 +5703,41 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5.7889e-08,
+        "text_cache_read": 5.9222e-08,
         "text_cache_write": null,
-        "text_input": 3.70909e-07,
-        "text_output": 1.445455e-06
+        "text_input": 3.76364e-07,
+        "text_output": 1.467273e-06
       }
+    },
+    {
+      "id": "minimax/minimax-m2.7:free",
+      "name": "MiniMax M2.7 (free)",
+      "author_name": "MiniMax",
+      "input_modalities": [
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": true,
+      "variant": "free",
+      "version_id": "minimax/minimax-m2.7-20260318",
+      "created_at": "2026-03-18T12:24:57.176Z",
+      "context_length": 196608,
+      "supported_parameters": [
+        "include_reasoning",
+        "max_tokens",
+        "reasoning",
+        "response_format",
+        "seed",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": null
     },
     {
       "id": "openai/gpt-5.4-nano",
@@ -5646,10 +5776,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.0667e-08,
+        "text_cache_read": 1.8e-08,
         "text_cache_write": null,
-        "text_input": 2.06667e-07,
-        "text_output": 1.291667e-06
+        "text_input": 1.8e-07,
+        "text_output": 1.125e-06
       }
     },
     {
@@ -5731,10 +5861,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 7.75e-08,
+        "text_cache_read": 8.4e-08,
         "text_cache_write": null,
-        "text_input": 7.75e-07,
-        "text_output": 4.65e-06
+        "text_input": 8.4e-07,
+        "text_output": 5.04e-06
       }
     },
     {
@@ -5822,8 +5952,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.575e-08,
         "text_cache_write": null,
-        "text_input": 1.675e-07,
-        "text_output": 6.7e-07
+        "text_input": 1.635e-07,
+        "text_output": 6.54e-07
       }
     },
     {
@@ -5945,8 +6075,8 @@
         "reasoning_output": null,
         "text_cache_read": 6e-08,
         "text_cache_write": null,
-        "text_input": 1.25e-07,
-        "text_output": 3.7875e-07
+        "text_input": 1.925e-07,
+        "text_output": 5.25e-07
       }
     },
     {
@@ -6086,8 +6216,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 3e-05,
-        "text_output": 0.00018
+        "text_input": 2.5e-05,
+        "text_output": 0.00015
       }
     },
     {
@@ -6169,10 +6299,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.65e-07,
+        "text_cache_read": 2.78571e-07,
         "text_cache_write": null,
-        "text_input": 2.65e-06,
-        "text_output": 1.59e-05
+        "text_input": 2.785714e-06,
+        "text_output": 1.6714286e-05
       }
     },
     {
@@ -6398,8 +6528,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.4625e-07,
         "text_cache_write": null,
-        "text_input": 2.11429e-07,
-        "text_output": 1.342857e-06
+        "text_input": 1.95e-07,
+        "text_output": 1.26875e-06
       }
     },
     {
@@ -6639,10 +6769,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.75e-07,
+        "text_cache_read": 2.33333e-07,
         "text_cache_write": null,
-        "text_input": 1.75e-06,
-        "text_output": 1.4e-05
+        "text_input": 2.333333e-06,
+        "text_output": 1.8666667e-05
       }
     },
     {
@@ -6970,8 +7100,8 @@
         "reasoning_output": null,
         "text_cache_read": 2.54333e-07,
         "text_cache_write": null,
-        "text_input": 5.2925e-07,
-        "text_output": 3.3165e-06
+        "text_input": 5.54e-07,
+        "text_output": 3.474e-06
       }
     },
     {
@@ -7021,8 +7151,8 @@
         "reasoning_output": null,
         "text_cache_read": 4.3e-08,
         "text_cache_write": null,
-        "text_input": 3.17778e-07,
-        "text_output": 1.258889e-06
+        "text_input": 3.26111e-07,
+        "text_output": 1.292222e-06
       }
     },
     {
@@ -7072,8 +7202,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.69e-07,
         "text_cache_write": null,
-        "text_input": 8.31818e-07,
-        "text_output": 2.641818e-06
+        "text_input": 8.54545e-07,
+        "text_output": 2.714545e-06
       }
     },
     {
@@ -7353,8 +7483,8 @@
         "reasoning_output": null,
         "text_cache_read": 1.39667e-07,
         "text_cache_write": null,
-        "text_input": 5.207e-07,
-        "text_output": 2.69e-06
+        "text_input": 5.332e-07,
+        "text_output": 2.7575e-06
       }
     },
     {
@@ -7772,7 +7902,7 @@
         "reasoning_output": null,
         "text_cache_read": 1.038e-07,
         "text_cache_write": null,
-        "text_input": 5.3625e-07,
+        "text_input": 5.425e-07,
         "text_output": 2.11125e-06
       }
     },
@@ -7871,35 +8001,6 @@
       }
     },
     {
-      "id": "nvidia/nemotron-3-nano-30b-a3b:free",
-      "name": "Nemotron 3 Nano 30B A3B (free)",
-      "author_name": "NVIDIA",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "free",
-      "version_id": "nvidia/nemotron-3-nano-30b-a3b",
-      "created_at": "2025-12-14T16:54:35.000Z",
-      "context_length": 256000,
-      "supported_parameters": [
-        "include_reasoning",
-        "max_tokens",
-        "reasoning",
-        "seed",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": null
-    },
-    {
       "id": "nvidia/nemotron-3-nano-30b-a3b",
       "name": "Nemotron 3 Nano 30B A3B",
       "author_name": "NVIDIA",
@@ -7946,8 +8047,8 @@
         "reasoning_output": null,
         "text_cache_read": 2.75e-08,
         "text_cache_write": null,
-        "text_input": 5e-08,
-        "text_output": 2e-07
+        "text_input": 5.25e-08,
+        "text_output": 2.1e-07
       }
     },
     {
@@ -8111,10 +8212,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.75e-07,
+        "text_cache_read": 1.96875e-07,
         "text_cache_write": null,
-        "text_input": 1.75e-06,
-        "text_output": 1.4e-05
+        "text_input": 1.96875e-06,
+        "text_output": 1.575e-05
       }
     },
     {
@@ -8157,6 +8258,50 @@
         "text_cache_write": null,
         "text_input": 8.75e-07,
         "text_output": 7e-06
+      }
+    },
+    {
+      "id": "mistralai/devstral-2512",
+      "name": "Devstral 2 2512",
+      "author_name": "Mistral",
+      "input_modalities": [
+        "file",
+        "text"
+      ],
+      "output_modalities": [
+        "text"
+      ],
+      "reasoning": false,
+      "variant": "standard",
+      "version_id": "mistralai/devstral-2512",
+      "created_at": "2025-12-09T13:03:39.000Z",
+      "context_length": 262144,
+      "supported_parameters": [
+        "frequency_penalty",
+        "max_tokens",
+        "presence_penalty",
+        "response_format",
+        "seed",
+        "stop",
+        "structured_outputs",
+        "temperature",
+        "tool_choice",
+        "tools",
+        "top_p"
+      ],
+      "chat_completions": true,
+      "native_web_search": false,
+      "pricing": {
+        "audio_cache_write": null,
+        "audio_input": null,
+        "image_input": null,
+        "image_output": null,
+        "per_request": null,
+        "reasoning_output": null,
+        "text_cache_read": 4.4e-08,
+        "text_cache_write": null,
+        "text_input": 4.4e-07,
+        "text_output": 2.2e-06
       }
     },
     {
@@ -8370,10 +8515,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2e-08,
+        "text_cache_read": 2.0667e-08,
         "text_cache_write": null,
-        "text_input": 2e-07,
-        "text_output": 2e-07
+        "text_input": 2.06667e-07,
+        "text_output": 2.06667e-07
       }
     },
     {
@@ -8414,10 +8559,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.5e-08,
+        "text_cache_read": 1.55e-08,
         "text_cache_write": null,
-        "text_input": 1.5e-07,
-        "text_output": 1.5e-07
+        "text_input": 1.55e-07,
+        "text_output": 1.55e-07
       }
     },
     {
@@ -8458,10 +8603,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1e-08,
+        "text_cache_read": 1.0333e-08,
         "text_cache_write": null,
-        "text_input": 1e-07,
-        "text_output": 1e-07
+        "text_input": 1.03333e-07,
+        "text_output": 1.03333e-07
       }
     },
     {
@@ -8503,10 +8648,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5e-08,
+        "text_cache_read": 5.1667e-08,
         "text_cache_write": null,
-        "text_input": 5e-07,
-        "text_output": 1.5e-06
+        "text_input": 5.16667e-07,
+        "text_output": 1.55e-06
       }
     },
     {
@@ -8687,10 +8832,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.32667e-07,
+        "text_cache_read": 1.421e-07,
         "text_cache_write": null,
-        "text_input": 1.291667e-06,
-        "text_output": 1.0333333e-05
+        "text_input": 1.4e-06,
+        "text_output": 1.12e-05
       }
     },
     {
@@ -8992,37 +9137,6 @@
         "text_input": 7.5e-08,
         "text_output": 3e-07
       }
-    },
-    {
-      "id": "nvidia/nemotron-nano-12b-v2-vl:free",
-      "name": "Nemotron Nano 12B 2 VL (free)",
-      "author_name": "NVIDIA",
-      "input_modalities": [
-        "image",
-        "text",
-        "video"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "free",
-      "version_id": "nvidia/nemotron-nano-12b-v2-vl",
-      "created_at": "2025-10-28T18:19:25.723Z",
-      "context_length": 128000,
-      "supported_parameters": [
-        "include_reasoning",
-        "max_tokens",
-        "reasoning",
-        "seed",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": null
     },
     {
       "id": "minimax/minimax-m2",
@@ -10156,85 +10270,6 @@
       }
     },
     {
-      "id": "qwen/qwen-plus-2025-07-28:thinking",
-      "name": "Qwen Plus 0728 (thinking)",
-      "author_name": "Qwen",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "thinking",
-      "version_id": "qwen/qwen-plus-2025-07-28",
-      "created_at": "2025-09-08T16:06:39.935Z",
-      "context_length": 1000000,
-      "supported_parameters": [
-        "frequency_penalty",
-        "include_reasoning",
-        "logprobs",
-        "max_tokens",
-        "presence_penalty",
-        "reasoning",
-        "response_format",
-        "seed",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_k",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": {
-        "audio_cache_write": null,
-        "audio_input": null,
-        "image_input": null,
-        "image_output": null,
-        "per_request": null,
-        "reasoning_output": null,
-        "text_cache_read": null,
-        "text_cache_write": null,
-        "text_input": 2.6e-07,
-        "text_output": 7.8e-07
-      }
-    },
-    {
-      "id": "nvidia/nemotron-nano-9b-v2:free",
-      "name": "Nemotron Nano 9B V2 (free)",
-      "author_name": "NVIDIA",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "free",
-      "version_id": "nvidia/nemotron-nano-9b-v2",
-      "created_at": "2025-09-05T21:13:27.486Z",
-      "context_length": 128000,
-      "supported_parameters": [
-        "include_reasoning",
-        "max_tokens",
-        "reasoning",
-        "response_format",
-        "seed",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": null
-    },
-    {
       "id": "moonshotai/kimi-k2-0905",
       "name": "Kimi K2 0905",
       "author_name": "MoonshotAI",
@@ -10414,10 +10449,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 4e-08,
+        "text_cache_read": 4.1333e-08,
         "text_cache_write": null,
-        "text_input": 4e-07,
-        "text_output": 2e-06
+        "text_input": 4.13333e-07,
+        "text_output": 2.066667e-06
       }
     },
     {
@@ -10589,10 +10624,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.9333e-08,
+        "text_cache_read": 2.5125e-08,
         "text_cache_write": null,
-        "text_input": 2.58333e-07,
-        "text_output": 2.066667e-06
+        "text_input": 2.25e-07,
+        "text_output": 1.8e-06
       }
     },
     {
@@ -10674,10 +10709,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 8.667e-09,
+        "text_cache_read": 7.125e-09,
         "text_cache_write": null,
-        "text_input": 5.1667e-08,
-        "text_output": 4.13333e-07
+        "text_input": 4.5e-08,
+        "text_output": 3.6e-07
       }
     },
     {
@@ -10768,10 +10803,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.05e-07,
+        "text_cache_read": 9.4286e-08,
         "text_cache_write": null,
-        "text_input": 1.1595e-07,
-        "text_output": 5.3375e-07
+        "text_input": 1.156e-07,
+        "text_output": 5.1775e-07
       }
     },
     {
@@ -10821,47 +10856,9 @@
         "reasoning_output": null,
         "text_cache_read": 3.0625e-08,
         "text_cache_write": null,
-        "text_input": 5.125e-08,
-        "text_output": 1.875e-07
+        "text_input": 4.8846e-08,
+        "text_output": 1.80769e-07
       }
-    },
-    {
-      "id": "openai/gpt-oss-20b:free",
-      "name": "gpt-oss-20b (free)",
-      "author_name": "OpenAI",
-      "input_modalities": [
-        "text"
-      ],
-      "output_modalities": [
-        "text"
-      ],
-      "reasoning": true,
-      "variant": "free",
-      "version_id": "openai/gpt-oss-20b",
-      "created_at": "2025-08-05T17:17:09.000Z",
-      "context_length": 131072,
-      "supported_parameters": [
-        "frequency_penalty",
-        "include_reasoning",
-        "logprobs",
-        "max_tokens",
-        "presence_penalty",
-        "reasoning",
-        "repetition_penalty",
-        "response_format",
-        "seed",
-        "stop",
-        "structured_outputs",
-        "temperature",
-        "tool_choice",
-        "tools",
-        "top_k",
-        "top_logprobs",
-        "top_p"
-      ],
-      "chat_completions": true,
-      "native_web_search": false,
-      "pricing": null
     },
     {
       "id": "anthropic/claude-opus-4.1",
@@ -10988,10 +10985,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 3e-08,
+        "text_cache_read": 3.15e-08,
         "text_cache_write": null,
-        "text_input": 3e-07,
-        "text_output": 9e-07
+        "text_input": 3.15e-07,
+        "text_output": 9.45e-07
       }
     },
     {
@@ -11189,14 +11186,12 @@
       "variant": "standard",
       "version_id": "qwen/qwen3-235b-a22b-thinking-2507",
       "created_at": "2025-07-25T13:19:17.179Z",
-      "context_length": 262144,
+      "context_length": 131072,
       "supported_parameters": [
         "frequency_penalty",
         "include_reasoning",
-        "logit_bias",
         "logprobs",
         "max_tokens",
-        "min_p",
         "presence_penalty",
         "reasoning",
         "repetition_penalty",
@@ -11219,10 +11214,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2e-07,
+        "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 3.025e-07,
-        "text_output": 2.775e-06
+        "text_input": 3.26667e-07,
+        "text_output": 2.933333e-06
       }
     },
     {
@@ -11411,10 +11406,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 1.06667e-07,
+        "text_cache_read": 8.9167e-08,
         "text_cache_write": null,
-        "text_input": 1.86318e-07,
-        "text_output": 8.07091e-07
+        "text_input": 1.62455e-07,
+        "text_output": 7.11636e-07
       }
     },
     {
@@ -11475,7 +11470,7 @@
       "variant": "standard",
       "version_id": "mistralai/mistral-small-3.2-24b-instruct-2506",
       "created_at": "2025-06-20T18:10:16.960Z",
-      "context_length": 256000,
+      "context_length": 131072,
       "supported_parameters": [
         "frequency_penalty",
         "logit_bias",
@@ -11504,10 +11499,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 5e-08,
+        "text_cache_read": 3.05e-08,
         "text_cache_write": null,
-        "text_input": 8.625e-08,
-        "text_output": 2.5e-07
+        "text_input": 9.1667e-08,
+        "text_output": 2.76667e-07
       }
     },
     {
@@ -12048,10 +12043,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 4e-08,
+        "text_cache_read": 4.1333e-08,
         "text_cache_write": null,
-        "text_input": 4e-07,
-        "text_output": 2e-06
+        "text_input": 4.13333e-07,
+        "text_output": 2.066667e-06
       }
     },
     {
@@ -13175,10 +13170,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2e-08,
+        "text_cache_read": 2.1e-08,
         "text_cache_write": null,
-        "text_input": 2e-07,
-        "text_output": 6e-07
+        "text_input": 2.1e-07,
+        "text_output": 6.3e-07
       }
     },
     {
@@ -13822,10 +13817,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2e-07,
+        "text_cache_read": 2.1e-07,
         "text_cache_write": null,
-        "text_input": 2e-06,
-        "text_output": 6e-06
+        "text_input": 2.1e-06,
+        "text_output": 6.3e-06
       }
     },
     {
@@ -13893,7 +13888,6 @@
       "context_length": 32768,
       "supported_parameters": [
         "frequency_penalty",
-        "logit_bias",
         "max_tokens",
         "min_p",
         "presence_penalty",
@@ -13919,8 +13913,8 @@
         "reasoning_output": null,
         "text_cache_read": null,
         "text_cache_write": null,
-        "text_input": 2e-07,
-        "text_output": 2.5e-07
+        "text_input": 1e-07,
+        "text_output": 2e-07
       }
     },
     {
@@ -14297,10 +14291,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2.2e-08,
+        "text_cache_read": 2.275e-08,
         "text_cache_write": null,
-        "text_input": 3.275e-08,
-        "text_output": 9.75e-08
+        "text_input": 5.96e-08,
+        "text_output": 1.11e-07
       }
     },
     {
@@ -14644,10 +14638,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2e-07,
+        "text_cache_read": 2.1e-07,
         "text_cache_write": null,
-        "text_input": 2e-06,
-        "text_output": 6e-06
+        "text_input": 2.1e-06,
+        "text_output": 6.3e-06
       }
     },
     {
@@ -14822,10 +14816,10 @@
         "image_output": null,
         "per_request": null,
         "reasoning_output": null,
-        "text_cache_read": 2e-07,
+        "text_cache_read": 2.06667e-07,
         "text_cache_write": null,
-        "text_input": 2e-06,
-        "text_output": 6e-06
+        "text_input": 2.066667e-06,
+        "text_output": 6.2e-06
       }
     },
     {
