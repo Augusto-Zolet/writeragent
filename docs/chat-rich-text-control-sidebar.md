@@ -252,6 +252,17 @@ Width at creation/sync uses `last_response_rect` for height and horizontal posit
 7. Calc or Draw deck (if available): open sidebar, send formatted reply, resize.
 8. Exit LibreOffice with an active formatted sidebar: no worse than plain path (no nested embedded Writer crash profile).
 
+### Mock LLM for sidebar soak
+
+To chat endlessly without a real model (streaming HTML, scroll, and the `web_research` tool loop), run a stdlib OpenAI-compatible stub:
+
+```bash
+make mock-llm
+# or: .venv/bin/python scripts/mock_llm_server.py --delay-ms 30 --offline
+```
+
+Default bind is **`http://127.0.0.1:18766`** (not `8765` / `18765`, which are MCP). In Settings: that endpoint, model `writeragent-mock`, Rich Text Control Sidebar on. Plain “hello” streams two HTML paragraphs (rotating lists/tables/code). Phrases like “look up …” emit `web_research`; the same server scripts the smol `web_search` → `visit_webpage` → `final_answer` steps. `--offline` skips live DuckDuckGo (`final_answer` only). Tests: `tests/scripts/test_mock_llm_server.py`.
+
 ### References
 
 - [RichTextControl API](https://www.openoffice.org/api/docs/common/ref/com/sun/star/form/component/RichTextControl.html)
