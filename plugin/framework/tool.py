@@ -966,11 +966,6 @@ class ToolRegistry:
                     **common_details,
                 )
 
-            # Emit executing event
-            bus = self._services.get("events") if hasattr(self, "_services") and self._services else None
-            if bus:
-                bus.emit("tool:executing", name=tool_name, caller=ctx.caller)
-
             # Execution with simple isolation and timeout.
             # Async tools (and bypass_thread_guard eval paths) run on the caller's thread.
             # Sync tools are marshaled to the LO main thread so MCP long-running and any
@@ -1005,23 +1000,12 @@ class ToolRegistry:
                             merged[k] = v
                     cast("dict[str, Any]", result)["details"] = merged
 
-            if bus:
-                # only emit completed if result was not an error (optional, but follows general pattern)
-                if not (isinstance(result, dict) and result.get("status") == "error"):
-                    bus.emit("tool:completed", name=tool_name, caller=ctx.caller)
-                else:
-                    bus.emit("tool:failed", name=tool_name, error=result.get("message"), caller=ctx.caller)
-
             return result
 
         except ValueError:
             raise
         except Exception as e:
-            # Simple wrapping
-            bus = self._services.get("events") if hasattr(self, "_services") and self._services else None
             log.exception("Tool execution failed: %s", tool_name)
-            if bus:
-                bus.emit("tool:failed", name=tool_name, error=str(e), caller=ctx.caller)
             return make_tool_error(
                 f"Failed to execute tool '{tool_name}'",
                 code="TOOL_REGISTRY_ERROR",

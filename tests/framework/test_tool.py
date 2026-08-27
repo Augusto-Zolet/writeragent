@@ -520,38 +520,26 @@ class TestSchemas:
             reg.get_schemas("openai", doc=TestingFactory.create_doc(doc_type="writer"), ctx=ctx)
         mock_probe.assert_not_called()
 
-class TestExecuteEventsAndInvalidation:
-    def test_execute_emits_events(self):
-        class MockEventBus:
-            def __init__(self): self.events = []
-            def emit(self, event, **kwargs): self.events.append((event, kwargs))
-
+class TestExecuteKwargsAndFailure:
+    def test_execute_strips_extra_kwargs(self):
         class ToolWithParams(ToolBase):
             name = "tool_with_params"
             description = "Tool with params"
             parameters = {"type": "object", "properties": {"arg1": {"type": "string"}}}
             uno_services = ["com.sun.star.text.TextDocument"]
-            def execute(self, ctx, **kwargs): return {"status": "success"}
+            def execute(self, ctx, **kwargs): return {"status": "success", "got": dict(kwargs)}
 
         services = ServiceRegistry()
-        events = MockEventBus()
-        services.register("events", events)
         reg = ToolRegistry(services)
         reg.register(ToolWithParams())
 
         ctx = ToolContext(doc=TestingFactory.create_doc(doc_type="writer"), ctx=None, doc_type="writer", services=services, caller="test")
         result = reg.execute("tool_with_params", ctx, arg1="val1", extra="ignored")
 
-        assert result == {"status": "success"}
-        assert len(events.events) == 2
-        assert events.events[0][0] == "tool:executing"
-        assert events.events[1][0] == "tool:completed"
+        assert result["status"] == "success"
+        assert result["got"] == {"arg1": "val1"}
 
-    def test_execute_failure_emits_events(self):
-        class MockEventBus:
-            def __init__(self): self.events = []
-            def emit(self, event, **kwargs): self.events.append((event, kwargs))
-
+    def test_execute_failure_returns_error_dict(self):
         class FailingToolWithParams(ToolBase):
             name = "failing_tool_with_params"
             description = "Tool with params that fails"
@@ -560,8 +548,6 @@ class TestExecuteEventsAndInvalidation:
             def execute(self, ctx, **kwargs): raise RuntimeError("something went wrong")
 
         services = ServiceRegistry()
-        events = MockEventBus()
-        services.register("events", events)
         reg = ToolRegistry(services)
         reg.register(FailingToolWithParams())
 
@@ -570,9 +556,6 @@ class TestExecuteEventsAndInvalidation:
 
         assert result["status"] == "error"
         assert "something went wrong" in result["message"]
-        assert len(events.events) == 2
-        assert events.events[0][0] == "tool:executing"
-        assert events.events[1][0] == "tool:failed"
 
 class TestToolIsolation:
     def test_tool_execution_error(self):

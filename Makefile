@@ -896,7 +896,7 @@ mypy-run: ensure-uno
 
 # Future task: try enabling `reportMissingTypeArgument = true` in pyproject.toml to enforce generic type parameters (dict[str, Any], list[str])
 basedpyright-run: ensure-uno
-	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright "$(PYTHON)" -m basedpyright
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright "$(PYTHON)" -m basedpyright --threads
 
 pyrefly-run: ensure-uno
 	@"$(PYTHON)" $(SCRIPTS)/run_timed.py pyrefly "$(PYTHON)" -m pyrefly check
