@@ -35,9 +35,7 @@ The project is distributed as three standalone extension packages (*install only
 - **Built-in Scientific & Analytics Domains** — Ready-to-use helpers for EDA, outlier detection, OLS regression, KMeans clustering, Monte Carlo simulations, symbolic algebra (SymPy), plotting, and physical unit conversions (`convert_quantity(60, "mph", "m/s")` → `26.8224 m/s`). [Domain Reference](docs/scripting-numpy-domains.md) · [Analysis Helpers](docs/calc-analysis-tools.md)
 - **Spreadsheet → Python Converter *(WriterAgent)*** — Translate 235+ classic Calc/Excel formulas into clean Python expressions using the built-in `calc.*` parity library while preserving constants, dates, and cell formats. [Details](docs/calc-spreadsheet-to-python-import.md)
 - **Local Vision & OCR** — Extract text from embedded images or scanned documents directly into Writer and Calc via offline Docling OCR. [Vision Guide](docs/image-recognition.md)
-- **Jupyter Notebook Import** — **File → Open…** a `.ipynb` (or double-click / `soffice notebook.ipynb`) creates a Writer document with markdown, editable code fields, and ▶ run buttons against a shared Python kernel. [Jupyter in Writer](docs/writer-jupyter-notebook-import.md)
-
-  <img src="Showcase/jupyter_logo.png" alt="Project Jupyter logomark" width="180">
+- **Jupyter Notebook Support** <img src="Showcase/jupyter_logo.png" alt="Jupyter logo" height="22" align="absmiddle"> — **File → Open…** a `.ipynb` (or double-click / `soffice notebook.ipynb`) creates a Writer document with markdown, editable code fields, and ▶ run buttons against a shared Python kernel. [Jupyter in Writer](docs/writer-jupyter-notebook-import.md)
 
 ### 🤖 Local-First Agentic AI & Writing (Writer)
 
