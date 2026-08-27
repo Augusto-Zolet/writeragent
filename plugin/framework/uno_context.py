@@ -415,6 +415,12 @@ def resolve_document_by_url(ctx, url):
                 model = None
                 if hasattr(elem, "getURL") and callable(getattr(elem, "getURL")):
                     model = elem
+                elif hasattr(elem, "getController") and callable(getattr(elem, "getController")):
+                    # Desktop enumeration can yield frames, not models. Frames
+                    # expose the document via getController().getModel().
+                    controller = elem.getController()
+                    if controller is not None and hasattr(controller, "getModel"):
+                        model = controller.getModel()
                 if model is not None:
                     doc_url = _normalize_doc_url(model.getURL()) if hasattr(model, "getURL") else ""
                     uid = get_runtime_uid(model)

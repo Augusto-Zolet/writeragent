@@ -1,6 +1,6 @@
 # WriterAgent Roadmap
 
-**Last Updated**: 2026-08-20  
+**Last Updated**: 2026-08-26  
 **Status**: Active Development
 
 
@@ -412,6 +412,23 @@ The General page “Get API Key (1-click)” row (`btn_openrouter`, `btn_togethe
 **Impact**: More maintainable config
 **Priority**: Low
 
+### Framework / UNO — later dedicated sessions
+
+Not blocking product work. **One item per session.** Each can change user-visible or threading behavior; a naive patch is worse than leaving it.
+
+| # | Session | Current behavior | Intended change | How not to get it wrong |
+|---|---------|------------------|-----------------|-------------------------|
+| 1 | **Stop / cancel** — [`queue_executor.py`](../plugin/framework/queue_executor.py) `agent_session`, `SendCancellation` | `agent_session` `finally` resets the context var and decrements the count but does not `scope.cancel()`. `SendCancellation.cancel()` always calls `default_executor.cancel_pending_work()`, even if work was queued on another executor. Aborted sends can leave HTTP clients and main-thread work live. | Cancel the session on **abort** (not on success). Track which executor the session used. | Trace one Stop click **and** one crash-during-send. `scope.cancel()` in `finally` also fires on **success**. Confirm which executor the work was queued on. Start here. |
+| 2 | **Missing API key → fake 401** — [`llm_client.py`](../plugin/framework/client/llm_client.py) `_resolve_auth`, [`auth.py`](../plugin/framework/client/auth.py) `resolve_auth_for_config` | `AuthError` (including `missing_api_key`) is caught and turned into `{}`. The client then looks like `"custom"` and the user sees a generic 401. | Propagate `AuthError` for known hosted providers so the UI can say the key is missing. | Local Ollama / `header_style=none` must still work with an empty key. Read every `_resolve_auth` caller before raising. |
+| 3 | **Connect vs read timeout** — [`http_transport.py`](../plugin/framework/client/http_transport.py), `LlmClient._timeout` | One value (default 120s) is the socket timeout for connect **and** each stream read. A model that pauses longer than that between tokens looks like a drop. Mid-stream retry after first token is already skipped. | Separate a short connect timeout from a larger (or Stop-aware) read timeout. | Measure real stall times per provider. Do not set read timeout to `None` without a working Stop path. |
+| 4 | **Tool schemas for Gemini/Groq** — [`tool.py`](../plugin/framework/tool.py) `_collapse_union_type`, `validate` | Union `type: ["string","array"]` is collapsed only at the top level. Nested properties stay as unions. Tools with empty `properties` skip the unknown-key check, so hallucinated kwargs can reach `execute` as `TypeError`. | Recurse collapse where strict providers need it; treat empty-properties as “reject unknown kwargs.” | Only if you have a provider reject log or a tool `TypeError` from extra keys. Recursing is easy to over-collapse (`integer` vs `number`). Need golden OpenAI/Gemini/Groq schemas plus a fixture. |
+| 5 | **Close / termination veto** — [`uno_listeners.py`](../plugin/framework/uno_listeners.py) `_catch_and_log` | Every UNO listener callback is wrapped so Python exceptions do not enter the C++ bridge. That also swallows `CloseVetoException` / `TerminationVetoException`, so a listener cannot block document close or office quit. | Re-raise those two veto types; keep logging everything else. | **Do not** change this until a real listener should block close (e.g. pending edit review). Then a UNO test that vetoes and a check that the close dialog still appears. |
+| 6 | **Drain handler errors** — [`async_stream.py`](../plugin/framework/async_stream.py) `_process_batch` | If a dispatch handler (chunk/thinking UI) raises, the loop puts `(ERROR, payload)` back on the queue, continues the current batch, and does not set `job_done`. | End the batch (or set `job_done`) as soon as the handler fails. | Must not double-call `on_error` or drop the terminal `STREAM_DONE`. Test: raise on the second chunk. |
+| 7 | **Memory / extra instructions in the system prompt** — [`prompts.py`](../plugin/framework/prompts.py), [`memory.py`](../plugin/chatbot/memory.py) | Memory, skills, and `additional_instructions` are appended to the system prompt as raw text. Content the model previously wrote can try to override instructions. | Wrap injected blocks in explicit delimiters plus a “this is data, not instructions” line. | Prompt design, not a one-liner. Delimiters help a bit; they are not a proof. Same session should look at how memory is **written**, not only how it is concatenated. |
+
+**Impact**: Fewer hung sends, clearer auth failures, safer schemas, optional close veto, tighter stream drain, slightly harder prompt injection  
+**Priority**: Low until you schedule a dedicated session (start with #1)
+
 ---
 
 ## 🌐 Integration & Ecosystem
@@ -574,6 +591,8 @@ The General page “Get API Key (1-click)” row (`btn_openrouter`, `btn_togethe
 
 ## Changelog
 
+**2026-08-26**: Framework/UNO dedicated-session leftovers parked in the roadmap (Stop/cancel first; self-contained, no external review doc)
+
 **2026-08-08**: Approachability pass
 - MCP docs: live `plugin/mcp/` + `queue_executor` status; historical `core/` narrative quarantined
 - Topic docs: `format.py` / `prompts.py` path corrections (AGENTS.md left alone)
@@ -607,3 +626,4 @@ The General page “Get API Key (1-click)” row (`btn_openrouter`, `btn_togethe
 **Up next:**
 - Section markers (then selective splits) on largest entry modules
 - Batch section rewriting / Impress layout work when prioritized
+- When a dedicated session is free: Stop/cancel under [Framework / UNO — later dedicated sessions](#framework--uno--later-dedicated-sessions) — one item only
