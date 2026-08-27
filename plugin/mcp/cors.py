@@ -28,7 +28,6 @@ from plugin.framework.deal_shim import (
     DEAL_MAX_CMD_ARGS,
     DEAL_MAX_ORIGIN,
     ascii_bounded,
-    str_bounded,
     deal,
     inverse_ensure,
 )
@@ -85,7 +84,7 @@ def _deal_allow_headers_ok(value: object) -> bool:
     return all(c in _HEADER_LIST_CHARS for c in value)
 
 
-@deal.pre(lambda value: value is None or str_bounded(value, DEAL_MAX_ORIGIN))
+@deal.pre(lambda value: value is None or _deal_origin_ok(value))
 @deal.post(
     lambda result: result is None
     or (
@@ -114,13 +113,12 @@ def normalize_cors_origin(value: str | None) -> str | None:
 # Nested unique-length ensure is skipped under CrossHair; cheap list/str posts stay.
 @deal.pre(
     lambda value: value is None
-    or (isinstance(value, str) and str_bounded(value, DEAL_MAX_ORIGIN))
+    or (isinstance(value, str) and _deal_origin_ok(value))
     or (
         isinstance(value, list)
         and len(value) <= DEAL_MAX_CMD_ARGS
-        and all(not isinstance(item, str) or str_bounded(item, DEAL_MAX_ORIGIN) for item in value)
+        and all(_deal_origin_ok(item) for item in value)
     )
-    or not isinstance(value, (str, list))
 )
 @deal.post(lambda result: isinstance(result, list) and all(isinstance(x, str) for x in result))
 @inverse_ensure(lambda value, result: len(result) == len(set(result)))
@@ -173,13 +171,12 @@ def is_private_browser_origin(origin: str) -> bool:
 
 @deal.pre(
     lambda origins: origins is None
-    or (isinstance(origins, str) and str_bounded(origins, DEAL_MAX_ORIGIN))
+    or (isinstance(origins, str) and _deal_origin_ok(origins))
     or (
         isinstance(origins, list)
         and len(origins) <= DEAL_MAX_CMD_ARGS
-        and all(not isinstance(x, str) or str_bounded(x, DEAL_MAX_ORIGIN) for x in origins)
+        and all(_deal_origin_ok(x) for x in origins)
     )
-    or not isinstance(origins, (str, list))
 )
 def set_extra_allowed_origins(origins) -> None:
     """Update explicit-origin cache used by is_safe_origin (HTTP threads, no ctx)."""

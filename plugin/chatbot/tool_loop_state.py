@@ -6,7 +6,15 @@ from typing import Any, Dict, List, Mapping, Optional, NamedTuple, cast
 from plugin.framework.service import BaseState, FsmTransition
 from plugin.chatbot.memory import format_upsert_memory_chat_line
 from plugin.framework.client.stream_normalizer import reasoning_replay_from_assistant_response
-from plugin.framework.deal_shim import DEAL_MAX_CMD_ARGS, DEAL_MAX_SOURCE, DEAL_MAX_TOKEN, str_bounded, deal, ascii_bounded
+from plugin.framework.deal_shim import (
+    DEAL_MAX_CMD_ARGS,
+    DEAL_MAX_SOURCE,
+    DEAL_MAX_TOKEN,
+    UNDER_CROSSHAIR,
+    ascii_bounded,
+    deal,
+    str_bounded,
+)
 
 # Short sidebar chat labels for delegate_to_specialized_*_toolset gateway tools.
 DELEGATE_GATEWAY_TOOL_NAMES = frozenset(
@@ -82,11 +90,24 @@ def is_delegate_gateway(func_name: str) -> bool:
     return func_name in DELEGATE_GATEWAY_TOOL_NAMES
 
 
-@deal.pre(
-    lambda func_args: type(func_args) is dict
-    and len(func_args) <= DEAL_MAX_CMD_ARGS
-    and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in func_args)
-)
+def _deal_func_args_ok_pytest(func_args: object) -> bool:
+    return type(func_args) is dict and len(func_args) <= DEAL_MAX_CMD_ARGS and all(
+        type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) and (v is None or (isinstance(v, str) and str_bounded(v, DEAL_MAX_SOURCE)))
+        for k, v in func_args.items()
+    )
+
+
+def _deal_func_args_ok_crosshair(func_args: object) -> bool:
+    return type(func_args) is dict and len(func_args) <= DEAL_MAX_CMD_ARGS and all(
+        type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) and (v is None or (isinstance(v, str) and ascii_bounded(v, DEAL_MAX_TOKEN)))
+        for k, v in func_args.items()
+    )
+
+
+_deal_func_args_ok = _deal_func_args_ok_crosshair if UNDER_CROSSHAIR else _deal_func_args_ok_pytest
+
+
+@deal.pre(lambda func_args: _deal_func_args_ok(func_args))
 def domain_from_delegate_args(func_args: Mapping[str, Any]) -> str:
     domain = func_args.get("domain")
     if isinstance(domain, str) and domain.strip():

@@ -19,7 +19,15 @@ import traceback
 import uuid
 from typing import Any, IO, Mapping
 
-from plugin.framework.deal_shim import DEAL_MAX_SOURCE, str_bounded, deal, DEAL_MAX_CMD_ARGS, ascii_bounded, DEAL_MAX_TOKEN
+from plugin.framework.deal_shim import (
+    DEAL_MAX_CMD_ARGS,
+    DEAL_MAX_SOURCE,
+    DEAL_MAX_TOKEN,
+    UNDER_CROSSHAIR,
+    ascii_bounded,
+    deal,
+    str_bounded,
+)
 from plugin.scripting.ipc import (
     DEFAULT_MAX_PAYLOAD_BYTES,
     IpcFrameError,
@@ -72,14 +80,24 @@ def new_session_id() -> str:
     return uuid.uuid4().hex
 
 
-@deal.pre(
-    lambda target: target is None
-    or (
-        type(target) is dict
-        and len(target) <= DEAL_MAX_CMD_ARGS
-        and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in target)
+def _deal_ipc_dict_ok_pytest(msg: object) -> bool:
+    return type(msg) is dict and len(msg) <= DEAL_MAX_CMD_ARGS and all(
+        type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) and (v is None or not isinstance(v, str) or str_bounded(v, DEAL_MAX_TOKEN))
+        for k, v in msg.items()
     )
-)
+
+
+def _deal_ipc_dict_ok_crosshair(msg: object) -> bool:
+    return type(msg) is dict and len(msg) <= DEAL_MAX_CMD_ARGS and all(
+        type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) and (v is None or isinstance(v, dict) or (isinstance(v, str) and str_bounded(v, DEAL_MAX_TOKEN)))
+        for k, v in msg.items()
+    )
+
+
+_deal_ipc_dict_ok = _deal_ipc_dict_ok_crosshair if UNDER_CROSSHAIR else _deal_ipc_dict_ok_pytest
+
+
+@deal.pre(lambda target: target is None or _deal_ipc_dict_ok(target))
 def normalize_target(target: Mapping[str, Any] | None) -> dict[str, str]:
     """Keep only string identity fields; drop empty values and UNO objects."""
     if not target:
@@ -95,11 +113,7 @@ def normalize_target(target: Mapping[str, Any] | None) -> dict[str, str]:
     return out
 
 
-@deal.pre(
-    lambda msg: type(msg) is dict
-    and len(msg) <= DEAL_MAX_CMD_ARGS
-    and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in msg)
-)
+@deal.pre(lambda msg: _deal_ipc_dict_ok(msg))
 def target_from_load(msg: Mapping[str, Any]) -> dict[str, str]:
     """Build ``target`` from an explicit dict plus top-level load aliases."""
     raw = msg.get("target")
@@ -126,14 +140,7 @@ def target_from_load(msg: Mapping[str, Any]) -> dict[str, str]:
 
 @deal.pre(
     lambda mode, target: ascii_bounded(mode, DEAL_MAX_TOKEN)
-    and (
-        target is None
-        or (
-            type(target) is dict
-            and len(target) <= DEAL_MAX_CMD_ARGS
-            and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in target)
-        )
-    )
+    and (target is None or _deal_ipc_dict_ok(target))
 )
 def target_identity_key(mode: str, target: Mapping[str, str] | None) -> tuple[str, str, str, str, str]:
     """Stable key so reopening the same cell/script reuses ``session_id``."""
@@ -153,19 +160,10 @@ def session_id_of(message: Mapping[str, Any]) -> str:
 
 
 @deal.pre(
-    lambda msg, session_id, mode="", target=None: type(msg) is dict
-    and len(msg) <= DEAL_MAX_CMD_ARGS
-    and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in msg)
+    lambda msg, session_id, mode="", target=None: _deal_ipc_dict_ok(msg)
     and ascii_bounded(session_id, DEAL_MAX_TOKEN)
     and ascii_bounded(mode, DEAL_MAX_TOKEN)
-    and (
-        target is None
-        or (
-            type(target) is dict
-            and len(target) <= DEAL_MAX_CMD_ARGS
-            and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in target)
-        )
-    )
+    and (target is None or _deal_ipc_dict_ok(target))
 )
 def stamp_session(
     msg: Mapping[str, Any],
@@ -187,7 +185,18 @@ def stamp_session(
     return out
 
 
-@deal.pre(lambda exc: isinstance(exc, BaseException))
+def _deal_exc_ok_pytest(exc: object) -> bool:
+    return isinstance(exc, BaseException)
+
+
+def _deal_exc_ok_crosshair(exc: object) -> bool:
+    return exc is None
+
+
+_deal_exc_ok = _deal_exc_ok_crosshair if UNDER_CROSSHAIR else _deal_exc_ok_pytest
+
+
+@deal.pre(lambda exc: _deal_exc_ok(exc))
 def exception_traceback(exc: BaseException) -> str:
     """Full traceback string for *exc*."""
     return "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))

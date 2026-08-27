@@ -309,7 +309,7 @@ def _find_xl_calls(code: str) -> tuple[list[_XlCall], list[str]]:
 
 
 @deal.pre(
-    lambda src, lineno, col: str_bounded(src, DEAL_MAX_SOURCE)
+    lambda src, lineno, col: _deal_excel_src_ok(src)
     and type(lineno) is int
     and type(col) is int
     and 0 <= lineno <= DEAL_MAX_SOURCE
@@ -454,8 +454,21 @@ def _prefer_excel_dep_token(current: str, candidate: str) -> str:
 @deal.pre(
     lambda resolved, header_modes: type(resolved) is list
     and len(resolved) <= DEAL_MAX_CMD_ARGS
+    and all(
+        isinstance(r, ResolvedDep)
+        and (r.a1 is None or ascii_bounded(r.a1, DEAL_MAX_SOURCE))
+        and (r.original is None or ascii_bounded(r.original, DEAL_MAX_SOURCE))
+        for r in resolved
+    )
     and type(header_modes) is dict
     and len(header_modes) <= DEAL_MAX_CMD_ARGS
+    and all(
+        type(k) is int
+        and 0 <= k <= DEAL_MAX_CMD_ARGS
+        and isinstance(v, str)
+        and v in ("omit", "true", "false")
+        for k, v in header_modes.items()
+    )
 )
 def _normalize_bindings(
     resolved: list[ResolvedDep],

@@ -18,7 +18,7 @@ import math
 import operator
 from typing import Any
 
-from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_TOKEN, str_bounded, deal
+from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_TOKEN, UNDER_CROSSHAIR, str_bounded, deal
 from plugin.scripting.payload_codec import PAYLOAD_CALC_RANGE, is_calc_range_payload
 
 
@@ -358,27 +358,93 @@ class CalcRange:
         return self._unary_op(operator.abs)
 
     # Rich comparisons (aligned through _binary_op: 1x1 returns bool; multi-cell returns bool ndarray)
-    @deal.pre(lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM))
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and (
+            type(other) in (int, float, bool, str, type(None))
+            or (
+                isinstance(other, CalcRange)
+                and len(other._values) <= DEAL_MAX_SHAPE_DIM
+                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
+            )
+        )
+    )
     def __eq__(self, other: Any) -> Any:
         return self._binary_op(other, operator.eq)
 
-    @deal.pre(lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM))
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and (
+            type(other) in (int, float, bool, str, type(None))
+            or (
+                isinstance(other, CalcRange)
+                and len(other._values) <= DEAL_MAX_SHAPE_DIM
+                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
+            )
+        )
+    )
     def __ne__(self, other: Any) -> Any:
         return self._binary_op(other, operator.ne)
 
-    @deal.pre(lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM))
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and (
+            type(other) in (int, float, bool, str, type(None))
+            or (
+                isinstance(other, CalcRange)
+                and len(other._values) <= DEAL_MAX_SHAPE_DIM
+                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
+            )
+        )
+    )
     def __lt__(self, other: Any) -> Any:
         return self._binary_op(other, operator.lt)
 
-    @deal.pre(lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM))
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and (
+            type(other) in (int, float, bool, str, type(None))
+            or (
+                isinstance(other, CalcRange)
+                and len(other._values) <= DEAL_MAX_SHAPE_DIM
+                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
+            )
+        )
+    )
     def __le__(self, other: Any) -> Any:
         return self._binary_op(other, operator.le)
 
-    @deal.pre(lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM))
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and (
+            type(other) in (int, float, bool, str, type(None))
+            or (
+                isinstance(other, CalcRange)
+                and len(other._values) <= DEAL_MAX_SHAPE_DIM
+                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
+            )
+        )
+    )
     def __gt__(self, other: Any) -> Any:
         return self._binary_op(other, operator.gt)
 
-    @deal.pre(lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM))
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and (
+            type(other) in (int, float, bool, str, type(None))
+            or (
+                isinstance(other, CalcRange)
+                and len(other._values) <= DEAL_MAX_SHAPE_DIM
+                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
+            )
+        )
+    )
     def __ge__(self, other: Any) -> Any:
         return self._binary_op(other, operator.ge)
 
@@ -401,6 +467,17 @@ def materialize_calc_range(wire: Any) -> CalcRange:
     return CalcRange(_materialize_inner_grid(wire))
 
 
+def _deal_inner_grid_cell_ok_pytest(c: object) -> bool:
+    return isinstance(c, (str, int, float, bool, type(None))) or hasattr(c, "dtype")
+
+
+def _deal_inner_grid_cell_ok_crosshair(c: object) -> bool:
+    return type(c) in (str, int, float, bool, type(None))
+
+
+_deal_inner_grid_cell_ok = _deal_inner_grid_cell_ok_crosshair if UNDER_CROSSHAIR else _deal_inner_grid_cell_ok_pytest
+
+
 @deal.pre(
     lambda inner: (type(inner) not in (list, tuple))
     or (
@@ -409,10 +486,7 @@ def materialize_calc_range(wire: Any) -> CalcRange:
             type(r) not in (list, tuple)
             or (
                 len(r) <= DEAL_MAX_SHAPE_DIM
-                and all(
-                    isinstance(c, (str, int, float, bool, type(None))) or hasattr(c, "dtype")
-                    for c in r
-                )
+                and all(_deal_inner_grid_cell_ok(c) for c in r)
             )
             for r in inner
         )

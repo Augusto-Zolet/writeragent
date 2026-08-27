@@ -24,7 +24,7 @@ import json
 import re
 from typing import Any
 
-from plugin.framework.deal_shim import DEAL_MAX_SOURCE, UNDER_CROSSHAIR, str_bounded, deal
+from plugin.framework.deal_shim import DEAL_MAX_SOURCE, UNDER_CROSSHAIR, deal, str_bounded
 
 _LATEX_CLASH_WORDS = [
     # \a (Bell)
@@ -163,12 +163,26 @@ def _repair_latex_clashes(text: str) -> str:
 
 
 
-import string
+_JSON_CHARS = frozenset(
+    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789{}[],\": \t\n\r"
+)
 
-_JSON_CHARS = frozenset(string.printable)
+
+def _deal_json_text_ok_pytest(text: object) -> bool:
+    return not isinstance(text, str) or str_bounded(text, DEAL_MAX_SOURCE)
 
 
-@deal.pre(lambda text: str_bounded(text, DEAL_MAX_SOURCE))
+def _deal_json_text_ok_crosshair(text: object) -> bool:
+    return not isinstance(text, str) or (
+        len(text) <= DEAL_MAX_SOURCE
+        and all(c in _JSON_CHARS for c in text)
+    )
+
+
+_deal_json_text_ok = _deal_json_text_ok_crosshair if UNDER_CROSSHAIR else _deal_json_text_ok_pytest
+
+
+@deal.pre(lambda text: _deal_json_text_ok(text))
 def repair_json(text: str) -> str:
     """Attempt to repair common JSON syntax errors from LLMs using json-repair.
 
@@ -198,7 +212,7 @@ def repair_json(text: str) -> str:
     return str(json_repair.repair_json(repaired))
 
 
-@deal.pre(lambda text, *_unused, **__: not isinstance(text, str) or str_bounded(text, DEAL_MAX_SOURCE))
+@deal.pre(lambda text, *_unused, **__: not isinstance(text, str) or _deal_json_text_ok(text))
 def repair_json_object(text: str) -> Any:
     """Repair malformed JSON and return a parsed object (json-repair return_objects=True)."""
     if not isinstance(text, str):

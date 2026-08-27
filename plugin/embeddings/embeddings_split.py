@@ -102,7 +102,7 @@ def _meta_chunks_from_spans(
         and type(s[0]) is int
         and type(s[1]) is int
         and type(s[2]) is str
-        and str_bounded(s[2], DEAL_MAX_SOURCE)
+        and ascii_bounded(s[2], DEAL_MAX_SOURCE)
         for s in sentences
     )
 )
@@ -204,7 +204,7 @@ def _merge_small_sentences_to_spans(
     return spans
 
 
-@deal.pre(lambda passage: str_bounded(passage, DEAL_MAX_SOURCE))
+@deal.pre(lambda passage: ascii_bounded(passage, DEAL_MAX_SOURCE))
 def _split_passage_whitespace_to_sentences(passage: str) -> list[tuple[int, int, str]]:
     from plugin.writer.locale.grammar_proofread_locale import GRAMMAR_WHITESPACE_RUN_RE, split_sentence_chunks_by_separator_regex
 
@@ -309,7 +309,7 @@ def split_passage_locale_runs_to_chunk_meta(
 
 
 @deal.pre(
-    lambda text, base_meta, *args, **kwargs: str_bounded(text, DEAL_MAX_SOURCE)
+    lambda text, base_meta, *args, **kwargs: ascii_bounded(text, DEAL_MAX_SOURCE)
     and type(base_meta) is dict
     and len(base_meta) <= DEAL_MAX_SHAPE_DIM
     and (kwargs.get("locale_bcp47") is None or ascii_bounded(kwargs.get("locale_bcp47"), DEAL_MAX_TOKEN))
