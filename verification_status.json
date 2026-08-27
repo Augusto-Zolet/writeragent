@@ -408,7 +408,7 @@
         "ci_integration": true
       },
       "address_utils.py": {
-        "status": "partial",
+        "status": "verified",
         "priority": "high",
         "tool": "crosshair+deal+hypothesis",
         "functions_contracted": [
@@ -420,7 +420,8 @@
         ],
         "crosshair_last_run": "2026-08-05",
         "crosshair_result": "no_counterexamples",
-        "ci_integration": false
+        "ci_integration": true,
+        "notes": "Promoted 2026-08-27: light Hypothesis in make verify / vhs; parse_address and parse_range_string stay # crosshair: off (sheet-prefix + A1 regex); pytest+deal still apply."
       },
       "formula_dep_chain.py": {
         "status": "verified",
@@ -463,19 +464,20 @@
         "ci_integration": true
       },
       "spreadsheet_import/preprocess.py": {
-        "status": "partial",
+        "status": "verified",
         "priority": "high",
         "tool": "crosshair+deal+hypothesis",
         "functions_contracted": [
           "normalize_lo_formula_for_parse"
         ],
-        "ci_integration": false,
+        "ci_integration": true,
         "crosshair_target": "plugin.calc.spreadsheet_import.preprocess.normalize_lo_formula_for_parse",
         "crosshair_last_run": "2026-08-06",
-        "crosshair_result": "no_counterexamples"
+        "crosshair_result": "no_counterexamples",
+        "notes": "Promoted 2026-08-27 with formula_edit; nested ensures stay inverse_ensure under CrossHair."
       },
       "python/formula_edit.py": {
-        "status": "partial",
+        "status": "verified",
         "priority": "high",
         "tool": "crosshair+deal+hypothesis",
         "functions_contracted": [
@@ -496,8 +498,8 @@
         "crosshair_target": "plugin.calc.python.formula_edit.parse_python_formula",
         "crosshair_last_run": "2026-08-25",
         "crosshair_result": "no_counterexamples",
-        "notes": "PatternError on normalize/parse('PY') fixed by alias startswith scan; nested PreconditionFailed on dtype=float+NUL/SOH fixed by calling rewrite body; data-binding/range helpers ascii_bounded; _rewrite_token_calls still off (Callable+regex loop)",
-        "ci_integration": false
+        "notes": "Promoted 2026-08-27. PatternError on normalize/parse('PY') fixed by alias startswith scan; nested PreconditionFailed on dtype=float+NUL/SOH fixed by calling rewrite body; data-binding/range helpers ascii_bounded; _rewrite_token_calls still off (Callable+regex loop)",
+        "ci_integration": true
       }
     },
     "embeddings": {
@@ -514,7 +516,7 @@
     },
     "mcp": {
       "cors.py": {
-        "status": "partial",
+        "status": "verified",
         "priority": "high",
         "tool": "crosshair+deal+hypothesis",
         "functions_contracted": [
@@ -525,7 +527,10 @@
           "is_safe_origin",
           "merge_allow_headers"
         ],
-        "ci_integration": false
+        "crosshair_last_run": "2026-08-27",
+        "crosshair_result": "no_counterexamples",
+        "ci_integration": true,
+        "notes": "Regular check-all 2026-08-27: FQNs NOT_CONFIRMED, errors=0. Nested unique-length ensure is inverse_ensure under CrossHair."
       },
       "mcp_state.py": {
         "status": "partial",

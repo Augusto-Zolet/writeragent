@@ -796,7 +796,7 @@ CROSSHAIR_MODULE = plugin/scripting/payload_codec.py
 
 verify:
 	@echo "=== Running All Formal Verification Unit Tests ==="
-	"$(PYTHON)" -m pytest tests/ -k "verification" -q
+	"$(PYTHON)" -m pytest tests/ -k "verification" -m "not slow" -q
 
 install-fizzbee:
 	"$(PYTHON)" scripts/install_fizzbee.py --install

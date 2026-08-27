@@ -170,7 +170,7 @@ That produces tests of the form `assert foo(args) == <whatever it got>`. **Do no
 | Prove no `@deal` violation found (in time budget) | `check` |
 | Find inputs that hit rarely used branches | `cover` |
 | Validate round-trip / Calc semantics | pytest oracles ([`VERIFICATION_GRIDS`](../../tests/scripting/test_serialization_verification.py)) |
-| CI gate on correctness | `make verify` (pytest `-k verification`) + optional `make crosshair-check` on `payload_codec` |
+| CI gate on correctness | `make verify` (pytest `-k verification -m "not slow"`) + optional `make crosshair-check` on `payload_codec` |
 | Brainstorm edge-case inputs after a refactor | `cover` on full module |
 
 **`cover` does not replace `check` or round-trip tests.** It tells you *where the code has been*; `check` tells you whether *contracts broke*; pytest tells you whether *product behavior matches intent*.
@@ -232,7 +232,7 @@ Deep CrossHair sweeps are also available on GitHub Actions via manual dispatch (
 
 | Target | Hypothesis budget | Scope |
 |--------|-------------------|--------|
-| **`make verify`** | Light defaults in each suite | All `*_verification.py` (deal oracles + light `@given` + optional slow CrossHair) |
+| **`make verify`** | Light defaults in each suite | All `*_verification.py` (deal oracles + light `@given`; `-m "not slow"` so CrossHair pytest hooks stay on `crosshair-check-all`) |
 | **`make vhs`** | `WRITERAGENT_VHS_EXTENSIVE=1` (alias: `WRITERAGENT_SERIALIZATION_EXTENSIVE`) | Deep fuzz (`-k hypothesis`): serialization A/B; chat/MCP FSMs; Phase 8 domains (done: `formula_edit`, `cors`, `word_diff_split`, `embeddings_split`); stream/response normalizers; sandbox path + scrub env; payload_codec policy; `address_utils` |
 | **`make slowtests`** | Extensive | Serialization fixture pass, then `vhs` |
 
@@ -545,20 +545,13 @@ Playbook for adding another deep VHS domain: see § “Playbook for a new deep V
 
 ### Phase 9: What to work on next (recommended order)
 
-Snapshot after envelope-detector work on `payload_codec` (2026-08): **~41 verified / ~14 partial** in [`verification_status.json`](../verification_status.json). Phases 5 and 8 are done; 6–7 are partial by design.
+Snapshot **2026-08-27**: **48 verified / 8 partial** in [`verification_status.json`](../verification_status.json). Phases 5 and 8 are done; 6–7 are partial by design.
 
-**Prefer closing high-ROI partials before opening new Tier-0 files.** New pure modules (e.g. `spreadsheet_import/translate.py`) are optional once the list below is thin.
+**Prefer closing remaining engine-honest partials only when there is a new oracle.** Status-lag cluster (`address_utils`, `cors`, `formula_edit` + `preprocess`) promoted 2026-08-27. Stream/response normalizers were already `verified`.
 
 #### 1. Promote “deal+Hyp done, status lagging” partials → `verified` (fastest wins)
 
-These already have contracts, light Hypothesis, and (where useful) slow CrossHair FQNs. Work is mostly: confirm oracles, set `ci_integration: true` when the verification file is in `make verify`, flip `status` to `verified`, refresh notes/dates.
-
-| Module | Why still partial | Action |
-|--------|-------------------|--------|
-| [`address_utils.py`](../../plugin/calc/address_utils.py) | Strong inverse contracts + deep VHS; `ci_integration: false` | Promote if CrossHair FQN stays clean |
-| [`cors.py`](../../plugin/mcp/cors.py) | Security boundary; deep VHS; `ci_integration: false` | Promote after one clean CrossHair pass |
-| [`formula_edit.py`](../../plugin/calc/python/formula_edit.py) + [`preprocess.py`](../../plugin/calc/spreadsheet_import/preprocess.py) | Deep VHS; past IndexError fixed | Promote pair together |
-| [`stream_normalizer.py`](../../plugin/framework/client/stream_normalizer.py) / [`response_normalizers.py`](../../plugin/framework/client/response_normalizers.py) | Deep VHS; some `# crosshair: off` | Promote with notes on offs; keep FQN targets that work |
+**Done 2026-08-27:** [`address_utils.py`](../../plugin/calc/address_utils.py), [`cors.py`](../../plugin/mcp/cors.py), [`formula_edit.py`](../../plugin/calc/python/formula_edit.py) + [`preprocess.py`](../../plugin/calc/spreadsheet_import/preprocess.py). Light tests already on `make verify` (`-m "not slow"`); cors regular check-all: no `: error:` (posts `NOT_CONFIRMED`). Kept existing `# crosshair: off` / `inverse_ensure` notes. [`stream_normalizer.py`](../../plugin/framework/client/stream_normalizer.py) / [`response_normalizers.py`](../../plugin/framework/client/response_normalizers.py) were already verified.
 
 #### 2. FSM partials (Phase 6 catch-up — do not fight engine)
 
@@ -581,7 +574,7 @@ Highest unused pure surface: **[`plugin/calc/spreadsheet_import/translate.py`](.
 - Keep `CROSSHAIR_*_SKIP` empty; hostility = shim / `# crosshair: off` / refactor.
 - Stale “Practical Implementation Guide” samples below still mention old paths—treat Phase 9 + this section as source of truth over the illustrative CI YAML.
 
-**Suggested next session (single track):** close the **address_utils + cors + formula_edit/preprocess** partial cluster (status flips + any missing FQN slow tests), then either FSM ensures or `translate.py` contracts.
+**Suggested next session (single track):** optional new Tier-0 [`translate.py`](../../plugin/calc/spreadsheet_import/translate.py) contracts, or one named FSM legality property (do not remove `next_state` offs). Do not reopen json_utils / errors / payload_codec to “force verified.”
 
 ---
 
