@@ -16,6 +16,8 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
+# Same Writer/Calc/Draw/Impress strings as plugin.doc.doc_type._DOCUMENT_SERVICE_MAP.
+# WebDocument also supports TextDocument, so get_visual_doc_type checks WEB first.
 WRITER_DOCUMENT_SERVICE = "com.sun.star.text.TextDocument"
 WEB_DOCUMENT_SERVICE = "com.sun.star.text.WebDocument"
 CALC_DOCUMENT_SERVICE = "com.sun.star.sheet.SpreadsheetDocument"

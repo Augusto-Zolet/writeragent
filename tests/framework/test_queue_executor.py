@@ -225,15 +225,12 @@ def reset_mt_globals():
     default_executor._callback_instance = None
 
 def test_get_async_callback_success(monkeypatch):
-    import sys
-    mock_uno = MagicMock()
     mock_ctx = MagicMock()
-    mock_uno.getComponentContext.return_value = mock_ctx
     mock_smgr = MagicMock()
     mock_ctx.ServiceManager = mock_smgr
     mock_service = MagicMock()
     mock_smgr.createInstanceWithContext.return_value = mock_service
-    monkeypatch.setitem(sys.modules, 'uno', mock_uno)
+    default_executor._ctx = mock_ctx
     with patch.object(default_executor, '_make_callback_instance') as mock_make:
         mock_instance = MagicMock()
         mock_make.return_value = mock_instance
@@ -363,14 +360,11 @@ def test_get_async_callback_failure(monkeypatch):
     mock_warn.assert_called()
 
 def test_get_async_callback_returns_none(monkeypatch):
-    import sys
-    mock_uno = MagicMock()
     mock_ctx = MagicMock()
-    mock_uno.getComponentContext.return_value = mock_ctx
     mock_smgr = MagicMock()
     mock_ctx.ServiceManager = mock_smgr
     mock_smgr.createInstanceWithContext.return_value = None
-    monkeypatch.setitem(sys.modules, 'uno', mock_uno)
+    default_executor._ctx = mock_ctx
     with patch('plugin.framework.queue_executor.log.warning') as mock_warn:
         res = default_executor._get_async_callback()
     assert (res is None)

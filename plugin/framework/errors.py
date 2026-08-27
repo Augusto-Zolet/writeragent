@@ -192,6 +192,8 @@ class WriterAgentException(Exception):
         if UNDER_CROSSHAIR:
             self.message = "mock"
         else:
+            # Runtime / interpolated strings are not in the gettext catalog;
+            # _() is a no-op unless the exact source string was extracted.
             self.message = _(_resolve_exception_message(message))
         if code is not None:
             self.code = code
@@ -507,16 +509,19 @@ class AgentParsingError(WriterAgentException):
     code: str = "PARSE_ERROR"
 
 
-def check_disposed(model, context_name="Object"):
+def check_not_none(model, context_name="Object"):
     """Raise UnoObjectError if *model* is None.
 
-    This is a null check only (call sites and semgrep expect the name). Live
-    disposal is ``DisposedException``, :func:`is_document_disposed`, or
-    :func:`safe_uno_call` — probing UNO here would change Writer/LibrePy
-    helpers that currently only need a None guard.
+    Null guard only. Live disposal is ``DisposedException``,
+    :func:`is_document_disposed`, or :func:`safe_uno_call`. Probing UNO here
+    would add document-model calls to LibrePy-light helpers that only need None.
     """
     if model is None:
         raise UnoObjectError(f"{context_name} is null", code="UNO_NULL_OBJECT")
+
+
+# Historical name; Semgrep and call sites still use it.
+check_disposed = check_not_none
 
 
 def is_document_disposed(doc: Any) -> bool:
@@ -534,6 +539,9 @@ def is_document_disposed(doc: Any) -> bool:
 
 
 
+# Three wrappers, three jobs: safe_uno_call is for probes (RuntimeException is
+# not disposal — return default). handle_errors / safe_call are for real
+# operations (RuntimeException usually means the object is gone).
 def safe_uno_call(default=None):
     """Decorator to safely call UNO methods with automatic error handling, returning default on failure (disposal exceptions re-raised).
 
@@ -591,7 +599,7 @@ def handle_errors(context_name):
                 e_name = type(e).__name__
                 # Real operations: UNO RuntimeException usually means the object is gone.
                 # Contrast safe_uno_call, which returns default for that name (probes).
-                if "DisposedException" in e_name or "RuntimeException" in e_name:
+                if is_disposed_exception(e):
                     raise DocumentDisposedError(f"UNO object disposed during {context_name}", object_type=context_name, details={"original_error": str(e)}) from e
                 else:
                     raise ToolExecutionError(f"{context_name} failed: {e}", code="INTERNAL_ERROR", details={"error": str(e), "type": e_name}) from e
@@ -608,7 +616,7 @@ def safe_call(fn, context_name, *args, **kwargs):
     except Exception as e:
         # Real UNO calls: RuntimeException ≈ disposed. safe_uno_call does not.
         e_name = type(e).__name__
-        if "DisposedException" in e_name or "RuntimeException" in e_name:
+        if is_disposed_exception(e):
             raise DocumentDisposedError(f"UNO object disposed during {context_name}", object_type=context_name, details={"original_error": str(e)}) from e
 
         # We catch Exception here because pyuno bridge exceptions don't always inherit from Python's standard Exception cleanly in all builds,
@@ -648,6 +656,7 @@ __all__ = [
     "WriterError",
     "UNO_DISPOSED_EXCEPTIONS",
     "check_disposed",
+    "check_not_none",
     "format_error_message",      # The single i18n-friendly mapper (centralized here in 2026 janitor effort)
     "format_error_payload",
     "handle_errors",

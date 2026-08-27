@@ -26,6 +26,8 @@ class DocumentType(Enum):
     IMPRESS = auto()
 
 
+# Canonical UNO service names for Writer/Calc/Draw/Impress (visual_helpers
+# duplicates the strings plus WebDocument, which must be checked first).
 _DOCUMENT_SERVICE_MAP = {
     DocumentType.WRITER: "com.sun.star.text.TextDocument",
     DocumentType.CALC: "com.sun.star.sheet.SpreadsheetDocument",
@@ -119,6 +121,8 @@ def get_document_type(model: Any) -> DocumentType:
     if model is None:
         return DocumentType.UNKNOWN
 
+    # Four supportsService calls; id(model) is reused after close so a cache
+    # keyed that way would return the wrong type for a new document.
     # Check services in priority order
     for doc_type, service_name in _DOCUMENT_SERVICE_MAP.items():
         if safe_call(model.supportsService, f"Check {service_name}", service_name):

@@ -65,6 +65,8 @@ def _find_document_by_predicate(ctx: Any, predicate: Any) -> Any | None:
         doc = desktop.getCurrentComponent()
         if doc is not None:
             try:
+                # check_disposed is a None check; get_desktop is already @main_thread_only.
+                # Unwrap so PropertyBag-style None tests see the real object, then re-wrap on return.
                 check_disposed(_unwrap_uno(doc))
                 ctrl = getattr(doc, "getCurrentController", lambda: None)()
                 if ctrl is not None and getattr(ctrl, "getFrame", lambda: None)() is not None:

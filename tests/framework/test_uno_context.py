@@ -200,6 +200,21 @@ def test_resolve_package_extension_id_prefers_librepy():
     reset_package_extension_id_for_tests()
 
 
+def test_resolve_package_extension_id_off_main_skips_package_info(monkeypatch):
+    from plugin.framework.constants import EXTENSION_ID_WRITERAGENT
+    from plugin.framework.uno_context import (
+        reset_package_extension_id_for_tests,
+        resolve_package_extension_id,
+    )
+
+    reset_package_extension_id_for_tests()
+    monkeypatch.setattr("plugin.framework.uno_context.on_main_thread", lambda: False)
+    with patch("plugin.framework.uno_context.get_package_info") as pip:
+        assert resolve_package_extension_id() == EXTENSION_ID_WRITERAGENT
+        pip.assert_not_called()
+    reset_package_extension_id_for_tests()
+
+
 def test_set_package_extension_id_override():
     from plugin.framework.constants import EXTENSION_ID_LIBREPY
     from plugin.framework.uno_context import (

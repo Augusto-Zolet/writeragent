@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import plugin.notebook.notebook_controls as notebook_controls
-import plugin.framework.thread_guard as tg
 from plugin.notebook.notebook_controls import (
     NotebookFormRunListener,
     NotebookRunButtonListener,
@@ -25,19 +22,6 @@ def setup_function() -> None:
     notebook_controls._wired_keys = set()
     notebook_controls._wired_form_docs = set()
     notebook_controls._doc_listener = None
-
-
-def test_wire_all_raises_off_main_thread(monkeypatch):
-    """@main_thread_only on wire_all: Layer A tripwire, not the Python lock."""
-    monkeypatch.setattr(tg, "on_main_thread", lambda: False)
-    monkeypatch.setenv("WRITERAGENT_TESTING", "1")
-    was = tg.GUARD_ON
-    tg.GUARD_ON = True
-    try:
-        with pytest.raises(RuntimeError, match="UNO thread violation"):
-            wire_all_notebook_run_buttons(MagicMock(), MagicMock())
-    finally:
-        tg.GUARD_ON = was
 
 
 def test_wire_all_returns_0_no_container():

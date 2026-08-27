@@ -198,6 +198,54 @@ def test_unwrap_roundtrip():
     assert tg._unwrap_uno(real) is real
 
 
+def test_wrap_uno_skips_pyuno_structs():
+    """PropertyValue-like structs must stay unwrapped for C++ media descriptors."""
+
+    class _Struct:
+        __module__ = "pyuno"
+        __pyunostruct__ = True
+
+    struct = _Struct()
+    was = tg.GUARD_ON
+    tg.GUARD_ON = True
+    try:
+        assert tg._wrap_uno(struct) is struct
+        tup = tg._wrap_uno((struct,))
+        assert tup[0] is struct
+    finally:
+        tg.GUARD_ON = was
+
+
+def test_unwrap_uno_tuple_of_proxies():
+    real = _make_pyuno_like()
+    proxy = tg._UnoThreadGuardProxy(real)
+    out = tg._unwrap_uno((proxy, "x"))
+    assert out[0] is real
+    assert out[1] == "x"
+
+
+def test_wrap_uno_one_level_sequences(monkeypatch):
+    """Python list/tuple/dict values of UNO-like objects get a proxy when GUARD_ON."""
+    inner = object()
+    was = tg.GUARD_ON
+    tg.GUARD_ON = True
+    try:
+        with patch.object(tg, "_is_pyuno", side_effect=lambda o: o is inner):
+            wrapped_list = tg._wrap_uno([inner])
+            wrapped_tup = tg._wrap_uno((inner,))
+            wrapped_dict = tg._wrap_uno({"k": inner})
+        assert isinstance(wrapped_list[0], tg._UnoThreadGuardProxy)
+        assert isinstance(wrapped_tup[0], tg._UnoThreadGuardProxy)
+        assert isinstance(wrapped_dict["k"], tg._UnoThreadGuardProxy)
+        assert list(wrapped_dict.keys()) == ["k"]
+        monkeypatch.setattr(tg, "on_main_thread", lambda: False)
+        monkeypatch.setenv("WRITERAGENT_TESTING", "1")
+        with pytest.raises(RuntimeError, match="UNO thread violation"):
+            _unused = wrapped_list[0].getString
+    finally:
+        tg.GUARD_ON = was
+
+
 def test_wrap_decision_uses_is_pyuno_and_guard_flag(monkeypatch):
     real = _make_pyuno_like()
     # When guard off, never wraps even if pyuno

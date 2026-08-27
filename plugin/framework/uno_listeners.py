@@ -125,6 +125,8 @@ def _catch_and_log(func):
         try:
             return func(self, ev, *args, **kwargs)
         except TypeError:
+            # Named branches so the log shows TypeError vs ValueError; both
+            # subclass Exception. The C++ bridge must not see Python exceptions.
             log.exception(f"{self.__class__.__name__} TypeError in {func.__name__}")
         except ValueError:
             log.exception(f"{self.__class__.__name__} ValueError in {func.__name__}")

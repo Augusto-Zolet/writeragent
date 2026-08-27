@@ -448,6 +448,7 @@ class AsyncProcess:
         if self.process is None:
             return
         rc = self.process.wait()
+        # argv preview for the log line; a str args is the first character.
         log.debug("Process %s exited with rc=%s", self.args[0] if getattr(self.args, "__len__", lambda: 0)() > 0 else self.args, rc)
         if self.on_exit_cb:
             try:

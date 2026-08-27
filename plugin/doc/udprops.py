@@ -49,10 +49,16 @@ def _user_defined_property_exists(props: Any, name: str) -> bool:
 
 
 def get_document_property(model: Any, name: str, default: Any = None) -> Any:
-    """Get a custom document property from the model."""
+    """Get a custom document property from the model.
+
+    Called from XFilter.filter() on LO's dispatch thread (Dummy-* when the
+    client is a socket bootstrap), so this is not @main_thread_only.
+    """
     try:
         from plugin.framework.thread_guard import _unwrap_uno
 
+        # PropertyBag hasPropertyByName / addProperty is unreliable through the
+        # guard proxy; unwrap the model then talk to the raw PropertyBag.
         raw_model = _unwrap_uno(model)
         check_disposed(raw_model, "Document Model")
         if hasattr(raw_model, "getDocumentProperties"):
@@ -79,10 +85,14 @@ def get_document_property(model: Any, name: str, default: Any = None) -> Any:
 
 
 def set_document_property(model: Any, name: str, value: Any) -> None:
-    """Set a custom document property in the model."""
+    """Set a custom document property in the model.
+
+    Same dispatch-thread note as get_document_property (notebook File Open).
+    """
     try:
         from plugin.framework.thread_guard import _unwrap_uno
 
+        # Same PropertyBag unwrap as get_document_property.
         raw_model = _unwrap_uno(model)
         check_disposed(raw_model, "Document Model")
         if hasattr(raw_model, "getDocumentProperties"):

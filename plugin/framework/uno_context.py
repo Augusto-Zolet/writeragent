@@ -43,7 +43,7 @@ from plugin.framework.constants import (
     EXTENSION_ID_LIBREPY,
     EXTENSION_ID_WRITERAGENT,
 )
-from plugin.framework.thread_guard import main_thread_only, _wrap_uno
+from plugin.framework.thread_guard import main_thread_only, on_main_thread, _wrap_uno
 
 log = logging.getLogger("writeragent.context")
 
@@ -94,10 +94,18 @@ def reset_package_extension_id_for_tests() -> None:
 
 
 def resolve_package_extension_id(ctx=None) -> str:
-    """Return the installed WriterAgent-family extension id (LibrePy or WriterAgent)."""
+    """Return the installed WriterAgent-family extension id (LibrePy or WriterAgent).
+
+    Cache is pinned at bootstrap (``set_package_extension_id``).
+    ``get_package_info`` is main-thread only, so off-main without a cache
+    returns the WriterAgent default (same as the last-resort below).
+    """
     global _package_extension_id
     if _package_extension_id:
         return _package_extension_id
+
+    if not on_main_thread():
+        return EXTENSION_ID_WRITERAGENT
 
     for extension_id in _KNOWN_EXTENSION_IDS:
         try:
@@ -282,7 +290,7 @@ def get_toolkit(ctx=None):
 # Stock Toolkit has no getFocusWindow (PyUNO hasattr lies → always None).
 _default_focus_restore = None
 _restore_query_after_scroll = True
-_stream_focus_trackers = []
+_stream_focus_trackers: list[Any] = []
 _stream_rich_control = None
 
 

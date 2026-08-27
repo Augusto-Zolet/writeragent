@@ -220,10 +220,12 @@ def _is_pyuno(obj: Any) -> bool:
     tname = t.__name__
     if tname in ("Mock", "MagicMock") or hasattr(obj, "_mock_return_value"):
         return False
+    # Structs (PropertyValue, etc.) are pass-by-value; wrapping them breaks
+    # TypeDetection / loadComponentFromURL which require real structs in tuples.
+    if hasattr(obj, "__pyunostruct__"):
+        return False
     mod = getattr(t, "__module__", "") or ""
     if "pyuno" in mod:
-        return True
-    if hasattr(obj, "__pyunostruct__"):
         return True
     # Many UNO objects support XInterface.queryInterface
     if hasattr(obj, "queryInterface"):
@@ -246,8 +248,8 @@ class _UnoThreadGuardProxy:
 
     # --- Attribute access (methods and properties) ---
     def __getattr__(self, name: str) -> Any:
-        # hasattr() uses this path. Off-thread it must raise, not return False —
-        # softening that would hide UNO probes from the guard.
+        # hasattr() uses this path. Returning False off-thread would hide UNO
+        # probes from the guard (including pickle/IPython dunder lookups).
         assert_main_thread(f"UNO.{name}")
         val = getattr(self._target, name)
         return _wrap_uno(val)
@@ -335,20 +337,41 @@ def guard_uno(obj: Any) -> Any:
 
 
 def _wrap_uno(obj: Any) -> Any:
-    """Wrap a PyUNO object with the guard proxy (only when GUARD_ON)."""
+    """Wrap a PyUNO object with the guard proxy (only when GUARD_ON).
+
+    PyUNO usually returns UNO containers (``__iter__`` / ``__getitem__`` wrap).
+    A Python ``list``/``tuple`` of interfaces (e.g. ``getControls()``) would
+    otherwise escape. One level only; dict **values**, not keys.
+    """
     if not GUARD_ON:
         return obj
-    if not _is_pyuno(obj):
-        return obj
     if isinstance(obj, _UnoThreadGuardProxy):
+        return obj
+    if isinstance(obj, list):
+        return [_wrap_uno(x) for x in obj]
+    if isinstance(obj, tuple):
+        return tuple(_wrap_uno(x) for x in obj)
+    if isinstance(obj, dict):
+        return {k: _wrap_uno(v) for k, v in obj.items()}
+    if not _is_pyuno(obj):
         return obj
     return _UnoThreadGuardProxy(obj)
 
 
 def _unwrap_uno(obj: Any) -> Any:
-    """Return the underlying UNO target if obj is one of our proxies."""
+    """Return the underlying UNO target if obj is one of our proxies.
+
+    Tuples/lists of proxies (PropertyValue media descriptors) must unwrap
+    too: C++ load/detect rejects a tuple of Python proxy objects.
+    """
     if isinstance(obj, _UnoThreadGuardProxy):
         return obj._target
+    if isinstance(obj, list):
+        return [_unwrap_uno(x) for x in obj]
+    if isinstance(obj, tuple):
+        return tuple(_unwrap_uno(x) for x in obj)
+    if isinstance(obj, dict):
+        return {k: _unwrap_uno(v) for k, v in obj.items()}
     return obj
 
 

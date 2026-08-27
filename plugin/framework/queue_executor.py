@@ -285,10 +285,10 @@ class QueueExecutor:
             if self._initialized:
                 return self._async_callback_service
             try:
-                # Use the extension's self.ctx first (AGENTS.md invariant).
+                # Use the extension's self.ctx (set_context at bootstrap).
                 # uno.getComponentContext() can return a different context and
                 # cause AsyncCallback to be created in the wrong context — silently
-                # making execute() pokes no-ops. We fall back only if ctx is missing.
+                # making execute() pokes no-ops. Missing ctx is logged, not probed.
                 #
                 # Unwrap Layer A proxies before any UNO getattr. Creating
                 # AsyncCallback from a worker is the marshal bootstrap: if the
@@ -304,18 +304,16 @@ class QueueExecutor:
                 from plugin.framework.thread_guard import _unwrap_uno
 
                 ctx = _unwrap_uno(self._ctx)
+                # get_ctx() is @main_thread_only. This runs on the first worker
+                # post/execute; calling it here raises, the except swallows it,
+                # and we would fall through to a wrong context. Bootstrap
+                # set_context() is the path that works. Missing ctx logs below
+                # and leaves AsyncCallback unset (tests without VCL still run).
                 if ctx is None:
-                    try:
-                        from plugin.framework.uno_context import get_ctx
-
-                        ctx = _unwrap_uno(get_ctx())
-                    except Exception:
-                        ctx = None
-                if ctx is None:
-                    import uno
-
-                    if hasattr(uno, "getComponentContext"):
-                        ctx = _unwrap_uno(uno.getComponentContext())
+                    log.warning(
+                        "QueueExecutor has no component context; "
+                        "call set_context() from bootstrap on the main thread"
+                    )
 
                 assert ctx is not None, "UNO component context is required for AsyncCallback"
                 ctx_any = cast("Any", ctx)

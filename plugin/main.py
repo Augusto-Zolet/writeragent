@@ -76,7 +76,13 @@ from com.sun.star.frame import DispatchDescriptor, XDispatch, XDispatchProvider
 from com.sun.star.lang import XInitialization, XServiceInfo
 
 from plugin.framework.constants import EXTENSION_ID_WRITERAGENT
-from plugin.framework.uno_context import get_active_document, get_extension_url, get_ctx, menu_icon_asset_url
+from plugin.framework.uno_context import (
+    get_active_document,
+    get_extension_url,
+    get_ctx,
+    menu_icon_asset_url,
+    set_package_extension_id,
+)
 from plugin.framework.thread_guard import background
 
 EXTENSION_ID = EXTENSION_ID_WRITERAGENT
@@ -152,6 +158,8 @@ def bootstrap(ctx=None):
             from plugin.framework.queue_executor import default_executor
 
             default_executor.set_context(ctx)
+
+        set_package_extension_id(EXTENSION_ID)
 
         from plugin.framework.config import init_config
 
