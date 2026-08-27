@@ -53,6 +53,17 @@ def _handle_request(req: dict[str, Any]) -> dict[str, Any]:
             }
         return {"id": req_id, "status": "ok"}
 
+    if action == "reset_session":
+        session_id = req.get("session_id")
+        if session_id and isinstance(session_id, str):
+            from plugin.scripting.venv.venv_sandbox import reset_sandbox_session
+
+            res = reset_sandbox_session(session_id)
+            if req_id is not None and isinstance(res, dict):
+                res["id"] = req_id
+            return res
+        return {"id": req_id, "status": "ok"}
+
     code = req.get("code")
     if not code or not isinstance(code, str):
         return {

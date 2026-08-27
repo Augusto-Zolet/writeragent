@@ -247,23 +247,67 @@ class BaseProcessPool:
         default_timeout_sec: int = 30,
         max_tasks: int = 500,
         worker_name: str = "Worker",
+        idle_worker_ttl_sec: float | None = None,
     ) -> None:
         self.script_path = script_path
         self.num_workers = max(0, num_workers)
         self.default_timeout_sec = default_timeout_sec
         self.max_tasks = max_tasks
         self.worker_name = worker_name
+        self.idle_worker_ttl_sec = idle_worker_ttl_sec
         self.workers: list[BaseProcessWorker] = []
         self._is_shutdown = False
         self._lock = threading.Lock()
         self._idle: set[BaseProcessWorker] = set()
+        self._worker_last_active: dict[BaseProcessWorker, float] = {}
         self._cond = threading.Condition(self._lock)
+        self._idle_reaper_thread: threading.Thread | None = None
 
         if self.num_workers > 0:
+            now = time.monotonic()
             for i in range(self.num_workers):
                 w = BaseProcessWorker(i + 1, script_path=script_path, worker_name=worker_name)
                 self.workers.append(w)
                 self._idle.add(w)
+                self._worker_last_active[w] = now
+
+        if self.idle_worker_ttl_sec is not None and self.idle_worker_ttl_sec > 0:
+            self._start_idle_reaper()
+
+    def _start_idle_reaper(self) -> None:
+        ttl = cast(float, self.idle_worker_ttl_sec)
+        interval = max(0.02, min(ttl / 6.0, 300.0))
+
+        def _reap_loop() -> None:
+            while not self._is_shutdown:
+                time.sleep(interval)
+                self._evict_idle_workers()
+
+        t = threading.Thread(target=_reap_loop, name=f"{self.worker_name}-idle-reaper", daemon=True)
+        t.start()
+        self._idle_reaper_thread = t
+
+    def _evict_idle_workers(self) -> None:
+        if self._is_shutdown or self.idle_worker_ttl_sec is None:
+            return
+        now = time.monotonic()
+        stale: list[BaseProcessWorker] = []
+        with self._cond:
+            for w in list(self._idle):
+                if not w.is_alive():
+                    continue
+                last_active = self._worker_last_active.get(w, now)
+                if now - last_active >= self.idle_worker_ttl_sec:
+                    stale.append(w)
+        for w in stale:
+            w.kill()
+        if stale:
+            log.info(
+                "Idle worker reaper terminated %d %s(s) idle for >%.1fs",
+                len(stale),
+                self.worker_name,
+                self.idle_worker_ttl_sec,
+            )
 
     def is_enabled(self) -> bool:
         return self.num_workers > 0 and not self._is_shutdown
@@ -301,9 +345,13 @@ class BaseProcessPool:
         """Back-compat alias for :meth:`lease_any`."""
         return self.lease_any(timeout_sec)
 
+    def should_recycle_worker(self, worker: BaseProcessWorker) -> bool:
+        """Predicate to determine if worker should be recycled on release."""
+        return worker.tasks_executed >= self.max_tasks
+
     def release_worker(self, worker: BaseProcessWorker) -> None:
         """Return worker to idle set, recycling if max_tasks reached."""
-        if worker.tasks_executed >= self.max_tasks:
+        if self.should_recycle_worker(worker):
             log.info(
                 "Recycling %s #%d after %d tasks to refresh memory",
                 self.worker_name,
@@ -320,6 +368,7 @@ class BaseProcessPool:
                 worker.kill()
             else:
                 self._idle.add(worker)
+                self._worker_last_active[worker] = time.monotonic()
             self._cond.notify_all()
 
     def shutdown(self) -> None:
@@ -333,4 +382,5 @@ class BaseProcessPool:
                 w.kill()
             self.workers.clear()
             self._idle.clear()
+            self._worker_last_active.clear()
             self._cond.notify_all()

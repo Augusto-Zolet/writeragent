@@ -42,6 +42,8 @@ class FormulaProcessPool(BaseProcessPool):
         num_workers: int = 1,
         default_timeout_sec: int = 30,
         max_tasks: int = 500,
+        session_ttl_sec: float = 3600.0,
+        idle_worker_ttl_sec: float | None = 3600.0,
     ) -> None:
         super().__init__(
             script_path=_WORKER_SCRIPT,
@@ -49,7 +51,92 @@ class FormulaProcessPool(BaseProcessPool):
             default_timeout_sec=default_timeout_sec,
             max_tasks=max_tasks,
             worker_name="Formula worker",
+            idle_worker_ttl_sec=idle_worker_ttl_sec,
         )
+        self._active_sessions: dict[str, BaseProcessWorker] = {}
+        self._worker_sessions: dict[BaseProcessWorker, set[str]] = {}
+        self._session_last_activity: dict[str, float] = {}
+        self.session_ttl_sec = session_ttl_sec
+        self._session_reaper_thread: threading.Thread | None = None
+
+        if self.session_ttl_sec > 0:
+            self._start_session_ttl_reaper()
+
+    def _start_session_ttl_reaper(self) -> None:
+        interval = max(0.02, min(self.session_ttl_sec / 6.0, 300.0))
+
+        def _reap_loop() -> None:
+            while not self._is_shutdown:
+                time.sleep(interval)
+                self._evict_stale_sessions()
+
+        t = threading.Thread(target=_reap_loop, name="formula-session-reaper", daemon=True)
+        t.start()
+        self._session_reaper_thread = t
+
+    def _evict_stale_sessions(self) -> None:
+        if self._is_shutdown:
+            return
+        now = time.monotonic()
+        stale: list[str] = []
+        with self._lock:
+            for sid, last_active in list(self._session_last_activity.items()):
+                if now - last_active >= self.session_ttl_sec:
+                    stale.append(sid)
+            for sid in stale:
+                self._session_last_activity.pop(sid, None)
+                worker = self._active_sessions.pop(sid, None)
+                if worker and worker in self._worker_sessions:
+                    self._worker_sessions[worker].discard(sid)
+                    if not self._worker_sessions[worker]:
+                        del self._worker_sessions[worker]
+        if stale:
+            log.info("Session TTL reaper evicted %d idle session(s): %s", len(stale), stale)
+
+    def _clear_worker_sessions_unlocked(self, worker: BaseProcessWorker) -> None:
+        sessions = self._worker_sessions.pop(worker, set())
+        for sid in sessions:
+            self._active_sessions.pop(sid, None)
+            self._session_last_activity.pop(sid, None)
+
+    def should_recycle_worker(self, worker: BaseProcessWorker) -> bool:
+        """Recycle worker if tasks_executed >= max_tasks, unless holding active shared sessions.
+
+        Workers holding active shared sessions skip normal max_tasks recycling to preserve state.
+        Sessions are held indefinitely while active and released after session_ttl_sec of inactivity.
+        """
+        with self._lock:
+            if not worker.is_alive():
+                self._clear_worker_sessions_unlocked(worker)
+                return False
+            has_sessions = bool(self._worker_sessions.get(worker))
+
+        if has_sessions:
+            return False
+
+        return worker.tasks_executed >= self.max_tasks
+
+    def reset_session(self, session_id: str, timeout_sec: float = 5.0) -> dict[str, Any]:
+        """Reset shared sandbox session and update active session tracking."""
+        with self._lock:
+            self._session_last_activity.pop(session_id, None)
+            worker = self._active_sessions.pop(session_id, None)
+            if worker and worker in self._worker_sessions:
+                self._worker_sessions[worker].discard(session_id)
+                if not self._worker_sessions[worker]:
+                    del self._worker_sessions[worker]
+
+        if worker is None:
+            return {"status": "ok"}
+
+        leased = self.lease_specific(worker, timeout_sec=timeout_sec)
+        if leased is None:
+            return {"status": "error", "error": "Could not lease worker to reset session."}
+        try:
+            res = leased.execute({"action": "reset_session", "session_id": session_id}, timeout_sec=timeout_sec)
+            return res
+        finally:
+            self.release_worker(leased)
 
     def check_dependencies(
         self,
@@ -157,6 +244,14 @@ class FormulaProcessPool(BaseProcessPool):
                 "error": busy_err,
             }
 
+        if mode == "shared" and session_id:
+            with self._lock:
+                self._active_sessions[session_id] = leased
+                if leased not in self._worker_sessions:
+                    self._worker_sessions[leased] = set()
+                self._worker_sessions[leased].add(session_id)
+                self._session_last_activity[session_id] = time.monotonic()
+
         try:
             res = leased.execute(payload, timeout_sec=_remaining_sec(deadline))
             if req_id is not None and isinstance(res, dict):
@@ -182,6 +277,8 @@ def get_formula_pool(settings: ComputeSettings | None = None) -> FormulaProcessP
                     num_workers=num_w,
                     default_timeout_sec=settings.default_timeout_sec,
                     max_tasks=getattr(settings, "worker_max_tasks", 500),
+                    session_ttl_sec=getattr(settings, "session_ttl_sec", 3600.0),
+                    idle_worker_ttl_sec=getattr(settings, "idle_worker_ttl_sec", 3600.0),
                 )
             else:
                 _GLOBAL_FORMULA_POOL = FormulaProcessPool(num_workers=1)

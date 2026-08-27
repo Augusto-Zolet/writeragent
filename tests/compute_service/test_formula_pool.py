@@ -251,6 +251,90 @@ class TestFormulaPoolSupervisor:
         shutdown_thread.join(timeout=5)
         assert not errors, f"IndexError raised during concurrent shutdown+sticky routing: {errors}"
 
+    def test_shared_session_persists_across_max_tasks(self) -> None:
+        """Shared session worker must NOT recycle at max_tasks, keeping state intact."""
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15, max_tasks=2)
+        try:
+            sid = "shared-persist-test"
+            r1 = pool.execute(code="val = 100\nresult = val", session_id=sid, mode="shared", req_id="sp-1")
+            assert r1.get("status") == "ok"
+            assert r1.get("result") == 100
+
+            r2 = pool.execute(code="val += 50\nresult = val", session_id=sid, mode="shared", req_id="sp-2")
+            assert r2.get("status") == "ok"
+            assert r2.get("result") == 150
+
+            # tasks_executed is now 2 (== max_tasks). Without session awareness, release_worker would kill process.
+            # With session awareness, recycling is skipped and state is preserved.
+            r3 = pool.execute(code="val += 25\nresult = val", session_id=sid, mode="shared", req_id="sp-3")
+            assert r3.get("status") == "ok"
+            assert r3.get("result") == 175, "State must persist across task count >= max_tasks for shared sessions"
+
+            # Resetting session clears active session tracking and recycles if task count >= max_tasks
+            worker_before = pool.workers[0]
+            pid_before = worker_before.process.pid if worker_before.process else None
+
+            reset_res = pool.reset_session(sid)
+            assert reset_res.get("status") == "ok"
+
+            # Execute an isolated task; worker will recycle because tasks_executed (3) >= max_tasks (2) and no active sessions
+            r4 = pool.execute(code="result = 'fresh'", mode="isolated", req_id="sp-4")
+            assert r4.get("status") == "ok"
+
+            pid_after = pool.workers[0].process.pid if pool.workers[0].process else None
+            assert pid_after != pid_before, "Worker should recycle after session is reset when tasks exceed max_tasks"
+        finally:
+            pool.shutdown()
+
+    def test_session_ttl_evicts_idle_session(self) -> None:
+        """Session TTL reaper must evict sessions idle longer than session_ttl_sec."""
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15, max_tasks=1, session_ttl_sec=3600.0)
+        try:
+            sid = "ttl-evict-test"
+            r1 = pool.execute(code="val = 42\nresult = val", session_id=sid, mode="shared", req_id="ttl-1")
+            assert r1.get("status") == "ok"
+            assert pool._active_sessions.get(sid) is not None
+
+            # Simulate passage of idle time and trigger eviction
+            with pool._lock:
+                pool._session_last_activity[sid] = time.monotonic() - 4000.0
+            pool._evict_stale_sessions()
+            assert pool._active_sessions.get(sid) is None, "Session should be evicted after TTL expiration"
+
+            # After eviction, next task will recycle worker because tasks_executed (1) >= max_tasks (1)
+            pid_before = pool.workers[0].process.pid if pool.workers[0].process else None
+            r2 = pool.execute(code="result = 'recycled'", mode="isolated", req_id="ttl-2")
+            assert r2.get("status") == "ok"
+            pid_after = pool.workers[0].process.pid if pool.workers[0].process else None
+            assert pid_after != pid_before, "Worker should be recycled after session TTL eviction"
+        finally:
+            pool.shutdown()
+
+    def test_idle_worker_reaper(self) -> None:
+        """Idle worker reaper must terminate workers idle for longer than idle_worker_ttl_sec."""
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15, idle_worker_ttl_sec=3600.0)
+        try:
+            # Run one task so worker is active and returned to idle
+            res = pool.execute(code="result = 123", req_id="idle-1")
+            assert res.get("status") == "ok"
+
+            worker = pool.workers[0]
+            assert worker.is_alive()
+
+            # Simulate passage of idle time and trigger reaper eviction
+            with pool._cond:
+                pool._worker_last_active[worker] = time.monotonic() - 4000.0
+            pool._evict_idle_workers()
+            assert not worker.is_alive(), "Idle worker process should be killed by idle worker reaper"
+
+            # Subsequent execution lazily re-spawns worker
+            res2 = pool.execute(code="result = 456", req_id="idle-2")
+            assert res2.get("status") == "ok"
+            assert res2.get("result") == 456
+            assert worker.is_alive(), "Worker should re-spawn lazily on next request"
+        finally:
+            pool.shutdown()
+
 
 class TestFormulaHttpEndpoint:
     @pytest.fixture

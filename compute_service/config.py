@@ -30,6 +30,8 @@ _MAX_TIMEOUT_SEC = 600
 _DEFAULT_THREADS = 2
 _DEFAULT_WORKERS = 1
 _DEFAULT_WORKER_MAX_TASKS = 500
+_DEFAULT_SESSION_TTL_SEC = 3600.0
+_DEFAULT_IDLE_WORKER_TTL_SEC = 3600.0
 _DEFAULT_OCR_WORKERS = 0
 _DEFAULT_OCR_TIMEOUT_SEC = 60
 _DEFAULT_OCR_MAX_TASKS = 100
@@ -43,9 +45,7 @@ _LOOPBACK_HOSTS = frozenset({"", "127.0.0.1", "::1", "localhost"})
 def normalize_log_level(level: str) -> str:
     """Normalize log level strings (e.g. WARN -> WARNING)."""
     norm = (level or "").strip().upper()
-    if norm == "WARN":
-        return "WARNING"
-    return norm
+    return "WARNING" if norm == "WARN" else norm
 
 
 class ConfigError(ValueError):
@@ -65,6 +65,8 @@ class ComputeSettings:
     threads: int = _DEFAULT_THREADS
     workers: int = _DEFAULT_WORKERS
     worker_max_tasks: int = _DEFAULT_WORKER_MAX_TASKS
+    session_ttl_sec: float = _DEFAULT_SESSION_TTL_SEC
+    idle_worker_ttl_sec: float = _DEFAULT_IDLE_WORKER_TTL_SEC
     ocr_workers: int = _DEFAULT_OCR_WORKERS
     ocr_timeout_sec: int = _DEFAULT_OCR_TIMEOUT_SEC
     ocr_max_tasks: int = _DEFAULT_OCR_MAX_TASKS
@@ -85,6 +87,8 @@ class ComputeSettings:
         workers: int | None = None,
         max_workers: int | None = None,
         worker_max_tasks: int = _DEFAULT_WORKER_MAX_TASKS,
+        session_ttl_sec: float = _DEFAULT_SESSION_TTL_SEC,
+        idle_worker_ttl_sec: float = _DEFAULT_IDLE_WORKER_TTL_SEC,
         ocr_workers: int = _DEFAULT_OCR_WORKERS,
         ocr_timeout_sec: int = _DEFAULT_OCR_TIMEOUT_SEC,
         ocr_max_tasks: int = _DEFAULT_OCR_MAX_TASKS,
@@ -102,6 +106,8 @@ class ComputeSettings:
         object.__setattr__(self, "threads", eff_threads)
         object.__setattr__(self, "workers", eff_workers)
         object.__setattr__(self, "worker_max_tasks", worker_max_tasks)
+        object.__setattr__(self, "session_ttl_sec", float(session_ttl_sec))
+        object.__setattr__(self, "idle_worker_ttl_sec", float(idle_worker_ttl_sec))
         object.__setattr__(self, "ocr_workers", ocr_workers)
         object.__setattr__(self, "ocr_timeout_sec", ocr_timeout_sec)
         object.__setattr__(self, "ocr_max_tasks", ocr_max_tasks)
@@ -332,6 +338,10 @@ def load_settings(
 
     if env.get("PYTHON_COMPUTE_WORKER_MAX_TASKS"):
         values["worker_max_tasks"] = env["PYTHON_COMPUTE_WORKER_MAX_TASKS"]
+    if env.get("PYTHON_COMPUTE_SESSION_TTL_SEC"):
+        values["session_ttl_sec"] = env["PYTHON_COMPUTE_SESSION_TTL_SEC"]
+    if env.get("PYTHON_COMPUTE_IDLE_WORKER_TTL_SEC"):
+        values["idle_worker_ttl_sec"] = env["PYTHON_COMPUTE_IDLE_WORKER_TTL_SEC"]
     if env.get("PYTHON_COMPUTE_OCR_WORKERS"):
         values["ocr_workers"] = env["PYTHON_COMPUTE_OCR_WORKERS"]
     if env.get("PYTHON_COMPUTE_OCR_TIMEOUT_SEC"):
@@ -379,6 +389,14 @@ def load_settings(
     elif chosen_key_file:
         api_key = _read_key_file(chosen_key_file)
 
+    def _as_float(val: Any, field: str, default: float) -> float:
+        if val is None or val == "":
+            return default
+        try:
+            return float(val)
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(f"{field} must be a number: {val}") from exc
+
     settings = ComputeSettings(
         host=str(values["host"] or _DEFAULT_HOST),
         port=_as_int(values["port"], field="port", default=_DEFAULT_PORT),
@@ -402,6 +420,12 @@ def load_settings(
         ),
         worker_max_tasks=_as_int(
             values["worker_max_tasks"], field="worker_max_tasks", default=_DEFAULT_WORKER_MAX_TASKS
+        ),
+        session_ttl_sec=_as_float(
+            values.get("session_ttl_sec"), field="session_ttl_sec", default=_DEFAULT_SESSION_TTL_SEC
+        ),
+        idle_worker_ttl_sec=_as_float(
+            values.get("idle_worker_ttl_sec"), field="idle_worker_ttl_sec", default=_DEFAULT_IDLE_WORKER_TTL_SEC
         ),
         ocr_workers=_as_int(
             values["ocr_workers"], field="ocr_workers", default=_DEFAULT_OCR_WORKERS

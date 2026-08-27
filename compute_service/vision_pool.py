@@ -34,6 +34,7 @@ class VisionProcessPool(BaseProcessPool):
         num_workers: int = 1,
         default_timeout_sec: int = 60,
         max_tasks: int = 100,
+        idle_worker_ttl_sec: float | None = 3600.0,
     ) -> None:
         super().__init__(
             script_path=_WORKER_SCRIPT,
@@ -41,6 +42,7 @@ class VisionProcessPool(BaseProcessPool):
             default_timeout_sec=default_timeout_sec,
             max_tasks=max_tasks,
             worker_name="Vision worker",
+            idle_worker_ttl_sec=idle_worker_ttl_sec,
         )
 
     def execute(
@@ -118,6 +120,7 @@ def get_vision_pool(settings: ComputeSettings | None = None) -> VisionProcessPoo
                     num_workers=settings.ocr_workers,
                     default_timeout_sec=settings.ocr_timeout_sec,
                     max_tasks=settings.ocr_max_tasks,
+                    idle_worker_ttl_sec=getattr(settings, "idle_worker_ttl_sec", 3600.0),
                 )
             else:
                 _GLOBAL_VISION_POOL = VisionProcessPool(num_workers=1)

@@ -188,6 +188,8 @@ Example JSON: [`python-compute.example.json`](python-compute.example.json).
 | `PYTHON_COMPUTE_THREADS` / `PYTHON_COMPUTE_MAX_THREADS` | Number of HTTP server listener threads | `2` |
 | `PYTHON_COMPUTE_WORKERS` / `PYTHON_COMPUTE_MAX_WORKERS` | Number of formula worker subprocesses | `1` |
 | `PYTHON_COMPUTE_WORKER_MAX_TASKS` | Tasks before recycling formula worker | `500` |
+| `PYTHON_COMPUTE_SESSION_TTL_SEC` | Session idle timeout in seconds before eviction | `3600` (1 hour) |
+| `PYTHON_COMPUTE_IDLE_WORKER_TTL_SEC` | Worker process idle timeout in seconds before termination | `3600` (1 hour) |
 | `PYTHON_COMPUTE_OCR_WORKERS` | Dedicated OCR/Vision worker subprocesses | `0` (disabled by default) |
 | `PYTHON_COMPUTE_OCR_TIMEOUT_SEC` | OCR/Vision execution timeout in seconds | `60` |
 | `PYTHON_COMPUTE_OCR_MAX_TASKS` | Tasks before recycling OCR worker process | `100` |
@@ -245,7 +247,8 @@ Wire-format detail for `split_grid` and Pickle5: [`docs/scripting/numpy-serializ
 - **Sticky Session Affinity**: For stateful calculations (`mode="shared"`), requests with the same `session_id` are consistently routed to the specific worker holding that workbook's state in memory. Isolated and sticky jobs **exclusively occupy** a worker (idle set + condition); they never run concurrently on the same process.
 - **Stderr drain**: Each worker pipes stderr into `start_stderr_drain` (same helper as the desktop venv worker) so a noisy child cannot fill the OS pipe and deadlock the parent.
 - **Hard `SIGKILL` Watchdogs**: If a user formula triggers an uncatchable loop or timeout, the pool terminates the hanging process via `SIGKILL`, returns a clean timeout error, and automatically spawns a fresh worker.
-- **Task Recycling**: Recycles worker processes after `worker_max_tasks` (default: 500) to keep memory fragmentation low.
+- **Task Recycling**: Recycles worker processes after `worker_max_tasks` (default: 500) to keep memory fragmentation low. Workers holding active stateful sessions (`mode="shared"`) bypass normal recycling to preserve state indefinitely while active. Idle sessions auto-evict after `session_ttl_sec` (default: 1 hour) of inactivity.
+- **Idle Worker Reaper**: All worker pools terminate worker subprocesses that remain idle for > `idle_worker_ttl_sec` (default: 1 hour) to free system RAM; processes lazily re-spawn on the next incoming request.
 
 ### 3. Tier 2: Isolated Vision & OCR Pool (`VisionProcessPool`)
 - Dedicated worker subprocesses (`ocr_workers`, default `0`, disabled until configured) for heavy Docling and PaddleOCR tasks.
@@ -285,7 +288,7 @@ Execution Architecture Benchmark: In-Process vs Subprocess Pickle IPC
 4. **Complete GIL Bypass**:
    - Each worker runs in its own OS process with a dedicated Python interpreter, providing true linear multi-core scaling across all CPU cores for pure-Python loops.
 5. **Periodic Memory Recycling**:
-   - Workers are automatically recycled after `worker_max_tasks` (default: 500) to reclaim memory and prevent fragmentation over long-running deployments.
+   - Workers are automatically recycled after `worker_max_tasks` (default: 500) to reclaim memory and prevent fragmentation over long-running deployments (active stateful sessions defer recycling until session reset).
 
 ---
 
