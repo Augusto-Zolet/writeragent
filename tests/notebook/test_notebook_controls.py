@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+
 import plugin.notebook.notebook_controls as notebook_controls
+import plugin.framework.thread_guard as tg
 from plugin.notebook.notebook_controls import (
     NotebookFormRunListener,
     NotebookRunButtonListener,
@@ -22,6 +24,26 @@ def setup_function() -> None:
     notebook_controls._wired_keys = set()
     notebook_controls._wired_form_docs = set()
     notebook_controls._doc_listener = None
+
+
+def test_wire_all_ok_off_main_thread(monkeypatch):
+    """File Open XFilter is Dummy-2, not threading.main_thread()."""
+    monkeypatch.setattr(tg, "on_main_thread", lambda: False)
+    monkeypatch.setenv("WRITERAGENT_TESTING", "1")
+    was = tg.GUARD_ON
+    tg.GUARD_ON = True
+    try:
+        with patch("plugin.notebook.notebook_controls.has_notebook_registry", return_value=False):
+            result = wire_all_notebook_run_buttons(MagicMock(), MagicMock())
+        assert result == 0
+
+        from plugin.notebook.notebook_controls import ensure_form_design_mode_off
+        doc = MagicMock()
+        doc.getCurrentController.return_value = None
+        ensure_form_design_mode_off(doc)
+        assert doc.ApplyFormDesignMode is False
+    finally:
+        tg.GUARD_ON = was
 
 
 def test_wire_all_returns_0_no_container():

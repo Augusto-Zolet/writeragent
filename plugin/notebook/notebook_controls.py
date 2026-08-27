@@ -28,6 +28,7 @@ from typing import Any
 
 import uno
 
+from plugin.framework.thread_guard import main_thread_only
 from plugin.framework.uno_listeners import BaseActionListener, BaseContainerListener, BaseDocumentEventListener
 from plugin.notebook.cell_registry import has_notebook_registry, load_registry
 
@@ -39,10 +40,18 @@ _FORM_BUTTON_PUSH = 0
 _RUN_PREFIX = "nb_run_"
 
 # Keep listeners alive (UNO holds weak refs). Form-level: one pair per document.
-# File Open XFilter.filter() and loadComponentFromURL over a PyUNO socket run on
-# LO's dispatch thread (often named Dummy-*), not threading.main_thread(), so
-# @main_thread_only would abort native .ipynb import. GUI File Open is VCL main.
-# _lock only serializes the one-shot global _doc_listener install.
+# File Open XFilter.filter() runs on Dummy-2 while main waits (Yellow; same as
+# issue #402). GlobalEventBroadcaster OnViewCreated during load is Dummy-3.
+# ensure_form_design_mode_off, prune_dead_listeners, and
+# wire_all_notebook_run_buttons must run there; decorating them breaks
+# WRITERAGENT_UNO_THREAD_GUARD=1 File Open (filter returns False → General I/O
+# error). Do not marshal with execute_on_main_thread from the filter (host
+# waiting = deadlock #402). ApplyFormDesignMode=False must happen before the
+# filter returns. Listener methods stay undecorated (LO already invokes those
+# on the UI thread; docs/framework-uno-thread-safety.md §A4). Release OXT still
+# strips remaining decorators. Keep @main_thread_only on getControl /
+# per-button wire / bootstrap install. _lock only serializes the one-shot
+# global _doc_listener install.
 _listener_refs: list[Any] = []
 _wired_keys: set[tuple[str, str]] = set()
 _wired_form_docs: set[str] = set()
@@ -153,6 +162,7 @@ def form_run_listeners() -> list[Any]:
     return [lis for lis in _listener_refs if getattr(lis, "_form_level", False)]
 
 
+@main_thread_only
 def get_control_view_for_model(doc: Any, model: Any) -> Any | None:
     """Resolve the live control view for a form model (required for listeners)."""
     try:
@@ -356,6 +366,7 @@ def _form_and_container(doc: Any) -> tuple[Any | None, Any | None]:
         return None, None
 
 
+@main_thread_only
 def wire_run_button_listener(ctx: Any, doc: Any, model: Any, hex_id: str) -> bool:
     """Attach ``XActionListener`` to a ▶ button model's view. Returns True on success.
 
@@ -486,6 +497,7 @@ def _install_doc_event_listener(ctx: Any) -> None:
         log.warning("notebook controls: doc-event listener install failed", exc_info=True)
 
 
+@main_thread_only
 def install_notebook_run_button_wiring(ctx: Any) -> None:
     """Bootstrap: wire ▶ buttons on the active Writer document (if any)."""
     try:

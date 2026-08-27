@@ -234,9 +234,13 @@ All UNO objects must be wrapped at birth using `guard_uno(obj)` or obtained via 
 | Graphic Export Bridge | `plugin/writer/images/image_tools.py` | `export_graphic_to_bytes()` resolves via `get_ctx()`. |
 | Locale Resolution | `plugin/framework/i18n.py` | `get_lo_locale()` uses `get_ctx()` on-main, falls back to `en_US` off-main. |
 | MCP Context Resolution | `plugin/mcp/mcp_protocol.py` | Context resolution uses `get_ctx()`, not raw bootstrap context. |
+| Document user properties | `plugin/doc/udprops.py` | Unwrap PropertyBag (proxy vs addProperty). Not `@main_thread_only`: `XFilter.filter()` runs on LO's Dummy-* dispatch thread during socket `loadComponentFromURL`. |
+| Package id | `plugin/framework/uno_context.py` | `set_package_extension_id` at `main.py` / `main_core.py` bootstrap; `resolve_package_extension_id` uses the cache off-main. |
+
+`check_disposed` is a **null** alias of `check_not_none` (Semgrep still matches the old name). Live disposal is `DisposedException` / `is_disposed_exception` / `safe_uno_call`. `_wrap_uno` also wraps one level of Python `list`/`tuple` elements and dict **values** when `GUARD_ON`.
 
 ### Intentionally Unwrapped Boundaries (By Design)
-- `QueueExecutor._get_async_callback`: Unwraps context before creating `com.sun.star.awt.AsyncCallback` service to avoid bootstrap deadlocks during executor initialization.
+- `QueueExecutor._get_async_callback`: Unwraps `self._ctx` before creating `com.sun.star.awt.AsyncCallback` so worker bootstrap does not fire Layer A while `_init_lock` is held. Does not call `get_ctx()` (decorated) from that worker path.
 - `main.py` Menu-Icon `GraphicProvider`: Runs exclusively on the main UI thread during extension load; does not leak document model references.
 
 ---
