@@ -877,6 +877,22 @@ def test_scalar_for_list_result_no_share_without_unique_origin() -> None:
     assert b == 10
 
 
+def test_scalar_for_list_result_increments_with_unique_origin(monkeypatch: pytest.MonkeyPatch) -> None:
+    ctx = _ctx_with_doc(CalcDocStub())
+    python_function.clear_python_addin_cache()
+    monkeypatch.setattr(
+        python_function,
+        "session_key",
+        lambda *_a, **_k: ("file:///u.ods", "Sheet1", "sid", "dup", "0,0"),
+    )
+    a = python_function.scalar_for_list_result(ctx, "dup", [10, 20, 30])
+    b = python_function.scalar_for_list_result(ctx, "dup", [10, 20, 30])
+    c = python_function.scalar_for_list_result(ctx, "dup", [10, 20, 30])
+    assert a == 10
+    assert b == 20
+    assert c == 30
+
+
 def test_format_error_for_display_distinguishes_timeout_error() -> None:
     """Issue #402: host marshal TimeoutError must not format as user venv settings guidance."""
     exc = TimeoutError("Main-thread execution of _workbook_session_id_impl timed out after 30.0s")

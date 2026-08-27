@@ -251,6 +251,7 @@ _AUDIO_PROBE_TIMEOUT_HINT = _("Audio probe timed out (sounddevice import failed 
 _AUDIO_PROBE_FAILED_HINT = _("Audio probe failed (see writeragent_debug.log).")
 _TEXT_ANALYTICS_INSTALL_CMD = "uv pip install spacy textdescriptives transformers language-tool-python torch --index-url https://download.pytorch.org/whl/cpu && python -m spacy download xx_sent_ud_sm"
 _NLP_PACKAGE_KEYS = ("spacy", "textdescriptives", "transformers", "language_tool_python")
+_NLP_OPTIONAL_KEYS = ("language_tool_python",)
 _NLP_PROBE_SCRIPT = """
 import json
 out = {}
@@ -626,12 +627,20 @@ def _missing_keys(keys: tuple[str, ...] | list[str], packages: dict[str, Any]) -
     return [key for key in keys if packages.get(key) != "present"]
 
 
-def _format_group_lines(title: str, keys: tuple[str, ...] | list[str], packages: dict[str, Any]) -> list[str]:
+def _format_group_lines(
+    title: str,
+    keys: tuple[str, ...] | list[str],
+    packages: dict[str, Any],
+    optional_keys: tuple[str, ...] | list[str] = (),
+) -> list[str]:
     found: list[str] = []
     missing: list[str] = []
+    optional_missing: list[str] = []
     for key in keys:
         if packages.get(key) == "present":
             found.append(key)
+        elif key in optional_keys:
+            optional_missing.append(key)
         else:
             missing.append(key)
     lines: list[str] = []
@@ -641,6 +650,8 @@ def _format_group_lines(title: str, keys: tuple[str, ...] | list[str], packages:
         lines.append(f"\n{title}:")
     if missing:
         lines.append(f"Missing: {', '.join(missing)}")
+    if optional_missing:
+        lines.append(f"Optional (not installed): {', '.join(optional_missing)}")
     return lines
 
 
@@ -739,7 +750,7 @@ def _collect_missing_probe_keys_for_display(
                 _add(_missing_keys(partial_group_keys, packages))
         elif title == _("Text / NLP Libraries"):
             if completed_groups >= _SELF_CHECK_DISPLAY_GROUP_COUNT:
-                _add(_missing_keys(keys, packages))
+                _add(_missing_keys([k for k in keys if k not in _NLP_OPTIONAL_KEYS], packages))
         elif title == _("Vision Libraries"):
             if include_vision:
                 if not vision_ocr_stack_ready(packages):
@@ -775,7 +786,7 @@ def _format_install_footer(missing_probe_keys: list[str]) -> list[str]:
     ]
     # NLP often needs the PyTorch CPU index + a spaCy model after the main packages.
     nlp_need_extras = any(
-        key in missing_probe_keys for key in ("spacy", "textdescriptives", "transformers", "language_tool_python")
+        key in missing_probe_keys for key in ("spacy", "textdescriptives", "transformers")
     )
     if nlp_need_extras:
         lines.append("uv pip install torch --index-url https://download.pytorch.org/whl/cpu")
@@ -832,7 +843,7 @@ def _build_probe_display(
                 msg_lines.extend(_format_group_lines(title, partial_group_keys, packages))
         elif title == _("Text / NLP Libraries"):
             if completed_groups >= _SELF_CHECK_DISPLAY_GROUP_COUNT:
-                msg_lines.extend(_format_group_lines(title, keys, packages))
+                msg_lines.extend(_format_group_lines(title, keys, packages, optional_keys=_NLP_OPTIONAL_KEYS))
                 nlp_failure = data.get("nlp_probe_failure")
                 if nlp_failure:
                     msg_lines.append(f"  {nlp_failure}")

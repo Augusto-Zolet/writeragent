@@ -118,18 +118,17 @@ def _hidden_undo(doc: Any) -> Iterator[None]:
     try:
         yield
     finally:
-        if um is None:
-            return
-        if hidden:
-            try:
-                um.leaveUndoContext()
-            except Exception:
-                log.debug("collabora PY rewrite: leaveUndoContext failed", exc_info=True)
-        elif locked:
-            try:
-                um.unlock()
-            except Exception:
-                log.debug("collabora PY rewrite: UndoManager.unlock failed", exc_info=True)
+        if um is not None:
+            if hidden:
+                try:
+                    um.leaveUndoContext()
+                except Exception:
+                    log.debug("collabora PY rewrite: leaveUndoContext failed", exc_info=True)
+            elif locked:
+                try:
+                    um.unlock()
+                except Exception:
+                    log.debug("collabora PY rewrite: UndoManager.unlock failed", exc_info=True)
 
 
 def _rewrite_sheet_formulas(sheet: Any) -> int:

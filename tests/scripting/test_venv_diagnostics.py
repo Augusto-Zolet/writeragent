@@ -768,3 +768,54 @@ def test_run_venv_self_check_uses_nlp_probe_timeout():
     ):
         run_venv_self_check("/x/python", timeout=1.0)
     mock_nlp_probe.assert_called_once_with("/x/python", timeout=float(SELF_CHECK_IMPORT_PROBE_TIMEOUT_SEC))
+
+
+def test_format_self_check_success_nlp_optional_language_tool_python_when_missing():
+    data = {
+        "v": "3.12.0",
+        "p": {
+            "spacy": "present",
+            "textdescriptives": "present",
+            "transformers": "present",
+            "language_tool_python": None,
+        },
+        "sci": [],
+        "eda": [],
+        "ui": [],
+        "nlp": ["spacy", "textdescriptives", "transformers", "language_tool_python"],
+        "audio": [],
+        "vector_search": [],
+        "vision": [],
+        "data_eng": [],
+    }
+    msg = _format_self_check_success(data)
+    assert "Text / NLP Libraries" in msg
+    assert "Text / NLP Libraries: spacy, textdescriptives, transformers" in msg
+    assert "Optional (not installed): language_tool_python" in msg
+    assert "Missing: language_tool_python" not in msg
+    assert "To install remaining packages:" not in msg
+
+
+def test_format_self_check_success_nlp_language_tool_python_present():
+    data = {
+        "v": "3.12.0",
+        "p": {
+            "spacy": "present",
+            "textdescriptives": "present",
+            "transformers": "present",
+            "language_tool_python": "present",
+        },
+        "sci": [],
+        "eda": [],
+        "ui": [],
+        "nlp": ["spacy", "textdescriptives", "transformers", "language_tool_python"],
+        "audio": [],
+        "vector_search": [],
+        "vision": [],
+        "data_eng": [],
+    }
+    msg = _format_self_check_success(data)
+    assert "Text / NLP Libraries: spacy, textdescriptives, transformers, language_tool_python" in msg
+    assert "Optional (not installed): language_tool_python" not in msg
+    assert "Missing:" not in msg
+

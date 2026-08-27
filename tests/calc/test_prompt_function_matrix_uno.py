@@ -24,8 +24,11 @@ def test_finalize_python_return_helpers():
     assert _is_scalar_index_arg([2.0]) is True
     assert _is_scalar_index_arg([1, 2]) is False
     assert finalize_python_return(ctx, "c", [10, 20, 30], index_arg=1.0) == 20.0
+    # Dummy ctx has no unique formula origin (XAddIn cannot name the calling cell).
+    # Sharing next_index across duplicate =PY() cells would steal scalars, so both
+    # calls return the first element. Session increment is tested with a unique origin.
     assert finalize_python_return(ctx, "x", [1, 2, 3]) == 1.0
-    assert finalize_python_return(ctx, "x", [1, 2, 3]) == 2.0
+    assert finalize_python_return(ctx, "x", [1, 2, 3]) == 1.0
 
 
 @native_test
@@ -48,11 +51,20 @@ def test_python_matrix_via_index_argument(ctx, doc):
 @native_test
 @with_native_doc("calc")
 def test_python_matrix_via_session_counter(ctx, doc):
-    """Without index arg, repeated calls emit successive list elements."""
+    """Without index arg, repeated evals of one unique origin emit successive list elements.
+
+    Auto-spill is skipped when the current selection is a multi-cell range (matrix formula).
+    """
     from plugin.calc.python.addin import PythonFunction
+    from plugin.calc.python.function import clear_python_addin_cache
+
+    code = "result = [2, 3, 5]"
+    sheet = doc.getCurrentController().getActiveSheet()
+    sheet.getCellByPosition(0, 0).setFormula('=PYTHON("result = [2, 3, 5]")')
+    doc.getCurrentController().select(sheet.getCellRangeByPosition(0, 0, 0, 2))
+    clear_python_addin_cache()
 
     func = PythonFunction(ctx)
-    code = "result = [2, 3, 5]"
     with unittest.mock.patch("plugin.calc.python.function.run_code_in_user_venv") as mock_run:
         mock_run.return_value = {"status": "ok", "result": [2, 3, 5]}
         assert func.python(code) == 2.0
