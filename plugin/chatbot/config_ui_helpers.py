@@ -347,6 +347,10 @@ def update_lru_history(val, lru_key, endpoint, max_items=None):
     lru_raw = get_config(scoped_key)
     # LRU entries are model id strings; get_config is JSON-shaped so normalize explicitly.
     lru: list[str] = [str(m) for m in lru_raw] if isinstance(lru_raw, list) else []
+    # Short-circuit if value is already at top of LRU: avoids redundant set_config
+    # and unnecessary config_changed event_bus emissions.
+    if lru and lru[0] == val_str:
+        return
     if val_str in lru:
         lru.remove(val_str)
     lru.insert(0, val_str)

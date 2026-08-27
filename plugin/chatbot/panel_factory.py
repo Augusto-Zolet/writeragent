@@ -415,62 +415,77 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                     length = len(text)
                     response_ctrl.setSelection(uno.createUnoStruct("com.sun.star.awt.Selection", length, length))
         except Exception:
-            log.exception("_render_session_history failed [greeting=%s]", greeting)
+            log.exception("_render_session_history failed [greeting=%s]")
 
     def _refresh_controls_from_config(self):
         """Reload model and prompt selectors from config (e.g. after user changes Settings).
 
         Does not re-run ``translate_dialog`` — sidebar strings are translated once at wire/load.
+
+        Bugfix / Re-entrancy Guard:
+        Populating combobox controls below (via populate_combobox_with_lru -> ctrl.setText,
+        removeItems, addItems) synchronously fires UNO listeners (ModelSyncListener,
+        ModelTextSyncListener, ImageModelSyncListener). Without ``_in_refresh_controls``,
+        those listeners treat programmatic UI updates as user edits, calling
+        sync_sidebar_text_model -> update_lru_history -> set_config -> event_bus
+        emit('config_changed') -> _refresh_controls_from_config in an infinite synchronous
+        recursion loop on the main UI thread that freezes LibreOffice.
         """
-        root = self.m_panelRootWindow
-        if not root or not hasattr(root, "getControl"):
+        if getattr(self, "_in_refresh_controls", False):
             return
-        from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru, populate_image_model_selector
-
-        def get_optional(name):
-            return get_optional_control(root, name)
-
-        model_selector = get_optional("model_selector")
-        prompt_selector = get_optional("prompt_selector")
-        image_model_selector = get_optional("image_model_selector")
-
-        current_model = get_text_model()
-        extra_instructions = get_config("additional_instructions")
-
-        current_endpoint = get_current_endpoint()
-
-        if model_selector:
-            set_val = populate_combobox_with_lru(self.ctx, model_selector, current_model, "model_lru", current_endpoint)
-            if set_val != current_model:
-                set_text_model(set_val, update_lru=False)
-        if prompt_selector:
-            populate_combobox_with_lru(self.ctx, prompt_selector, extra_instructions, "prompt_lru", "")
-
-        # Refresh visual (image) model via shared helper; persist correction if strict replaced value
-        if image_model_selector:
-            current_image = get_image_model()
-            set_image_val = populate_image_model_selector(self.ctx, image_model_selector)
-            if set_image_val != current_image:
-                set_image_model(set_image_val, update_lru=False)
-        chat_mode_selector = get_optional("chat_mode_selector")
-        if chat_mode_selector:
-            try:
-                from plugin.chatbot.chat_sidebar_mode import populate_mode_selector_with_flags, sidebar_mode_flags_for_doc_type
-
-                model = self._get_document_model()
-                cached = getattr(getattr(self, "send_listener", None), "cached_doc_type", None)
-                from plugin.doc.doc_type import doc_type_label_for_enum, get_document_type
-
-                dt = cached or doc_type_label_for_enum(get_document_type(model))
-                flags = sidebar_mode_flags_for_doc_type(dt)
-                populate_mode_selector_with_flags(chat_mode_selector, flags)
-            except Exception:
-                pass
+        self._in_refresh_controls = True
         try:
-            # Backend indicator: show "Aider" / "Hermes" when external agent backend is enabled
-            self._update_backend_indicator(root)
-        except Exception:
-            log.exception("_refresh_controls_from_config backend indicator failed")
+            root = self.m_panelRootWindow
+            if not root or not hasattr(root, "getControl"):
+                return
+            from plugin.chatbot.config_ui_helpers import populate_combobox_with_lru, populate_image_model_selector
+
+            def get_optional(name):
+                return get_optional_control(root, name)
+
+            model_selector = get_optional("model_selector")
+            prompt_selector = get_optional("prompt_selector")
+            image_model_selector = get_optional("image_model_selector")
+
+            current_model = get_text_model()
+            extra_instructions = get_config("additional_instructions")
+
+            current_endpoint = get_current_endpoint()
+
+            if model_selector:
+                set_val = populate_combobox_with_lru(self.ctx, model_selector, current_model, "model_lru", current_endpoint)
+                if set_val != current_model:
+                    set_text_model(set_val, update_lru=False)
+            if prompt_selector:
+                populate_combobox_with_lru(self.ctx, prompt_selector, extra_instructions, "prompt_lru", "")
+
+            # Refresh visual (image) model via shared helper; persist correction if strict replaced value
+            if image_model_selector:
+                current_image = get_image_model()
+                set_image_val = populate_image_model_selector(self.ctx, image_model_selector)
+                if set_image_val != current_image:
+                    set_image_model(set_image_val, update_lru=False)
+            chat_mode_selector = get_optional("chat_mode_selector")
+            if chat_mode_selector:
+                try:
+                    from plugin.chatbot.chat_sidebar_mode import populate_mode_selector_with_flags, sidebar_mode_flags_for_doc_type
+
+                    model = self._get_document_model()
+                    cached = getattr(getattr(self, "send_listener", None), "cached_doc_type", None)
+                    from plugin.doc.doc_type import doc_type_label_for_enum, get_document_type
+
+                    dt = cached or doc_type_label_for_enum(get_document_type(model))
+                    flags = sidebar_mode_flags_for_doc_type(dt)
+                    populate_mode_selector_with_flags(chat_mode_selector, flags)
+                except Exception:
+                    pass
+            try:
+                # Backend indicator: show "Aider" / "Hermes" when external agent backend is enabled
+                self._update_backend_indicator(root)
+            except Exception:
+                log.exception("_refresh_controls_from_config backend indicator failed")
+        finally:
+            self._in_refresh_controls = False
 
     def _update_backend_indicator(self, root_window=None):
         """Set backend indicator label from config (visible when external backend enabled) and gray out controls."""
@@ -536,35 +551,44 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         if model_selector:
 
             class ModelSyncListener(BaseItemListener):
-                def __init__(self, ctx):
+                def __init__(self, panel, ctx):
+                    self.panel = panel
                     self.ctx = ctx
 
                 def on_item_state_changed(self, rEvent):
+                    if getattr(self.panel, "_in_refresh_controls", False):
+                        return
                     from plugin.chatbot.config_ui_helpers import sync_sidebar_text_model
 
                     sync_sidebar_text_model(self.ctx, model_selector)
 
             class ModelTextSyncListener(BaseTextListener):
-                def __init__(self, ctx):
+                def __init__(self, panel, ctx):
+                    self.panel = panel
                     self.ctx = ctx
 
                 def on_text_changed(self, rEvent):
+                    if getattr(self.panel, "_in_refresh_controls", False):
+                        return
                     from plugin.chatbot.config_ui_helpers import sync_sidebar_text_model
 
                     sync_sidebar_text_model(self.ctx, model_selector)
 
             if hasattr(model_selector, "addItemListener"):
-                model_selector.addItemListener(ModelSyncListener(self.ctx))
+                model_selector.addItemListener(ModelSyncListener(self, self.ctx))
             if hasattr(model_selector, "addTextListener"):
-                model_selector.addTextListener(ModelTextSyncListener(self.ctx))
+                model_selector.addTextListener(ModelTextSyncListener(self, self.ctx))
 
         if image_model_selector and hasattr(image_model_selector, "addItemListener"):
 
             class ImageModelSyncListener(BaseItemListener):
-                def __init__(self, ctx):
+                def __init__(self, panel, ctx):
+                    self.panel = panel
                     self.ctx = ctx
 
                 def on_item_state_changed(self, rEvent):
+                    if getattr(self.panel, "_in_refresh_controls", False):
+                        return
                     txt = image_model_selector.getText()
                     if not txt:
                         return
@@ -572,7 +596,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                         return
                     set_image_model(txt, update_lru=False)
 
-            image_model_selector.addItemListener(ImageModelSyncListener(self.ctx))
+            image_model_selector.addItemListener(ImageModelSyncListener(self, self.ctx))
 
     def _sidebar_include_brainstorming(self, model, *, cached_doc_type: str | None = None) -> bool:
         if cached_doc_type is not None:
