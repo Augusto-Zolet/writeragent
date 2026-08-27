@@ -273,7 +273,24 @@ class TestAppendTextChunk:
         # SelectAll is between the two restores so Hidden mode stays.
         assert mock_uno.call_count == 1
 
-    def test_sync_bounds_reveals_caret_after_resize_when_transcript_nonempty(self):
+    def test_scroll_rich_to_tail_is_not_reentrant(self):
+        from plugin.chatbot import rich_text_control as rtc
+
+        control = MagicMock()
+        calls = {"n": 0}
+
+        def nested(_control, _command, _ctx):
+            calls["n"] += 1
+            rtc._scroll_rich_to_tail(control, ctx=None)
+
+        with patch("plugin.chatbot.rich_text_control._dispatch_rich_uno", side_effect=nested), \
+             patch("plugin.framework.uno_context.restore_query_if_user_still_there"):
+            rtc._scroll_rich_to_tail(control, ctx=None)
+
+        assert calls["n"] == 1
+        assert rtc._IN_SCROLL_TO_TAIL is False
+
+    def test_sync_bounds_scrolls_tail_after_resize_when_transcript_nonempty(self):
         from types import SimpleNamespace
 
         from plugin.chatbot.rich_text_control import sync_rich_control_bounds
@@ -285,13 +302,13 @@ class TestAppendTextChunk:
         placeholder = MagicMock()
         placeholder.getPosSize.return_value = SimpleNamespace(X=4, Y=16, Width=200, Height=300)
 
-        with patch("plugin.chatbot.rich_text_control.reveal_rich_control_caret") as mock_reveal:
+        with patch("plugin.chatbot.rich_text_control._scroll_rich_to_tail") as mock_scroll:
             sync_rich_control_bounds(rich, None, placeholder)
 
-        mock_reveal.assert_called_once()
-        assert mock_reveal.call_args.kwargs.get("reason") == "resize"
+        mock_scroll.assert_called_once()
+        # reveal_caret is the flash path; resize uses Hidden SelectAll like stream.
 
-    def test_sync_bounds_skips_reveal_when_empty(self):
+    def test_sync_bounds_skips_scroll_when_empty(self):
         from types import SimpleNamespace
 
         from plugin.chatbot.rich_text_control import sync_rich_control_bounds
@@ -303,10 +320,10 @@ class TestAppendTextChunk:
         placeholder = MagicMock()
         placeholder.getPosSize.return_value = SimpleNamespace(X=4, Y=16, Width=200, Height=300)
 
-        with patch("plugin.chatbot.rich_text_control.reveal_rich_control_caret") as mock_reveal:
+        with patch("plugin.chatbot.rich_text_control._scroll_rich_to_tail") as mock_scroll:
             sync_rich_control_bounds(rich, None, placeholder)
 
-        mock_reveal.assert_not_called()
+        mock_scroll.assert_not_called()
 
     def test_clear_control(self):
         control = MagicMock()

@@ -37,6 +37,7 @@ from plugin.framework.uno_context import focus_preserved, process_events_to_idle
 log = logging.getLogger(__name__)
 
 _CONTROL_INIT_STARTED: set[int] = set()
+_IN_SCROLL_TO_TAIL = False
 _ENV_SNAPSHOT_LOGGED = False
 RICH_CONTROL_NAME = "response_rich"
 # Dialog units (AppFont) — inset RichTextControl inside the response placeholder so glyphs are not clipped.
@@ -340,15 +341,21 @@ def sync_rich_control_bounds(rich_control, root_window, placeholder_ctrl, placeh
         bounds_changed = _apply_rich_control_geometry(rich_control, bx, by, bw, bh, update_dialog_model=False)
         if bounds_changed:
             log_rich_scroll("sync_bounds", control=rich_control, rect=f"{bx},{by},{bw},{bh}")
-            # layoutWindow() SetVisArea(Point()) — viewport jumps to top; caret
-            # is unchanged. Reveal the caret so AUTOSCROLL restores the view.
+            # Stock layoutWindow() SetVisArea(Point()) — every setPosSize jumps
+            # to the top. C++ patch keeps old top-left. Stock: Hidden SelectAll, no reveal_caret.
             try:
                 model = rich_control.getModel()
                 text = getattr(model, "Text", "") or "" if model is not None else ""
             except Exception:
                 text = ""
             if text:
-                reveal_rich_control_caret(rich_control, reason="resize")
+                try:
+                    peer = rich_control.getPeer() if hasattr(rich_control, "getPeer") else None
+                    if peer is not None and hasattr(peer, "invalidate"):
+                        peer.invalidate(0)
+                except Exception:
+                    pass
+                _scroll_rich_to_tail(rich_control)
         if _rich_control_needs_bounds(rich_control, bx, by, bw, bh):
             # Dialog-embedded: model resize after insert fails (-1); reinsert when transcript empty.
             try:
@@ -1008,11 +1015,22 @@ def _scroll_rich_to_tail(control: Any, ctx: Any = None) -> None:
     switches back. SelectAll itself does not GrabFocus. Restore query first so
     the viewport is Hidden, then SelectAll, then restore again. Do not setFocus
     or reveal_caret around this (that is the flash: GetFocus + Std + All()).
+
+    Re-entrant no-op: setPosSize during a sidebar drag can nest through
+    layoutWindow into another restick; that is the hang we must not reintroduce.
+    Do not process_events_to_idle here.
     """
-    from plugin.framework.uno_context import restore_query_if_user_still_there
-    restore_query_if_user_still_there()
-    _dispatch_rich_uno(control, ".uno:SelectAll", ctx)
-    restore_query_if_user_still_there()
+    global _IN_SCROLL_TO_TAIL
+    if _IN_SCROLL_TO_TAIL:
+        return
+    _IN_SCROLL_TO_TAIL = True
+    try:
+        from plugin.framework.uno_context import restore_query_if_user_still_there
+        restore_query_if_user_still_there()
+        _dispatch_rich_uno(control, ".uno:SelectAll", ctx)
+        restore_query_if_user_still_there()
+    finally:
+        _IN_SCROLL_TO_TAIL = False
 
 
 def append_text_chunk(control, text, auto_scroll=True, style_window=None, ctx=None):
