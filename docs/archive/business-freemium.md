@@ -405,7 +405,7 @@ No code paths in this document are required to exist yet.
 |-----|-----------|
 | [AGENTS.md](../AGENTS.md) | Product surface and architecture entry points |
 | [../embeddings.md](../embeddings.md) | Personal embeddings/FTS (stays free; team RAG is additive) |
-| [../mcp/protocol.md](../mcp/protocol.md) | MCP (DIY free; managed catalog is freemium) |
+| [../mcp-protocol.md](../mcp-protocol.md) | MCP (DIY free; managed catalog is freemium) |
 | [docs/ppt-master-integration-plan.md](ppt-master-integration-plan.md) | Deck generation primitives for Sales packs |
 | [../writer/reviewable-agent-edits.md](../writer/reviewable-agent-edits.md) | Free single-user review; co-review is future paid collab |
 | [../ROADMAP.md](../ROADMAP.md) | Engineering roadmap (this doc is commercial/product) |

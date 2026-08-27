@@ -62,7 +62,7 @@ flowchart TB
 *   **Gate dict lifetime** — `_doc_gates` entries are not pruned on document close (fine for typical sessions).
 *   **Save-as key migration** — after Save As, old and new URLs may map to different gate keys briefly.
 
-**Related docs:** [MCP protocol — Concurrency](../mcp/protocol.md#concurrency-and-parallel-toolscall) (integrator-facing); [ROADMAP](../ROADMAP.md) §14 (specialized tool MCP exposure).
+**Related docs:** [MCP protocol — Concurrency](../mcp-protocol.md#concurrency-and-parallel-toolscall) (integrator-facing); [ROADMAP](../ROADMAP.md) §14 (specialized tool MCP exposure).
 
 ### 3. Agent Backends and ACP stdio (`plugin/agent_backend/`)
 
@@ -262,4 +262,4 @@ The following reliability features are tracked for future implementation as conc
 
 - [streaming-and-threading.md](streaming-and-threading.md) — Main chat streaming drain loop, UI events, and Stop/cancellation handling.
 - [uno-thread-safety.md](uno-thread-safety.md) — Multi-layer off-main-thread UNO access enforcement (Layers A, B, C).
-- [../mcp/protocol.md](../mcp/protocol.md) — MCP HTTP server, concurrency, and per-document mutation gating.
+- [../mcp-protocol.md](../mcp-protocol.md) — MCP HTTP server, concurrency, and per-document mutation gating.

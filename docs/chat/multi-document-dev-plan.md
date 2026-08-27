@@ -476,7 +476,7 @@ flowchart LR
 
 - **Active document:** unchanged — `X-Document-URL` on [`mcp_protocol.py`](../../plugin/mcp/mcp_protocol.py).
 - **Nearby reads:** path or `url` in tool args / delegate task; **do not** retarget `X-Document-URL` to sibling files.
-- **Tool surface:** same as sidebar — document_research via `delegate_to_specialized_*_toolset(domain="document_research", …)`, not dozens of new MCP tool names ([../mcp/protocol.md](../mcp/protocol.md) specialized-tier policy).
+- **Tool surface:** same as sidebar — document_research via `delegate_to_specialized_*_toolset(domain="document_research", …)`, not dozens of new MCP tool names ([../mcp-protocol.md](../mcp-protocol.md) specialized-tier policy).
 - **Test:** [`test_mcp_server.py`](../../plugin/tests/mcp/test_mcp_server.py) — document_research delegate with header pointing at active Writer doc.
 
 ---
@@ -587,7 +587,7 @@ Per [AGENTS.md](../../AGENTS.md): matching `test_*.py` names; run `make test` be
 - [../writer/specialized-toolsets.md](../writer/specialized-toolsets.md) — nested delegation, gateway pattern
 - [../framework/streaming-and-threading.md](../framework/streaming-and-threading.md) — main-thread UNO, queue drain
 - [../calc/specialized-toolsets.md](../calc/specialized-toolsets.md) — Calc tool surface
-- [../mcp/protocol.md](../mcp/protocol.md) — `X-Document-URL`, MCP tool policy
+- [../mcp-protocol.md](../mcp-protocol.md) — `X-Document-URL`, MCP tool policy
 - [../chat/search.md](../chat/search.md) — external fetch (contrast with nearby files)
 
 ---

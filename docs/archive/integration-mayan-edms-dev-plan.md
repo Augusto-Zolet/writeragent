@@ -6,7 +6,7 @@
 
 > **Living document:** Update as phases ship, decisions are made, or scope changes. Link PRs and related topic docs.
 
-**Related:** [embeddings.md](../embeddings.md) · [chat/multi-document-dev-plan.md](../chat/multi-document-dev-plan.md) · [mcp/protocol.md](../mcp/protocol.md)
+**Related:** [embeddings.md](../embeddings.md) · [chat/multi-document-dev-plan.md](../chat/multi-document-dev-plan.md) · [mcp-protocol.md](../mcp-protocol.md)
 
 ---
 
@@ -480,7 +480,7 @@ Would duplicate gateway wiring, prompts, status formatters, MCP entries, and tes
 - Version / file selection; direct OCR text path.
 - `upload_document_to_mayan` (specialized_control, mutation policy TBD).
 - Multi-instance; DMS browser / @ picker.
-- MCP examples in [mcp/protocol.md](../mcp/protocol.md).
+- MCP examples in [mcp-protocol.md](../mcp-protocol.md).
 
 ### Phase 4 — Cross-DMS
 
@@ -525,7 +525,7 @@ Always: `make test` before calling a phase done. Naming: `test_<module>.py`, `te
 |-------|-----|
 | Local folder hybrid search + Search Nearby Files (shipped) | [embeddings.md](../embeddings.md) |
 | Local two-tier document_research (shipped) | [chat/multi-document-dev-plan.md](../chat/multi-document-dev-plan.md) |
-| Delegation / MCP | [mcp/protocol.md](../mcp/protocol.md), [chat/smol-tool-architecture.md](../chat/smol-tool-architecture.md) |
+| Delegation / MCP | [mcp-protocol.md](../mcp-protocol.md), [chat/smol-tool-architecture.md](../chat/smol-tool-architecture.md) |
 | Web vs DMS research | [chat/search.md](../chat/search.md) |
 | HTTP search patterns | [chat/search-engine-integration.md](../chat/search-engine-integration.md) |
 | Threading | [framework/streaming-and-threading.md](../framework/streaming-and-threading.md) |

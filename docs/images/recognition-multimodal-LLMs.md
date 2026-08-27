@@ -174,7 +174,7 @@ Unit tests cover `_render_page_png` error paths only ([`test_get_image_render.py
 | Doc | Update |
 |-----|--------|
 | [../writer/specialized-toolsets.md](../writer/specialized-toolsets.md) | Note **core** `get_image` alongside specialized Images tools |
-| [../mcp/protocol.md](../mcp/protocol.md) | Document `_mcp_image` → native image content blocks |
+| [../mcp-protocol.md](../mcp-protocol.md) | Document `_mcp_image` → native image content blocks |
 | [AGENTS.md](../../AGENTS.md) quick-orientation | Optional: `get_image` under Writer / vision |
 
 ### 8. Minor code-quality (low)

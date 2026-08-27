@@ -354,7 +354,7 @@ Port the same way as humanizer: trim to a short office-tuned guidance block, amb
 - [`../chat/librarian-onboarding.md`](../chat/librarian-onboarding.md)
 - [`memento-skills.md`](memento-skills.md)
 - [`../chat/smol-tool-architecture.md`](../chat/smol-tool-architecture.md)
-- [`../mcp/protocol.md`](../mcp/protocol.md)
+- [`../mcp-protocol.md`](../mcp-protocol.md)
 - [`../enabling_numpy_in_libreoffice.md`](../enabling_numpy_in_libreoffice.md)
 
 ---

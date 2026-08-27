@@ -53,7 +53,7 @@ The project is distributed as three standalone extension packages (*install only
 
 ### 🔌 Integrations & Extensibility
 
-- **Model Context Protocol (MCP) Server** — Connect external IDEs and agents (Cursor, Claude Desktop, LM Studio) to read and edit open LibreOffice documents over `http://localhost:18765/mcp`. [MCP Protocol](docs/mcp/protocol.md)
+- **Model Context Protocol (MCP) Server** — Connect external IDEs and agents (Cursor, Claude Desktop, LM Studio) to read and edit open LibreOffice documents over `http://localhost:18765/mcp`. [MCP Protocol](docs/mcp-protocol.md)
 - **Pluggable Agent Backends** — Switch the chat engine to external agents such as [Hermes](https://github.com/NousResearch/hermes-agent), [Claude Code](https://docs.anthropic.com/en/docs/claude-code), [Mistral Vibe](https://github.com/mistralai/mistral-vibe), [Grok Build](https://zed.dev/acp/agent/grok-build), or [OpenCode](https://opencode.ai/docs/acp/) via ACP. [Cursor Plugin](https://github.com/KeithCu/cursor-libreoffice) · [LO Skill](https://github.com/KeithCu/libreoffice-skill)
 
 Full catalog of capabilities: **[docs/features.md](docs/features.md)**.
@@ -139,7 +139,7 @@ See [docs/eval/benchmarks.md](docs/eval/benchmarks.md) for scoring methodology a
 | **LibrePy Core Architecture** | [docs/scripting/librepy-split.md](docs/scripting/librepy-split.md) |
 | **Domain Helper Functions** | [docs/scripting/numpy-domains.md](docs/scripting/numpy-domains.md) · [docs/calc/analysis-tools.md](docs/calc/analysis-tools.md) |
 | **Full Architecture** | [docs/writeragent-architecture.md](docs/writeragent-architecture.md) · [docs/framework/formal-verification.md](docs/framework/formal-verification.md) |
-| **Model Context Protocol (MCP)** | [docs/mcp/protocol.md](docs/mcp/protocol.md) |
+| **Model Context Protocol (MCP)** | [docs/mcp-protocol.md](docs/mcp-protocol.md) |
 | **Embeddings & Search** | [docs/embeddings.md](docs/embeddings.md) |
 | **Benchmarks** | [docs/eval/benchmarks.md](docs/eval/benchmarks.md) |
 | **Localization (34 Locales)** | [docs/localization.md](docs/localization.md) |

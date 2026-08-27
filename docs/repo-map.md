@@ -78,7 +78,7 @@ Start here by task.
 | Excel / Calc `=PY` design stance | [scripting/ms-py-compatibility.md](scripting/ms-py-compatibility.md) |
 | Jupyter notebook import & execution | [writer/jupyter-notebook-import.md](writer/jupyter-notebook-import.md) |
 | Agent Search / Web | [chat/search.md](chat/search.md) |
-| MCP protocol | [mcp/protocol.md](mcp/protocol.md) |
+| MCP protocol | [mcp-protocol.md](mcp-protocol.md) |
 | Localization / translations | [localization.md](localization.md), [locales/README.md](../locales/README.md) |
 | Audio Architecture | [audio-architecture.md](audio-architecture.md) |
 | Image generation | [images/generation.md](images/generation.md) |

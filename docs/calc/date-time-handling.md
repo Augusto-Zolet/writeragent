@@ -967,7 +967,7 @@ Through the production `CellInspector.read_range(include_format_info=True)`:
 ## 9. Related Documents
 
 - [Calc Specialized Toolsets](specialized-toolsets.md) — Tool delegation, tiers, and Calc domain status.
-- [MCP Protocol & Invariants](../mcp/protocol.md) — Model Context Protocol instructions and clock context formatting (`instructions` may be ignored by hosts).
+- [MCP Protocol & Invariants](../mcp-protocol.md) — Model Context Protocol instructions and clock context formatting (`instructions` may be ignored by hosts).
 - [NumPy & Python Venv Bridge](../enabling_numpy_in_libreoffice.md) — Raw numeric serialization for analytical pipelines.
 - [Calc `=PY` Data Shapes](py-data-shapes.md) — Intentional non-coercion at the Python bridge.
 - [NumPy Serialization](../scripting/numpy-serialization.md) — Separate datetime/string wire semantics that must not be conflated with Calc serials.

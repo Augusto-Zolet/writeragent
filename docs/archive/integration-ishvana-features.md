@@ -448,7 +448,7 @@ Link from [../ROADMAP.md](../ROADMAP.md) when a phase ships.
 - Keep manuscripts in **real ODF/DOCX** with LibreOffice publishing, Calc budgets, Draw maps.
 - Add Ishvana-class **lore + continuity** without leaving the office suite.
 - Use **any model** (cloud or local) instead of a bundled engine.
-- **MCP** ([../mcp/protocol.md](../mcp/protocol.md)) exposes lore and search to external tools — Ishvana is siloed.
+- **MCP** ([../mcp-protocol.md](../mcp-protocol.md)) exposes lore and search to external tools — Ishvana is siloed.
 
 **Pitch honesty:** Ishvana ships a cohesive fiction UX today; WriterAgent would be **assembly required** until Phase 2–3 land. The architecture above closes that gap without forking LibreOffice.
 

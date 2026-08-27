@@ -24,7 +24,7 @@ WriterAgent is built on a **Pure State Machine** architecture.
 *   **Predictability**: Every action the agent takes is governed by formal logic. This prevents the "hallucinations" and random UI freezes common in other AI integrations.
 *   **Async Orchestration**: We use a custom "Drain Loop" that allows the AI to "think" and "stream" results into your document without ever making the application feel laggy or unresponsive.
 *   **JSON repair**: Multi-stage parsing (Hermes-inspired) plus `json-repair` for messy model output — [chat/llm-hacks.md](chat/llm-hacks.md).
-*   **MCP (Model Context Protocol)**: WriterAgent acts as a server, allowing *other* AI systems to "remote control" LibreOffice. This turns LibreOffice into a first-class citizen in the global AI ecosystem. See [mcp/protocol.md](mcp/protocol.md).
+*   **MCP (Model Context Protocol)**: WriterAgent acts as a server, allowing *other* AI systems to "remote control" LibreOffice. This turns LibreOffice into a first-class citizen in the global AI ecosystem. See [mcp-protocol.md](mcp-protocol.md).
 
 ### 2. Deep Semantic Understanding (The Eyes)
 Most AI tools see a document as a flat "wall of text." WriterAgent sees the **structure**:

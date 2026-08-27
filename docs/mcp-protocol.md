@@ -29,9 +29,9 @@ what to consider doing next.
 | Ngrok | CLI / env authtoken | `--authtoken` |
 | Tailscale | Funnel (must already be logged in) | Ignored |
 
-The chosen binary must be on `PATH`. There is **no auth** on the MCP HTTP API itself — anyone who has the public URL can call tools against open documents. Tunnel start/auth failures (missing binary, bad ngrok/Cloudflare token, early process exit) are stored on `TunnelManager.last_error` and shown in **MCP Server Status** (and the Start toast when known immediately). When a tunnel connection drops unexpectedly, the pure state machine in [`plugin/mcp/tunnel_state.py`](../../plugin/mcp/tunnel_state.py) automatically transitions through **reconnecting** with exponential backoff (1s, 2s, 4s, 8s, up to max retries) before declaring a failure. Fatal auth errors fail immediately without retrying. Implementation: [`plugin/mcp/tunnel.py`](../../plugin/mcp/tunnel.py), [`plugin/mcp/tunnel_state.py`](../../plugin/mcp/tunnel_state.py), wired from [`plugin/mcp/__init__.py`](../../plugin/mcp/__init__.py).
+The chosen binary must be on `PATH`. There is **no auth** on the MCP HTTP API itself — anyone who has the public URL can call tools against open documents. Tunnel start/auth failures (missing binary, bad ngrok/Cloudflare token, early process exit) are stored on `TunnelManager.last_error` and shown in **MCP Server Status** (and the Start toast when known immediately). When a tunnel connection drops unexpectedly, the pure state machine in [`plugin/mcp/tunnel_state.py`](../plugin/mcp/tunnel_state.py) automatically transitions through **reconnecting** with exponential backoff (1s, 2s, 4s, 8s, up to max retries) before declaring a failure. Fatal auth errors fail immediately without retrying. Implementation: [`plugin/mcp/tunnel.py`](../plugin/mcp/tunnel.py), [`plugin/mcp/tunnel_state.py`](../plugin/mcp/tunnel_state.py), wired from [`plugin/mcp/__init__.py`](../plugin/mcp/__init__.py).
 
-**Start failures:** If the HTTP listener cannot bind (usually port already in use), Toggle / Settings / Status show `host:port`, the exception line, and guidance to free the port or change `mcp.mcp_port` — not only “check the debug log”. Port conflicts do not offer Report bug. Full traceback remains in `writeragent_debug.log`. Formatter: `format_mcp_start_failure` in [`plugin/mcp/server.py`](../../plugin/mcp/server.py).
+**Start failures:** If the HTTP listener cannot bind (usually port already in use), Toggle / Settings / Status show `host:port`, the exception line, and guidance to free the port or change `mcp.mcp_port` — not only “check the debug log”. Port conflicts do not offer Report bug. Full traceback remains in `writeragent_debug.log`. Formatter: `format_mcp_start_failure` in [`plugin/mcp/server.py`](../plugin/mcp/server.py).
 
 | Method | Path | Purpose |
 |--------|------|---------|
@@ -43,17 +43,17 @@ The chosen binary must be on `PATH`. There is **no auth** on the MCP HTTP API it
 
 There is **no** `/api/config` endpoint (removed — config is Settings / `writeragent.json` only).
 
-**Code:** [`plugin/mcp/mcp_protocol.py`](../../plugin/mcp/mcp_protocol.py), [`plugin/mcp/wire_types.py`](../../plugin/mcp/wire_types.py), [`plugin/mcp/__init__.py`](../../plugin/mcp/__init__.py), [`plugin/mcp/server.py`](../../plugin/mcp/server.py) (`mcp_endpoint_url`).
+**Code:** [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py), [`plugin/mcp/wire_types.py`](../plugin/mcp/wire_types.py), [`plugin/mcp/__init__.py`](../plugin/mcp/__init__.py), [`plugin/mcp/server.py`](../plugin/mcp/server.py) (`mcp_endpoint_url`).
 
-**Wire types:** MCP JSON-RPC message shapes live in [`plugin/mcp/wire_types.py`](../../plugin/mcp/wire_types.py) — stdlib dataclass mirrors of the official [`mcp.types`](https://github.com/modelcontextprotocol/python-sdk) subset (initialize, tools/list, tools/call, progress notification). The official Python SDK and Pydantic are **not** bundled; the HTTP server and routing remain custom. `ProgressNotification` is defined for future long-running tool progress over SSE; today only SSE keepalive is sent.
+**Wire types:** MCP JSON-RPC message shapes live in [`plugin/mcp/wire_types.py`](../plugin/mcp/wire_types.py) — stdlib dataclass mirrors of the official [`mcp.types`](https://github.com/modelcontextprotocol/python-sdk) subset (initialize, tools/list, tools/call, progress notification). The official Python SDK and Pydantic are **not** bundled; the HTTP server and routing remain custom. `ProgressNotification` is defined for future long-running tool progress over SSE; today only SSE keepalive is sent.
 
 **Document targeting:** `X-Document-URL` header on MCP requests (see below).
 
-**Concurrency:** Multiple MCP clients may call `tools/call` in parallel. See [Concurrency and parallel `tools/call`](#concurrency-and-parallel-toolscall) and [Threading architecture — MCP](../framework/threading.md#2-http-server-and-mcp-protocol-pluginmcp).
+**Concurrency:** Multiple MCP clients may call `tools/call` in parallel. See [Concurrency and parallel `tools/call`](#concurrency-and-parallel-toolscall) and [Threading architecture — MCP](framework/threading.md#2-http-server-and-mcp-protocol-pluginmcp).
 
 ### Live smoke test (running LibreOffice)
 
-Use [`scripts/mcp_live_smoke.py`](../../scripts/mcp_live_smoke.py) when LibreOffice is already open with WriterAgent and MCP enabled. It does **not** start `soffice`; it checks `/health`, `tools/list`, then calls `apply_document_content` with plain text at `target=end` (default) so you can confirm edits **on screen** in the active Writer window. The chat sidebar shows `[MCP Result]` for JSON-RPC `tools/call` (not for `--use-debug`). Default host is **localhost** (port 18765).
+Use [`scripts/mcp_live_smoke.py`](../scripts/mcp_live_smoke.py) when LibreOffice is already open with WriterAgent and MCP enabled. It does **not** start `soffice`; it checks `/health`, `tools/list`, then calls `apply_document_content` with plain text at `target=end` (default) so you can confirm edits **on screen** in the active Writer window. The chat sidebar shows `[MCP Result]` for JSON-RPC `tools/call` (not for `--use-debug`). Default host is **localhost** (port 18765).
 
 ```bash
 python scripts/mcp_live_smoke.py
@@ -62,13 +62,13 @@ python scripts/mcp_live_smoke.py --document-url 'vnd.libreoffice:...'
 python scripts/mcp_live_smoke.py --use-debug   # POST /debug call_tool (localhost only)
 ```
 
-**Localhost debug shortcut:** `POST /debug` with `{"action":"call_tool","tool":"…","args":{…}}` runs a tool without the full MCP client handshake. Restricted to `127.0.0.1` / `::1`. Same port as MCP; see `handle_debug_post` in [`plugin/mcp/mcp_protocol.py`](../../plugin/mcp/mcp_protocol.py).
+**Localhost debug shortcut:** `POST /debug` with `{"action":"call_tool","tool":"…","args":{…}}` runs a tool without the full MCP client handshake. Restricted to `127.0.0.1` / `::1`. Same port as MCP; see `handle_debug_post` in [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py).
 
 ### OPTIONS `/mcp` (CORS preflight)
 
 Browser and streamable-HTTP MCP clients send **`OPTIONS /mcp`** before `POST /mcp`. The server responds with **HTTP 204** and an **empty body** — that is **success**, not an error. Logs that only show `HTTP/1.0 204 No Content` (or `HTTP/1.1 204`) are normal; you must inspect the **response headers** (DevTools → Network → Headers, or `curl -i`).
 
-CORS must allow every header the client names in `Access-Control-Request-Headers`, including **`Mcp-Protocol-Version`** / `mcp-protocol-version` (and often `Content-Type`, `Mcp-Session-Id`, `X-Document-URL`). POST responses also send **`Mcp-Protocol-Version`** and expose it via **`Access-Control-Expose-Headers`** so browser JavaScript can read session and version headers. Implementation: [`plugin/mcp/cors.py`](../../plugin/mcp/cors.py), used from [`plugin/mcp/server.py`](../../plugin/mcp/server.py) and [`plugin/mcp/mcp_protocol.py`](../../plugin/mcp/mcp_protocol.py).
+CORS must allow every header the client names in `Access-Control-Request-Headers`, including **`Mcp-Protocol-Version`** / `mcp-protocol-version` (and often `Content-Type`, `Mcp-Session-Id`, `X-Document-URL`). POST responses also send **`Mcp-Protocol-Version`** and expose it via **`Access-Control-Expose-Headers`** so browser JavaScript can read session and version headers. Implementation: [`plugin/mcp/cors.py`](../plugin/mcp/cors.py), used from [`plugin/mcp/server.py`](../plugin/mcp/server.py) and [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py).
 
 Verify preflight from a shell:
 
@@ -104,7 +104,7 @@ Browser MCP clients send an `Origin` header (e.g. `https://localai.local`). The 
 "mcp.cors_allowed_origins": ["https://tools.mycompany.com"]
 ```
 
-Homelab / LocalAI setups typically need **no** entries in `mcp.cors_allowed_origins`. Implementation: [`plugin/mcp/cors.py`](../../plugin/mcp/cors.py).
+Homelab / LocalAI setups typically need **no** entries in `mcp.cors_allowed_origins`. Implementation: [`plugin/mcp/cors.py`](../plugin/mcp/cors.py).
 
 **Troubleshooting — OPTIONS succeeds but MCP never connects**
 
@@ -125,7 +125,7 @@ Homelab / LocalAI setups typically need **no** entries in `mcp.cors_allowed_orig
 
 ### HTTP/1.0 vs HTTP/1.1 (curl hangs and worker threads)
 
-**Current behavior (minimal fix):** [`GenericRequestHandler`](../../plugin/mcp/server.py) does **not** set `protocol_version`, so Python’s `BaseHTTPRequestHandler` advertises **HTTP/1.0**. That matches pre–CORS-logging behavior and avoids several HTTP/1.1 client quirks. OPTIONS still returns **`204`** with an empty body; status line may read `HTTP/1.0 204` — that is normal.
+**Current behavior (minimal fix):** [`GenericRequestHandler`](../plugin/mcp/server.py) does **not** set `protocol_version`, so Python’s `BaseHTTPRequestHandler` advertises **HTTP/1.0**. That matches pre–CORS-logging behavior and avoids several HTTP/1.1 client quirks. OPTIONS still returns **`204`** with an empty body; status line may read `HTTP/1.0 204` — that is normal.
 
 This section is for **future** changes if you need HTTP/1.1 on the wire (some proxies, clients, or spec wording). It explains a regression seen in 2026 and how to debug similar hangs without expanding the default fix.
 
@@ -157,7 +157,7 @@ Example snapshot:
 - **http-server** — `serve_forever` (listener).
 - **Thread-N (`process_request_thread`)** — `readline` in `handle_one_request` (waiting for the next request line on **that** socket).
 
-That pattern usually means “connection still open, no new request yet,” not “stuck inside `tools/list`.” Once POST is parsed, the worker should move to `do_POST` → [`handle_mcp_post`](../../plugin/mcp/mcp_protocol.py) → `_read_body` → JSON-RPC. For `tools/list`, the worker may then block on [`QueueExecutor.execute`](../../plugin/framework/queue_executor.py) (up to **10s** timeout when AsyncCallback is available), which looks like `_wait_for_result`, not `readline`.
+That pattern usually means “connection still open, no new request yet,” not “stuck inside `tools/list`.” Once POST is parsed, the worker should move to `do_POST` → [`handle_mcp_post`](../plugin/mcp/mcp_protocol.py) → `_read_body` → JSON-RPC. For `tools/list`, the worker may then block on [`QueueExecutor.execute`](../plugin/framework/queue_executor.py) (up to **10s** timeout when AsyncCallback is available), which looks like `_wait_for_result`, not `readline`.
 
 If POST never reaches the server, logs show **`[MCP-CORS] OPTIONS`** without **`[MCP-HTTP] POST /mcp`** (browser CORS) or curl blocks before any POST log (HTTP handshake / Expect deadlock).
 
@@ -204,7 +204,7 @@ Pick **one** small change at a time; avoid combining socket timeouts, `tools/lis
 
 1. **Keep HTTP/1.0 (current default)** — Simplest; sufficient for localhost MCP, browsers, and `curl`. Document that `HTTP/1.0 204` on OPTIONS is success.
 
-2. **HTTP/1.1 + explicit `handle_expect_100` only** — In [`server.py`](../../plugin/mcp/server.py), set `protocol_version = "HTTP/1.1"` and override:
+2. **HTTP/1.1 + explicit `handle_expect_100` only** — In [`server.py`](../plugin/mcp/server.py), set `protocol_version = "HTTP/1.1"` and override:
 
    ```python
    def handle_expect_100(self):
@@ -217,9 +217,9 @@ Pick **one** small change at a time; avoid combining socket timeouts, `tools/lis
 
 3. **Force `Connection: close`** — Set `self.close_connection = True` at the start of each handler (`_dispatch` / `do_OPTIONS`) so workers do not sit in `readline` after preflight. Does **not** fix Expect deadlock on POST; only reduces idle keep-alive threads.
 
-4. **Per-connection read timeout** — e.g. `get_request()` → `conn.settimeout(120)` on [`_ThreadedHTTPServer`](../../plugin/mcp/server.py). Recovers stuck sockets eventually; does not fix handshake deadlocks; may surprise long SSE `GET /mcp` clients.
+4. **Per-connection read timeout** — e.g. `get_request()` → `conn.settimeout(120)` on [`_ThreadedHTTPServer`](../plugin/mcp/server.py). Recovers stuck sockets eventually; does not fix handshake deadlocks; may surprise long SSE `GET /mcp` clients.
 
-5. **`tools/list` without blocking on active document** — Separate issue: if AsyncCallback is missing, `QueueExecutor.execute` runs UNO on the HTTP thread and can hang forever (no timeout). That is **not** fixed by HTTP version; would need a dedicated change in [`mcp_protocol.py`](../../plugin/mcp/mcp_protocol.py) (e.g. skip `get_active_document` when dispatch is unavailable). Only consider if py-spy shows the worker past `do_POST`, inside UNO, with MainThread idle.
+5. **`tools/list` without blocking on active document** — Separate issue: if AsyncCallback is missing, `QueueExecutor.execute` runs UNO on the HTTP thread and can hang forever (no timeout). That is **not** fixed by HTTP version; would need a dedicated change in [`mcp_protocol.py`](../plugin/mcp/mcp_protocol.py) (e.g. skip `get_active_document` when dispatch is unavailable). Only consider if py-spy shows the worker past `do_POST`, inside UNO, with MainThread idle.
 
 #### What we are not doing by default
 
@@ -237,11 +237,11 @@ This section is the important mental model for integrating Cursor, LM Studio, or
 
 ### What the MCP host actually sees
 
-`tools/list` (in default `delegate` mode) returns **core** tools plus a few MCP-only helpers. Tools with `tier="specialized"` or `tier="specialized_control"` are omitted (see [`plugin/framework/tool.py`](../../plugin/framework/tool.py) `get_tools` / `get_schemas`). The host typically receives:
+`tools/list` (in default `delegate` mode) returns **core** tools plus a few MCP-only helpers. Tools with `tier="specialized"` or `tier="specialized_control"` are omitted (see [`plugin/framework/tool.py`](../plugin/framework/tool.py) `get_tools` / `get_schemas`). The host typically receives:
 
 - Document I/O: `get_document_content`, `apply_document_content`, `search_in_document`, `get_document_tree`, …
 - Guidance: **`get_guidance(topic)`** — the on-demand how-to manual (topics per document type; single source: the shared prompt pieces in `plugin/framework/prompts.py`, mapped by `plugin/chatbot/agent_manual.py`)
-- A single gateway: **`delegate_to_specialized_writer_toolset`** ([`plugin/doc/specialized_base.py`](../../plugin/doc/specialized_base.py), Writer variant in [`plugin/writer/specialized_base.py`](../../plugin/writer/specialized_base.py))
+- A single gateway: **`delegate_to_specialized_writer_toolset`** ([`plugin/doc/specialized_base.py`](../plugin/doc/specialized_base.py), Writer variant in [`plugin/writer/specialized_base.py`](../plugin/writer/specialized_base.py))
 - MCP helpers: `list_open_documents` (`tier="mcp"`), and `get_image` (always kept on MCP; chat may hide it for text-only models)
 
 It does **not** receive dozens of low-level UNO tools (`style_list`, page margin APIs, chart editors, etc.) as separate MCP tools.
@@ -259,15 +259,15 @@ Chat also gets the full specialized-delegation block in the **system prompt**; M
 
 ### Where delegation guidance lives (MCP vs sidebar chat)
 
-Sidebar chat injects the same specialized-delegation block into the **system prompt** via [`get_chat_system_prompt_for_document()`](../../plugin/framework/prompts.py) (`WRITER_SPECIALIZED_DELEGATION_TEMPLATE` and siblings, with a dynamic `domain: description` list).
+Sidebar chat injects the same specialized-delegation block into the **system prompt** via [`get_chat_system_prompt_for_document()`](../plugin/framework/prompts.py) (`WRITER_SPECIALIZED_DELEGATION_TEMPLATE` and siblings, with a dynamic `domain: description` list).
 
-MCP hosts do **not** get that system prompt by default. Instead, **`tools/list`** enriches the gateway tool only (see [`to_mcp_schema()`](../../plugin/framework/tool.py)):
+MCP hosts do **not** get that system prompt by default. Instead, **`tools/list`** enriches the gateway tool only (see [`to_mcp_schema()`](../plugin/framework/tool.py)):
 
 | Field | What the host sees |
 |--------|-------------------|
 | **`delegate_to_specialized_*_toolset` → `description`** | Short tool summary + full delegation template (semicolon-separated domains, `task` rules for Writer, **same single-line text as chat**) |
 | **`inputSchema.properties.domain.description`** | `domain one of:` plus the same semicolon-separated domain list (enum values stay in `enum`) |
-| **`inputSchema.properties.task.description`** | [`DELEGATE_SPECIALIZED_TASK_PARAM_HINT`](../../plugin/framework/prompts.py) (Writer’s detailed `task` rules are in the tool `description`) |
+| **`inputSchema.properties.task.description`** | [`DELEGATE_SPECIALIZED_TASK_PARAM_HINT`](../plugin/framework/prompts.py) (Writer’s detailed `task` rules are in the tool `description`) |
 
 OpenAI/chat tool schemas are **not** duplicated this way—the sidebar already has the system prompt.
 
@@ -285,16 +285,16 @@ If a client ignores `initialize.instructions` and only binds tools from `tools/l
 
 ### What happens when the host calls `delegate`
 
-With [`USE_SUB_AGENT = True`](../../plugin/framework/constants.py) (current default), `delegate_to_specialized_writer_toolset` does **not** “switch tools” on the MCP host. Instead WriterAgent:
+With [`USE_SUB_AGENT = True`](../plugin/framework/constants.py) (current default), `delegate_to_specialized_writer_toolset` does **not** “switch tools” on the MCP host. Instead WriterAgent:
 
 1. Resolves the `domain` enum (`styles`, `page`, `charts`, `shapes`, `web_research`, …).
 2. Collects all tools registered for that domain.
-3. Runs a **nested** smolagents `ToolCallingAgent` ([`build_toolcalling_agent`](../../plugin/chatbot/smol_agent.py) + [`SmolAgentExecutor`](../../plugin/chatbot/smol_agent.py)) on the LibreOffice main thread.
+3. Runs a **nested** smolagents `ToolCallingAgent` ([`build_toolcalling_agent`](../plugin/chatbot/smol_agent.py) + [`SmolAgentExecutor`](../plugin/chatbot/smol_agent.py)) on the LibreOffice main thread.
 4. Returns **one JSON tool result** (usually a summary string) to the MCP host.
 
 The outer MCP model never holds the specialized tool schemas in its context; it only sees the delegate call and the final payload. That is intentional: smaller host prompts, fewer direct UNO foot-guns, and the same pattern as the in-app sidebar when using delegation.
 
-**Special case `domain="web_research"`:** the gateway forwards to [`WebResearchTool`](../../plugin/chatbot/web_research.py) instead of the generic specialized sub-agent, but the idea is the same: an **internal** ReAct loop with `DuckDuckGoSearchTool` / `VisitWebpageTool`, not MCP-exposed search tools.
+**Special case `domain="web_research"`:** the gateway forwards to [`WebResearchTool`](../plugin/chatbot/web_research.py) instead of the generic specialized sub-agent, but the idea is the same: an **internal** ReAct loop with `DuckDuckGoSearchTool` / `VisitWebpageTool`, not MCP-exposed search tools.
 
 ### Contrast: in-app chat without MCP
 
@@ -303,17 +303,17 @@ The outer MCP model never holds the specialized tool schemas in its context; it 
 | **Sub-agent delegation** | `USE_SUB_AGENT = True` | Calls `delegate` with a natural-language `task` | smol sub-agent runs domain tools |
 | **In-place tool switching** | `USE_SUB_AGENT = False` | Receives “switched to domain X”; **same** model calls specialized tools until `specialized_workflow_finished` | No nested agent; tools swapped on the outer loop |
 
-MCP today always follows the **`USE_SUB_AGENT = True`** path when the host uses `delegate`. In-place switching is a main-chat FSM feature ([`plugin/chatbot/tool_loop.py`](../../plugin/chatbot/tool_loop.py)); it is **not** exposed over HTTP unless you deliberately change MCP tool exposure and protocol (future work).
+MCP today always follows the **`USE_SUB_AGENT = True`** path when the host uses `delegate`. In-place switching is a main-chat FSM feature ([`plugin/chatbot/tool_loop.py`](../plugin/chatbot/tool_loop.py)); it is **not** exposed over HTTP unless you deliberately change MCP tool exposure and protocol (future work).
 
 ### LLM endpoint: the sub-agent still needs your API config
 
-Delegated work—including **web research**—does **not** use the MCP host’s LLM. It uses WriterAgent’s configured chat endpoint via [`get_api_config`](../../plugin/framework/config.py) and [`WriterAgentSmolModel`](../../plugin/chatbot/smol_agent.py) inside the LibreOffice process that is handling the MCP request.
+Delegated work—including **web research**—does **not** use the MCP host’s LLM. It uses WriterAgent’s configured chat endpoint via [`get_api_config`](../plugin/framework/config.py) and [`WriterAgentSmolModel`](../plugin/chatbot/smol_agent.py) inside the LibreOffice process that is handling the MCP request.
 
 Implications for integrators:
 
 - **Configure endpoint, model, and API keys in WriterAgent Settings** (same as sidebar chat). If chat cannot reach OpenRouter/Ollama/LM Studio, delegated MCP calls will fail too.
 - The MCP host’s model (e.g. Claude in Cursor) only orchestrates **which** WriterAgent tools to call; it does not power the inner research/formatting loop unless you do that work on the host side yourself.
-- **Web research checkbox** in the sidebar is a separate UX entry point to the same [`WebResearchTool`](../../plugin/chatbot/web_research.py); MCP hosts use `delegate` + `domain: "web_research"` instead.
+- **Web research checkbox** in the sidebar is a separate UX entry point to the same [`WebResearchTool`](../plugin/chatbot/web_research.py); MCP hosts use `delegate` + `domain: "web_research"` instead.
 
 ### Recommended integration patterns
 
@@ -329,14 +329,14 @@ Implications for integrators:
 
 ### Concurrency and parallel `tools/call`
 
-External MCP hosts often fire several `tools/call` requests at once (e.g. research on one connection while another edits the document). WriterAgent uses **two layers** in [`plugin/mcp/mcp_protocol.py`](../../plugin/mcp/mcp_protocol.py):
+External MCP hosts often fire several `tools/call` requests at once (e.g. research on one connection while another edits the document). WriterAgent uses **two layers** in [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py):
 
 | Layer | Applies to | Effect |
 |-------|------------|--------|
 | **Global semaphore** | Backpressure (non-`long_running`) tools only | At most one fast tool on the main thread; overload → HTTP 429 `BusyError` |
 | **Per-document gate** | Mutating tools on **both** backpressure and long-running paths | Same resolved document key (`document_url` / RuntimeUID) → mutating runs serialize; different docs and read-only runs stay concurrent |
 
-Tools with `long_running = True` (e.g. `delegate_to_specialized_*`, `image_generate`) **skip** the global semaphore so a minutes-long job does not block every other MCP client. They still take the per-document gate when they mutate. Read-only delegations (`domain: "document_research"` or `"web_research"`) opt out via [`ToolBase.requires_document_lock()`](../../plugin/framework/tool.py).
+Tools with `long_running = True` (e.g. `delegate_to_specialized_*`, `image_generate`) **skip** the global semaphore so a minutes-long job does not block every other MCP client. They still take the per-document gate when they mutate. Read-only delegations (`domain: "document_research"` or `"web_research"`) opt out via [`ToolBase.requires_document_lock()`](../plugin/framework/tool.py).
 
 **UNO:** All LibreOffice access is marshalled to the main thread. The per-document gate prevents overlapping *mutating MCP tool runs* on the same file, not raw cross-thread UNO (that is already forbidden).
 
@@ -344,15 +344,15 @@ Tools with `long_running = True` (e.g. `delegate_to_specialized_*`, `image_gener
 
 **Per-result document echo:** Successful tool results include `document: {name, uid}` when the tool did not already set a `document` field. The echo reflects the **resolved** target for that call (from `document_url`, header, or active window) — not necessarily the user's current focus. Check it when multiple documents are open or when you did not pass an explicit target.
 
-**Tests:** [`tests/mcp/test_long_running_concurrency.py`](../../tests/mcp/test_long_running_concurrency.py), [`tests/mcp/test_mcp_qol_extras.py`](../../tests/mcp/test_mcp_qol_extras.py).
+**Tests:** [`tests/mcp/test_long_running_concurrency.py`](../tests/mcp/test_long_running_concurrency.py), [`tests/mcp/test_mcp_qol_extras.py`](../tests/mcp/test_mcp_qol_extras.py).
 
-**Full design:** [Threading architecture — MCP](../framework/threading.md#2-http-server-and-mcp-protocol-pluginmcp) (paths, diagram, known limits: sidebar chat, gate dict lifetime, save-as key changes).
+**Full design:** [Threading architecture — MCP](framework/threading.md#2-http-server-and-mcp-protocol-pluginmcp) (paths, diagram, known limits: sidebar chat, gate dict lifetime, save-as key changes).
 
 ### Per-connection vs global configuration (multiple servers)
 
 Today, all MCP traffic in a given LibreOffice process shares:
 
-- One HTTP listener (port from `mcp.mcp_port` in [`writeragent.json`](../../plugin/framework/config.py) for that user profile).
+- One HTTP listener (port from `mcp.mcp_port` in [`writeragent.json`](../plugin/framework/config.py) for that user profile).
 - One tool registry and one **`get_api_config`** / chat stack for sub-agents.
 
 There is **no** per-MCP-client or per-TCP-connection LLM profile. A Cursor session and an LM Studio session hitting the same LO instance use the same WriterAgent API settings.
@@ -387,7 +387,7 @@ An outer MCP model that **alternates** between unrelated tool groups in one long
 
 **Low priority for now:** MCP could be extended to expose additional tools on `tools/list` (specialized-tier tools or other surfaces). That could work for some hosts, especially if they **clear or compact context** so earlier tool-call history does not accumulate. It has not been a development focus because delegation matches the main use cases today.
 
-**Still required internally:** Even with a larger MCP surface, the internal agent stack remains necessary for features that are **not** orchestrated by an MCP client— notably the **background grammar checker** ([`../writer/grammar-checker-plan.md`](../writer/grammar-checker-plan.md)) and similar automatic pipelines we may add later. Those run on their own schedules inside LibreOffice; an outer model cannot replace them by calling MCP tools in a chat session.
+**Still required internally:** Even with a larger MCP surface, the internal agent stack remains necessary for features that are **not** orchestrated by an MCP client— notably the **background grammar checker** ([`writer/grammar-checker-plan.md`](writer/grammar-checker-plan.md)) and similar automatic pipelines we may add later. Those run on their own schedules inside LibreOffice; an outer model cannot replace them by calling MCP tools in a chat session.
 
 ### Exposing specialized tools directly: `mcp.tool_exposure_mode` (experimental)
 
@@ -417,20 +417,20 @@ The direct modes **add** direct access; they don't remove delegation. The `deleg
 
 The MCP server is **implemented and opt-in** (default off). Live summary (paths under `plugin/`):
 
-- **HTTP + JSON-RPC:** [`plugin/mcp/server.py`](../../plugin/mcp/server.py), [`plugin/mcp/mcp_protocol.py`](../../plugin/mcp/mcp_protocol.py), [`plugin/mcp/wire_types.py`](../../plugin/mcp/wire_types.py), [`plugin/mcp/cors.py`](../../plugin/mcp/cors.py), package wiring in [`plugin/mcp/__init__.py`](../../plugin/mcp/__init__.py). Endpoints: `/mcp`, `/health`, `/`, optional localhost `POST /debug` (see [Current HTTP MCP (2026)](#current-http-mcp-2026)).
-- **Main-thread marshalling:** [`plugin/framework/queue_executor.py`](../../plugin/framework/queue_executor.py) (`execute_on_main_thread`, queue drain via `com.sun.star.awt.AsyncCallback`). Chat streaming uses [`plugin/framework/async_stream.py`](../../plugin/framework/async_stream.py) separately — MCP does **not** piggyback on the chat drain loop.
+- **HTTP + JSON-RPC:** [`plugin/mcp/server.py`](../plugin/mcp/server.py), [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py), [`plugin/mcp/wire_types.py`](../plugin/mcp/wire_types.py), [`plugin/mcp/cors.py`](../plugin/mcp/cors.py), package wiring in [`plugin/mcp/__init__.py`](../plugin/mcp/__init__.py). Endpoints: `/mcp`, `/health`, `/`, optional localhost `POST /debug` (see [Current HTTP MCP (2026)](#current-http-mcp-2026)).
+- **Main-thread marshalling:** [`plugin/framework/queue_executor.py`](../plugin/framework/queue_executor.py) (`execute_on_main_thread`, queue drain via `com.sun.star.awt.AsyncCallback`). Chat streaming uses [`plugin/framework/async_stream.py`](../plugin/framework/async_stream.py) separately — MCP does **not** piggyback on the chat drain loop.
 - **Document targeting** (two supported paths):
   - **Preferred:** `document_url` in `tools/call` arguments (popped before tool dispatch). Best for multi-document clients (Cursor, Hermes, custom agents).
   - **Fallback:** `X-Document-URL` HTTP header.
   - **RuntimeUID:** `document_url` may be a file URL **or** session `RuntimeUID` (untitled docs). Discover via `list_open_documents` (`url` + `uid`).
   - **Per-result echo / mutation gates:** resolved target echoed as `document: {name, uid}` when the tool does not supply its own; concurrent mutating calls serialize per `uid:` / `url:` key. See `_resolve_mcp_doc_key` / `_mcp_tools_call` in `mcp_protocol.py`.
   - Companion guidance: https://github.com/KeithCu/cursor-libreoffice , https://github.com/KeithCu/libreoffice-skill
-- **Config:** `mcp.mcp_enabled` (default false), `mcp.mcp_port` (default **18765**) in [`plugin/framework/config.py`](../../plugin/framework/config.py) / `writeragent.json`.
+- **Config:** `mcp.mcp_enabled` (default false), `mcp.mcp_port` (default **18765**) in [`plugin/framework/config.py`](../plugin/framework/config.py) / `writeragent.json`.
 - **UI:** Settings Page 1 (enable + port); menu Toggle / Status under WriterAgent; auto-start when Settings saves with MCP enabled.
-- **Stdio bridge (optional):** [`scripts/mcp_bridge.py`](../../scripts/mcp_bridge.py) for clients that speak stdio MCP.
-- **Prompts / guidance:** specialized-delegation and review rules live in [`plugin/framework/prompts.py`](../../plugin/framework/prompts.py); MCP `get_guidance` maps the same pieces via [`plugin/chatbot/agent_manual.py`](../../plugin/chatbot/agent_manual.py). `USE_SUB_AGENT` remains in [`plugin/framework/constants.py`](../../plugin/framework/constants.py).
+- **Stdio bridge (optional):** [`scripts/mcp_bridge.py`](../scripts/mcp_bridge.py) for clients that speak stdio MCP.
+- **Prompts / guidance:** specialized-delegation and review rules live in [`plugin/framework/prompts.py`](../plugin/framework/prompts.py); MCP `get_guidance` maps the same pieces via [`plugin/chatbot/agent_manual.py`](../plugin/chatbot/agent_manual.py). `USE_SUB_AGENT` remains in [`plugin/framework/constants.py`](../plugin/framework/constants.py).
 
-Orientation for AI assistants: [`AGENTS.md`](../../AGENTS.md). Deep threading notes: [threading architecture — MCP](../framework/threading.md#2-http-server-and-mcp-protocol-pluginmcp).
+Orientation for AI assistants: [`AGENTS.md`](../AGENTS.md). Deep threading notes: [threading architecture — MCP](framework/threading.md#2-http-server-and-mcp-protocol-pluginmcp).
 
 ---
 
@@ -531,13 +531,13 @@ The bridge is a **pure-stdlib** stdio MCP server that forwards JSON-RPC to Libre
 | Env var | Default | Purpose |
 |---------|---------|---------|
 | `WRITERAGENT_MCP_URL` | `http://localhost:18765/mcp` | Target MCP endpoint |
-| `WRITERAGENT_MCP_PROTOCOL` | `2025-11-25` (keep in sync with [`wire_types.py`](../../plugin/mcp/wire_types.py)) | Protocol version in placeholder `initialize` when LO is down |
+| `WRITERAGENT_MCP_PROTOCOL` | `2025-11-25` (keep in sync with [`wire_types.py`](../plugin/mcp/wire_types.py)) | Protocol version in placeholder `initialize` when LO is down |
 
 **When LibreOffice is down at handshake:** `initialize` still succeeds locally (placeholder `instructions`, `tools.listChanged: true`); `tools/list` returns `[]`; other methods return a clear "not reachable" error. A background watcher emits `notifications/tools/list_changed` when `/health` transitions to up, so tools refresh **without restarting the MCP client**.
 
 **Stale instructions edge case:** `initialize` `instructions` are delivered **once per MCP session**. If the bridge served the placeholder because LO was still starting, the client will **not** automatically receive the real manual when LO comes up — only the tool list refreshes. **Restart the MCP client** (or reconnect) after LibreOffice is running if you need the full `initialize` instructions. Direct HTTP clients that connect after LO is up are unaffected.
 
-**Implementation:** [`scripts/mcp_bridge.py`](../../scripts/mcp_bridge.py). Tests: [`tests/mcp/test_mcp_bridge.py`](../../tests/mcp/test_mcp_bridge.py).
+**Implementation:** [`scripts/mcp_bridge.py`](../scripts/mcp_bridge.py). Tests: [`tests/mcp/test_mcp_bridge.py`](../tests/mcp/test_mcp_bridge.py).
 
 > **Historical note:** Older docs described a ~30-line REST proxy hitting `GET /tools` / `POST /tools/{name}`. That REST API was never the live transport; use the bridge above for stdio clients.
 
@@ -582,7 +582,7 @@ By having a background Python thread repeatedly schedule an `XCallback`, we guar
 
 ## Existing Pattern to Reuse (archive)
 
-> Live chat drain: [`plugin/framework/async_stream.py`](../../plugin/framework/async_stream.py). Live MCP main-thread queue: [`plugin/framework/queue_executor.py`](../../plugin/framework/queue_executor.py). The sketch below is the original design note.
+> Live chat drain: [`plugin/framework/async_stream.py`](../plugin/framework/async_stream.py). Live MCP main-thread queue: [`plugin/framework/queue_executor.py`](../plugin/framework/queue_executor.py). The sketch below is the original design note.
 
 WriterAgent already had the correct threading pattern in `core/async_stream.py` (now `plugin/framework/async_stream.py`):
 
@@ -645,7 +645,7 @@ would never be serviced if we only drained there.
 
 ### Reference: `core/mcp_server.py` (archive — live is `plugin/mcp/`)
 
-Early REST sketch: thin HTTP server reusing `execute_tool()` / Calc / Draw helpers, `GET /tools`, `POST /tools/{name}`, header-based `_resolve_document`. **Shipped surface is JSON-RPC on `/mcp`** in [`plugin/mcp/mcp_protocol.py`](../../plugin/mcp/mcp_protocol.py) + [`plugin/mcp/server.py`](../../plugin/mcp/server.py), with `document_url` args and `X-Document-URL` fallback, all UNO work via `execute_on_main_thread`.
+Early REST sketch: thin HTTP server reusing `execute_tool()` / Calc / Draw helpers, `GET /tools`, `POST /tools/{name}`, header-based `_resolve_document`. **Shipped surface is JSON-RPC on `/mcp`** in [`plugin/mcp/mcp_protocol.py`](../plugin/mcp/mcp_protocol.py) + [`plugin/mcp/server.py`](../plugin/mcp/server.py), with `document_url` args and `X-Document-URL` fallback, all UNO work via `execute_on_main_thread`.
 
 ---
 
@@ -805,7 +805,7 @@ and does not conflict.
 
 #### 5. Icons — copy directly
 
-The six icon files live in WriterAgent [`extension/assets/`](../../extension/assets/) (`running_16.png` / `stopped_16.png` / `starting_16.png` and 26px variants). **MCP Server Status** declares `icon: stopped` in [`plugin/mcp/module.yaml`](../../plugin/mcp/module.yaml); Toggle MCP Server is text-only. Hand-maintained [`extension/Addons.xcu`](../../extension/Addons.xcu) reserves the Status menu slot (`ImageIdentifier`) and ships a default `Images` node (`%origin%/assets/stopped_16.png`). At runtime `_update_menu_icons` loads `assets/{prefix}_16.png` via GraphicProvider (`PropertyValue.Name = "URL"`) and inserts/replaces the command image in each document module's ImageManager — the same pattern as nelson-mcp.
+The six icon files live in WriterAgent [`extension/assets/`](../extension/assets/) (`running_16.png` / `stopped_16.png` / `starting_16.png` and 26px variants). **MCP Server Status** declares `icon: stopped` in [`plugin/mcp/module.yaml`](../plugin/mcp/module.yaml); Toggle MCP Server is text-only. Hand-maintained [`extension/Addons.xcu`](../extension/Addons.xcu) reserves the Status menu slot (`ImageIdentifier`) and ships a default `Images` node (`%origin%/assets/stopped_16.png`). At runtime `_update_menu_icons` loads `assets/{prefix}_16.png` via GraphicProvider (`PropertyValue.Name = "URL"`) and inserts/replaces the command image in each document module's ImageManager — the same pattern as nelson-mcp.
 
 ---
 
@@ -996,7 +996,7 @@ is much simpler and doesn't explain when to use it vs rewriting the whole docume
 
 ### System prompt additions worth making now
 
-> **Historical analysis — superseded.** The review-workflow suggestion below predates the shipped review-mode contract: `WRITER_REVIEW_MODES_RULES` in [`prompts.py`](../../plugin/framework/prompts.py) now says the USER picks the review mode and the agent must NEVER accept/reject its own tracked changes. Paths/names are also stale (`core/constants.py` → `plugin/framework/prompts.py`; `target="full"` → `full_document`; "FORMATTING RULES" → "APPLY_DOCUMENT_CONTENT AND HTML"). Kept for history only.
+> **Historical analysis — superseded.** The review-workflow suggestion below predates the shipped review-mode contract: `WRITER_REVIEW_MODES_RULES` in [`prompts.py`](../plugin/framework/prompts.py) now says the USER picks the review mode and the agent must NEVER accept/reject its own tracked changes. Paths/names are also stale (`core/constants.py` → `plugin/framework/prompts.py`; `target="full"` → `full_document`; "FORMATTING RULES" → "APPLY_DOCUMENT_CONTENT AND HTML"). Kept for history only.
 
 The `DEFAULT_CHAT_SYSTEM_PROMPT` in `core/constants.py` (archive) should get a workflow section for
 the new tools. Currently the TOOLS list mentions them but gives no usage patterns. Suggested

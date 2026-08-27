@@ -91,7 +91,7 @@ Contracts and RPC: [calc/analysis-tools.md](calc/analysis-tools.md).
 
 | Topic | Docs |
 |-------|------|
-| MCP protocol | [mcp/protocol.md](mcp/protocol.md) |
+| MCP protocol | [mcp-protocol.md](mcp-protocol.md) |
 | Cursor plugin | [cursor-libreoffice](https://github.com/KeithCu/cursor-libreoffice) |
 | LibreOffice skill | [libreoffice-skill](https://github.com/KeithCu/libreoffice-skill) |
 | Config examples | [CONFIG_EXAMPLES.md](../CONFIG_EXAMPLES.md) |
