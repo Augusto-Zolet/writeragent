@@ -69,7 +69,7 @@ ifeq ($(OS),Windows_NT)
     endif
     .SHELLFLAGS := --login -c
     MAKE    := "$(MAKE)"
-    SCRIPTS = scripts
+    SCRIPTS = $(PROJECT_ROOT)/scripts
     RUN_SH  = powershell -ExecutionPolicy Bypass -File
     EXT     = .ps1
     PYTHON  = python
@@ -87,7 +87,7 @@ ifeq ($(OS),Windows_NT)
         LO_PYTHON ?= python
     endif
 else
-    SCRIPTS = scripts
+    SCRIPTS = $(PROJECT_ROOT)/scripts
     RUN_SH  = bash
     EXT     = .sh
     PYTHON  ?= python3
@@ -148,7 +148,7 @@ endif
         dev-deploy dev-deploy-remove \
         lo-start lo-start-full lo-kill lo-restart \
         clean-cache nuke-cache nuke-cache-force unbundle \
-        log log-tail lo-log test pytest test-run test-durations slowtests vhs test-visible lo-test-threadguard lo-test-threadguard-visible typecheck typecheck-full check-ext check-setup deploy ensure-uno \
+        log log-tail lo-log test pytest test-uno test-run test-durations slowtests vhs test-visible lo-test-threadguard lo-test-threadguard-visible typecheck typecheck-full check-ext check-setup deploy ensure-uno \
         verify crosshair-check crosshair-cover crosshair-check-all crosshair-check-all-deep \
         crosshair-cover-all crosshair-cover-all-deep \
         lo-start-log opengrep-lint opengrep-lint-advisory opengrep-rules-sync opengrep-rules-audit uno-thread-lint uno-thread-lint-advisory opengrep-install \
@@ -216,6 +216,7 @@ help:
 	@echo "  make set-config             List all config keys"
 	@echo "  make test                   Run ty, mypy, pyright, pyspector, bandit, pytest + LO tests + excel-py-roundtrip"
 	@echo "  make pytest                 Unit pytest only (xdist -n -1; PYTEST_WORKERS=0 for serial)"
+	@echo "  make test-uno               UNO tests only via testing_runner (serial live soffice)"
 	@echo "  make excel-py-roundtrip     Excel↔DAG sample fidelity over PythonExcelSamples/"
 	@echo ""
 	@echo "Benchmarks (prompt optimization / eval):"
@@ -334,7 +335,7 @@ release: clean
 	echo "Running tests against stripped bundle..."; \
 	echo "  (grammar_obs call-site tests self-skip via _grammar_obs_call_sites_present; whole modules ignored below)"; \
 	cd "$$RELEASE_TMP" && PYTHONPATH=. "$(abspath $(PYTHON))" -m pytest --ignore=tests/scripts --ignore=tests/compute_service --ignore=tests/test_merge_module_yaml_into_pot.py --ignore=tests/framework/test_logging.py --ignore=tests/writer/locale/test_grammar_linguistic_xcu.py --ignore=tests/scripting/test_generate_tool_proxies.py --ignore=tests/framework/test_thread_guard.py --ignore=tests/framework/test_thread_affinity.py --ignore=tests/framework/test_thread_token.py --ignore=tests/doc/test_specialized_delegation_threading.py --ignore=tests/writer/locale/test_grammar_obs.py --ignore=tests/writer/locale/test_libreharper_oxt.py -k "not test_sync_tool_marshaled_from_background and not test_execute_on_main_thread_timeout and not test_execute_python_addin_from_background_thread" tests; \
-	cd "$$RELEASE_TMP" && PYTHONPATH=. PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner; \
+	cd "$$RELEASE_TMP" && PYTHONPATH=. $(MAKE) -f "$(PROJECT_ROOT)/Makefile" test-uno; \
 	$(MAKE) -C "$(PROJECT_ROOT)" release-build; \
 	$(MAKE) -C "$(PROJECT_ROOT)" register-built-oxt
 
@@ -689,10 +690,13 @@ pytest:
 	@echo "=== pytest ==="
 	$(PYTEST_UNIT)
 
-test-run:
-	@$(MAKE) pytest
+test-uno:
 	@$(MAKE) lo-kill
 	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
+
+test-run:
+	@$(MAKE) pytest
+	@$(MAKE) test-uno
 
 test-durations:
 	$(PYTEST_UNIT) --durations=40
@@ -730,7 +734,7 @@ test-visible:
 	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
 
 lo-test-threadguard:
-	WRITERAGENT_UNO_THREAD_GUARD=1 PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
+	WRITERAGENT_UNO_THREAD_GUARD=1 $(MAKE) test-uno
 
 lo-test-threadguard-visible:
 	WRITERAGENT_UNO_THREAD_GUARD=1 PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE

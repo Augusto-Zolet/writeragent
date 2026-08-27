@@ -22,6 +22,15 @@ walks) use ``UNDER_CROSSHAIR`` (same import-time env), not ``sys.modules``.
 Nested inverse ``@deal.ensure`` (format_address → parse_address,
 column_to_index → index_to_column) is skipped under CrossHair via
 ``inverse_ensure``; cheap ``@deal.post`` still runs.
+
+Dual-Profile Preconditions (UNDER_CROSSHAIR):
+When restricting input domains strictly for CrossHair concolic execution (e.g.,
+dropping ``hasattr(c, "dtype")``, restricting ``BaseException`` hierarchies, or
+clamping dict/string alphabets), select between tiny CrossHair domains and wide
+pytest/production domains via ``UNDER_CROSSHAIR`` at import time:
+``_deal_fn = _deal_fn_crosshair if UNDER_CROSSHAIR else _deal_fn_pytest``.
+This keeps CrossHair check-all fast while preserving NumPy and production runtime
+type compatibility during ``make test``.
 """
 
 from __future__ import annotations

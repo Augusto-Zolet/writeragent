@@ -778,6 +778,140 @@ class MockContext:
     def getServiceManager(self):
         return MagicMock()
 
+# One hidden Writer and one Calc per (ctx, type, hidden). Factory open/close per test is slow.
+_NATIVE_DOC_POOL: dict = {}
+
+# offapi/com/sun/star/sheet/CellFlags.idl — VALUE|DATETIME|STRING|ANNOTATION|FORMULA|HARDATTR|STYLES|OBJECTS|EDITATTR|FORMATTED
+_CALC_CLEAR_ALL = 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 | 256 | 512
+
+
+def _native_doc_alive(doc) -> bool:
+    try:
+        doc.getCurrentController()
+        return True
+    except Exception:
+        return False
+
+
+def _clear_named_container(container) -> None:
+    if container is None or not hasattr(container, "getElementNames"):
+        return
+    for name in list(container.getElementNames()):
+        try:
+            container.removeByName(name)
+        except Exception:
+            pass
+
+
+def _clear_undo(doc) -> None:
+    try:
+        mgr = doc.getUndoManager()
+        if mgr is not None:
+            mgr.clear()
+    except Exception:
+        pass
+
+
+def _reset_calc_doc(doc, ctx) -> None:  # ctx unused; same signature as writer reset
+    sheets = doc.getSheets()
+    while sheets.getCount() > 1:
+        name = sheets.getByIndex(sheets.getCount() - 1).Name
+        sheets.removeByName(name)
+    sheet = sheets.getByIndex(0)
+    try:
+        if sheet.Name != "Sheet1":
+            sheet.setName("Sheet1")
+    except Exception:
+        pass
+    try:
+        cursor = sheet.createCursor()
+        cursor.gotoStartOfUsedArea(False)
+        cursor.gotoEndOfUsedArea(True)
+        try:
+            cursor.merge(False)
+        except Exception:
+            pass
+        cursor.clearContents(_CALC_CLEAR_ALL)
+    except Exception:
+        sheet.getCellRangeByName("A1:AMJ1048576").clearContents(_CALC_CLEAR_ALL)
+    _clear_named_container(getattr(doc, "NamedRanges", None))
+    try:
+        _clear_named_container(sheet.NamedRanges)
+    except Exception:
+        pass
+    _clear_named_container(getattr(doc, "DatabaseRanges", None))
+    try:
+        import uno
+
+        settings = doc.getNumberFormatSettings()
+        nd = uno.createUnoStruct("com.sun.star.util.Date")
+        nd.Year, nd.Month, nd.Day = 1899, 12, 30
+        settings.setPropertyValue("NullDate", nd)
+    except Exception:
+        pass
+    try:
+        controller = doc.getCurrentController()
+        controller.setActiveSheet(sheet)
+        controller.select(sheet.getCellByPosition(0, 0))
+    except Exception:
+        pass
+    _clear_undo(doc)
+
+
+def _reset_writer_doc(doc, ctx) -> None:
+    try:
+        doc.setPropertyValue("RecordChanges", False)
+    except Exception:
+        pass
+    try:
+        smgr = ctx.getServiceManager()
+        helper = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)
+        frame = doc.getCurrentController().getFrame()
+        helper.executeDispatch(frame, ".uno:AcceptAllTrackedChanges", "", 0, ())
+    except Exception:
+        pass
+    try:
+        text = doc.getText()
+        cursor = text.createTextCursor()
+        cursor.gotoStart(False)
+        cursor.gotoEnd(True)
+        cursor.setString("")
+        cursor.gotoStart(False)
+        try:
+            doc.getCurrentController().select(cursor)
+        except Exception:
+            pass
+    except Exception:
+        pass
+    for getter in ("getTextTables", "getTextFrames", "getGraphicObjects", "getEmbeddedObjects", "getTextSections"):
+        if not hasattr(doc, getter):
+            continue
+        try:
+            container = getattr(doc, getter)()
+            for name in list(container.getElementNames()):
+                try:
+                    content = container.getByName(name)
+                    doc.getText().removeTextContent(content)
+                except Exception:
+                    try:
+                        container.getByName(name).dispose()
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+    _clear_undo(doc)
+
+
+def reset_native_doc(doc, doc_type: str, ctx) -> None:
+    """Wipe a Writer or Calc document so the next native test can reuse it."""
+    if doc_type == "calc":
+        _reset_calc_doc(doc, ctx)
+    elif doc_type == "writer":
+        _reset_writer_doc(doc, ctx)
+    else:
+        raise ValueError("reset_native_doc only supports writer and calc")
+
+
 class TestingFactory:
     """Unified factory for creating test documents and contexts."""
 
@@ -829,6 +963,9 @@ class TestingFactory:
         """Safely closes a document instance if available."""
         if not doc:
             return
+        for key, pooled in list(_NATIVE_DOC_POOL.items()):
+            if pooled is doc:
+                del _NATIVE_DOC_POOL[key]
         try:
             from plugin.scripting.session_manager import clear_active_calc_session
 
@@ -851,9 +988,28 @@ class TestingFactory:
 
     @staticmethod
     @contextlib.contextmanager
-    def native_doc(ctx, doc_type="writer", hidden=True):
-        """Context manager for creating and automatically disposing a native LO document."""
-        doc = TestingFactory.create_native_doc(ctx, doc_type=doc_type, hidden=hidden)
+    def native_doc(ctx, doc_type="writer", hidden=True, reuse=True):
+        """Yield a native LO document; Writer/Calc default to wipe-and-reuse (faster than factory+close)."""
+        use_pool = reuse and doc_type in ("writer", "calc")
+        doc = None
+        pooled = False
+        if use_pool:
+            key = (id(ctx), doc_type, bool(hidden))
+            candidate = _NATIVE_DOC_POOL.get(key)
+            if candidate is not None and _native_doc_alive(candidate):
+                try:
+                    reset_native_doc(candidate, doc_type, ctx)
+                    doc = candidate
+                    pooled = True
+                except Exception:
+                    TestingFactory.close_doc(candidate)
+                    doc = None
+            if doc is None:
+                doc = TestingFactory.create_native_doc(ctx, doc_type=doc_type, hidden=hidden)
+                _NATIVE_DOC_POOL[key] = doc
+                pooled = True
+        else:
+            doc = TestingFactory.create_native_doc(ctx, doc_type=doc_type, hidden=hidden)
         if doc_type == "calc" and doc is not None:
             try:
                 from plugin.scripting.session_manager import calc_workbook_base_session_id
@@ -864,7 +1020,15 @@ class TestingFactory:
         try:
             yield doc
         finally:
-            TestingFactory.close_doc(doc)
+            if pooled:
+                try:
+                    from plugin.scripting.session_manager import clear_active_calc_session
+
+                    clear_active_calc_session()
+                except Exception:
+                    pass
+            else:
+                TestingFactory.close_doc(doc)
 
 
 
@@ -930,8 +1094,12 @@ class TestingFactory:
             return {"status": "error", "error": str(e)}
 
 
-def with_native_doc(doc_type="writer", hidden=True):
-    """Decorator to inject a native LibreOffice document into a test function and guarantee teardown."""
+def with_native_doc(doc_type="writer", hidden=True, reuse=True):
+    """Decorator to inject a native LibreOffice document into a test function and guarantee teardown.
+
+    Writer/Calc reuse one hidden document and wipe it between tests (open/close is slow).
+    Pass ``reuse=False`` when the test needs a virgin factory document (Draw/Impress never reuse).
+    """
     def decorator(func):
         import functools
         import inspect
@@ -943,7 +1111,7 @@ def with_native_doc(doc_type="writer", hidden=True):
             if ctx is None and len(args) > 0:
                 ctx = args[0]
 
-            with TestingFactory.native_doc(ctx, doc_type=doc_type, hidden=hidden) as doc:
+            with TestingFactory.native_doc(ctx, doc_type=doc_type, hidden=hidden, reuse=reuse) as doc:
                 sig = inspect.signature(func)
                 call_kwargs = {}
                 # Inject by parameter name so ctx is never dropped when doc is added.

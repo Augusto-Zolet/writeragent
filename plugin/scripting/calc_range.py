@@ -102,6 +102,14 @@ def _dedupe_column_names(names: list[str]) -> list[str]:
     return out
 
 
+def _deal_calc_range_other_ok(other: object) -> bool:
+    return type(other) in (int, float, bool, str, type(None)) or (
+        isinstance(other, CalcRange)
+        and len(other._values) <= DEAL_MAX_SHAPE_DIM
+        and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
+    )
+
+
 class CalcRange:
     """Rectangular sheet range exposed to user/venv scripts.
 
@@ -305,45 +313,115 @@ class CalcRange:
             raise TypeError(f"Multi-cell arithmetic requires NumPy: {exc}") from exc
 
     # Binary arithmetic
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __add__(self, other: Any) -> Any:
         return self._binary_op(other, operator.add)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __radd__(self, other: Any) -> Any:
         return self._binary_op(other, operator.add, is_reverse=True)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __sub__(self, other: Any) -> Any:
         return self._binary_op(other, operator.sub)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __rsub__(self, other: Any) -> Any:
         return self._binary_op(other, operator.sub, is_reverse=True)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __mul__(self, other: Any) -> Any:
         return self._binary_op(other, operator.mul)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __rmul__(self, other: Any) -> Any:
         return self._binary_op(other, operator.mul, is_reverse=True)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __truediv__(self, other: Any) -> Any:
         return self._binary_op(other, operator.truediv)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __rtruediv__(self, other: Any) -> Any:
         return self._binary_op(other, operator.truediv, is_reverse=True)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __floordiv__(self, other: Any) -> Any:
         return self._binary_op(other, operator.floordiv)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __rfloordiv__(self, other: Any) -> Any:
         return self._binary_op(other, operator.floordiv, is_reverse=True)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __mod__(self, other: Any) -> Any:
         return self._binary_op(other, operator.mod)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __rmod__(self, other: Any) -> Any:
         return self._binary_op(other, operator.mod, is_reverse=True)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __pow__(self, other: Any) -> Any:
         return self._binary_op(other, operator.pow)
 
+    @deal.pre(
+        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
     def __rpow__(self, other: Any) -> Any:
         return self._binary_op(other, operator.pow, is_reverse=True)
 
@@ -361,14 +439,7 @@ class CalcRange:
     @deal.pre(
         lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
         and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and (
-            type(other) in (int, float, bool, str, type(None))
-            or (
-                isinstance(other, CalcRange)
-                and len(other._values) <= DEAL_MAX_SHAPE_DIM
-                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
-            )
-        )
+        and _deal_calc_range_other_ok(other)
     )
     def __eq__(self, other: Any) -> Any:
         return self._binary_op(other, operator.eq)
@@ -376,14 +447,7 @@ class CalcRange:
     @deal.pre(
         lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
         and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and (
-            type(other) in (int, float, bool, str, type(None))
-            or (
-                isinstance(other, CalcRange)
-                and len(other._values) <= DEAL_MAX_SHAPE_DIM
-                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
-            )
-        )
+        and _deal_calc_range_other_ok(other)
     )
     def __ne__(self, other: Any) -> Any:
         return self._binary_op(other, operator.ne)
@@ -391,14 +455,7 @@ class CalcRange:
     @deal.pre(
         lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
         and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and (
-            type(other) in (int, float, bool, str, type(None))
-            or (
-                isinstance(other, CalcRange)
-                and len(other._values) <= DEAL_MAX_SHAPE_DIM
-                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
-            )
-        )
+        and _deal_calc_range_other_ok(other)
     )
     def __lt__(self, other: Any) -> Any:
         return self._binary_op(other, operator.lt)
@@ -406,14 +463,7 @@ class CalcRange:
     @deal.pre(
         lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
         and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and (
-            type(other) in (int, float, bool, str, type(None))
-            or (
-                isinstance(other, CalcRange)
-                and len(other._values) <= DEAL_MAX_SHAPE_DIM
-                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
-            )
-        )
+        and _deal_calc_range_other_ok(other)
     )
     def __le__(self, other: Any) -> Any:
         return self._binary_op(other, operator.le)
@@ -421,14 +471,7 @@ class CalcRange:
     @deal.pre(
         lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
         and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and (
-            type(other) in (int, float, bool, str, type(None))
-            or (
-                isinstance(other, CalcRange)
-                and len(other._values) <= DEAL_MAX_SHAPE_DIM
-                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
-            )
-        )
+        and _deal_calc_range_other_ok(other)
     )
     def __gt__(self, other: Any) -> Any:
         return self._binary_op(other, operator.gt)
@@ -436,14 +479,7 @@ class CalcRange:
     @deal.pre(
         lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
         and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and (
-            type(other) in (int, float, bool, str, type(None))
-            or (
-                isinstance(other, CalcRange)
-                and len(other._values) <= DEAL_MAX_SHAPE_DIM
-                and (not other._values or len(other._values[0]) <= DEAL_MAX_SHAPE_DIM)
-            )
-        )
+        and _deal_calc_range_other_ok(other)
     )
     def __ge__(self, other: Any) -> Any:
         return self._binary_op(other, operator.ge)

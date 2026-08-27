@@ -87,9 +87,13 @@ def _deal_ipc_dict_ok_pytest(msg: object) -> bool:
     )
 
 
-def _deal_ipc_dict_ok_crosshair(msg: object) -> bool:
+def _deal_ipc_dict_ok_crosshair(msg: object, allow_nested: bool = True) -> bool:
     return type(msg) is dict and len(msg) <= DEAL_MAX_CMD_ARGS and all(
-        type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) and (v is None or isinstance(v, dict) or (isinstance(v, str) and str_bounded(v, DEAL_MAX_TOKEN)))
+        type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) and (
+            v is None
+            or (isinstance(v, str) and ascii_bounded(v, DEAL_MAX_TOKEN))
+            or (allow_nested and isinstance(v, dict) and _deal_ipc_dict_ok_crosshair(v, allow_nested=False))
+        )
         for k, v in msg.items()
     )
 

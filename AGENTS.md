@@ -12,7 +12,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 > [!IMPORTANT]
 > **Tests:** New features and bugfixes **must** include tests.
 > - **Unit:** `tests/`, **pytest** (`make pytest`) when logic can be mocked. Test files should match the source module name (e.g. `foo.py` -> `test_foo.py`). **Always add new test cases to the matching `test_` file to maintain consistent naming and visible coverage.**
-> - **UNO / LibreOffice:** `tests/uno/` or `_uno.py` suffix via **`testing_runner.py`** (no pytest)—use **`@native_test`**, **`@setup`**, **`@teardown`**; test functions take **`ctx`**. **Follow the same module-matching rule (e.g. `foo.py` -> `test_foo_uno.py`).**
+> - **UNO / LibreOffice:** `tests/uno/` or `_uno.py` suffix via **`testing_runner.py`** (`make test-uno`, no pytest)—use **`@native_test`**, **`@setup`**, **`@teardown`**; test functions take **`ctx`**. **Follow the same module-matching rule (e.g. `foo.py` -> `test_foo_uno.py`).**
 > - **Execution Policy:** Do **not** run tests or **`make typecheck`** before starting work unless you need output from a test to understand a failure. Assume the tree and tests are already green. After edits, run tests for the files you changed plus **`make typecheck`**. Typecheck takes about **one minute** — wait for it; do not poll every few seconds. Run full **`make test`** ONLY IF making large refactors or cross-cutting changes.
 
 > [!TIP]
@@ -55,6 +55,7 @@ If you find ways to lower technical debt, while adding a feature, put that in yo
 | `make deploy` | WriterAgent OXT: build + install/cache sync; **restart LibreOffice** (or `make deploy writer/calc/draw/impress` to launch) |
 | `make deploy-core` | LibrePy OXT only (`build/LibrePy.oxt`); **removes WriterAgent**. Install one OXT at a time. |
 | `make pytest` | Unit pytest only: `-m "not slow and not integration" --ignore-glob='*_uno.py'` plus xdist (`-n -1`; `PYTEST_WORKERS=0` for serial). No live soffice. |
+| `make test-uno` | UNO / LibreOffice tests only: runs `testing_runner.py` with serial live LibreOffice instance. |
 | `make test` | Large or cross-cutting changes only (includes typecheck, SAST, pytest, LO tests) |
 | `make build` | Produce `build/WriterAgent.oxt` only (no install) |
 | `make build-core` | Produce `build/LibrePy.oxt` only (no install) |
