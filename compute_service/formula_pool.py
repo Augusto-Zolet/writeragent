@@ -42,7 +42,7 @@ class FormulaProcessPool(BaseProcessPool):
         num_workers: int = 1,
         default_timeout_sec: int = 30,
         max_tasks: int = 500,
-        session_ttl_sec: float = 3600.0,
+        shared_kernel_ttl_sec: float = 3600.0,
         idle_worker_ttl_sec: float | None = 3600.0,
     ) -> None:
         super().__init__(
@@ -56,14 +56,14 @@ class FormulaProcessPool(BaseProcessPool):
         self._active_sessions: dict[str, BaseProcessWorker] = {}
         self._worker_sessions: dict[BaseProcessWorker, set[str]] = {}
         self._session_last_activity: dict[str, float] = {}
-        self.session_ttl_sec = session_ttl_sec
+        self.shared_kernel_ttl_sec = shared_kernel_ttl_sec
         self._session_reaper_thread: threading.Thread | None = None
 
-        if self.session_ttl_sec > 0:
+        if self.shared_kernel_ttl_sec > 0:
             self._start_session_ttl_reaper()
 
     def _start_session_ttl_reaper(self) -> None:
-        interval = max(0.02, min(self.session_ttl_sec / 6.0, 300.0))
+        interval = max(0.02, min(self.shared_kernel_ttl_sec / 6.0, 300.0))
 
         def _reap_loop() -> None:
             while not self._is_shutdown:
@@ -81,7 +81,7 @@ class FormulaProcessPool(BaseProcessPool):
         stale: list[str] = []
         with self._lock:
             for sid, last_active in list(self._session_last_activity.items()):
-                if now - last_active >= self.session_ttl_sec:
+                if now - last_active >= self.shared_kernel_ttl_sec:
                     stale.append(sid)
             for sid in stale:
                 self._session_last_activity.pop(sid, None)
@@ -103,7 +103,7 @@ class FormulaProcessPool(BaseProcessPool):
         """Recycle worker if tasks_executed >= max_tasks, unless holding active shared sessions.
 
         Workers holding active shared sessions skip normal max_tasks recycling to preserve state.
-        Sessions are held indefinitely while active and released after session_ttl_sec of inactivity.
+        Sessions are held indefinitely while active and released after shared_kernel_ttl_sec of inactivity.
         """
         with self._lock:
             if not worker.is_alive():
@@ -277,7 +277,7 @@ def get_formula_pool(settings: ComputeSettings | None = None) -> FormulaProcessP
                     num_workers=num_w,
                     default_timeout_sec=settings.default_timeout_sec,
                     max_tasks=getattr(settings, "worker_max_tasks", 500),
-                    session_ttl_sec=getattr(settings, "session_ttl_sec", 3600.0),
+                    shared_kernel_ttl_sec=getattr(settings, "shared_kernel_ttl_sec", 3600.0),
                     idle_worker_ttl_sec=getattr(settings, "idle_worker_ttl_sec", 3600.0),
                 )
             else:

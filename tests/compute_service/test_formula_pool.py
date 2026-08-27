@@ -287,8 +287,8 @@ class TestFormulaPoolSupervisor:
             pool.shutdown()
 
     def test_session_ttl_evicts_idle_session(self) -> None:
-        """Session TTL reaper must evict sessions idle longer than session_ttl_sec."""
-        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15, max_tasks=1, session_ttl_sec=3600.0)
+        """Session TTL reaper must evict sessions idle longer than shared_kernel_ttl_sec."""
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15, max_tasks=1, shared_kernel_ttl_sec=3600.0)
         try:
             sid = "ttl-evict-test"
             r1 = pool.execute(code="val = 42\nresult = val", session_id=sid, mode="shared", req_id="ttl-1")

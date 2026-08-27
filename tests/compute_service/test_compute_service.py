@@ -312,20 +312,20 @@ class TestComputeSettings:
             load_settings(environ={"PYTHON_COMPUTE_LOG_LEVEL": "INVALID_LEVEL"})
         assert "Invalid log_level" in str(exc_info.value)
     def test_keyless_ok(self) -> None:
-        s = load_settings(environ={"HOST": "127.0.0.1", "PORT": "8000"})
+        s = load_settings(environ={"PYTHON_COMPUTE_HOST": "127.0.0.1", "PYTHON_COMPUTE_PORT": "8000"})
         assert s.host == "127.0.0.1"
         assert not s.auth_required
 
     def test_wildcard_without_key_is_insecure_ok(self) -> None:
-        s = load_settings(environ={"HOST": "0.0.0.0", "PORT": "8000"})
+        s = load_settings(environ={"PYTHON_COMPUTE_HOST": "0.0.0.0", "PYTHON_COMPUTE_PORT": "8000"})
         assert s.host == "0.0.0.0"
         assert not s.auth_required
 
-    def test_env_api_key_and_legacy_host(self) -> None:
+    def test_env_api_key_and_host(self) -> None:
         s = load_settings(
             environ={
-                "HOST": "0.0.0.0",
-                "PORT": "9001",
+                "PYTHON_COMPUTE_HOST": "0.0.0.0",
+                "PYTHON_COMPUTE_PORT": "9001",
                 "PYTHON_COMPUTE_API_KEY": "secret-token",
             }
         )
@@ -334,20 +334,10 @@ class TestComputeSettings:
         assert s.api_key == "secret-token"
         assert s.auth_required
 
-    def test_python_compute_host_overrides_legacy(self) -> None:
-        s = load_settings(
-            environ={
-                "HOST": "0.0.0.0",
-                "PYTHON_COMPUTE_HOST": "127.0.0.1",
-                "PYTHON_COMPUTE_API_KEY": "x",
-            }
-        )
-        assert s.host == "127.0.0.1"
-
     def test_key_file_strips_trailing_newline(self, tmp_path) -> None:
         key_path = tmp_path / "key"
         key_path.write_text("abc123\n", encoding="utf-8")
-        s = load_settings(api_key_file=key_path, environ={"HOST": "127.0.0.1"})
+        s = load_settings(api_key_file=key_path, environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
         assert s.api_key == "abc123"
 
     def test_cli_key_file_beats_env_key(self, tmp_path) -> None:
@@ -355,7 +345,7 @@ class TestComputeSettings:
         key_path.write_text("from-file", encoding="utf-8")
         s = load_settings(
             api_key_file=key_path,
-            environ={"PYTHON_COMPUTE_API_KEY": "from-env", "HOST": "127.0.0.1"},
+            environ={"PYTHON_COMPUTE_API_KEY": "from-env", "PYTHON_COMPUTE_HOST": "127.0.0.1"},
         )
         assert s.api_key == "from-file"
 
@@ -368,7 +358,7 @@ class TestComputeSettings:
                 {
                     "listen": {"host": "127.0.0.1", "port": 8123},
                     "auth": {"api_key_file": str(key_path)},
-                    "limits": {"max_body_bytes": 4096, "default_timeout_sec": 12},
+                    "limits": {"max_body_bytes": 4096, "default_timeout_sec": 12, "shared_kernel_ttl_sec": 1800.0},
                 }
             ),
             encoding="utf-8",
@@ -378,6 +368,11 @@ class TestComputeSettings:
         assert s.api_key == "json-secret"
         assert s.max_body_bytes == 4096
         assert s.default_timeout_sec == 12
+        assert s.shared_kernel_ttl_sec == 1800.0
+
+    def test_shared_kernel_ttl_env(self) -> None:
+        s = load_settings(environ={"PYTHON_COMPUTE_SHARED_KERNEL_TTL_SEC": "7200.0", "PYTHON_COMPUTE_HOST": "127.0.0.1"})
+        assert s.shared_kernel_ttl_sec == 7200.0
 
     def test_cli_host_overrides_config(self, tmp_path) -> None:
         cfg = tmp_path / "cfg.json"
@@ -387,41 +382,41 @@ class TestComputeSettings:
         assert not s.auth_required
 
     def test_max_threads_env_and_cli(self) -> None:
-        s = load_settings(environ={"PYTHON_COMPUTE_MAX_THREADS": "8", "HOST": "127.0.0.1"})
+        s = load_settings(environ={"PYTHON_COMPUTE_MAX_THREADS": "8", "PYTHON_COMPUTE_HOST": "127.0.0.1"})
         assert s.threads == 8
         assert s.max_threads == 8
         assert s.workers == 1  # default
-        s2 = load_settings(threads=4, workers=3, environ={"PYTHON_COMPUTE_MAX_THREADS": "8", "HOST": "127.0.0.1"})
+        s2 = load_settings(threads=4, workers=3, environ={"PYTHON_COMPUTE_MAX_THREADS": "8", "PYTHON_COMPUTE_HOST": "127.0.0.1"})
         assert s2.threads == 4
         assert s2.workers == 3
 
     def test_workers_env_and_cli(self) -> None:
-        s = load_settings(environ={"PYTHON_COMPUTE_WORKERS": "5", "HOST": "127.0.0.1"})
+        s = load_settings(environ={"PYTHON_COMPUTE_WORKERS": "5", "PYTHON_COMPUTE_HOST": "127.0.0.1"})
         assert s.workers == 5
         assert s.threads == 2  # default
-        s2 = load_settings(workers=1, environ={"PYTHON_COMPUTE_WORKERS": "5", "HOST": "127.0.0.1"})
+        s2 = load_settings(workers=1, environ={"PYTHON_COMPUTE_WORKERS": "5", "PYTHON_COMPUTE_HOST": "127.0.0.1"})
         assert s2.workers == 1
 
     def test_threads_and_workers_json(self, tmp_path) -> None:
         cfg = tmp_path / "cfg.json"
         cfg.write_text(json.dumps({"limits": {"threads": 24, "workers": 4}}), encoding="utf-8")
-        s = load_settings(config_path=cfg, environ={"HOST": "127.0.0.1"})
+        s = load_settings(config_path=cfg, environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
         assert s.threads == 24
         assert s.workers == 4
 
     def test_max_threads_json(self, tmp_path) -> None:
         cfg = tmp_path / "cfg.json"
         cfg.write_text(json.dumps({"limits": {"max_threads": 12}}), encoding="utf-8")
-        s = load_settings(config_path=cfg, environ={"HOST": "127.0.0.1"})
+        s = load_settings(config_path=cfg, environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
         assert s.threads == 12
 
     def test_threads_and_workers_invalid(self) -> None:
         from compute_service.config import ConfigError
 
         with pytest.raises(ConfigError):
-            load_settings(threads=0, environ={"HOST": "127.0.0.1"})
+            load_settings(threads=0, environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
         with pytest.raises(ConfigError):
-            load_settings(workers=0, environ={"HOST": "127.0.0.1"})
+            load_settings(workers=0, environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
 
     def test_key_file_preserves_leading_and_trailing_spaces(self, tmp_path) -> None:
         """_read_key_file must NOT strip() the key; only the one trailing newline is removed.
@@ -429,14 +424,14 @@ class TestComputeSettings:
         key_path = tmp_path / "key_spaces"
         # Leading space, no trailing newline
         key_path.write_bytes(b" abc123 ")
-        s = load_settings(api_key_file=key_path, environ={"HOST": "127.0.0.1"})
+        s = load_settings(api_key_file=key_path, environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
         assert s.api_key == " abc123 "
 
     def test_key_file_strips_only_one_trailing_newline(self, tmp_path) -> None:
         """Verify that only the single trailing newline is removed, not all whitespace."""
         key_path = tmp_path / "key_nl"
         key_path.write_bytes(b"mykey\n")
-        s = load_settings(api_key_file=key_path, environ={"HOST": "127.0.0.1"})
+        s = load_settings(api_key_file=key_path, environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
         assert s.api_key == "mykey"
 
 
@@ -646,7 +641,7 @@ builtins.open = _tracking_open
 from compute_service.config import load_settings
 from compute_service.server import authenticate_request, create_wsgi_app
 
-s = load_settings(environ={"HOST": "127.0.0.1"})
+s = load_settings(environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
 app = create_wsgi_app(s)
 principal, err = authenticate_request({}, s)
 assert principal == "default" and err is None
@@ -676,7 +671,7 @@ import sys
 from compute_service.config import load_settings
 from compute_service.server import create_wsgi_app, WSGIDualStackServer
 
-s = load_settings(environ={"HOST": "127.0.0.1"})
+s = load_settings(environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
 app = create_wsgi_app(s)
 assert "numpy" not in sys.modules, f"numpy was loaded into master process: {sys.modules.get('numpy')}"
 assert "sympy" not in sys.modules, f"sympy was loaded into master process: {sys.modules.get('sympy')}"

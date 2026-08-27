@@ -8,7 +8,7 @@ No UNO / writeragent.json dependency. Layered sources (later wins):
 
 1. Secure defaults
 2. Optional ``--config`` / ``PYTHON_COMPUTE_CONFIG`` JSON file
-3. ``PYTHON_COMPUTE_*`` environment (plus legacy ``HOST`` / ``PORT``)
+3. ``PYTHON_COMPUTE_*`` environment
 4. Explicit CLI overrides (``--host``, ``--port``, ``--api-key-file``)
 
 Secrets come from ``PYTHON_COMPUTE_API_KEY`` or a key file — never from argv.
@@ -30,7 +30,7 @@ _MAX_TIMEOUT_SEC = 600
 _DEFAULT_THREADS = 2
 _DEFAULT_WORKERS = 1
 _DEFAULT_WORKER_MAX_TASKS = 500
-_DEFAULT_SESSION_TTL_SEC = 3600.0
+_DEFAULT_SHARED_KERNEL_TTL_SEC = 3600.0
 _DEFAULT_IDLE_WORKER_TTL_SEC = 3600.0
 _DEFAULT_OCR_WORKERS = 0
 _DEFAULT_OCR_TIMEOUT_SEC = 60
@@ -65,7 +65,7 @@ class ComputeSettings:
     threads: int = _DEFAULT_THREADS
     workers: int = _DEFAULT_WORKERS
     worker_max_tasks: int = _DEFAULT_WORKER_MAX_TASKS
-    session_ttl_sec: float = _DEFAULT_SESSION_TTL_SEC
+    shared_kernel_ttl_sec: float = _DEFAULT_SHARED_KERNEL_TTL_SEC
     idle_worker_ttl_sec: float = _DEFAULT_IDLE_WORKER_TTL_SEC
     ocr_workers: int = _DEFAULT_OCR_WORKERS
     ocr_timeout_sec: int = _DEFAULT_OCR_TIMEOUT_SEC
@@ -87,7 +87,7 @@ class ComputeSettings:
         workers: int | None = None,
         max_workers: int | None = None,
         worker_max_tasks: int = _DEFAULT_WORKER_MAX_TASKS,
-        session_ttl_sec: float = _DEFAULT_SESSION_TTL_SEC,
+        shared_kernel_ttl_sec: float = _DEFAULT_SHARED_KERNEL_TTL_SEC,
         idle_worker_ttl_sec: float = _DEFAULT_IDLE_WORKER_TTL_SEC,
         ocr_workers: int = _DEFAULT_OCR_WORKERS,
         ocr_timeout_sec: int = _DEFAULT_OCR_TIMEOUT_SEC,
@@ -106,7 +106,7 @@ class ComputeSettings:
         object.__setattr__(self, "threads", eff_threads)
         object.__setattr__(self, "workers", eff_workers)
         object.__setattr__(self, "worker_max_tasks", worker_max_tasks)
-        object.__setattr__(self, "session_ttl_sec", float(session_ttl_sec))
+        object.__setattr__(self, "shared_kernel_ttl_sec", float(shared_kernel_ttl_sec))
         object.__setattr__(self, "idle_worker_ttl_sec", float(idle_worker_ttl_sec))
         object.__setattr__(self, "ocr_workers", ocr_workers)
         object.__setattr__(self, "ocr_timeout_sec", ocr_timeout_sec)
@@ -229,6 +229,12 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
             out["workers"] = limits["max_workers"]
         if "worker_max_tasks" in limits:
             out["worker_max_tasks"] = limits["worker_max_tasks"]
+        if "shared_kernel_ttl_sec" in limits:
+            out["shared_kernel_ttl_sec"] = limits["shared_kernel_ttl_sec"]
+        elif "session_ttl_sec" in limits:
+            out["shared_kernel_ttl_sec"] = limits["session_ttl_sec"]
+        if "idle_worker_ttl_sec" in limits:
+            out["idle_worker_ttl_sec"] = limits["idle_worker_ttl_sec"]
     ocr_cfg = raw.get("ocr")
     if isinstance(ocr_cfg, Mapping):
         if "workers" in ocr_cfg:
@@ -256,6 +262,9 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
         "workers",
         "max_workers",
         "worker_max_tasks",
+        "shared_kernel_ttl_sec",
+        "session_ttl_sec",
+        "idle_worker_ttl_sec",
         "ocr_workers",
         "ocr_timeout_sec",
         "ocr_max_tasks",
@@ -263,6 +272,8 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
     ):
         if key in raw and key not in out:
             out[key] = raw[key]
+    if "session_ttl_sec" in out and "shared_kernel_ttl_sec" not in out:
+        out["shared_kernel_ttl_sec"] = out.pop("session_ttl_sec")
     if "max_threads" in out and "threads" not in out:
         out["threads"] = out["max_threads"]
     if "max_workers" in out and "workers" not in out:
@@ -299,6 +310,8 @@ def load_settings(
         "threads": _DEFAULT_THREADS,
         "workers": _DEFAULT_WORKERS,
         "worker_max_tasks": _DEFAULT_WORKER_MAX_TASKS,
+        "shared_kernel_ttl_sec": _DEFAULT_SHARED_KERNEL_TTL_SEC,
+        "idle_worker_ttl_sec": _DEFAULT_IDLE_WORKER_TTL_SEC,
         "ocr_workers": _DEFAULT_OCR_WORKERS,
         "ocr_timeout_sec": _DEFAULT_OCR_TIMEOUT_SEC,
         "ocr_max_tasks": _DEFAULT_OCR_MAX_TASKS,
@@ -309,16 +322,12 @@ def load_settings(
     if resolved_config:
         values.update(_flatten_config_json(_load_json_file(resolved_config)))
 
-    # Environment (legacy HOST/PORT kept for existing Docker / start scripts).
+    # Environment settings.
     if env.get("PYTHON_COMPUTE_HOST"):
         values["host"] = env["PYTHON_COMPUTE_HOST"]
-    elif env.get("HOST"):
-        values["host"] = env["HOST"]
 
     if env.get("PYTHON_COMPUTE_PORT"):
         values["port"] = env["PYTHON_COMPUTE_PORT"]
-    elif env.get("PORT"):
-        values["port"] = env["PORT"]
 
     if env.get("PYTHON_COMPUTE_MAX_BODY_BYTES"):
         values["max_body_bytes"] = env["PYTHON_COMPUTE_MAX_BODY_BYTES"]
@@ -338,8 +347,10 @@ def load_settings(
 
     if env.get("PYTHON_COMPUTE_WORKER_MAX_TASKS"):
         values["worker_max_tasks"] = env["PYTHON_COMPUTE_WORKER_MAX_TASKS"]
-    if env.get("PYTHON_COMPUTE_SESSION_TTL_SEC"):
-        values["session_ttl_sec"] = env["PYTHON_COMPUTE_SESSION_TTL_SEC"]
+    if env.get("PYTHON_COMPUTE_SHARED_KERNEL_TTL_SEC"):
+        values["shared_kernel_ttl_sec"] = env["PYTHON_COMPUTE_SHARED_KERNEL_TTL_SEC"]
+    elif env.get("PYTHON_COMPUTE_SESSION_TTL_SEC"):
+        values["shared_kernel_ttl_sec"] = env["PYTHON_COMPUTE_SESSION_TTL_SEC"]
     if env.get("PYTHON_COMPUTE_IDLE_WORKER_TTL_SEC"):
         values["idle_worker_ttl_sec"] = env["PYTHON_COMPUTE_IDLE_WORKER_TTL_SEC"]
     if env.get("PYTHON_COMPUTE_OCR_WORKERS"):
@@ -421,8 +432,8 @@ def load_settings(
         worker_max_tasks=_as_int(
             values["worker_max_tasks"], field="worker_max_tasks", default=_DEFAULT_WORKER_MAX_TASKS
         ),
-        session_ttl_sec=_as_float(
-            values.get("session_ttl_sec"), field="session_ttl_sec", default=_DEFAULT_SESSION_TTL_SEC
+        shared_kernel_ttl_sec=_as_float(
+            values.get("shared_kernel_ttl_sec"), field="shared_kernel_ttl_sec", default=_DEFAULT_SHARED_KERNEL_TTL_SEC
         ),
         idle_worker_ttl_sec=_as_float(
             values.get("idle_worker_ttl_sec"), field="idle_worker_ttl_sec", default=_DEFAULT_IDLE_WORKER_TTL_SEC
