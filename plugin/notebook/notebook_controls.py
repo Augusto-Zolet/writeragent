@@ -80,12 +80,11 @@ def _query_interface(obj: Any, typename: str) -> Any:
 def _doc_key(doc: Any) -> str:
     """Stable id for listener de-dupe across Python wrappers of the same document.
 
-    Untitled Writer docs have an empty URL, so ``id(doc)`` was used. Import wires
-    once, ``import_dialog`` wires again, and bootstrap
-    ``install_notebook_run_button_wiring`` wires a third time — each with a
-    different PyUNO wrapper — so one ▶ click ran the cell three times
-    (``[In [4]]`` jumped to ``[In [7]]``). ``RuntimeUID`` is the same object
-    for every wrapper of that document.
+    Untitled Writer docs have an empty URL, so ``id(doc)`` was used. Import
+    and bootstrap ``install_notebook_run_button_wiring`` can wire on
+    different PyUNO wrappers of the same document — one ▶ click then ran
+    the cell multiple times (``[In [4]]`` jumped to ``[In [7]]``).
+    ``RuntimeUID`` is the same object for every wrapper of that document.
     """
     from plugin.framework.uno_context import get_runtime_uid
 

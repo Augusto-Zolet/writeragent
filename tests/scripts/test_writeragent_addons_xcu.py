@@ -124,13 +124,13 @@ def test_writeragent_writer_only_top_level_items():
         assert _CALC_SVC not in (ctx or "")
 
 
-def test_writeragent_jupyter_is_top_level_below_text_analytics():
+def test_writeragent_jupyter_is_not_a_menu_item():
+    """File → Open is the Jupyter path; no menubar or Debug item."""
     root = ET.parse(_ADDONS_XCU).getroot()
     menubar = _find_menubar(root)
     jupyter = _PROTOCOL + "scripting.import_ipynb"
     items = _submenu_items(menubar)
-    assert jupyter in items
-    assert _prop_text(items[jupyter], "Context") == _WRITER_SVC
+    assert jupyter not in items
     debug_urls = [
         _prop_text(item, "URL") for item in _debug_submenu(menubar).findall("node")
     ]
@@ -160,7 +160,6 @@ def test_writeragent_menu_order():
         _PROTOCOL + "embeddings.search_dialog",
         _PROTOCOL + "writer.insert_latex_dialog",
         _PROTOCOL + "textanalytics.open_dialog",
-        _PROTOCOL + "scripting.import_ipynb",
         "private:separator",
         _PROTOCOL + "main.settings",
         _PROTOCOL + "vision.open_settings",
@@ -213,8 +212,6 @@ def test_writeragent_mcp_images_section_points_at_assets():
     assert by_url[status].endswith("assets/stopped_16.png")
     assert by_url[status].startswith("%origin%/")
     assert _PROTOCOL + "mcp.toggle_server" not in by_url
-    jupyter = _PROTOCOL + "scripting.import_ipynb"
-    assert jupyter in by_url
-    assert by_url[jupyter] == "%origin%/assets/jupyter_32.png"
+    assert _PROTOCOL + "scripting.import_ipynb" not in by_url
     settings = _PROTOCOL + "main.settings"
     assert by_url[settings] == "%origin%/assets/gear_32.png"

@@ -222,7 +222,7 @@ flowchart LR
 | `emit.py` | `SheetModel` → `=PY()` formula strings + optional code cells |
 | `verify.py` | Oracle diff after conversion |
 | `report.py` | Human + JSON report |
-| `import_dialog.py` | XDL dialog (pattern: [`notebook/import_dialog.py`](../plugin/notebook/import_dialog.py)) |
+| `import_dialog.py` | XDL dialog (Calc spreadsheet → Python) |
 
 **Optional dependency (evaluate in Phase 3 spike):** vendored or dev-only [`formulas`](https://github.com/vinci1it2000/formulas) for ODS AST — only if a minimal in-tree parser is too costly. Default path: **small hand-rolled parser** for P1 grammar + `list_calc_functions` metadata.
 

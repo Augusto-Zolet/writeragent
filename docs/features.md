@@ -16,6 +16,7 @@ Product overview lives in the root [README](../README.md). This page maps each a
 | Track changes | [writer-tracking-api-reference.md](writer-tracking-api-reference.md) |
 | Grammar pipeline | [writer-grammar-checker-plan.md](writer-grammar-checker-plan.md) |
 | Math / TeX | [writer-math-tex.md](writer-math-tex.md) |
+| Jupyter `.ipynb` import (File → Open) | [writer-jupyter-notebook-import.md](writer-jupyter-notebook-import.md) |
 | Styles / LLM HTML | [writer-llm-styles.md](writer-llm-styles.md) · [LLM_STYLES.md](../LLM_STYLES.md) |
 | Reviewable edits | [writer-reviewable-agent-edits.md](writer-reviewable-agent-edits.md) |
 | Rich-text sidebar | [chat-rich-text-control-sidebar.md](chat-rich-text-control-sidebar.md) |

@@ -110,8 +110,6 @@ def show_hamburger_menu(ctx: Any, frame: Any, button_ctrl: Any) -> None:
             pos += 1
             add_item(popup, _("Text Analytics..."), "textanalytics.open_dialog", pos)
             pos += 1
-            add_item(popup, _("Import Jupyter Notebook..."), "scripting.import_ipynb", pos, "jupyter_32.png")
-            pos += 1
 
         # 4. Separator
         popup.insertSeparator(pos)

@@ -32,7 +32,6 @@ def test_python_logo_dev_sources_excluded_from_oxt():
 def test_jupyter_logo_dev_sources_excluded_from_oxt():
     assert should_exclude("extension/assets/jupyter_logo.svg") is True
     assert should_exclude("extension/assets/jupyter_logo.NOTICE") is True
-    assert should_exclude("extension/assets/jupyter_32.png") is False
     assert should_exclude("extension/assets/gear_32.png") is False
 
 

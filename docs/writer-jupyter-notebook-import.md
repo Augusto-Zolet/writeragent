@@ -40,7 +40,7 @@ WriterAgent can **read** Jupyter notebooks (nbformat v4) and **import** them int
 | Shipped (2026-08) | Deferred |
 |-------------------|----------|
 | **Vendored nbformat v4 read** — [`plugin/contrib/nbformat/`](../plugin/contrib/nbformat/): `read_ipynb(path)`, `reads(json_string)` → `NotebookNode` with `rejoin_lines` | **nbformat v3** upgrade path |
-| **Menu entry** — **WriterAgent → Import Jupyter Notebook…** (below Text Analytics...) — [`import_dialog.py`](../plugin/notebook/import_dialog.py); icon [`jupyter_32.png`](../extension/assets/jupyter_32.png) in Addons.xcu + hamburger | Run All / Stop (Phase 2 roadmap) |
+| **File → Open** — native `.ipynb` import filter ([`import_filter.py`](../plugin/notebook/import_filter.py)); TypeDetection registry | Run All / Stop (Phase 2 roadmap); append-into-open-document menu |
 | **Import engine** — [`writer_importer.py`](../plugin/notebook/writer_importer.py): ATX `#`/`##` headings, `* `/`- ` lists (nested + `<ol start=N>`), `>` blockquotes, `**bold**` / `*italic*`, `[text](url)` hyperlinks, HTML `<img>`/`<a>`, in-flow code fields, output text + images; `zxx` spellcheck-off locale | GFM tables, hover-only play, collapsible cells |
 | **Notebook registry (Phase 0)** — [`cell_registry.py`](../plugin/notebook/cell_registry.py): `WriterAgentNotebookJson`, stable `cell_id` (UUID), output bookmarks `nb_out_*`, `WriterAgentNotebookSourcePath` | Export back to `.ipynb` (Phase 5 roadmap) |
 | **Run code cell (Phase 1)** — in-flow ▶ **push** button + [`notebook_controls.py`](../plugin/notebook/notebook_controls.py) + [`notebook_runner.py`](../plugin/notebook/notebook_runner.py); shared `notebook:…` kernel; re-run **replaces** output (`setString("")`); UI drain on every run | Cell CRUD, sidebar (Phases 3–4 roadmap) |
@@ -53,9 +53,7 @@ WriterAgent can **read** Jupyter notebooks (nbformat v4) and **import** them int
 
 ## How to Use
 
-**File Open (no UI)** — the primary path. **File → Open…**, desktop double-click, Open Recent, or `soffice notebook.ipynb` creates a new Writer document and imports the notebook with no FilePicker and no completion dialog.
-
-**Menu (append into an open document)** — **WriterAgent → Import Jupyter Notebook…** (below Text Analytics...) still appends into the already-open Writer document. Pick a `.ipynb`; a completion dialog summarizes cells, code fields, and images. Insertion runs on the main thread using `lockControllers` to prevent layout thrashing.
+**File → Open** — **File → Open…**, desktop double-click, Open Recent, or `soffice notebook.ipynb` creates a new Writer document and imports the notebook (no FilePicker, no completion dialog). There is no menu entry to append into an already-open document.
 
 Click **▶** beside any code cell to execute it.
 
@@ -198,12 +196,11 @@ Native test suite execution:
 
 ## Native File Import Filter Registration (`.ipynb` via UNO)
 
-Rather than manually opening an empty Writer document and clicking **WriterAgent → Import Jupyter Notebook…**, `.ipynb` is registered as a native LibreOffice file import filter. 
+`.ipynb` is registered as a native LibreOffice file import filter.
 
 **How to Use:**
-- **No-UI Path**: Open `.ipynb` files directly via **File → Open...**, desktop double-click, Open Recent, or CLI (`soffice notebook.ipynb`). This creates a new Writer document and imports the notebook contents directly without showing a FilePicker or a completion message box. 
-- Open Recent works seamlessly because LibreOffice records the `.ipynb` URL and detects the file type by extension upon reopening, allowing re-importing directly from the source. (Note: Saving modifications as `.odt` will create a separate recent item).
-- **Append Path**: The **WriterAgent → Import Jupyter Notebook…** menu entry remains available to *append* a notebook into an already-open Writer document with the completion UI.
+- Open `.ipynb` files via **File → Open...**, desktop double-click, Open Recent, or CLI (`soffice notebook.ipynb`). This creates a new Writer document and imports the notebook contents with no FilePicker and no completion message box.
+- Open Recent works because LibreOffice records the `.ipynb` URL and detects the file type by extension upon reopening (saving as `.odt` creates a separate recent item).
 
 ### 1. PyUNO Import Filter Component (`plugin/notebook/import_filter.py`)
 
@@ -270,7 +267,6 @@ g_ImplementationHelper.addImplementation(
 | Module | Location | Purpose |
 |--------|----------|---------|
 | `cell_registry.py` | [`plugin/notebook/cell_registry.py`](../plugin/notebook/cell_registry.py) | Document registry serialization, cell UUIDs, bookmarks |
-| `import_dialog.py` | [`plugin/notebook/import_dialog.py`](../plugin/notebook/import_dialog.py) | File picker, import dialog, post-import status |
 | `writer_importer.py` | [`plugin/notebook/writer_importer.py`](../plugin/notebook/writer_importer.py) | Core import loop, nbformat processing, Writer DOM insertion |
 | `import_filter.py` | [`plugin/notebook/import_filter.py`](../plugin/notebook/import_filter.py) | Native File Open XFilter+XImporter (no FilePicker / no completion msgbox) |
 | `notebook_controls.py` | [`plugin/notebook/notebook_controls.py`](../plugin/notebook/notebook_controls.py) | ▶ button wiring and PyUNO form listener management |

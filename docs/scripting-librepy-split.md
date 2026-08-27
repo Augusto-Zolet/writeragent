@@ -48,7 +48,7 @@ Aligned with [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md
 | **LibrePy Python sidebar** (Calc deck: cells + diagnostics; also in WriterAgent.oxt) | WriterAgent chat deck (`WriterAgentDeck`) |
 | **NumPy domain trusted helpers** (Analysis, Viz, Symbolic, Units, Forecast, Optimize, Quant, Text Analytics menu) | Embeddings (`plugin/embeddings/`, folder FTS, hybrid search) |
 | **Vision/OCR** (Run Python Script Vision Helpers + settings) | DuckDB SQL (`domain=sql`, spreadsheet SQL helpers) |
-| **TeX/Math** (Insert LaTeX Math + Writer HTML math in Run Python Script egress) | Jupyter notebook import (`import_ipynb`) |
+| **TeX/Math** (Insert LaTeX Math + Writer HTML math in Run Python Script egress) | Jupyter notebook import (File → Open `.ipynb` filter) |
 | Settings → Python + venv self-check | Calc spreadsheet → Python import (`convert_spreadsheet_to_python`) |
 
 **Confirmed:** Core ships **menu + formula** surfaces only. Chat tool wrappers stay in WriterAgent even when they call the same trusted compute modules.
@@ -57,7 +57,7 @@ Aligned with [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md
 
 - Embeddings — `plugin/embeddings/`, `WORKER_POOL_EMBEDDINGS`, `embeddings_*` / `embedding` / `langdetect` trusted domains
 - DuckDB — `plugin/scripting/venv/duckdb_sql.py`, `SCRIPT_ORIGIN_SQL`, `domain=sql`
-- Jupyter — `plugin/notebook/`, `scripting.import_ipynb`
+- Jupyter — `plugin/notebook/`, TypeDetection `.ipynb` filter
 - Spreadsheet import — `plugin/calc/spreadsheet_import/` (proposed), `calc.convert_spreadsheet_to_python`
 - Calc-parity `xl` helpers — **not in LibrePy today**; see [Calc-parity `xl` helpers (deferred)](#calc-parity-xl-helpers-deferred-from-librepy) below.
 
@@ -398,7 +398,6 @@ Optional gettext: filtered catalogs via `make compile-translations-core` (part o
 | `writer.insert_latex_dialog` | Yes (Layer 6) | |
 | `vision.open_settings` | Yes (Layer 5) | |
 | `textanalytics.open_dialog` | Yes (Layer 3) | |
-| `scripting.import_ipynb` | | Yes |
 | `calc.convert_spreadsheet_to_python` | | Yes |
 | `embeddings.search_dialog` | | Yes |
 | Chat / review accelerators | | Yes |
@@ -484,7 +483,7 @@ Additional files: `plugin/calc/base.py`, `plugin/calc/inspector.py`, `plugin/fra
 | LLM / chat | `plugin/framework/client/llm_client.py`, `plugin/chatbot/*`, `=PROMPT()` |
 | Embeddings | `plugin/embeddings/`, `WORKER_POOL_EMBEDDINGS` |
 | DuckDB | `plugin/scripting/duckdb_sql.py`, SQL picker origin |
-| Jupyter | `plugin/notebook/`, `import_ipynb` |
+| Jupyter | `plugin/notebook/`, File → Open `.ipynb` filter |
 | Spreadsheet import | `calc.convert_spreadsheet_to_python` |
 | Grammar | LanguageTool / Vale / Harper under [`plugin/writer/locale/`](../plugin/writer/locale/) |
 | MCP / grammar UI | `plugin/mcp/`, `plugin/writer/locale/` |
@@ -718,7 +717,7 @@ Makefile
 
 **LibrePy menu Context:** In [`extension-core/Addons.xcu`](../extension-core/Addons.xcu), every submenu item must set an explicit `Context` property. Menubar icons for Run Python Script, Edit Python in Cell, and Settings come from `AddonUI/Images` (`%origin%/assets/python_32.png` / `python_cell_32.png` / `gear_32.png`); the sidebar hamburger sets the same files in Python. Do not rely on “empty Context = all applications” when the same submenu mixes Writer-only and Calc-only entries — LibreOffice may hide shared items (Settings, Run Python Script, Reset Python Session) in Calc. Shared items use the full menubar context string (Writer, Calc, Draw, Impress, Web, Global); doc-specific items set `TextDocument` or `SpreadsheetDocument` only. WriterAgent [`extension/Addons.xcu`](../extension/Addons.xcu) uses the same rule on shared items. Regression tests: [`tests/scripts/test_librepy_addons_xcu.py`](../tests/scripts/test_librepy_addons_xcu.py), [`tests/scripts/test_writeragent_addons_xcu.py`](../tests/scripts/test_writeragent_addons_xcu.py).
 
-**Menu order:** LibreOffice addon menus sort by `oor:name`, not XML document order — use sequential names (`M01`, `M02`, …) including separators (`private:separator`). Both products group working commands above an admin block (Settings, Vision OCR Settings, Reset Python Session) with **Report bug…** last. LibrePy’s command/admin cluster tracks WriterAgent’s shared actions (no AI/MCP/Debug/Search/Jupyter/Convert Sheet). WriterAgent keeps two separators (after Extend/Edit, before admin); LibrePy keeps one (before admin). Import Jupyter Notebook lives under WriterAgent **Debug** until it works.
+**Menu order:** LibreOffice addon menus sort by `oor:name`, not XML document order — use sequential names (`M01`, `M02`, …) including separators (`private:separator`). Both products group working commands above an admin block (Settings, Vision OCR Settings, Reset Python Session) with **Report bug…** last. LibrePy’s command/admin cluster tracks WriterAgent’s shared actions (no AI/MCP/Debug/Search/Jupyter/Convert Sheet). WriterAgent keeps two separators (after Extend/Edit, before admin); LibrePy keeps one (before admin). Jupyter notebooks open via **File → Open** (no menu item).
 
 - **`make manifest-core`**: include `scripting` + `vision` `module.yaml` only; exclude `embeddings`.
 - **`make build-core`**: copy/filter files from [`scripts/librepy_bundle_paths.py`](../scripts/librepy_bundle_paths.py); vendor copy uses `LIBREPY_VENDOR_PACKAGES` (`isodate`, `json_repair`, `latex2mathml` only).

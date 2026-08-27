@@ -272,12 +272,6 @@ def _register_core_handlers():
     except Exception:
         log.debug("Excel PY auto-convert on open install failed", exc_info=True)
 
-    def _import_ipynb():
-        from plugin.notebook.import_dialog import run_import_ipynb_dialog
-        run_import_ipynb_dialog(get_ctx())
-
-    register_action_handler("scripting", "import_ipynb", _import_ipynb)
-
     def _open_search_dialog():
         from plugin.embeddings.search_ui import show_search_dialog
         show_search_dialog(get_ctx())
@@ -530,7 +524,6 @@ def get_menu_text(command):
         "scripting.run_python_dialog": _("Run Python Script..."),
         "scripting.edit_python_cell": _("Edit Python in Cell..."),
         "scripting.reset_python_session": _("Reset Python Session"),
-        "scripting.import_ipynb": _("Import Jupyter Notebook..."),
         "writer.insert_latex_dialog": _("Edit LaTeX Math..."),
         "embeddings.search_dialog": _("Search Nearby Files..."),
         "textanalytics.open_dialog": _("Text Analytics..."),

@@ -1082,7 +1082,7 @@ def run_cell_for_doc_hex(ctx: Any, doc: Any, hex_id: str) -> None:
         msgbox(
             ctx,
             "WriterAgent",
-            _("This document has no imported notebook. Use WriterAgent → Debug → Import Jupyter Notebook… first."),
+            _("This document has no imported notebook. File → Open a Jupyter notebook (.ipynb) first."),
         )
         return
     cell = find_cell_by_hex(state, hex_id)

@@ -426,13 +426,6 @@ def test_batch_document_updates_unlocks_after_error():
     doc.unlockControllers.assert_called_once()
 
 
-def test_import_dialog_does_not_pump_vcl_idle_before_msgbox():
-    from plugin.notebook.import_dialog import run_import_ipynb_dialog
-
-    src = inspect.getsource(run_import_ipynb_dialog)
-    assert "flush_ui_idle" not in src
-
-
 def test_import_ipynb_code_cells_use_insert_text_content(tmp_path, monkeypatch):
     ipynb = tmp_path / "mixed.ipynb"
     ipynb.write_text(

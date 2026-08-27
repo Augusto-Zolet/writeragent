@@ -4,12 +4,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Live Writer smoke: Jupyter import + run on the small NumPy fixture.
 
-Entry point is the same action the menubar uses
-(``WriterAgent → Import Jupyter Notebook…``,
-``org.extension.writeragent:scripting.import_ipynb``). The native runner cannot
-click a modal FilePicker, so the test drives that picker to the fixture path
-while still executing ``import_dialog._pick_ipynb_path`` / ``run_import_ipynb_dialog``.
-It does **not** call ``import_ipynb_to_writer`` itself.
+Imports via ``import_ipynb_to_writer`` (same engine as File → Open).
 
 A sandbox ``Forbidden access to dunder attribute`` / ``__version__`` deny is a
 hard failure (PR 453 treated that as a clean error). A worker
@@ -35,7 +30,6 @@ _MEDIUM_IPYNB = (
 _HTML_IMG_IPYNB = (
     Path(__file__).resolve().parents[1] / "fixtures" / "html-img-and-md-link.ipynb"
 )
-_IMPORT_ACTION = "scripting.import_ipynb"
 _HEADINGS = (
     ("A Small Introduction to NumPy", 1),
     ("1. Creating Arrays", 2),
@@ -43,79 +37,11 @@ _HEADINGS = (
 )
 
 
-class _DrivenFilePicker:
-    """Stand-in for the UNO FilePicker: OK + fixture URL, no modal click."""
-
-    def __init__(self, file_url: str) -> None:
-        self._file_url = file_url
-        self.calls: list[str] = []
-
-    def initialize(self, _args: object) -> None:
-        self.calls.append("initialize")
-
-    def setTitle(self, _title: str) -> None:
-        self.calls.append("setTitle")
-
-    def appendFilter(self, _name: str, _glob: str) -> None:
-        self.calls.append("appendFilter")
-
-    def setCurrentFilter(self, _name: str) -> None:
-        self.calls.append("setCurrentFilter")
-
-    def execute(self) -> int:
-        self.calls.append("execute")
-        return 1
-
-    def getFiles(self) -> tuple[str, ...]:
-        self.calls.append("getFiles")
-        return (self._file_url,)
-
-
-def _drive_filepicker(fixture_path: Path):
-    """Run the real ``_pick_ipynb_path`` against a FilePicker that returns *fixture_path*."""
-    import uno
-
-    import plugin.notebook.import_dialog as import_dialog
-
-    orig = import_dialog._pick_ipynb_path
-    file_url = uno.systemPathToFileUrl(str(fixture_path))
-    picker = _DrivenFilePicker(file_url)
-
-    def driven(ctx):
-        class _Smgr:
-            def createInstanceWithContext(self, service, c):
-                if service == "com.sun.star.ui.dialogs.FilePicker":
-                    return picker
-                return ctx.getServiceManager().createInstanceWithContext(service, c)
-
-        class _Ctx:
-            def getServiceManager(self):
-                return _Smgr()
-
-        return orig(_Ctx())
-
-    return patch.object(import_dialog, "_pick_ipynb_path", driven), picker
-
-
 def _capture_msgbox(store: list):
     def _capture(ctx, title, message, *, box_type=1):
         store.append((str(title), str(message), box_type))
 
     return _capture
-
-
-def _activate_doc(ctx, doc) -> None:
-    """Menu handlers resolve the document via ``get_active_document``."""
-    try:
-        doc.getCurrentController().getFrame().activate()
-    except Exception:
-        pass
-    try:
-        from plugin.framework.uno_context import process_events_to_idle
-
-        process_events_to_idle(ctx)
-    except Exception:
-        pass
 
 
 def _paragraphs(doc) -> list[tuple[str, str]]:
@@ -225,17 +151,6 @@ def _is_missing_numpy(blob: str) -> bool:
     )
 
 
-@native_test
-def test_debug_menu_import_ipynb_action_registered(ctx):
-    from plugin.framework.main_shared import get_action_handler
-
-    handler = get_action_handler(_IMPORT_ACTION)
-    assert handler is not None, (
-        "Menu action scripting.import_ipynb is not registered "
-        "(WriterAgent → Import Jupyter Notebook…)"
-    )
-
-
 def _graphic_count(doc) -> int:
     try:
         objs = doc.getGraphicObjects()
@@ -300,32 +215,12 @@ def test_debug_menu_import_html_img_and_markdown_link(ctx, doc):
     img = _HTML_IMG_IPYNB.resolve().parents[1] / "images" / "numpy-anatomy-of-an-array-updated.png"
     assert img.is_file(), f"missing {img}"
 
-    from plugin.framework.main_shared import get_action_handler
-    from plugin.framework.uno_context import get_active_document, process_events_to_idle
+    from plugin.framework.uno_context import process_events_to_idle
+    from plugin.notebook.writer_importer import import_ipynb_to_writer
 
-    handler = get_action_handler(_IMPORT_ACTION)
-    assert handler is not None, "scripting.import_ipynb is not registered"
-
-    _activate_doc(ctx, doc)
-    active = get_active_document(ctx)
-    assert active is not None, "no active document for Debug-menu import"
-
-    picker_patch, picker = _drive_filepicker(_HTML_IMG_IPYNB)
-    boxes = []
-    capture = _capture_msgbox(boxes)
-
-    with picker_patch, patch("plugin.notebook.import_dialog.msgbox", capture):
-        handler()
-
+    stats = import_ipynb_to_writer(doc, str(_HTML_IMG_IPYNB), ctx=ctx)
     process_events_to_idle(ctx)
-
-    assert "execute" in picker.calls and "getFiles" in picker.calls, (
-        f"FilePicker was not driven through _pick_ipynb_path: {picker.calls}"
-    )
-    completion = "\n".join(msg for _title, msg, _bt in boxes)
-    assert "Imported notebook" in completion or "Cells: 1" in completion, (
-        f"completion msgbox missing import stats: {boxes!r}"
-    )
+    assert stats.get("cells", 0) >= 1
 
     body = doc.getText().getString() or ""
     assert "What is NumPy?" in body
@@ -377,7 +272,6 @@ def test_debug_menu_import_and_run_small_numpy_notebook(ctx, doc):
 
 
 def _debug_menu_import_and_run(ctx, doc) -> None:
-    from plugin.framework.main_shared import get_action_handler
     from plugin.notebook.cell_registry import cell_id_to_hex, load_registry
     from plugin.notebook.form_lookup import index_form_control_models
     from plugin.notebook.notebook_controls import (
@@ -385,44 +279,17 @@ def _debug_menu_import_and_run(ctx, doc) -> None:
         wire_all_notebook_run_buttons,
     )
     from plugin.notebook.notebook_runner import read_code_from_field, run_cell, run_cell_for_doc_hex
-    from plugin.framework.uno_context import get_active_document
+    from plugin.notebook.writer_importer import import_ipynb_to_writer
 
-    handler = get_action_handler(_IMPORT_ACTION)
-    assert handler is not None, "scripting.import_ipynb is not registered"
-
-    _activate_doc(ctx, doc)
-
-    active = get_active_document(ctx)
-    assert active is not None, "no active document for Debug-menu import"
-    try:
-        assert active.RuntimeUID == doc.RuntimeUID, (
-            "test Writer doc is not the current component; Debug import would hit another document"
-        )
-    except AttributeError:
-        pass
-
-    picker_patch, picker = _drive_filepicker(_SMALL_IPYNB)
     boxes = []
     capture = _capture_msgbox(boxes)
 
-    with picker_patch, patch("plugin.notebook.import_dialog.msgbox", capture), patch(
-        "plugin.notebook.notebook_runner.msgbox", capture
-    ):
-        # Same callable DispatchHandler runs for Addons.xcu M16f.
-        handler()
+    with patch("plugin.notebook.notebook_runner.msgbox", capture):
+        stats = import_ipynb_to_writer(doc, str(_SMALL_IPYNB), ctx=ctx)
 
-    assert "initialize" in picker.calls and "execute" in picker.calls and "getFiles" in picker.calls, (
-        f"FilePicker was not driven through _pick_ipynb_path: {picker.calls}"
-    )
-
-    completion = "\n".join(msg for _title, msg, _bt in boxes)
-    assert "Imported notebook" in completion or "Cells: 6" in completion, (
-        f"completion msgbox missing import stats: {boxes!r}"
-    )
-    assert "Cells: 6" in completion
-    assert "code: 3" in completion
-    assert "markdown: 3" in completion
-    assert "Code input fields in document: 6" in completion
+    assert stats["cells"] == 6
+    assert stats["code"] == 3
+    assert stats["markdown"] == 3
 
     body = doc.getText().getString() or ""
     assert body.strip(), "import did not write into the active Writer document"

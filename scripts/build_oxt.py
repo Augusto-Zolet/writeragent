@@ -188,7 +188,7 @@ def should_exclude(path, with_tests=False):
         or path_norm.startswith("build/generated/locales/")
     ) and (path_norm.endswith(".po") or path_norm.endswith(".pot")):
         return True
-    # Dev-only logo sources; ship only the 32 px PNGs in the OXT.
+    # Dev-only logo sources; ship only the 32 px PNGs used by menus in the OXT.
     if path_norm.endswith("assets/python_logo.svg") or path_norm.endswith("assets/python_logo.NOTICE"):
         return True
     if path_norm.endswith("assets/jupyter_logo.svg") or path_norm.endswith("assets/jupyter_logo.NOTICE"):

@@ -131,20 +131,6 @@
               <value>_self</value>
             </prop>
           </node>
-          <node oor:name="M10" oor:op="replace">
-            <prop oor:name="Title">
-              <value xml:lang="en-US">Import Jupyter Notebook...</value>
-            </prop>
-            <prop oor:name="URL">
-              <value>org.extension.writeragent:scripting.import_ipynb</value>
-            </prop>
-            <prop oor:name="Context" oor:type="xs:string">
-              <value>com.sun.star.text.TextDocument</value>
-            </prop>
-            <prop oor:name="Target" oor:type="xs:string">
-              <value>_self</value>
-            </prop>
-          </node>
           <node oor:name="M11" oor:op="replace">
             <prop oor:name="URL">
               <value>private:separator</value>
@@ -466,19 +452,6 @@
           </prop>
           <prop oor:name="ImageBigURL">
             <value>%origin%/assets/latex_32.png</value>
-          </prop>
-        </node>
-      </node>
-      <node oor:name="org.extension.writeragent.scripting.import_ipynb.img" oor:op="replace">
-        <prop oor:name="URL">
-          <value>org.extension.writeragent:scripting.import_ipynb</value>
-        </prop>
-        <node oor:name="UserDefinedImages">
-          <prop oor:name="ImageSmallURL">
-            <value>%origin%/assets/jupyter_32.png</value>
-          </prop>
-          <prop oor:name="ImageBigURL">
-            <value>%origin%/assets/jupyter_32.png</value>
           </prop>
         </node>
       </node>
