@@ -15,7 +15,14 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Service infrastructure: base class and registry."""
+"""Service infrastructure: base class and registry.
+
+Concurrency: ``ServiceRegistry`` (``services.document``, ``services.events``,
+…) is populated while the extension bootstraps on the UI thread, then
+read for the rest of the session. There is no lock. Do not call
+``register`` from a background worker — you can race the dict and you
+will confuse shutdown order.
+"""
 
 from __future__ import annotations
 

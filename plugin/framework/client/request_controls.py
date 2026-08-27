@@ -3,7 +3,15 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Low-level pacing and retry policy helpers for outbound LLM requests."""
+"""Low-level pacing and retry policy helpers for outbound LLM requests.
+
+Concurrency: ``RequestPacer`` (minimum gap between sends) and
+``LocalHttpsCertificateFallback`` (which local hosts retried without TLS
+verify) are fields on one transport. They are not locked: each
+``LlmClient`` has its own transport and typically one in-flight stream.
+Chat and grammar do not share a pacer. Adding a lock here would not
+protect a connection you must not share in the first place.
+"""
 
 import logging
 import time

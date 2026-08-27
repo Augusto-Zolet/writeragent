@@ -23,6 +23,14 @@ on Desktop). AGENTS.md: use the extension context, not a fresh UNO context.
 
 All services that need UNO access should call ``get_ctx()`` rather than
 storing a ctx reference from ``initialize()``.
+
+Concurrency: the component context (``ctx``) must be the one LibreOffice
+gave the extension at load, stored in ``_fallback_ctx``. Calling
+``uno.getComponentContext()`` from a background thread or a test runner
+can return a **different** context with no UI, which then segfaults or
+fails to find dialogs. This module does **not** make the Writer/Calc
+document model safe from any thread — wrap document access with
+``guard_uno`` and marshal UI work through ``QueueExecutor``.
 """
 
 import logging

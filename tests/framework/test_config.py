@@ -1,6 +1,7 @@
 import json
 import os
 import tempfile
+import threading
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -226,6 +227,44 @@ class TestConfigSyncFileIO(unittest.TestCase):
             self.assertEqual(f.read(), broken)
         data = self._load_written()
         self.assertEqual(data['text_model'], 'gpt')
+
+    def test_get_config_repair_persist_does_not_drop_concurrent_set(self):
+        """GET-path repair persist must not rewrite over a concurrent set_config."""
+        broken = '{"text_model": "gpt",}'
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            f.write(broken)
+        reset_config_for_tests()
+        barrier = threading.Barrier(2)
+        errors = []
+
+        def reader():
+            try:
+                barrier.wait(timeout=5)
+                for unused in range(30):
+                    get_config("text_model")
+            except Exception as exc:
+                errors.append(exc)
+
+        def writer():
+            try:
+                barrier.wait(timeout=5)
+                set_config("image_model", "flux-keep")
+            except Exception as exc:
+                errors.append(exc)
+
+        t_read = threading.Thread(target=reader)
+        t_write = threading.Thread(target=writer)
+        t_read.start()
+        t_write.start()
+        t_read.join(timeout=15)
+        t_write.join(timeout=15)
+        self.assertFalse(t_read.is_alive())
+        self.assertFalse(t_write.is_alive())
+        self.assertEqual(errors, [])
+        reset_config_for_tests()
+        data = self._load_written()
+        self.assertEqual(data.get("image_model"), "flux-keep")
+        self.assertEqual(data.get("text_model"), "gpt")
 
     def test_config_read_creates_backup_on_failure(self):
         corrupt = '{ invalid json '

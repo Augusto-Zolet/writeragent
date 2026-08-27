@@ -18,6 +18,15 @@
 
 Paths are set via init_logging(ctx). No file logging when the config dir is unavailable.
 Also: redaction helpers for debug logs that would otherwise embed large base64 (chat multimodal parts, image API JSON).
+
+Concurrency: ``init_logging`` may run from bootstrap while workers already
+log. ``_init_lock`` serializes installing the file handler and remembering
+the ``writeragent_debug.log`` path. ``_activity_lock`` protects the
+watchdog’s “last activity” timestamps (a dedicated background thread
+flushes or pokes health). ``_debug_log_flush_lock`` rate-limits
+``flush()`` so every log line does not fsync. Actual line writes go
+through Python’s ``logging`` handler lock; you do not need another mutex
+around ``log.info``.
 """
 
 import os

@@ -31,6 +31,16 @@ Writes omit keys that still match defaults and prefix the file with ``//``
 comment lines pointing at ``docs/writeragent-config-schema.md`` on GitHub.
 Those comments are stripped on read.
 
+Concurrency: workers and the UI both read and write ``writeragent.json``.
+``set_config`` / ``remove_config`` and **GET-path** persists (repairing
+broken JSON, coercing out-of-range numbers, upgrading old
+``calc_prompt_max_tokens``) share ``_config_write_lock`` (an ``RLock`` so
+a helper already holding it can persist). Without that lock a
+background ``get_config`` could rewrite an older file over a key the UI
+just saved. The ``config:changed`` event is emitted **after** the lock
+is released so listeners may call ``get_config`` / ``set_config`` without
+deadlocking.
+
 Schema-backed coercion, option canonicalization, and min/max bounds live in
 ``config_schema.py``. Import those names from there. This module is path,
 cache, and JSON I/O only. Do not import this file from ``config_schema.py``.
@@ -105,7 +115,9 @@ LRU_MAX_ITEMS = 10
 AI_SIMPLE_FIELDS = {"endpoint", "text_model", "image_model", "stt_model", "temperature", "chat_max_tokens", "request_timeout", "additional_instructions", "parallel_tool_calls"}
 
 _resolved_config_path = None
-_config_write_lock = threading.Lock()
+# RLock: set_config holds this while loading; GET-path persist helpers take it
+# too. Same-thread get_config during a nested call must not deadlock.
+_config_write_lock = threading.RLock()
 
 
 def _resolve_config_path_from_ctx(ctx) -> str:
@@ -308,8 +320,10 @@ def _load_config_dict(
             )
             if persist_repair:
                 try:
-                    _write_config_file(config_file_path, data)
-                    _invalidate_config_cache()
+                    # GET-path persist must serialize with set_config (RLock if nested).
+                    with _config_write_lock:
+                        _write_config_file(config_file_path, data)
+                        _invalidate_config_cache()
                 except OSError as e:
                     raise ConfigError(
                         f"Failed to write repaired config: {e}",
@@ -523,6 +537,7 @@ def set_config(key, value):
     if not config_file_path:
         log.warning("set_config skipped: empty config path")
         return
+    emit_changed = False
     with _config_write_lock:
         if os.path.exists(config_file_path):
             config_data = _load_config_dict(config_file_path, allow_repair=True, persist_repair=False)
@@ -552,14 +567,14 @@ def set_config(key, value):
 
         try:
             _write_config_file(config_file_path, config_data)
-
             _invalidate_config_cache()
-
-            global_event_bus.emit("config:changed", ctx=_emit_config_changed_ctx())
-
+            emit_changed = True
         except OSError as e:
             log.exception("Error writing to %s", config_file_path)
             raise ConfigError(f"Failed to save config: {e}", "CONFIG_SAVE_ERROR") from e
+    # Handlers may get_config/set_config; do not hold the write lock across emit.
+    if emit_changed:
+        global_event_bus.emit("config:changed", ctx=_emit_config_changed_ctx())
 
 
 def remove_config(key):
@@ -575,6 +590,7 @@ def remove_config(key):
         return
     if not os.path.exists(config_file_path):
         return
+    emit_changed = False
     with _config_write_lock:
         try:
             with open(config_file_path, "r", encoding="utf-8") as f:
@@ -612,14 +628,13 @@ def remove_config(key):
 
         try:
             _write_config_file(config_file_path, config_data)
-
             _invalidate_config_cache()
-
-            global_event_bus.emit("config:changed", ctx=_emit_config_changed_ctx())
-
+            emit_changed = True
         except OSError as e:
             log.exception("Error writing to %s", config_file_path)
             raise ConfigError(f"Failed to remove config key: {e}", "CONFIG_SAVE_ERROR") from e
+    if emit_changed:
+        global_event_bus.emit("config:changed", ctx=_emit_config_changed_ctx())
 
 
 def _get_validated_config_dict():
@@ -639,82 +654,88 @@ def _get_validated_config_dict():
     if _cache.data is not None and (current_time - _cache.mtime_last_checked) < 2.0:
         return _cache.data
 
-    try:
-        current_mtime = os.path.getmtime(config_file_path)
-    except OSError:
-        current_mtime = 0
-
-    _cache.mtime_last_checked = current_time
-
-    if _cache.data is not None and current_mtime == _cache.mtime and current_mtime != 0:
-        return _cache.data
-
-    try:
-        data = _load_config_dict(config_file_path, allow_repair=True, persist_repair=True)
-
-        if not isinstance(data, dict):
-            raise ConfigError("Config must be a JSON object", "CONFIG_INVALID_FORMAT")
-
+    # Load/repair/coerce may persist; serialize with set_config and re-check
+    # cache after waiting so we do not rewrite a file another thread just saved.
+    with _config_write_lock:
+        current_time = time.time()
+        if _cache.data is not None and (current_time - _cache.mtime_last_checked) < 2.0:
+            return _cache.data
         try:
             current_mtime = os.path.getmtime(config_file_path)
         except OSError:
             current_mtime = 0
 
-        # One out-of-range field used to raise ConfigValidationError, which the
-        # ConfigError handler below turned into {} — a later set_config then
-        # rewrote the file with only the new key. Coerce and persist so the
-        # rest of the file (API keys included) is kept. set_config still
-        # validates strictly so the UI can reject a bad new value.
-        config = _config_schema.WriterAgentConfig.from_dict(data)
+        _cache.mtime_last_checked = current_time
+
+        if _cache.data is not None and current_mtime == _cache.mtime and current_mtime != 0:
+            return _cache.data
+
         try:
-            config.validate()
-        except ConfigValidationError as e:
-            log.warning("Config has out-of-range values (%s); coercing to in-range defaults", e)
-            config.validate(coerce_out_of_range=True)
+            data = _load_config_dict(config_file_path, allow_repair=True, persist_repair=True)
+
+            if not isinstance(data, dict):
+                raise ConfigError("Config must be a JSON object", "CONFIG_INVALID_FORMAT")
+
             try:
-                repaired = config.to_dict()
-                _write_config_file(config_file_path, repaired)
-                data = repaired
-                try:
-                    current_mtime = os.path.getmtime(config_file_path)
-                except OSError:
-                    pass
-            except OSError as write_err:
-                log.warning("Failed to persist coerced config: %s", write_err)
+                current_mtime = os.path.getmtime(config_file_path)
+            except OSError:
+                current_mtime = 0
 
-        out = _build_validated_config_export(data, config)
-
-        # Persist stale calc_prompt_max_tokens upgrade (old default 70 → 4096).
-        raw_prompt_tokens = data.get("calc_prompt_max_tokens")
-        try:
-            raw_int = _config_schema.parse_int_robust(raw_prompt_tokens) if raw_prompt_tokens is not None and raw_prompt_tokens != "" else None
-        except ValueError:
-            raw_int = None
-        if raw_int is not None and raw_int < 100:
-            file_data = dict(data)
-            file_data.pop("calc_prompt_max_tokens", None)
-            cleaned_config = _config_schema.WriterAgentConfig.from_dict(file_data)
-            cleaned_config.validate()
-            cleaned_file_data = cleaned_config.to_dict()
+            # One out-of-range field used to raise ConfigValidationError, which the
+            # ConfigError handler below turned into {} — a later set_config then
+            # rewrote the file with only the new key. Coerce and persist so the
+            # rest of the file (API keys included) is kept. set_config still
+            # validates strictly so the UI can reject a bad new value.
+            config = _config_schema.WriterAgentConfig.from_dict(data)
             try:
-                _write_config_file(config_file_path, cleaned_file_data)
+                config.validate()
+            except ConfigValidationError as e:
+                log.warning("Config has out-of-range values (%s); coercing to in-range defaults", e)
+                config.validate(coerce_out_of_range=True)
                 try:
-                    current_mtime = os.path.getmtime(config_file_path)
-                except OSError:
-                    pass
-                log.info("Persisted calc_prompt_max_tokens upgrade (%s → default 4096)", raw_int)
-            except OSError as e:
-                log.warning("Failed to persist calc_prompt_max_tokens upgrade: %s", e)
+                    repaired = config.to_dict()
+                    _write_config_file(config_file_path, repaired)
+                    data = repaired
+                    try:
+                        current_mtime = os.path.getmtime(config_file_path)
+                    except OSError:
+                        pass
+                except OSError as write_err:
+                    log.warning("Failed to persist coerced config: %s", write_err)
 
-        _cache.data = out
-        _cache.mtime = current_mtime
-        return out
-    except ConfigError:
-        log.exception("Config error reading %s", config_file_path)
-        return {}
-    except OSError:
-        log.exception("Error reading %s", config_file_path)
-        return {}
+            out = _build_validated_config_export(data, config)
+
+            # Persist stale calc_prompt_max_tokens upgrade (old default 70 → 4096).
+            raw_prompt_tokens = data.get("calc_prompt_max_tokens")
+            try:
+                raw_int = _config_schema.parse_int_robust(raw_prompt_tokens) if raw_prompt_tokens is not None and raw_prompt_tokens != "" else None
+            except ValueError:
+                raw_int = None
+            if raw_int is not None and raw_int < 100:
+                file_data = dict(data)
+                file_data.pop("calc_prompt_max_tokens", None)
+                cleaned_config = _config_schema.WriterAgentConfig.from_dict(file_data)
+                cleaned_config.validate()
+                cleaned_file_data = cleaned_config.to_dict()
+                try:
+                    _write_config_file(config_file_path, cleaned_file_data)
+                    try:
+                        current_mtime = os.path.getmtime(config_file_path)
+                    except OSError:
+                        pass
+                    log.info("Persisted calc_prompt_max_tokens upgrade (%s → default 4096)", raw_int)
+                except OSError as e:
+                    log.warning("Failed to persist calc_prompt_max_tokens upgrade: %s", e)
+
+            _cache.data = out
+            _cache.mtime = current_mtime
+            return out
+        except ConfigError:
+            log.exception("Config error reading %s", config_file_path)
+            return {}
+        except OSError:
+            log.exception("Error reading %s", config_file_path)
+            return {}
 
 
 # --- Per-endpoint API keys ---

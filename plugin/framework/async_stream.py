@@ -14,11 +14,22 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""
-Unified async stream orchestration for WriterAgent.
+"""Unified async stream orchestration for WriterAgent.
+
 Handles both simple streaming and complex tool-calling loops with thinking/status updates.
 Runs blocking API calls on worker threads and drains logic via a main-thread loop
 to keep the LibreOffice UI responsive (pump_ui_idle: QueueExecutor + VCL).
+
+Concurrency: the LLM/network work runs on a **background** thread so
+LibreOffice’s UI does not freeze. That worker only ``put``s tuples onto a
+``queue.Queue``. The **LibreOffice main (UI) thread** drains the queue and
+updates widgets. The first element of each tuple must be a
+``StreamQueueKind`` enum member (not a raw string) so the drain loop can
+tell tokens from errors from “stream finished.” ``BatchingStreamQueue``
+uses a small lock only while coalescing pending text chunks; it does not
+make UNO calls under that lock. While the drain loop is pumping
+LibreOffice events (``processEventsToIdle``), it is the single owner of
+that pump — see ``async_drain_guard``.
 """
 
 from __future__ import annotations

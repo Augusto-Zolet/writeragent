@@ -29,6 +29,14 @@ When active:
 When inactive, violations log a warning with full stack (no crash).
 
 See docs/framework-uno-thread-safety.md (Layer A).
+
+Concurrency: each background job is tagged with a name in
+**thread-local** storage when ``run_in_background`` starts, so a
+violation message can say ``run_search`` instead of a reused pool thread
+name. ``_violation_ui_lock`` only prevents two threads from opening the
+same “UNO used off the main thread” dialog at once. This module
+**detects** wrong-thread UNO access; it does not move work to the UI
+thread — use ``QueueExecutor`` / ``execute_on_main_thread`` for that.
 """
 
 import functools

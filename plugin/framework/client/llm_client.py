@@ -21,6 +21,15 @@ Builds provider-aware LLM payloads and delegates chat HTTP execution to
 stripping, dev/release system prefix, date prefix on first system message,
 Anthropic/Gemini shims, OpenRouter merge (``merge_openrouter_chat_extra``), and
 logging redaction. Takes a config dict from ``get_api_config`` and UNO ``ctx``.
+
+Concurrency: construct a **new** ``LlmClient`` for each job (sidebar send,
+grammar worker, Calc ``=PROMPT()``, smol/web-research). The persistent HTTP
+connection and provider shims (``_shims``) live on that instance only, so
+chat and grammar hitting the same Ollama at once use two sockets, not one
+shared conn. There is no process-wide client singleton. ``stop()`` (wired
+from the sidebar Stop button via ``SendCancellation``) closes the socket
+while the worker thread may still be reading the response — that is how a
+hung stream is aborted, not a race to mutex away.
 """
 
 from __future__ import annotations

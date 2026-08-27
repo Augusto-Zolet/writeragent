@@ -14,7 +14,17 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-"""Lightweight synchronous event bus for inter-module communication."""
+"""Lightweight synchronous event bus for inter-module communication.
+
+Concurrency: ``emit`` copies the listener list, then calls those
+callables **on the emitting thread** (often a worker). There is no lock
+held while handlers run — a lock would deadlock the UI against workers
+and would block two legitimate same-named events from different threads.
+``subscribe`` during an emit is not in that fan-out. Snapshotting is not
+UNO safety: a handler that touches Writer still belongs on the main
+thread. Full rules on the ``EventBus`` class and
+docs/framework-threading.md.
+"""
 
 import sys
 import logging

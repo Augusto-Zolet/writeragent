@@ -3,7 +3,19 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""Persistent ``http.client`` transport for chat-completion requests."""
+"""Persistent ``http.client`` transport for chat-completion requests.
+
+Concurrency: each ``LlmHttpTransport`` owns one keep-alive HTTP connection
+(the stdlib ``http.client`` object). That object is not safe for two threads
+to ``request`` / ``getresponse`` at once, so callers create a **new**
+``LlmClient`` (and thus a new transport) per job — sidebar chat, grammar, a
+Calc ``=PROMPT()`` cell, and smolagents each have their own. When the user
+hits Stop, another thread calls ``close()`` and shuts the socket while the
+worker may still be blocked in ``getresponse``. That abort is intentional.
+Do not put a lock around ``send()`` to “make HTTP thread-safe”: Stop would
+then wait for the full network timeout. Details:
+docs/framework-threading.md.
+"""
 
 import http.client
 import logging

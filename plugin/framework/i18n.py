@@ -17,6 +17,14 @@
 """Internationalization (i18n) utility for WriterAgent.
 
 Uses standard Python gettext to localize strings dynamically.
+
+Concurrency: gettext catalogs are loaded once on the LibreOffice UI
+thread in ``init_i18n`` (reads the office locale from UNO config). After
+that, ``_()`` is a read of the loaded catalog — no lock. If something
+calls ``get_lo_locale`` from a **background** thread before init, it
+returns English (``en_US``) instead of calling
+``uno.getComponentContext()``, which can create a second, wrong UNO
+context and break dialogs.
 """
 
 import os

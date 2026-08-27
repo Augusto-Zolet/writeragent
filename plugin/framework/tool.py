@@ -15,6 +15,19 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+"""Tool base types and the process-wide ToolRegistry.
+
+Concurrency: tools are registered while the extension starts (main
+thread), then looked up by name from chat and MCP. There is no lock on
+the ``_tools`` dict — do not register from a worker. Synchronous tools
+that touch the document are marshaled onto the LibreOffice UI thread
+before they run. If a tool declares a timeout, ``execute`` starts a
+**dedicated** background thread and ``join``s it; when the timer fires
+that thread is **abandoned** (it may still finish, but the result is
+dropped). Python cannot kill a thread cleanly. Cooperative cancel is
+``SendCancellation`` (Stop sets a flag / closes HTTP), not
+``thread.kill``.
+"""
 from __future__ import annotations
 
 import copy

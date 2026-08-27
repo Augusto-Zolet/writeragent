@@ -2,6 +2,14 @@
 
 This mixin is used by SendButtonListener in panel.py and contains the
 multi-round tool-calling loop plus simple streaming fallback.
+
+Concurrency: the model stream runs on a **dedicated** background thread
+so typing in Writer stays live. Tokens are queued; the LibreOffice UI
+thread drains them and updates the sidebar. Only one tool runs per LLM
+round (the loop waits for ``TOOL_RESULT`` before the next). This mixin
+holds its own ``LlmClient``; the grammar checker has a separate client.
+Document edits and widget updates stay on the drain / main thread, not
+on the LLM worker.
 """
 
 import logging

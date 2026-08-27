@@ -2,7 +2,17 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Grammar provider dispatch: LLM, Harper, LanguageTool, Vale, plus language detect and cache write."""
+"""Grammar provider dispatch: LLM, Harper, LanguageTool, Vale, plus language detect and cache write.
+
+Concurrency: proofreading runs on grammar worker threads, not on the
+sidebar chat client. This module constructs its **own** ``LlmClient`` so
+it does not share chat’s keep-alive HTTP connection (stdlib http.client
+is not thread-safe; Stop on chat must not close grammar’s socket). How
+many grammar HTTP calls may run at once is
+``grammar_llm_request_gate`` in ``queue_executor`` (local models often
+handle one request). Reading or writing the Writer document still goes
+through the UI thread / ``guard_uno``.
+"""
 
 from __future__ import annotations
 

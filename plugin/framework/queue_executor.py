@@ -15,6 +15,13 @@ until the main thread has executed the work item and stored the result.
 
 Fallback: if AsyncCallback is unavailable (unit-test, headless without
 a toolkit), the function is called directly with a warning.
+
+Concurrency: ``_claim_lock`` decides whether a timed-out waiter or the
+main thread “owns” a queued function so UNO does not run after the
+caller has given up. ``llm_request_lane`` and the grammar in-flight
+counter serialize **HTTP to a local LLM** (Ollama/llama.cpp often serve
+one request). They are not UNO locks. Document and widget work from the
+MCP HTTP thread still comes through this queue onto the UI thread.
 """
 
 from __future__ import annotations

@@ -19,6 +19,14 @@
 Extracted from the MCP module so any module can register HTTP endpoints.
 The server handles CORS, JSON encode/decode, and main-thread dispatch.
 Route handlers are looked up from an HttpRouteRegistry instance.
+
+Concurrency: the socket accept loop runs on its **own** daemon thread
+(``run_in_background(..., dedicated=True, name="http-server")``) so it
+does not occupy the short-job pool. Incoming HTTP is **not** the
+LibreOffice UI thread. Anything that touches a document, a dialog, or
+most UNO services must be posted through ``QueueExecutor``
+(``execute_on_main_thread``). The route table is registered at server
+start and then only read — no lock.
 """
 
 from plugin.framework.thread_guard import background

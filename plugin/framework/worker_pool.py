@@ -18,6 +18,17 @@
 
 Background threads created here are tagged (via thread_guard) so that the
 UNO main-thread runtime guard (Layer A) can name the offending task on violation.
+
+Concurrency: all background Python work must start here
+(``run_in_background``), not via raw ``threading.Thread``. Short
+fire-and-forget jobs share a **fixed-size daemon pool** (unbounded queue).
+Servers, pipe drains, LLM streams, and anything another thread will
+``join()`` must pass ``dedicated=True`` so they do not occupy a pool slot
+forever. ``_pool_lock`` only covers creating/resetting that pool;
+submitting work uses a thread-safe queue. ``StderrTail``’s lock is only
+the bounded stderr buffer from a child process. Never ``join()`` a pooled
+job from another pooled job (the pool can deadlock). Map:
+docs/framework-threading.md.
 """
 
 from __future__ import annotations

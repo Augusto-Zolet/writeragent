@@ -3,8 +3,15 @@
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-"""
-Logic for fetching available models from LLM endpoints.
+"""Logic for fetching available models from LLM endpoints.
+
+Concurrency: GET ``/v1/models`` results are memoized in module-level dicts
+for the LibreOffice process (sidebar combobox, settings probes, etc.).
+Those dicts have **no lock**. If two background jobs miss the cache at
+once, both may HTTP; whichever finishes last overwrites the list. That is
+harmless (same endpoint, same models). Do not add a mutex just to
+serialize identical fetches. When a UNO ``ctx`` is passed, the cache key
+includes the API key so two keys on the same host do not share a list.
 """
 import urllib.parse
 import json

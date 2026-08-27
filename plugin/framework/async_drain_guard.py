@@ -7,6 +7,14 @@
 
 Enforces single-ownership of main-thread UI event pumping to prevent
 harmful nested event-loop reentrancy (e.g. recursive processEventsToIdle calls).
+
+Concurrency: LibreOffice’s UI toolkit (VCL) misbehaves if two Python
+loops call ``processEventsToIdle`` at once (nested dialogs, recursive
+pumps, frozen window). ``_drain_lock`` records **which drain loop
+currently owns that pump**, not a lock for all UI code. A second owner
+trying to nest raises; the same owner re-entering is counted so it can
+unwind. Do not hold this lock while talking to the document or the
+network — acquire, note ownership, release, then pump.
 """
 
 from __future__ import annotations
