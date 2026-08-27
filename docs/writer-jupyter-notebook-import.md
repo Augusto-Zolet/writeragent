@@ -196,6 +196,70 @@ Native test suite execution:
 
 ---
 
+## Native File Import Filter Registration (`.ipynb` via UNO)
+
+Rather than manually opening an empty Writer document and clicking **WriterAgent → Import Jupyter Notebook…**, `.ipynb` can be registered as a native LibreOffice file import filter. This enables opening `.ipynb` files directly via **File → Open...**, desktop double-click, recent document lists, or CLI (`soffice notebook.ipynb`).
+
+### 1. PyUNO Import Filter Component (`plugin/notebook/import_filter.py`)
+
+A lightweight UNO component implementing `XImporter` and `XImportFilter`:
+
+```python
+import uno
+import unohelper
+from com.sun.star.document import XImporter, XImportFilter
+from com.sun.star.lang import XServiceInfo
+
+class JupyterNotebookImportFilter(unohelper.Base, XImporter, XImportFilter, XServiceInfo):
+    def __init__(self, ctx):
+        self.ctx = ctx
+        self.target_doc = None
+
+    # XImporter: LibreOffice sets the newly instantiated target Writer document
+    def setTargetDocument(self, doc):
+        self.target_doc = doc
+
+    # XImportFilter: Triggered on File -> Open / double-click
+    def filter(self, media_descriptor):
+        file_url = ""
+        for prop in media_descriptor:
+            if prop.Name == "URL":
+                file_url = prop.Value
+                break
+        
+        if not file_url or not self.target_doc:
+            return False
+            
+        file_path = uno.fileUrlToAbsolutePath(file_url)
+        from plugin.notebook.writer_importer import import_notebook_to_writer
+        import_notebook_to_writer(self.target_doc, file_path)
+        return True
+
+    # XServiceInfo
+    def getImplementationName(self):
+        return "org.extension.writeragent.JupyterNotebookImportFilter"
+    def supportsService(self, service_name):
+        return service_name in self.getSupportedServiceNames()
+    def getSupportedServiceNames(self):
+        return ("com.sun.star.document.ImportFilter",)
+
+# Component registration entrypoint
+g_ImplementationHelper = unohelper.ImplementationHelper()
+g_ImplementationHelper.addImplementation(
+    JupyterNotebookImportFilter,
+    "org.extension.writeragent.JupyterNotebookImportFilter",
+    ("com.sun.star.document.ImportFilter",),
+)
+```
+
+### 2. Registry Configurations (`.xcu`)
+
+- **`TypeDetection/Types.xcu`**: Registers file extension `ipynb` and MIME type `application/x-ipynb+json`.
+- **`TypeDetection/Filters.xcu`**: Maps `ipynb_Jupyter_Notebook` to `com.sun.star.text.TextDocument` and FilterService `org.extension.writeragent.JupyterNotebookImportFilter` with flags `IMPORT ALIEN 3RDPARTY`.
+- **`META-INF/manifest.xml`**: Registers `plugin/notebook/import_filter.py` as an active Python UNO component entry.
+
+---
+
 ## Developer Reference & Module Map
 
 | Module | Location | Purpose |
