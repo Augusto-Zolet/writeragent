@@ -153,6 +153,10 @@ class ComputeSettings:
             raise ConfigError("ocr_timeout_sec must be >= 1")
         if self.ocr_max_tasks < 1:
             raise ConfigError("ocr_max_tasks must be >= 1")
+        if self.shared_kernel_ttl_sec < 0:
+            raise ConfigError("shared_kernel_ttl_sec must be >= 0")
+        if self.idle_worker_ttl_sec < 0:
+            raise ConfigError("idle_worker_ttl_sec must be >= 0")
         if self.log_level.upper() not in _VALID_LOG_LEVELS:
             raise ConfigError(f"Invalid log_level: {self.log_level!r} (must be one of {sorted(_VALID_LOG_LEVELS)})")
         # No API key ⇒ no auth (dev/test). Verification runs only when a key is set.

@@ -418,6 +418,24 @@ class TestComputeSettings:
         with pytest.raises(ConfigError):
             load_settings(workers=0, environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
 
+    def test_negative_shared_kernel_ttl_rejected(self, tmp_path) -> None:
+        """Negative shared_kernel_ttl_sec must be rejected by validate()."""
+        from compute_service.config import ConfigError
+
+        cfg = tmp_path / "neg_ttl.json"
+        cfg.write_text(json.dumps({"limits": {"shared_kernel_ttl_sec": -1}}), encoding="utf-8")
+        with pytest.raises(ConfigError, match="shared_kernel_ttl_sec"):
+            load_settings(config_path=cfg, environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
+
+    def test_negative_idle_worker_ttl_rejected(self, tmp_path) -> None:
+        """Negative idle_worker_ttl_sec must be rejected by validate()."""
+        from compute_service.config import ConfigError
+
+        cfg = tmp_path / "neg_idle_ttl.json"
+        cfg.write_text(json.dumps({"limits": {"idle_worker_ttl_sec": -5}}), encoding="utf-8")
+        with pytest.raises(ConfigError, match="idle_worker_ttl_sec"):
+            load_settings(config_path=cfg, environ={"PYTHON_COMPUTE_HOST": "127.0.0.1"})
+
     def test_key_file_preserves_leading_and_trailing_spaces(self, tmp_path) -> None:
         """_read_key_file must NOT strip() the key; only the one trailing newline is removed.
         API keys with leading/trailing spaces (unusual but valid) must round-trip intact."""

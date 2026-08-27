@@ -79,7 +79,7 @@ class FormulaProcessPool(BaseProcessPool):
             return
         now = time.monotonic()
         stale: list[str] = []
-        with self._lock:
+        with self._cond:
             for sid, last_active in list(self._session_last_activity.items()):
                 if now - last_active >= self.shared_kernel_ttl_sec:
                     stale.append(sid)
@@ -118,7 +118,7 @@ class FormulaProcessPool(BaseProcessPool):
 
     def reset_session(self, session_id: str, timeout_sec: float = 5.0) -> dict[str, Any]:
         """Reset shared sandbox session and update active session tracking."""
-        with self._lock:
+        with self._cond:
             self._session_last_activity.pop(session_id, None)
             worker = self._active_sessions.pop(session_id, None)
             if worker and worker in self._worker_sessions:
@@ -245,7 +245,7 @@ class FormulaProcessPool(BaseProcessPool):
             }
 
         if mode == "shared" and session_id:
-            with self._lock:
+            with self._cond:
                 self._active_sessions[session_id] = leased
                 if leased not in self._worker_sessions:
                     self._worker_sessions[leased] = set()
@@ -276,9 +276,9 @@ def get_formula_pool(settings: ComputeSettings | None = None) -> FormulaProcessP
                 _GLOBAL_FORMULA_POOL = FormulaProcessPool(
                     num_workers=num_w,
                     default_timeout_sec=settings.default_timeout_sec,
-                    max_tasks=getattr(settings, "worker_max_tasks", 500),
-                    shared_kernel_ttl_sec=getattr(settings, "shared_kernel_ttl_sec", 3600.0),
-                    idle_worker_ttl_sec=getattr(settings, "idle_worker_ttl_sec", 3600.0),
+                    max_tasks=settings.worker_max_tasks,
+                    shared_kernel_ttl_sec=settings.shared_kernel_ttl_sec,
+                    idle_worker_ttl_sec=settings.idle_worker_ttl_sec,
                 )
             else:
                 _GLOBAL_FORMULA_POOL = FormulaProcessPool(num_workers=1)

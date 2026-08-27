@@ -120,7 +120,7 @@ def get_vision_pool(settings: ComputeSettings | None = None) -> VisionProcessPoo
                     num_workers=settings.ocr_workers,
                     default_timeout_sec=settings.ocr_timeout_sec,
                     max_tasks=settings.ocr_max_tasks,
-                    idle_worker_ttl_sec=getattr(settings, "idle_worker_ttl_sec", 3600.0),
+                    idle_worker_ttl_sec=settings.idle_worker_ttl_sec,
                 )
             else:
                 _GLOBAL_VISION_POOL = VisionProcessPool(num_workers=1)

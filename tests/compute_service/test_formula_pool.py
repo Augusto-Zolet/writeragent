@@ -335,6 +335,41 @@ class TestFormulaPoolSupervisor:
         finally:
             pool.shutdown()
 
+    def test_evicted_idle_worker_removed_from_idle_during_kill(self) -> None:
+        """Evicted workers must be removed from _idle during kill (race prevention)
+        and re-added dead so lease_any() can lazy-respawn them."""
+        pool = FormulaProcessPool(num_workers=2, default_timeout_sec=15, idle_worker_ttl_sec=3600.0)
+        try:
+            # Execute a task on each worker to populate _idle with both
+            for i in range(2):
+                res = pool.execute(code=f"result = {i}", req_id=f"evict-{i}")
+                assert res.get("status") == "ok"
+
+            # Both workers should be idle now
+            with pool._cond:
+                assert len(pool._idle) == 2
+
+            # Simulate only one worker being stale
+            w0 = pool.workers[0]
+            with pool._cond:
+                pool._worker_last_active[w0] = time.monotonic() - 4000.0
+
+            pool._evict_idle_workers()
+
+            # Worker process must be dead
+            assert not w0.is_alive(), "Evicted worker process must be killed"
+            # Worker re-added to _idle (dead) so lease_any() can lazy-respawn
+            with pool._cond:
+                assert w0 in pool._idle, "Dead worker must be back in _idle for lazy re-spawn"
+                assert len(pool._idle) == 2, "Both workers should be in _idle"
+
+            # Verify lazy re-spawn works
+            res = pool.execute(code="result = 999", req_id="respawn-1")
+            assert res.get("status") == "ok"
+            assert res.get("result") == 999
+        finally:
+            pool.shutdown()
+
 
 class TestFormulaHttpEndpoint:
     @pytest.fixture

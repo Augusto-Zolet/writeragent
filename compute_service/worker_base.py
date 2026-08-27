@@ -299,8 +299,19 @@ class BaseProcessPool:
                 last_active = self._worker_last_active.get(w, now)
                 if now - last_active >= self.idle_worker_ttl_sec:
                     stale.append(w)
+            # Remove from idle set while holding the lock so lease_any()
+            # cannot pop a worker we are about to kill.
+            for w in stale:
+                self._idle.discard(w)
         for w in stale:
             w.kill()
+        # Re-add dead workers to idle so future lease_any() can lazy-respawn.
+        if stale:
+            with self._cond:
+                for w in stale:
+                    if not self._is_shutdown:
+                        self._idle.add(w)
+                self._cond.notify_all()
         if stale:
             log.info(
                 "Idle worker reaper terminated %d %s(s) idle for >%.1fs",
