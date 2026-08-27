@@ -307,6 +307,214 @@ The following items are tracked for future enhancement:
 
 ---
 
+## 12. UI Control Event Loop Recursion & Listener Re-entrancy Architecture
+
+### 12.1 The UI Event Feedback Loop Hazard
+
+A critical class of main-thread freezes occurs when programmatic UI control updates (e.g. refreshing a sidebar combobox text via `ctrl.setText()` or resetting dropdown choices via `ctrl.removeItems()` / `ctrl.addItems()`) trigger native UNO VCL event listeners (`BaseItemListener`, `BaseTextListener`).
+
+Because LibreOffice's VCL control model does not distinguish between a user typing/clicking in a control vs. Python code programmatically populating the control during a config refresh, programmatic updates trigger synchronous event callbacks.
+
+```
+┌──────────────────────────────┐
+│  Settings Dialog / User Edit │
+└──────────────┬───────────────┘
+               │ 1. set_config("text_model", ...)
+               ▼
+┌──────────────────────────────┐
+│     event_bus.emit()         │
+└──────────────┬───────────────┘
+               │ 2. "config_changed" event
+               ▼
+┌──────────────────────────────┐
+│ _refresh_controls_from_config│
+└──────────────┬───────────────┘
+               │ 3. ctrl.removeItems(), ctrl.addItems(), ctrl.setText()
+               ▼
+┌──────────────────────────────┐      SYNC VCL CALLBACK
+│ UNO Control (XComboBox / ...)├──────────────────────────────┐
+└──────────────────────────────┘                              │ 4. textChanged / itemStateChanged
+                                                              ▼
+                                               ┌──────────────────────────────┐
+                                               │   ModelTextSyncListener      │
+                                               └──────────────┬───────────────┘
+                                                              │ 5. sync_sidebar_text_model()
+                                                              ▼
+                                               ┌──────────────────────────────┐
+                                               │    update_lru_history()      │
+                                               └──────────────┬───────────────┘
+                                                              │ 6. set_config("model_lru@...", ...)
+                                                              ▼
+                                               ┌──────────────────────────────┐
+                                               │ event_bus.emit() [RECURSIVE] │
+                                               └──────────────┬───────────────┘
+                                                              │
+                                                              └──► Re-enters _refresh_controls_from_config!
+                                                                   (Infinite Loop on Main UI Thread)
+```
+
+#### The `py-spy` Stack Trace Diagnosis
+During live diagnosis of an active LibreOffice hang, `.venv/bin/py-spy dump --pid <soffice_pid>` captured the exact infinite recursion call stack on the main thread:
+
+```text
+Thread 425321 (main UI thread):
+    set_config (plugin/framework/config.py:526)
+    update_lru_history (plugin/chatbot/config_ui_helpers.py:359)
+    sync_sidebar_text_model (plugin/chatbot/config_ui_helpers.py:377)
+    on_text_changed (plugin/chatbot/panel_factory.py:554)
+    textChanged (plugin/framework/uno_listeners.py:195)
+    wrapper (plugin/framework/uno_listeners.py:126)
+    populate_combobox_with_lru (plugin/chatbot/config_ui_helpers.py:332)
+    _refresh_controls_from_config (plugin/chatbot/panel_factory.py:443)
+    _on_config_changed (plugin/chatbot/panel_factory.py:275)
+    emit (plugin/framework/event_bus.py:124)
+    set_config (plugin/framework/config.py:558)
+    set_text_model (plugin/framework/client/model_fetcher.py:489)
+    apply_settings_result (plugin/chatbot/settings_dialog.py:124)
+```
+
+---
+
+### 12.2 Shipped Solution (Strategy 1)
+
+The immediate fix combines panel-level re-entrancy guarding with LRU update deduplication:
+
+#### 1. Panel Re-entrancy Flag (`_in_refresh_controls`)
+In [`plugin/chatbot/panel_factory.py`](../plugin/chatbot/panel_factory.py):
+```python
+    def _refresh_controls_from_config(self):
+        """Reload model and prompt selectors from config.
+
+        Bugfix / Re-entrancy Guard:
+        Populating combobox controls below (via populate_combobox_with_lru -> ctrl.setText,
+        removeItems, addItems) synchronously fires UNO listeners (ModelSyncListener,
+        ModelTextSyncListener, ImageModelSyncListener). Without _in_refresh_controls,
+        those listeners treat programmatic UI updates as user edits, calling
+        sync_sidebar_text_model -> update_lru_history -> set_config -> event_bus
+        emit('config_changed') -> _refresh_controls_from_config in an infinite synchronous
+        recursion loop on the main UI thread that freezes LibreOffice.
+        """
+        if getattr(self, "_in_refresh_controls", False):
+            return
+        self._in_refresh_controls = True
+        try:
+            # Control population logic...
+            ...
+        finally:
+            self._in_refresh_controls = False
+```
+
+#### 2. Listener Re-entrancy Check
+UNO listeners pass the panel reference and check `self.panel._in_refresh_controls`:
+```python
+class ModelTextSyncListener(BaseTextListener):
+    def __init__(self, panel, ctx):
+        self.panel = panel
+        self.ctx = ctx
+
+    def on_text_changed(self, rEvent):
+        if getattr(self.panel, "_in_refresh_controls", False):
+            return
+        from plugin.chatbot.config_ui_helpers import sync_sidebar_text_model
+        sync_sidebar_text_model(self.ctx, model_selector)
+```
+
+#### 3. LRU Deduplication Guard
+In [`plugin/chatbot/config_ui_helpers.py`](../plugin/chatbot/config_ui_helpers.py):
+```python
+def update_lru_history(val, lru_key, endpoint, max_items=None):
+    scoped_key = f"{lru_key}@{endpoint}" if endpoint else lru_key
+    lru_raw = get_config(scoped_key)
+    lru: list[str] = [str(m) for m in lru_raw] if isinstance(lru_raw, list) else []
+
+    # Short-circuit if value is already at top of LRU: avoids redundant set_config
+    # and unnecessary config_changed event_bus emissions.
+    if lru and lru[0] == val_str:
+        return
+    if val_str in lru:
+        lru.remove(val_str)
+```
+
+---
+
+### 12.3 Defense-in-Depth Roadmap (Strategies 2–4)
+
+To systematically prevent similar event feedback loops across new dialogs and controls, three additional architectural layers are planned:
+
+#### Strategy 2: Event Suppression Context Manager (`suppress_control_listeners`)
+
+Add a generic context manager to [`plugin/framework/uno_listeners.py`](../plugin/framework/uno_listeners.py) that temporarily suppresses listener callbacks during control mutation blocks:
+
+```python
+@contextmanager
+def suppress_control_listeners(*listeners_or_controls):
+    """Context manager to suppress UNO listener callbacks during programmatic control updates."""
+    token_guards = []
+    for target in listeners_or_controls:
+        if hasattr(target, "_suppress_callbacks"):
+            token_guards.append(target)
+            target._suppress_callbacks = True
+    try:
+        yield
+    finally:
+        for target in token_guards:
+            target._suppress_callbacks = False
+```
+
+**Usage in UI Refreshes:**
+```python
+with suppress_control_listeners(model_sync_listener, model_text_sync_listener):
+    populate_combobox_with_lru(ctx, model_selector, current_model, "model_lru", endpoint)
+```
+
+#### Strategy 3: Event Bus Re-Entrancy Circuit Breaker
+
+Enhance [`plugin/framework/event_bus.py`](../plugin/framework/event_bus.py) to track active event emissions and prevent re-entrant dispatch loops at the infrastructure layer:
+
+```python
+class EventBus:
+    def __init__(self):
+        self._listeners: dict[str, list[Callable]] = defaultdict(list)
+        self._active_events: set[str] = set()
+        self._lock = threading.RLock()
+
+    def emit(self, event_name: str, *args, **kwargs) -> None:
+        with self._lock:
+            if event_name in self._active_events:
+                log.warning("Suppressed re-entrant event_bus.emit for %r on main thread", event_name)
+                return
+            self._active_events.add(event_name)
+
+        try:
+            listeners = list(self._listeners.get(event_name, []))
+            for listener in listeners:
+                try:
+                    listener(*args, **kwargs)
+                except Exception:
+                    log.exception("Error in event_bus listener for %r", event_name)
+        finally:
+            with self._lock:
+                self._active_events.remove(event_name)
+```
+
+**Key Advantages:**
+- **Zero-Config Circuit Breaker**: If any UI path or config listener attempts to re-emit an event that is currently being processed on the stack, the event bus logs a warning and drops the re-entrant dispatch immediately.
+- **Thread Safety**: Uses `threading.RLock()` so multi-thread event bus emissions remain thread-safe.
+
+#### Strategy 4: AST Static Linter (`scripts/lint_ui_reentrancy.py`) & Synthetic Tests
+
+1. **Static AST Linter (`scripts/lint_ui_reentrancy.py`)**:
+   Add an AST visitor rule to `make typecheck` that inspects functions subscribed to `event_bus`:
+   - Scans function bodies for calls to control mutators: `setText()`, `addItems()`, `removeItems()`, `setSelectedPos()`.
+   - Ensures the enclosing function either wraps control calls in a re-entrancy guard (`_in_refresh_controls` / `suppress_control_listeners`) or passes `update_lru=False`.
+
+2. **Synthetic Event Loop Unit Tests (`tests/chatbot/test_ui_reentrancy.py`)**:
+   Construct test cases that trigger `_refresh_controls_from_config()` with mock controls and verify:
+   - Zero secondary `config_changed` events are emitted during control population.
+   - Combobox removal/addition cycles do not trigger state mutations.
+
+---
+
 ## Cross-References
 
 - [`docs/framework-threading.md`](framework-threading.md) — Pool architecture, drain ownership, and subprocess IPC pipe safety.

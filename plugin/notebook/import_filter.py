@@ -46,7 +46,8 @@ class JupyterNotebookImportFilter(unohelper.Base, XFilter, XImporter, XServiceIn
         self.ctx = ctx
         self.target_doc = None
 
-    # XExtendedFilterDetection
+    # XExtendedFilterDetection — param names must match IDL stubs (ty Liskov).
+    # PyUNO requires (typeName, descriptor), not a bare string (#482).
     def detect(self, Descriptor: Any) -> Any:  # type: ignore
         file_url = ""
         props = list(Descriptor or ())
@@ -61,13 +62,13 @@ class JupyterNotebookImportFilter(unohelper.Base, XFilter, XImporter, XServiceIn
         return type_name, tuple(props)
 
     # XImporter
-    def setTargetDocument(self, doc: Any) -> None:
-        self.target_doc = doc
+    def setTargetDocument(self, Document: Any) -> None:
+        self.target_doc = Document
 
     # XFilter
-    def filter(self, media_descriptor: Any) -> bool:
+    def filter(self, aDescriptor: Any) -> bool:
         file_url = ""
-        for prop in media_descriptor:
+        for prop in aDescriptor:
             if prop.Name == "URL":
                 file_url = prop.Value
                 break
@@ -93,10 +94,10 @@ class JupyterNotebookImportFilter(unohelper.Base, XFilter, XImporter, XServiceIn
     def getImplementationName(self) -> str:
         return IMPL_NAME
 
-    def supportsService(self, service_name: str) -> bool:
-        return service_name in self.getSupportedServiceNames()
+    def supportsService(self, ServiceName: str) -> bool:
+        return ServiceName in self.getSupportedServiceNames()
 
-    def getSupportedServiceNames(self) -> tuple[str]:
+    def getSupportedServiceNames(self) -> tuple[str, ...]:
         return (
             "com.sun.star.document.ImportFilter",
             "com.sun.star.document.ExtendedTypeDetection",

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import inspect
 import os
 import xml.etree.ElementTree as ET
 from typing import Any
@@ -60,6 +61,19 @@ if "com.sun.star.document" not in sys.modules:
     sys.modules["com.sun.star.lang"] = mock_com.sun.star.lang
 
 from plugin.notebook.import_filter import JupyterNotebookImportFilter
+
+
+def test_uno_override_parameter_names() -> None:
+    """ty invalid-method-override requires IDL stub names, not Pythonic aliases."""
+    names = {
+        "detect": ("Descriptor",),
+        "setTargetDocument": ("Document",),
+        "filter": ("aDescriptor",),
+        "supportsService": ("ServiceName",),
+    }
+    for method, expected in names.items():
+        params = tuple(inspect.signature(getattr(JupyterNotebookImportFilter, method)).parameters)
+        assert params[1:] == expected, method
 
 
 class MockPropertyValue:
