@@ -284,7 +284,7 @@ Port the same way as humanizer: trim to a short office-tuned guidance block, amb
 ## Integration principles
 
 - **Reuse first** — Prompt injection points, smol sub-agents, trusted venv modules (`plugin/scripting/`).
-- **Shared layout** — `SKILL.md` + directory convention for cross-agent portability (Hermes, WriterAgent, Memento — see [`../external/memento-skills.md`](../external/memento-skills.md)).
+- **Shared layout** — `SKILL.md` + directory convention for cross-agent portability (Hermes, WriterAgent, Memento — see [`memento-skills.md`](memento-skills.md)).
 - **Vendoring / adaptation** — Small focused pieces (humanizer patterns, action-item / citation procedures, threat scanner) rather than whole subsystems.
 - **Injection vs. tools** — Ambient injection for memory and key skills; tools primarily for mutation.
 - **Defaults vs. optional** — Tiny high-signal default set; hub/discovery for the rest.
@@ -352,7 +352,7 @@ Port the same way as humanizer: trim to a short office-tuned guidance block, amb
 **Related docs:**
 
 - [`../chat/librarian-onboarding.md`](../chat/librarian-onboarding.md)
-- [`../external/memento-skills.md`](../external/memento-skills.md)
+- [`memento-skills.md`](memento-skills.md)
 - [`../chat/smol-tool-architecture.md`](../chat/smol-tool-architecture.md)
 - [`../mcp/protocol.md`](../mcp/protocol.md)
 - [`../enabling_numpy_in_libreoffice.md`](../enabling_numpy_in_libreoffice.md)

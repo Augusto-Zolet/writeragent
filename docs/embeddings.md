@@ -698,7 +698,7 @@ Cross-file hybrid search is **shipped** (schema v3 `corpus.db`, `search_nearby_f
 | Multi-file discovery plan | [chat/multi-document-dev-plan.md](chat/multi-document-dev-plan.md) |
 | Cython build matrix | [scripting/cython-extension.md](scripting/cython-extension.md) |
 | Realtime grammar / hash patterns | [writer/grammar-checker-plan.md](writer/grammar-checker-plan.md) |
-| Chat memory (unrelated) | [langchain-plan.md](langchain-plan.md) |
+| Chat memory (unrelated) | [archive/langchain-plan.md](archive/langchain-plan.md) |
 
 ---
 

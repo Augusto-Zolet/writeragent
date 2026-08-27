@@ -42,7 +42,7 @@ Start here by task.
 | Calc `=PROMPT()` / `=PYTHON()` | Calc spreadsheet function add-ins (LibrePy uses `addin_librepy.py` instead of `addin.py`) | [`plugin/calc/prompt_addin.py`](../plugin/calc/prompt_addin.py), [`plugin/calc/prompt_function.py`](../plugin/calc/prompt_function.py), [`plugin/calc/python/addin.py`](../plugin/calc/python/addin.py), [`plugin/calc/python/addin_librepy.py`](../plugin/calc/python/addin_librepy.py), [`plugin/calc/python/function.py`](../plugin/calc/python/function.py) |
 | Scripting / venv | Public script API, sandbox policy, venv worker (not for user imports) | [`plugin/scripting/`](../plugin/scripting/), [`plugin/scripting/venv/`](../plugin/scripting/venv/), [`plugin/scripting/import_policy.py`](../plugin/scripting/import_policy.py), [`plugin/scripting/sandbox.py`](../plugin/scripting/sandbox.py), [`plugin/scripting/venv_worker.py`](../plugin/scripting/venv_worker.py), [`plugin/scripting/venv_diagnostics.py`](../plugin/scripting/venv_diagnostics.py) |
 | Embeddings / folder FTS | Host indexers + venv worker + RPC | [`plugin/embeddings/`](../plugin/embeddings/), [`plugin/embeddings/venv/`](../plugin/embeddings/venv/), [`plugin/framework/client/embeddings_service.py`](../plugin/framework/client/embeddings_service.py), [`plugin/framework/client/embedding_client.py`](../plugin/framework/client/embedding_client.py), [`plugin/framework/client/folder_fts_service.py`](../plugin/framework/client/folder_fts_service.py) — [embeddings.md](embeddings.md) |
-| Vision / OCR | Host runner + venv worker + `run_vision` | [`plugin/vision/`](../plugin/vision/), [`plugin/vision/venv/`](../plugin/vision/venv/), [`plugin/scripting/client.py`](../plugin/scripting/client.py), [`plugin/vision/vision_availability.py`](../plugin/vision/vision_availability.py) — [image/recognition.md](image/recognition.md) |
+| Vision / OCR | Host runner + venv worker + `run_vision` | [`plugin/vision/`](../plugin/vision/), [`plugin/vision/venv/`](../plugin/vision/venv/), [`plugin/scripting/client.py`](../plugin/scripting/client.py), [`plugin/vision/vision_availability.py`](../plugin/vision/vision_availability.py) — [images/recognition.md](images/recognition.md) |
 | PPT-Master | Impress/Draw adapters and session | [`plugin/contrib/ppt_master/`](../plugin/contrib/ppt_master/) ([README](../plugin/contrib/ppt_master/README.md)), [`plugin/ppt_master/`](../plugin/ppt_master/), [`plugin/chatbot/ppt_master.py`](../plugin/chatbot/ppt_master.py) — [integration plan](archive/ppt-master-integration-plan.md#roadmap) |
 | Tests (unit pytest) | Headless pytest; no live soffice | `make pytest` — `-m "not slow and not integration" --ignore-glob='*_uno.py'` |
 | Tests (UNO runner) | Native UNO tests (`@native_test`, `ctx`) | [`plugin/testing_runner.py`](../plugin/testing_runner.py) (`make test-uno`; `make test-run` includes pytest) |
@@ -77,12 +77,12 @@ Start here by task.
 | NumPy domain helpers (Viz, Symbolic, Units, Text, …) | [scripting/numpy-domains.md](scripting/numpy-domains.md) |
 | Excel / Calc `=PY` design stance | [scripting/ms-py-compatibility.md](scripting/ms-py-compatibility.md) |
 | Jupyter notebook import & execution | [writer/jupyter-notebook-import.md](writer/jupyter-notebook-import.md) |
-| Agent Search / Web | [agent/search.md](agent/search.md) |
+| Agent Search / Web | [chat/search.md](chat/search.md) |
 | MCP protocol | [mcp/protocol.md](mcp/protocol.md) |
 | Localization / translations | [localization.md](localization.md), [locales/README.md](../locales/README.md) |
 | Audio Architecture | [audio-architecture.md](audio-architecture.md) |
-| Image generation | [image/generation.md](image/generation.md) |
-| Image recognition (local OCR / detection) | [image/recognition.md](image/recognition.md) |
+| Image generation | [images/generation.md](images/generation.md) |
+| Image recognition (local OCR / detection) | [images/recognition.md](images/recognition.md) |
 | PPT-Master (Impress/Draw) | [archive/ppt-master-integration-plan.md](archive/ppt-master-integration-plan.md) (architecture + [roadmap](archive/ppt-master-integration-plan.md#roadmap)) |
 | Math / HTML import design | [writer/math-tex.md](writer/math-tex.md) |
 | Grammar pipeline (cache, queue) | [writer/grammar-checker-plan.md](writer/grammar-checker-plan.md) |

@@ -588,7 +588,7 @@ Per [AGENTS.md](../../AGENTS.md): matching `test_*.py` names; run `make test` be
 - [../framework/streaming-and-threading.md](../framework/streaming-and-threading.md) — main-thread UNO, queue drain
 - [../calc/specialized-toolsets.md](../calc/specialized-toolsets.md) — Calc tool surface
 - [../mcp/protocol.md](../mcp/protocol.md) — `X-Document-URL`, MCP tool policy
-- [../agent/search.md](../agent/search.md) — external fetch (contrast with nearby files)
+- [../chat/search.md](../chat/search.md) — external fetch (contrast with nearby files)
 
 ---
 

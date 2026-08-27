@@ -5,7 +5,7 @@
 """Trusted venv vision helpers — Docling (default) and PaddleOCR fallback.
 
 Invoked from the LO host through a fixed RPC stub (see vision_client.py), not
-from LLM-submitted code. See docs/image/recognition.md.
+from LLM-submitted code. See docs/images/recognition.md.
 """
 from __future__ import annotations
 

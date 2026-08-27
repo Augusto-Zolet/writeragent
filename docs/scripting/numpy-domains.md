@@ -4,7 +4,7 @@ Back to [Enabling NumPy & Python in LibreOffice](../enabling_numpy_in_libreoffic
 
 WriterAgent builds **domain-specific trusted helpers** on top of the warm venv subprocess: fixed host stubs call reviewed modules under `plugin/scripting/` (and related packages) with the full scientific stack — no AST sandbox inside those modules. This document covers Analysis, Visualization, Symbolic Math, Units, Text Analytics, Forecasting, Optimization, Quant, and planned domains (Geospatial, Audio).
 
-**Related:** [Analysis Sub-Agent](../calc/analysis-sub-agent.md) · [Image Recognition](../image/recognition.md) (Vision) · [Embeddings](../embeddings.md) · [DuckDB Calc](../calc/duckdb-dev-plan.md) · [SageMath (deferred)](../archive/sagemath-integration-dev-plan.md) · [Venv IPC & serialization](numpy-serialization.md)
+**Related:** [Analysis Sub-Agent](../calc/analysis-sub-agent.md) · [Image Recognition](../images/recognition.md) (Vision) · [Embeddings](../embeddings.md) · [DuckDB Calc](../calc/duckdb-dev-plan.md) · [SageMath (deferred)](../archive/sagemath-integration-dev-plan.md) · [Venv IPC & serialization](numpy-serialization.md)
 
 ---
 
@@ -65,7 +65,7 @@ Future trusted-helper domains (Geospatial, Audio, optional `prophet`) will each 
 
 | Domain | Settings → Python **Test** group | Entry doc |
 |--------|----------------------------------|-----------|
-| **Vision** | **Vision Libraries** — OCR required: Docling (`docling`, `rapidocr`, `css_inline`) **or** Paddle (`paddleocr`, `paddle`, `css_inline`); optional: `paddleocr`/`paddle` fallback, `ultralytics`, `skimage` | [../image/recognition.md](../image/recognition.md) |
+| **Vision** | **Vision Libraries** — OCR required: Docling (`docling`, `rapidocr`, `css_inline`) **or** Paddle (`paddleocr`, `paddle`, `css_inline`); optional: `paddleocr`/`paddle` fallback, `ultralytics`, `skimage` | [../images/recognition.md](../images/recognition.md) |
 | **Embeddings** | **Embeddings Libraries** (`envwrap`, `sentence_transformers`, `sqlite_vec`, `langgraph`, `langchain_core`, `langchain_text_splitters`) | [../embeddings.md](../embeddings.md#embeddings-venv-packages) |
 | **Visualization** | **Visualization Libraries** (`matplotlib`, `seaborn`) | [Visualization § Phase A–C](#visualization) |
 | **Symbolic Math (SymPy)** | **Computer Algebra** (`sympy`) | [Symbolic Math §3](#symbolic-math) |
@@ -80,7 +80,7 @@ SageMath remains a future optional extension — [sagemath-integration-dev-plan.
 
 ## Scientific domain roadmap (trusted helpers) {#scientific-domain-roadmap-trusted-helpers}
 
-The sections below are **roadmaps and reference** for scientific capabilities. **Shipped domains:** **Analysis** ([../calc/analysis-sub-agent.md](../calc/analysis-sub-agent.md)), **Vision** ([../image/recognition.md](../image/recognition.md)), **Visualization** ([§1](#visualization)), **Symbolic Math (SymPy)** ([§3](#symbolic-math)), **Units (Pint)** ([§3b](#data-engineering-units)), **Forecasting** ([§2](#forecasting)), **Text Analytics** ([§4](#text-analytics)), **Optimization** (partial — [§5](#optimization)), and **Quant** (Run Python Script). DuckDB SQL helpers (up to Phase C: multi-table catalog with named ranges + folder files) are implemented under the same trusted + Run Python Script + analysis-domain pattern; see [../calc/duckdb-dev-plan.md](../calc/duckdb-dev-plan.md). Remaining domains (Geospatial, Audio) follow the same pattern: trusted modules under `plugin/scripting/`, fixed venv stubs, host extract → IPC → compact results → document egress, plus optional Run Python Script templates and specialized sub-agent exposure.
+The sections below are **roadmaps and reference** for scientific capabilities. **Shipped domains:** **Analysis** ([../calc/analysis-sub-agent.md](../calc/analysis-sub-agent.md)), **Vision** ([../images/recognition.md](../images/recognition.md)), **Visualization** ([§1](#visualization)), **Symbolic Math (SymPy)** ([§3](#symbolic-math)), **Units (Pint)** ([§3b](#data-engineering-units)), **Forecasting** ([§2](#forecasting)), **Text Analytics** ([§4](#text-analytics)), **Optimization** (partial — [§5](#optimization)), and **Quant** (Run Python Script). DuckDB SQL helpers (up to Phase C: multi-table catalog with named ranges + folder files) are implemented under the same trusted + Run Python Script + analysis-domain pattern; see [../calc/duckdb-dev-plan.md](../calc/duckdb-dev-plan.md). Remaining domains (Geospatial, Audio) follow the same pattern: trusted modules under `plugin/scripting/`, fixed venv stubs, host extract → IPC → compact results → document egress, plus optional Run Python Script templates and specialized sub-agent exposure.
 
 ### Domain helper pattern (Analysis + Vision canonical)
 

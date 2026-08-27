@@ -345,7 +345,7 @@ Use **separate domains** with tight tool allowlists (lore read vs. outline vs. p
 | **Visual Studio** | Asset boards | `list_nearby_files(file_kind=images)` + link to lore entries; insert via [image_tools.py](../plugin/writer/image_tools.py) |
 | **Publish** | Print-ready PDF templates | Writer PDF export + template ODT styles; `publish_compile` tool merges outline-ordered subdocs |
 | **Lorekeeper** | Anomaly detection | Scheduled job: diff new scenes against lore facts + knowledge matrix; findings → ProseGuard continuity |
-| **World Knowledge** | Real-world fact check | `web_research` + compare against lore `axioms` field ([../agent/search.md](../agent/search.md)) |
+| **World Knowledge** | Real-world fact check | `web_research` + compare against lore `axioms` field ([../chat/search.md](../chat/search.md)) |
 | **Analytics** | Streaks, goals | Append-only `writing_log` in project folder; sidebar widget or Calc dashboard |
 
 **Priority:** Maps and Plot tie directly to outline + lore (Phase 2). Language Studio and Magic System are niche — ship as lore types + scripting hooks, not bespoke UIs.

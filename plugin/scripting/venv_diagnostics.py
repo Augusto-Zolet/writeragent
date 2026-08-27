@@ -194,7 +194,7 @@ result = res
 # Users point Settings → Python at a venv created with `uv venv` and populated via `uv pip`.
 _QUANT_INSTALL_CMD = "uv pip install yfinance pandas-ta quantstats pyportfolioopt"
 
-# Vision stack (docs/image/recognition.md §7–§13): probed outside the AST sandbox because
+# Vision stack (docs/images/recognition.md §7–§13): probed outside the AST sandbox because
 # docling/paddleocr/paddle are not whitelisted for LLM-submitted venv scripts.
 # Primary OCR: docling + rapidocr-paddle. Fallback: paddleocr + paddle.
 # Optional: ultralytics (detection helpers), skimage (trusted helper preprocessing).

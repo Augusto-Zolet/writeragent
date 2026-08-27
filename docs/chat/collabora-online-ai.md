@@ -44,7 +44,7 @@ Collabora registers **11 LLM tools** in `AIChatSession::buildToolDefinitions` (`
 
 | Collabora capability | Status | WriterAgent location | Collabora source |
 | :--- | :--- | :--- | :--- |
-| `image_generate` | **Implemented** | [`plugin/writer/images/`](../../plugin/writer/images/), [../image/generation.md](../image/generation.md) | `AIChatSession.cpp` — terminal tool, ends loop |
+| `image_generate` | **Implemented** | [`plugin/writer/images/`](../../plugin/writer/images/), [../images/generation.md](../images/generation.md) | `AIChatSession.cpp` — terminal tool, ends loop |
 | `extract_document_structure` | **Partial** | [`get_document_tree`](../../plugin/writer/outline.py), [`plugin/draw/tree.py`](../../plugin/draw/tree.py) | Kit `extractdocumentstructure`; optional `filter=` |
 | `transform_document_structure` | **Partial (V1)** | [`plugin/draw/transform.py`](../../plugin/draw/transform.py), [`transform_engine.py`](../../plugin/draw/transform_engine.py), [`transform_schema.py`](../../plugin/draw/transform_schema.py) — Impress `SlideCommands`; DSL: [DocumentToolDescriptions.hpp](https://github.com/CollaboraOnline/online/blob/master/wsd/DocumentToolDescriptions.hpp) | `DocumentToolDescriptions.hpp`, `.uno:TransformDocumentStructure` |
 | `extract_link_targets` | **Partial** | Bookmarks / tree locators in [`plugin/writer/tree.py`](../../plugin/writer/tree.py) | LOKit `extractRequest` / `extractlinktargets` |
@@ -259,7 +259,7 @@ def apply_slide_commands(ctx, slide_commands: list[dict[str, Any]]) -> dict[str,
 
 ### D. Progressive Image Generation & Placement
 
-WriterAgent already implements image generation ([`image_tools.py`](../../plugin/writer/images/image_tools.py), [../image/generation.md](../image/generation.md)). For Impress **transform** placeholders:
+WriterAgent already implements image generation ([`image_tools.py`](../../plugin/writer/images/image_tools.py), [../images/generation.md](../images/generation.md)). For Impress **transform** placeholders:
 
 1. Insert loading graphic shape on main thread.
 2. Fetch image in background via `run_in_background`.

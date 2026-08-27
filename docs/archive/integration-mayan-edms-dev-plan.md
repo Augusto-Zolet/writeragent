@@ -2,23 +2,23 @@
 
 > **Status (2026-06):** **Planned / not shipped** — no `mayan_*` code in tree yet. This doc describes the intended design.
 
-> **Scope note:** Standalone plan for remote **Electronic Document Management Systems (DMS)**, using **Mayan EDMS** as the first integration target. Kept separate from [chat/multi-document-dev-plan.md](chat/multi-document-dev-plan.md) (local filesystem `document_research`) and [embeddings.md](embeddings.md) (local folder hybrid index). Do not conflate tracks when scheduling or implementing.
+> **Scope note:** Standalone plan for remote **Electronic Document Management Systems (DMS)**, using **Mayan EDMS** as the first integration target. Kept separate from [chat/multi-document-dev-plan.md](../chat/multi-document-dev-plan.md) (local filesystem `document_research`) and [embeddings.md](../embeddings.md) (local folder hybrid index). Do not conflate tracks when scheduling or implementing.
 
 > **Living document:** Update as phases ship, decisions are made, or scope changes. Link PRs and related topic docs.
 
-**Related:** [embeddings.md](embeddings.md) · [chat/multi-document-dev-plan.md](chat/multi-document-dev-plan.md) · [mcp/protocol.md](mcp/protocol.md)
+**Related:** [embeddings.md](../embeddings.md) · [chat/multi-document-dev-plan.md](../chat/multi-document-dev-plan.md) · [mcp/protocol.md](../mcp/protocol.md)
 
 ---
 
 ## Overview
 
-WriterAgent today can research **local sibling files** (same folder as the active document, or LibreOffice Work folder) and, when enabled, search them with a **hybrid folder index** ([embeddings.md](embeddings.md)). Many organizations also keep authoritative documents in a **DMS** — versioned storage with cabinets, metadata, OCR full-text search, and access control.
+WriterAgent today can research **local sibling files** (same folder as the active document, or LibreOffice Work folder) and, when enabled, search them with a **hybrid folder index** ([embeddings.md](../embeddings.md)). Many organizations also keep authoritative documents in a **DMS** — versioned storage with cabinets, metadata, OCR full-text search, and access control.
 
 Mayan integration adds the same product idea for your **org archive**: **find the right document before opening it**, then read it into LibreOffice (read-only) for chat or manual review.
 
 | Track | Storage | Search |
 |-------|---------|--------|
-| **Local folder** (shipped) | On-disk index beside files (`writeragent_embeddings/corpus.db`) | Hybrid FTS + vectors; [Search Nearby Files…](embeddings.md) menu |
+| **Local folder** (shipped) | On-disk index beside files (`writeragent_embeddings/corpus.db`) | Hybrid FTS + vectors; [Search Nearby Files…](../embeddings.md) menu |
 | **Mayan EDMS** (planned) | Live REST API over HTTP | Full-text + metadata/cabinet filters; **Search Mayan Documents…** menu (Phase 1) |
 
 **One shared search stack:** list and search primitives are implemented once in `mayan_client.py` (or equivalent) and reused by:
@@ -139,7 +139,7 @@ Same client as the dialog and agent tools, mirroring [search_embeddings_folder.p
 
 ## Agent workflows
 
-Cross-file and cross-DMS research use the same **two-tier** model as local work ([chat/multi-document-dev-plan.md](chat/multi-document-dev-plan.md)). Sub-agents are ephemeral; they are not part of the user's main chat history.
+Cross-file and cross-DMS research use the same **two-tier** model as local work ([chat/multi-document-dev-plan.md](../chat/multi-document-dev-plan.md)). Sub-agents are ephemeral; they are not part of the user's main chat history.
 
 ### Two-tier design
 
@@ -168,7 +168,7 @@ Discovery tools (`list_documents`, `search_documents`, `list_mayan_cabinets`, �
 
 ### Tool matrix
 
-Extends the local matrix in [embeddings.md](embeddings.md#search-mode-flag):
+Extends the local matrix in [embeddings.md](../embeddings.md#search-mode-flag):
 
 | Source | When | Discovery | Read |
 |--------|------|-----------|------|
@@ -225,7 +225,7 @@ Without DMS integration, users download files manually or the assistant cannot r
 
 | Source | Best for |
 |--------|----------|
-| **Local folder** | Working copies beside the active file; zero config; optional hybrid index ([embeddings.md](embeddings.md)) |
+| **Local folder** | Working copies beside the active file; zero config; optional hybrid index ([embeddings.md](../embeddings.md)) |
 | **Mayan EDMS** | Official versions, cabinets, tags, OCR on scans, retention, audit |
 | **Web** | Public information (`web_research` domain) — not a substitute for authenticated org docs |
 
@@ -480,7 +480,7 @@ Would duplicate gateway wiring, prompts, status formatters, MCP entries, and tes
 - Version / file selection; direct OCR text path.
 - `upload_document_to_mayan` (specialized_control, mutation policy TBD).
 - Multi-instance; DMS browser / @ picker.
-- MCP examples in [mcp/protocol.md](mcp/protocol.md).
+- MCP examples in [mcp/protocol.md](../mcp/protocol.md).
 
 ### Phase 4 — Cross-DMS
 
@@ -523,14 +523,14 @@ Always: `make test` before calling a phase done. Naming: `test_<module>.py`, `te
 
 | Topic | Doc |
 |-------|-----|
-| Local folder hybrid search + Search Nearby Files (shipped) | [embeddings.md](embeddings.md) |
-| Local two-tier document_research (shipped) | [chat/multi-document-dev-plan.md](chat/multi-document-dev-plan.md) |
-| Delegation / MCP | [mcp/protocol.md](mcp/protocol.md), [chat/smol-tool-architecture.md](chat/smol-tool-architecture.md) |
-| Web vs DMS research | [agent/search.md](agent/search.md) |
-| HTTP search patterns | [agent/search-engine-integration.md](agent/search-engine-integration.md) |
-| Threading | [framework/streaming-and-threading.md](framework/streaming-and-threading.md) |
+| Local folder hybrid search + Search Nearby Files (shipped) | [embeddings.md](../embeddings.md) |
+| Local two-tier document_research (shipped) | [chat/multi-document-dev-plan.md](../chat/multi-document-dev-plan.md) |
+| Delegation / MCP | [mcp/protocol.md](../mcp/protocol.md), [chat/smol-tool-architecture.md](../chat/smol-tool-architecture.md) |
+| Web vs DMS research | [chat/search.md](../chat/search.md) |
+| HTTP search patterns | [chat/search-engine-integration.md](../chat/search-engine-integration.md) |
+| Threading | [framework/streaming-and-threading.md](../framework/streaming-and-threading.md) |
 | Specialized tool tiers | writer/calc/draw specialized toolset docs |
-| Project invariants | [AGENTS.md](../AGENTS.md) |
+| Project invariants | [AGENTS.md](../../AGENTS.md) |
 
 ---
 

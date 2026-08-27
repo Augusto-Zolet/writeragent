@@ -24,7 +24,7 @@ LangChain is **not** the target architecture for the LibreOffice extension runti
 | Custom tool-calling loop (not LangChain `AgentExecutor`) | `ToolCallingMixin` / `tool_loop.py` + `LlmClient` | [`plugin/chatbot/tool_loop.py`](../plugin/chatbot/tool_loop.py), [`plugin/chatbot/tool_loop_state.py`](../plugin/chatbot/tool_loop_state.py) |
 | Smolagents sub-agents (web research, librarian, specialized) | `web_research`, delegate gateways, `librarian_onboarding`; final answer only in main history | [`plugin/chatbot/web_research.py`](../plugin/chatbot/web_research.py), [`plugin/chatbot/librarian.py`](../plugin/chatbot/librarian.py), [`plugin/doc/specialized_base.py`](../plugin/doc/specialized_base.py) |
 | Long-term user profile memory (partial) | `upsert_memory` → JSON in `USER.md`; librarian injects profile | [`plugin/chatbot/memory.py`](../plugin/chatbot/memory.py) |
-| Scientific Python / NumPy (out-of-process) | Warm venv worker (`run_venv_python_script`, `=PYTHON()`) | [enabling_numpy_in_libreoffice.md](enabling_numpy_in_libreoffice.md) |
+| Scientific Python / NumPy (out-of-process) | Warm venv worker (`run_venv_python_script`, `=PYTHON()`) | [enabling_numpy_in_libreoffice.md](../enabling_numpy_in_libreoffice.md) |
 
 **Not in `pyproject.toml`:** `langchain-core` — the sidebar does not depend on it today.
 
@@ -61,7 +61,7 @@ flowchart TB
   FSM -->|SpawnToolWorkerEffect| TOOL
 ```
 
-Rough size: ~860 lines (`tool_loop.py`) + ~430 lines (`tool_loop_state.py`) + ~900 lines of tests (`tests/chatbot/test_tool_loop.py`). See also [framework/streaming-and-threading.md](framework/streaming-and-threading.md) and [chat/smol-tool-architecture.md](chat/smol-tool-architecture.md).
+Rough size: ~860 lines (`tool_loop.py`) + ~430 lines (`tool_loop_state.py`) + ~900 lines of tests (`tests/chatbot/test_tool_loop.py`). See also [framework/streaming-and-threading.md](../framework/streaming-and-threading.md) and [chat/smol-tool-architecture.md](../chat/smol-tool-architecture.md).
 
 ### Behaviors LangChain agent executors do not provide out of the box
 
@@ -113,7 +113,7 @@ Net effect: **~2,200 lines of tested loop code** replaced by **LangChain + a com
 
 ### Two agent stacks already exist
 
-WriterAgent deliberately runs **two orchestration idioms** sharing one HTTP client ([chat/smol-tool-architecture.md](chat/smol-tool-architecture.md)):
+WriterAgent deliberately runs **two orchestration idioms** sharing one HTTP client ([chat/smol-tool-architecture.md](../chat/smol-tool-architecture.md)):
 
 | Stack | Role | Runtime |
 |-------|------|---------|
@@ -141,7 +141,7 @@ Multi-step autonomous work (Phase 5's original goal) is already covered: main ch
 Use LangChain repos as a **reference implementation library**, consistent with the vendoring strategy below:
 
 - Copy **small, stdlib-friendly** pieces (text splitters, summarization prompts, chat-history schema ideas)
-- Run **LangGraph in the user venv only** for embeddings ingest/search ([embeddings.md](embeddings.md)) — not in the LibreOffice process
+- Run **LangGraph in the user venv only** for embeddings ingest/search ([embeddings.md](../embeddings.md)) — not in the LibreOffice process
 - Keep **`LlmClient` as the single HTTP wire** for all in-process agents (main chat + smol)
 - Borrow **middleware concepts** (HITL, summarization) as design patterns implemented in `tool_loop` / `ChatSession`, not as imports
 
@@ -157,8 +157,8 @@ Prioritized by leverage vs. complexity. **Do not** re-implement Phases 1–2 via
 |----------|------|----------------|-------------------|
 | **1** | **Inject `USER.md` into main chat** (Hermes-style read path) | Model sees prefs without `upsert_memory` / `read` calls; librarian already injects for onboarding only | Append `[USER PROFILE]` block in `get_chat_system_prompt_for_document` or `set_system_context`; keep `upsert_memory` for writes |
 | **2** | **Chat history summarization** (old Phase 3) | Very long sidebar sessions can exceed model context even when document excerpt is capped at 8k | Token/char budget on `session.messages`; when over threshold, one summarizer LLM call replaces oldest turns with a single summary message (persist via `history_db`). *Optional:* vendor summarization logic from LangChain as reference — do not adopt `ConversationSummaryBufferMemory` as a dependency |
-| **3** | **Local embedder + routing** | MVP: `sentence-transformers` in venv; cloud HTTP tier-two | See [embeddings.md](embeddings.md) — Phase A bench + `embedding_client.py` |
-| **4** | **Document embeddings index** (old Phase 4, retrieval) | Outer document_research: semantic find instead of grep; minimal locator cache | See [embeddings.md](embeddings.md) |
+| **3** | **Local embedder + routing** | MVP: `sentence-transformers` in venv; cloud HTTP tier-two | See [embeddings.md](../embeddings.md) — Phase A bench + `embedding_client.py` |
+| **4** | **Document embeddings index** (old Phase 4, retrieval) | Outer document_research: semantic find instead of grep; minimal locator cache | See [embeddings.md](../embeddings.md) |
 | **5** | **Background memory reviewer** | Passive “should we save this?” without burdening main tool loop | Optional second LLM pass after reply (Hermes pattern); uses `MemoryStore` in code, not extra main-chat tools |
 | **6** | **Skills tools** | Procedures on disk; guidance exists in constants | Register [`plugin/chatbot/skills.py`](../plugin/chatbot/skills.py) when ready; optional index injection like memory |
 | **Low** | **Full `langchain-core` integration** | Runnable chains, ecosystem interop | Only if an external integration explicitly requires it; duplicates working `ChatSession` + `tool_loop` |
@@ -214,7 +214,7 @@ Prioritized by leverage vs. complexity. **Do not** re-implement Phases 1–2 via
 
 **Objective**: Enable cross-document find for **document_research** (outer agent) and optional in-document RAG for huge single files.
 
-> **Canonical plan:** [embeddings.md](embeddings.md) — **one minimal index** (vectors + locators); outer document_research `search_embeddings`; **MVP local embed** via `sentence-transformers` in venv; cloud APIs tier-two; ~60 s incremental maintenance. LangGraph pipelines run **in the user venv only**.
+> **Canonical plan:** [embeddings.md](../embeddings.md) — **one minimal index** (vectors + locators); outer document_research `search_embeddings`; **MVP local embed** via `sentence-transformers` in venv; cloud APIs tier-two; ~60 s incremental maintenance. LangGraph pipelines run **in the user venv only**.
 
 ### Phase 5: Agentic Workflows & Multi-Step Reasoning — **DONE (via smolagents, not LangChain)**
 
@@ -237,7 +237,7 @@ Future HITL for destructive document edits, if needed, should extend `ToolContex
 **`sqlite3` is part of the Python standard library** on all major OSes (Windows, macOS, Linux) in normal CPython builds — no `pip install` required. That opens several storage options without adding dependencies:
 
 - **Phase 2 (persistent chat history)**: SQLite is a natural fit for conversation history (e.g. one table per document URL, or a single DB with a doc key). No extra dependency.
-- **Phase 4 (RAG / embeddings)**: Stdlib SQLite does **not** provide vector similarity search. Use SQLite for chunk metadata and FTS5; keep vectors in a float32 sidecar or sqlite-vec in the user venv. See [embeddings.md](embeddings.md).
+- **Phase 4 (RAG / embeddings)**: Stdlib SQLite does **not** provide vector similarity search. Use SQLite for chunk metadata and FTS5; keep vectors in a float32 sidecar or sqlite-vec in the user venv. See [embeddings.md](../embeddings.md).
 
 Keeping this in mind makes it easier to choose stdlib-friendly storage (e.g. SQLite for history and RAG metadata) without pulling in heavier backends.
 
@@ -291,17 +291,17 @@ While we don't need these immediately for the core LibreOffice integration, the 
 
 **Rationale:** WriterAgent runs in LibreOffice's constrained Python environment. Keeping the extension dependency-free of `langchain-core` avoids bloat and cross-platform install issues. Custom UI streaming, UNO drain, and wire policy stay in one place ([`llm_client.py`](../plugin/framework/client/llm_client.py)).
 
-**Embeddings / RAG:** See [embeddings.md](embeddings.md) — **sqlite-vec + LangGraph in the user venv only** (ingest + search pipelines); host extension has no langchain dependency. LibreOffice in-process still has no sqlite-vec/FAISS/NumPy encode.
+**Embeddings / RAG:** See [embeddings.md](../embeddings.md) — **sqlite-vec + LangGraph in the user venv only** (ingest + search pipelines); host extension has no langchain dependency. LibreOffice in-process still has no sqlite-vec/FAISS/NumPy encode.
 
 **Agent orchestration:** Main chat = `tool_loop` FSM. Multi-step = smol `ToolCallingAgent`. LangChain `AgentExecutor` / `create_agent` = **not planned**.
 
-Related docs: [chat/smol-tool-architecture.md](chat/smol-tool-architecture.md), [chat/sidebar-implementation.md](chat/sidebar-implementation.md), [framework/streaming-and-threading.md](framework/streaming-and-threading.md).
+Related docs: [chat/smol-tool-architecture.md](../chat/smol-tool-architecture.md), [chat/sidebar-implementation.md](../chat/sidebar-implementation.md), [framework/streaming-and-threading.md](../framework/streaming-and-threading.md).
 
 ---
 
 ## Appendix: HNSW and hnsw-lite
 
-Moved to [embeddings.md — Appendix: HNSW and hnsw-lite](embeddings.md#appendix-hnsw-and-hnsw-lite) (optional in-venv ANN for bounded in-RAM subsets).
+Moved to [embeddings.md — Appendix: HNSW and hnsw-lite](../embeddings.md#appendix-hnsw-and-hnsw-lite) (optional in-venv ANN for bounded in-RAM subsets).
 
 ## Verification Plan
 ### Automated & Manual Verification

@@ -867,7 +867,7 @@ Omit `vision_tools.py` for menu-only core (chat `extract_text_from_image`).
 | Vision | docling, rapidocr-paddle, pillow, css-inline |
 | Monaco | pywebview, rocher, PyQt6, PyQt6-WebEngine, qtpy |
 
-See [numpy-domains.md](numpy-domains.md) and [../image/recognition.md](../image/recognition.md) for authoritative lists.
+See [numpy-domains.md](numpy-domains.md) and [../images/recognition.md](../images/recognition.md) for authoritative lists.
 
 ### Do not ship in core
 
@@ -882,7 +882,7 @@ See [numpy-domains.md](numpy-domains.md) and [../image/recognition.md](../image/
 - [NumPy domain helpers](numpy-domains.md) — Analysis, Viz, Symbolic, Units, Forecast, Optimize, Quant, Text
 - [Venv subprocess IPC & serialization](numpy-serialization.md) — warm worker, protocol, wire formats
 - [Monaco editor dev plan](monaco-editor-dev-plan.md) — IPC, phases 2B–2F
-- [Image Recognition](../image/recognition.md) — Vision/OCR design
+- [Image Recognition](../images/recognition.md) — Vision/OCR design
 - [Math / TeX import](../writer/math-tex.md) — LaTeX, MathML, StarMath pipeline
 - [Calc specialized toolsets](../calc/specialized-toolsets.md) — broader Calc chat/tools (WriterAgent scope)
 
@@ -1092,7 +1092,7 @@ Optional: `jedi` (completion stub in `editor_main.py`).
 
 ## Appendix G — Vision/OCR
 
-Local OCR and document layout via trusted Vision helpers. Manual path first per [../image/recognition.md](../image/recognition.md). Core ships **Run Python Script → Vision Helpers** + **Vision OCR Settings** — not chat `extract_text_from_image`.
+Local OCR and document layout via trusted Vision helpers. Manual path first per [../images/recognition.md](../images/recognition.md). Core ships **Run Python Script → Vision Helpers** + **Vision OCR Settings** — not chat `extract_text_from_image`.
 
 ```mermaid
 flowchart LR
@@ -1164,4 +1164,4 @@ Models are **not** bundled in the OXT; user venv installs them.
 |------|------|
 | [`vision_tools.py`](../../plugin/vision/vision_tools.py) | `extract_text_from_image` LLM tool |
 | `plugin/framework/tool.py` | Tool registration |
-| Draw/Impress page-positioned OCR | Deferred — [../image/recognition.md](../image/recognition.md) Phase 1b.2 |
+| Draw/Impress page-positioned OCR | Deferred — [../images/recognition.md](../images/recognition.md) Phase 1b.2 |

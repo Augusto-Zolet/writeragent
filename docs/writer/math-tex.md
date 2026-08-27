@@ -880,7 +880,7 @@ flowchart TB
 5. **Numbered equations + batch reconvert** (Writer tools).
 6. **Optional external LaTeX→image fallback** (only if product accepts TeX-install dependency).
 
-See also: [Math extraction and edit loops](#math-extraction-and-edit-loops-roadmap), [../image/generation.md](../image/generation.md) (if image fallback shares insert-image paths).
+See also: [Math extraction and edit loops](#math-extraction-and-edit-loops-roadmap), [../images/generation.md](../images/generation.md) (if image fallback shares insert-image paths).
 
 ### TexMaths modules (reference tree)
 
@@ -906,7 +906,7 @@ See also: [Math extraction and edit loops](#math-extraction-and-edit-loops-roadm
 | LaTeX dialog | [`plugin/writer/math/latex_dialog.py`](../../plugin/writer/math/latex_dialog.py) |
 | Model / tool hints | [`plugin/framework/prompts.py`](../../plugin/framework/prompts.py), [`plugin/writer/content.py`](../../plugin/writer/content.py) |
 | Vendored `latex2mathml` | `requirements-vendor.txt` (dev mirror in `pyproject.toml` for typecheck) |
-| Image fallback (optional) | [../image/generation.md](../image/generation.md) |
+| Image fallback (optional) | [../images/generation.md](../images/generation.md) |
 | Agent orientation | [`AGENTS.md`](../../AGENTS.md) |
 | TexMaths UX/interop ideas | [TexMaths feature review](#texmaths-feature-review-porting-candidates) |
 
