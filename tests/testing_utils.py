@@ -778,8 +778,13 @@ class MockContext:
     def getServiceManager(self):
         return MagicMock()
 
-# One hidden Writer and one Calc per (ctx, type, hidden). Factory open/close per test is slow.
+# Experimental: wipe-and-reuse one hidden document per (ctx, type, hidden).
+# Default ON for Calc only. Writer pooling still leaks CharWeight/HTML styles; pass reuse=True to try it.
 _NATIVE_DOC_POOL: dict = {}
+
+
+def _default_native_doc_reuse(doc_type: str) -> bool:
+    return doc_type == "calc"
 
 # offapi/com/sun/star/sheet/CellFlags.idl — VALUE|DATETIME|STRING|ANNOTATION|FORMULA|HARDATTR|STYLES|OBJECTS|EDITATTR|FORMATTED
 _CALC_CLEAR_ALL = 1 | 2 | 4 | 8 | 16 | 32 | 64 | 128 | 256 | 512
@@ -812,7 +817,48 @@ def _clear_undo(doc) -> None:
         pass
 
 
+def _remove_all_calc_charts(doc) -> None:
+    sheets = doc.getSheets()
+    for i in range(sheets.getCount()):
+        try:
+            charts = sheets.getByIndex(i).getCharts()
+            for name in list(charts.getElementNames()):
+                try:
+                    charts.removeByName(name)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+    try:
+        objs = doc.getEmbeddedObjects()
+        for name in list(objs.getElementNames()):
+            try:
+                objs.removeByName(name)
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+
+def _clear_writeragent_udprops(doc) -> None:
+    try:
+        from plugin.scripting.document_scripts import set_document_scripts
+
+        set_document_scripts(doc, {})
+    except Exception:
+        pass
+    try:
+        from plugin.doc.udprops import set_document_property
+        from plugin.scripting.session_manager import PYTHON_WORKBOOK_SESSION_PROP
+
+        set_document_property(doc, PYTHON_WORKBOOK_SESSION_PROP, "")
+        set_document_property(doc, "WriterAgentSessionID", "")
+    except Exception:
+        pass
+
+
 def _reset_calc_doc(doc, ctx) -> None:  # ctx unused; same signature as writer reset
+    _remove_all_calc_charts(doc)
     sheets = doc.getSheets()
     while sheets.getCount() > 1:
         name = sheets.getByIndex(sheets.getCount() - 1).Name
@@ -855,7 +901,53 @@ def _reset_calc_doc(doc, ctx) -> None:  # ctx unused; same signature as writer r
         controller.select(sheet.getCellByPosition(0, 0))
     except Exception:
         pass
+    _clear_writeragent_udprops(doc)
     _clear_undo(doc)
+
+
+def _reset_writer_style_families(doc) -> None:
+    """Drop user HTML styles and restore built-in CharWeight (Standard can pick up bold)."""
+    try:
+        families = doc.getStyleFamilies()
+    except Exception:
+        return
+    for family_name in ("ParagraphStyles", "CharacterStyles"):
+        try:
+            styles = families.getByName(family_name)
+        except Exception:
+            continue
+        for name in list(styles.getElementNames()):
+            try:
+                style = styles.getByName(name)
+            except Exception:
+                continue
+            try:
+                if bool(style.isUserDefined()):
+                    styles.removeByName(name)
+                    continue
+            except Exception:
+                pass
+            for prop in ("CharWeight", "CharHeight", "CharPosture", "CharUnderline", "CharColor"):
+                try:
+                    style.setPropertyToDefault(prop)
+                except Exception:
+                    pass
+
+
+def _writer_pool_is_clean(doc) -> bool:
+    """False if wipe left text, bold, or graphics — caller should factory-load."""
+    try:
+        if (doc.getText().getString() or "").strip():
+            return False
+        cursor = doc.getText().createTextCursor()
+        cursor.gotoStart(False)
+        if float(cursor.getPropertyValue("CharWeight") or 100) >= 135.0:
+            return False
+        if hasattr(doc, "getGraphicObjects") and doc.getGraphicObjects().getCount() > 0:
+            return False
+    except Exception:
+        return False
+    return True
 
 
 def _reset_writer_doc(doc, ctx) -> None:
@@ -877,10 +969,68 @@ def _reset_writer_doc(doc, ctx) -> None:
         cursor.gotoEnd(True)
         cursor.setString("")
         cursor.gotoStart(False)
+        cursor.gotoEnd(True)
+        # Empty para keeps last run CharWeight/Heading; HTML insert at "end" with
+        # apply_styles=False then paints body text with leftover bold (150).
+        try:
+            cursor.setPropertyValue("ParaStyleName", "Standard")
+        except Exception:
+            pass
+        try:
+            cursor.setPropertyValue("CharWeight", 100.0)
+        except Exception:
+            pass
+        for prop in (
+            "CharStyleName",
+            "CharWeight",
+            "CharHeight",
+            "CharPosture",
+            "CharUnderline",
+            "CharColor",
+            "CharBackColor",
+            "CharEscapement",
+            "CharFontName",
+            "ParaAdjust",
+        ):
+            try:
+                cursor.setPropertyToDefault(prop)
+            except Exception:
+                pass
+        cursor.gotoStart(False)
         try:
             doc.getCurrentController().select(cursor)
         except Exception:
             pass
+    except Exception:
+        pass
+    try:
+        enum = doc.getText().createEnumeration()
+        while enum.hasMoreElements():
+            para = enum.nextElement()
+            try:
+                para.setPropertyValue("ParaStyleName", "Standard")
+            except Exception:
+                pass
+            try:
+                para.setPropertyValue("CharWeight", 100.0)
+            except Exception:
+                pass
+            for prop in ("CharStyleName", "CharWeight", "CharHeight", "CharPosture"):
+                try:
+                    para.setPropertyToDefault(prop)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    try:
+        smgr = ctx.getServiceManager()
+        helper = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)
+        frame = doc.getCurrentController().getFrame()
+        helper.executeDispatch(frame, ".uno:SelectAll", "", 0, ())
+        helper.executeDispatch(frame, ".uno:ResetAttributes", "", 0, ())
+        cursor = doc.getText().createTextCursor()
+        cursor.gotoStart(False)
+        doc.getCurrentController().select(cursor)
     except Exception:
         pass
     for getter in ("getTextTables", "getTextFrames", "getGraphicObjects", "getEmbeddedObjects", "getTextSections"):
@@ -899,6 +1049,7 @@ def _reset_writer_doc(doc, ctx) -> None:
                         pass
         except Exception:
             pass
+    _reset_writer_style_families(doc)
     _clear_undo(doc)
 
 
@@ -988,9 +1139,11 @@ class TestingFactory:
 
     @staticmethod
     @contextlib.contextmanager
-    def native_doc(ctx, doc_type="writer", hidden=True, reuse=True):
-        """Yield a native LO document; Writer/Calc default to wipe-and-reuse (faster than factory+close)."""
-        use_pool = reuse and doc_type in ("writer", "calc")
+    def native_doc(ctx, doc_type="writer", hidden=True, reuse=None):
+        """Yield a native LO document. Calc defaults to experimental wipe-and-reuse; Writer does not."""
+        if reuse is None:
+            reuse = _default_native_doc_reuse(doc_type)
+        use_pool = bool(reuse) and doc_type in ("writer", "calc")
         doc = None
         pooled = False
         if use_pool:
@@ -999,8 +1152,12 @@ class TestingFactory:
             if candidate is not None and _native_doc_alive(candidate):
                 try:
                     reset_native_doc(candidate, doc_type, ctx)
-                    doc = candidate
-                    pooled = True
+                    if doc_type == "writer" and not _writer_pool_is_clean(candidate):
+                        TestingFactory.close_doc(candidate)
+                        doc = None
+                    else:
+                        doc = candidate
+                        pooled = True
                 except Exception:
                     TestingFactory.close_doc(candidate)
                     doc = None
@@ -1021,6 +1178,13 @@ class TestingFactory:
             yield doc
         finally:
             if pooled:
+                # Wipe before leaving the pool: tests without @with_native_doc still
+                # see this document as the desktop's current component (init scripts, charts).
+                try:
+                    reset_native_doc(doc, doc_type, ctx)
+                except Exception:
+                    TestingFactory.close_doc(doc)
+                    return
                 try:
                     from plugin.scripting.session_manager import clear_active_calc_session
 
@@ -1094,11 +1258,12 @@ class TestingFactory:
             return {"status": "error", "error": str(e)}
 
 
-def with_native_doc(doc_type="writer", hidden=True, reuse=True):
+def with_native_doc(doc_type="writer", hidden=True, reuse=None):
     """Decorator to inject a native LibreOffice document into a test function and guarantee teardown.
 
-    Writer/Calc reuse one hidden document and wipe it between tests (open/close is slow).
-    Pass ``reuse=False`` when the test needs a virgin factory document (Draw/Impress never reuse).
+    Calc: experimental wipe-and-reuse of one hidden spreadsheet (faster than factory+close).
+    Writer: factory load/close by default (reuse leaks HTML/CharWeight). Pass reuse=True to try pooling.
+    Draw/Impress never reuse.
     """
     def decorator(func):
         import functools
