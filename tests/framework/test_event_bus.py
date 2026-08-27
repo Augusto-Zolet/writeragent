@@ -191,6 +191,41 @@ def test_emit_allows_nested_different_event():
     assert order == ["outer", "inner"]
 
 
+def test_subscribe_during_emit_is_not_in_current_fanout():
+    """Snapshot: a handler subscribed mid-emit must wait for the next emit."""
+    bus = EventBus()
+    order = []
+
+    def late():
+        order.append("late")
+
+    def first():
+        order.append("first")
+        bus.subscribe("test:event", late)
+
+    bus.subscribe("test:event", first)
+    bus.emit("test:event")
+    assert order == ["first"]
+    bus.emit("test:event")
+    assert order == ["first", "first", "late"]
+
+
+def test_unsubscribe_during_emit_still_runs_current_snapshot():
+    """Snapshot: unsubscribing the current handler does not abort this emit."""
+    bus = EventBus()
+    calls = []
+
+    def handler():
+        calls.append("run")
+        bus.unsubscribe("test:event", handler)
+
+    bus.subscribe("test:event", handler)
+    bus.emit("test:event")
+    assert calls == ["run"]
+    bus.emit("test:event")
+    assert calls == ["run"]
+
+
 def test_emit_allows_sequential_same_event():
     bus = EventBus()
     calls = []

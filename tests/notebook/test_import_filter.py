@@ -91,7 +91,7 @@ def test_import_filter_success():
     media_descriptor = (MockPropertyValue("URL", "file:///fake/path/notebook.ipynb"),)
 
     with patch("plugin.notebook.import_filter.import_ipynb_to_writer") as mock_import, \
-         patch("uno.fileUrlToSystemPath", return_value="/fake/path/notebook.ipynb"):
+         patch("plugin.notebook.import_filter.uno.fileUrlToSystemPath", return_value="/fake/path/notebook.ipynb"):
         mock_import.return_value = {"cells": 1}
         
         result = filter_comp.filter(media_descriptor)
@@ -131,7 +131,7 @@ def test_import_filter_exception():
     media_descriptor = (MockPropertyValue("URL", "file:///fake/path/notebook.ipynb"),)
 
     with patch("plugin.notebook.import_filter.import_ipynb_to_writer") as mock_import, \
-         patch("uno.fileUrlToSystemPath", return_value="/fake/path/notebook.ipynb"):
+         patch("plugin.notebook.import_filter.uno.fileUrlToSystemPath", return_value="/fake/path/notebook.ipynb"):
         mock_import.side_effect = Exception("Test Exception")
         
         result = filter_comp.filter(media_descriptor)

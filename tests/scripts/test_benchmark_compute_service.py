@@ -56,8 +56,11 @@ def test_managed_server_and_scenario_run() -> None:
 
 
 def test_run_benchmarks_quick() -> None:
+    # numpy_vector needs NumPy inside isolated execute; the CI worker often
+    # has no numpy, so the "quick" path uses the same pure_python workload as
+    # test_managed_server_and_scenario_run.
     results = run_benchmarks(
-        workloads=["numpy_vector"],
+        workloads=["pure_python"],
         concurrencies=[1, 2],
         requests_per_worker=2,
         server_threads=4,

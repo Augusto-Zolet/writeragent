@@ -35,6 +35,13 @@ class EventBus:
     All callbacks run synchronously on the calling thread. Exceptions in
     subscribers are logged but never propagated to the emitter.
 
+    ``emit`` iterates a snapshot of the subscriber list so a concurrent
+    ``subscribe`` append cannot skip/shift listeners mid-loop. There is no
+    mutex across callbacks: a lock held while handlers run would deadlock
+    UI vs workers and would serialize same-name emits that other threads
+    are allowed to run. Handlers that touch UNO still belong on the main
+    thread (see docs/framework-threading.md); a snapshot is not UNO safety.
+
     Re-entrant ``emit`` of the *same* event on the same thread is dropped
     (warning logged). That stops the sidebar config-refresh loop where
     ``config:changed`` → control ``setText`` → listener → ``set_config`` →
@@ -92,6 +99,7 @@ class EventBus:
         if not subs:
             return
 
+        # Replace the list; an in-flight emit already holds a snapshot.
         self._subscribers[event] = [
             (cb, is_weak) for cb, is_weak in subs if not self._same_callback(self._resolve(cb, is_weak), callback)
         ]
@@ -129,9 +137,12 @@ class EventBus:
         Re-entrant emit of the same event on this thread is dropped.
         """
         # crosshair: off
-        subs = self._subscribers.get(event)
-        if not subs:
+        live = self._subscribers.get(event)
+        if not live:
             return
+        # Frozen listeners at emit time. Dead weakrefs stay until _cleanup
+        # or unsubscribe replace the stored list; do not pop in place.
+        subs = list(live)
 
         active = self._active_events()
         if event in active:
@@ -140,11 +151,9 @@ class EventBus:
 
         active.add(event)
         try:
-            dead = []
-            for i, (cb, is_weak) in enumerate(subs):
+            for cb, is_weak in subs:
                 resolved = self._resolve(cb, is_weak)
                 if resolved is None:
-                    dead.append(i)
                     continue
                 try:
                     resolved(**data)
@@ -156,10 +165,6 @@ class EventBus:
                     # Still catch Exception to avoid one bad listener breaking the whole bus,
                     # but log it clearly as an unhandled application error
                     log.exception("Unhandled error in event handler %s for %s: %s", resolved, event, e)
-
-            if dead:
-                for i in reversed(dead):
-                    subs.pop(i)
         finally:
             active.discard(event)
 
@@ -172,6 +177,7 @@ class EventBus:
         """Called when a weakref target is garbage-collected."""
         subs = self._subscribers.get(event)
         if subs:
+            # Replace, do not mutate in place (emit may still hold a snapshot).
             self._subscribers[event] = [(cb, w) for cb, w in subs if cb is not ref]
 
 

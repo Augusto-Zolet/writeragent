@@ -173,15 +173,16 @@ def test_writer_eval_chat_prompt_includes_sidebar_vs_document_routing():
 def test_writer_apply_document_math_latex_rules_document_only():
     from plugin.framework.prompts import HTML_FRAGMENT_RULES, WRITER_APPLY_DOCUMENT_HTML_RULES
 
-    assert "Use LaTeX inline delimiters" in WRITER_APPLY_DOCUMENT_HTML_RULES
+    assert "Math (CRITICAL)" in WRITER_APPLY_DOCUMENT_HTML_RULES
     assert r"\(" in WRITER_APPLY_DOCUMENT_HTML_RULES
+    assert r"\[" in WRITER_APPLY_DOCUMENT_HTML_RULES
     assert "Math (display):" not in WRITER_APPLY_DOCUMENT_HTML_RULES
-    assert "Use LaTeX inline delimiters" not in HTML_FRAGMENT_RULES
+    assert "Math (CRITICAL)" not in HTML_FRAGMENT_RULES
 
     model = MagicMock()
     model.supportsService.return_value = False
     prompt = get_chat_system_prompt_for_document(model)
-    assert "Use LaTeX inline delimiters" in prompt
+    assert "Math (CRITICAL)" in prompt
 
 
 def test_writer_chat_prompt_fix_this_grammar_defaults():

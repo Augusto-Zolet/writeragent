@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 # --- Minimal stdlib-only bootstrap ---
 _this = os.path.abspath(__file__)
@@ -30,8 +30,28 @@ ensure_plugin_on_path(
 
 import uno  # noqa: E402
 import unohelper  # noqa: E402
-from com.sun.star.document import XFilter, XImporter, XExtendedFilterDetection  # noqa: E402
-from com.sun.star.lang import XServiceInfo  # noqa: E402
+
+if TYPE_CHECKING:
+    from com.sun.star.document import XFilter, XImporter, XExtendedFilterDetection
+    from com.sun.star.lang import XServiceInfo
+else:
+    # Pytest collection uses venv stubs: com.sun.star.document exists but has
+    # no XFilter. LibreOffice Python has the real IDL.
+    try:
+        from com.sun.star.document import XFilter, XImporter, XExtendedFilterDetection
+        from com.sun.star.lang import XServiceInfo
+    except ImportError:
+        class XFilter:
+            pass
+
+        class XImporter:
+            pass
+
+        class XExtendedFilterDetection:
+            pass
+
+        class XServiceInfo:
+            pass
 
 from plugin.contrib.nbformat import NBFormatError  # noqa: E402
 from plugin.notebook.writer_importer import import_ipynb_to_writer  # noqa: E402
