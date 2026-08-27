@@ -148,12 +148,12 @@ endif
         dev-deploy dev-deploy-remove \
         lo-start lo-start-full lo-kill lo-restart \
         clean-cache nuke-cache nuke-cache-force unbundle \
-        log log-tail lo-log test pytest test-run test-durations slowtests vhs test-visible lo-test-threadguard lo-test-threadguard-visible typecheck check-ext check-setup deploy ensure-uno \
+        log log-tail lo-log test pytest test-run test-durations slowtests vhs test-visible lo-test-threadguard lo-test-threadguard-visible typecheck typecheck-full check-ext check-setup deploy ensure-uno \
         verify crosshair-check crosshair-cover crosshair-check-all crosshair-check-all-deep \
         crosshair-cover-all crosshair-cover-all-deep \
         lo-start-log opengrep-lint opengrep-lint-advisory opengrep-rules-sync opengrep-rules-audit uno-thread-lint uno-thread-lint-advisory opengrep-install \
         writer calc draw impress \
-        set-config vendor docker-build compile-translations compile-translations-core merge-translations refresh-pot reset-lang preview-translations check ty mypy pyright pyrefly bandit pyspector pyspector-report ty-run mypy-run pyright-run pyrefly-run \
+        set-config vendor docker-build compile-translations compile-translations-core merge-translations refresh-pot reset-lang preview-translations check ty mypy pyright pyrefly bandit pyspector pyspector-report ty-run mypy-run pyright-run basedpyright basedpyright-run basedpyright-full-run pyrefly-run \
         ruff ruff-fix ruff-for-build ruff-format-check ruff-format-grammar \
         eval-deps run_eval run_eval-smoke run_eval-lo-scripted schema-docs
 
@@ -242,7 +242,8 @@ help:
 	@echo "  make opengrep-rules-audit   Live registry sweep (p/python; manual triage only)"
 	@echo "  make uno-thread-lint        Alias for make opengrep-lint"
 	@echo "  make opengrep-install       Install Opengrep CLI (~/.local/bin or bin/opengrep)"
-	@echo "  make typecheck              ruff-for-build, then basedpyright/bandit/opengrep/pyspector/ty/thread-safety/mypy in parallel"
+	@echo "  make typecheck              ruff-for-build, then basedpyright/bandit/opengrep/pyspector/ty/thread-safety/mypy in parallel (basedpyright does not walk numpy/etc. source)"
+	@echo "  make typecheck-full         same as typecheck, but basedpyright walks library source (numpy/etc.); used by make release"
 	@echo "  make ensure-uno             Link system UNO into .venv if import uno fails (auto-run by typecheck/test)"
 	@echo "  make fix-uno                Same as ensure-uno with verbose output"
 	@echo "  make mypy / make basedpyright / make pyrefly / make bandit   Single-tool runs (bandit: plugin/, excludes contrib + tests)"
@@ -313,7 +314,7 @@ build-no-recording: ty ruff-for-build preview-translations vendor manifest compi
 	"$(PYTHON)" $(SCRIPTS)/build_oxt.py --no-recording --output build/$(EXTENSION_NAME).oxt
 	@echo "Done: build/$(EXTENSION_NAME).oxt  (bundle in build/bundle/)"
 
-# Full verification: typecheck (includes bandit), then a stripped-with-tests tree in /tmp
+# Full verification: typecheck-full (includes bandit + basedpyright library walk), then a stripped-with-tests tree in /tmp
 # (tmpfs: faster compileall / pytest bytecode) so stripping doesn't break logic,
 # then build the clean release oxt in build/.
 schema-docs:
@@ -321,7 +322,7 @@ schema-docs:
 
 release: clean
 	@$(MAKE) schema-docs
-	@$(MAKE) typecheck
+	@$(MAKE) typecheck-full
 	@echo "Building stripped bundle for verification in a temp dir..."
 	@set -e; \
 	RELEASE_TMP=$$("$(PYTHON)" -c "import tempfile; print(tempfile.mkdtemp(prefix='writeragent-release-'))"); \
@@ -663,6 +664,11 @@ typecheck: manifest ruff-for-build
 	@echo "=== typecheck: basedpyright + bandit + opengrep + pyspector + ty + thread-safety + mypy (parallel) ==="
 	@$(MAKE) -j7 basedpyright-run bandit opengrep-lint pyspector ty-run thread-safety-lint mypy-run
 
+# Same tools as typecheck, but basedpyright analyzes numpy/pandas/etc. implementation.
+typecheck-full: manifest ruff-for-build
+	@echo "=== typecheck-full: basedpyright (library source) + bandit + opengrep + pyspector + ty + thread-safety + mypy (parallel) ==="
+	@$(MAKE) -j7 basedpyright-full-run bandit opengrep-lint pyspector ty-run thread-safety-lint mypy-run
+
 # Unit pytest only: no *_uno.py collection, no testing_runner / live soffice.
 # Exact command: $(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py'
 # Default adds $(PYTEST_XDIST) (-n auto --dist=loadgroup). PYTEST_WORKERS=0 is serial.
@@ -897,6 +903,9 @@ mypy-run: ensure-uno
 # Future task: try enabling `reportMissingTypeArgument = true` in pyproject.toml to enforce generic type parameters (dict[str, Any], list[str])
 basedpyright-run: ensure-uno
 	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright "$(PYTHON)" -m basedpyright --threads
+
+basedpyright-full-run: ensure-uno
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright-full "$(PYTHON)" -m basedpyright --threads -p pyrightconfig.full.json
 
 pyrefly-run: ensure-uno
 	@"$(PYTHON)" $(SCRIPTS)/run_timed.py pyrefly "$(PYTHON)" -m pyrefly check

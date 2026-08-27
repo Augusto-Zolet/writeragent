@@ -101,7 +101,14 @@ PROVIDERS: Dict[str, ProviderConfig] = {
 }
 
 
-@deal.pre(lambda endpoint, provider_hint=None: ascii_bounded(endpoint, DEAL_MAX_URL) and (provider_hint is None or ascii_bounded(provider_hint, DEAL_MAX_TOKEN)))
+_URL_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~:/?#[]@!$&'()*+,;=%")
+
+
+@deal.pre(
+    lambda endpoint, provider_hint=None: ascii_bounded(endpoint, DEAL_MAX_URL)
+    and all(c in _URL_CHARS for c in endpoint)
+    and (provider_hint is None or ascii_bounded(provider_hint, DEAL_MAX_TOKEN))
+)
 def _resolve_provider_id(endpoint: str, provider_hint: Optional[str] = None) -> str:
     """
     Map an endpoint URL + optional hint to a provider id from PROVIDERS.

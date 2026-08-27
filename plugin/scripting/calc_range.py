@@ -401,7 +401,23 @@ def materialize_calc_range(wire: Any) -> CalcRange:
     return CalcRange(_materialize_inner_grid(wire))
 
 
-@deal.pre(lambda inner: (not isinstance(inner, (list, tuple))) or len(inner) <= DEAL_MAX_SHAPE_DIM)
+@deal.pre(
+    lambda inner: (type(inner) not in (list, tuple))
+    or (
+        len(inner) <= DEAL_MAX_SHAPE_DIM
+        and all(
+            type(r) not in (list, tuple)
+            or (
+                len(r) <= DEAL_MAX_SHAPE_DIM
+                and all(
+                    isinstance(c, (str, int, float, bool, type(None))) or hasattr(c, "dtype")
+                    for c in r
+                )
+            )
+            for r in inner
+        )
+    )
+)
 def _materialize_inner_grid(inner: Any) -> list[list[Any]]:
     """Unpack split_grid / ndarray / nested lists to a rectangular ``list[list]``."""
     from plugin.scripting.payload_codec import child_unpack_data, is_split_grid

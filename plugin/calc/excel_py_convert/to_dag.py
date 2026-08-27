@@ -309,11 +309,11 @@ def _find_xl_calls(code: str) -> tuple[list[_XlCall], list[str]]:
 
 
 @deal.pre(
-    lambda src, lineno, col, *_unused, **__: _deal_excel_src_ok(src)
+    lambda src, lineno, col: str_bounded(src, DEAL_MAX_SOURCE)
     and type(lineno) is int
-    and 1 <= lineno <= 100
     and type(col) is int
-    and 0 <= col <= 200
+    and 0 <= lineno <= DEAL_MAX_SOURCE
+    and 0 <= col <= DEAL_MAX_SOURCE
 )
 def ast_source_offset(src: str, lineno: int, col: int) -> int:
     """Map AST ``(lineno, col_offset)`` to an absolute character index in *src*.
@@ -451,6 +451,12 @@ def _prefer_excel_dep_token(current: str, candidate: str) -> str:
     return cur or cand
 
 
+@deal.pre(
+    lambda resolved, header_modes: type(resolved) is list
+    and len(resolved) <= DEAL_MAX_CMD_ARGS
+    and type(header_modes) is dict
+    and len(header_modes) <= DEAL_MAX_CMD_ARGS
+)
 def _normalize_bindings(
     resolved: list[ResolvedDep],
     header_modes: dict[int, str],

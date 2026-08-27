@@ -163,6 +163,11 @@ def _repair_latex_clashes(text: str) -> str:
 
 
 
+import string
+
+_JSON_CHARS = frozenset(string.printable)
+
+
 @deal.pre(lambda text: str_bounded(text, DEAL_MAX_SOURCE))
 def repair_json(text: str) -> str:
     """Attempt to repair common JSON syntax errors from LLMs using json-repair.

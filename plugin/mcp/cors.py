@@ -171,6 +171,16 @@ def is_private_browser_origin(origin: str) -> bool:
     return ip.is_private or ip.is_loopback or ip.is_link_local
 
 
+@deal.pre(
+    lambda origins: origins is None
+    or (isinstance(origins, str) and str_bounded(origins, DEAL_MAX_ORIGIN))
+    or (
+        isinstance(origins, list)
+        and len(origins) <= DEAL_MAX_CMD_ARGS
+        and all(not isinstance(x, str) or str_bounded(x, DEAL_MAX_ORIGIN) for x in origins)
+    )
+    or not isinstance(origins, (str, list))
+)
 def set_extra_allowed_origins(origins) -> None:
     """Update explicit-origin cache used by is_safe_origin (HTTP threads, no ctx)."""
     global _extra_allowed_origins

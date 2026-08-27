@@ -19,7 +19,7 @@ import traceback
 import uuid
 from typing import Any, IO, Mapping
 
-from plugin.framework.deal_shim import DEAL_MAX_SOURCE, str_bounded, deal
+from plugin.framework.deal_shim import DEAL_MAX_SOURCE, str_bounded, deal, DEAL_MAX_CMD_ARGS, ascii_bounded, DEAL_MAX_TOKEN
 from plugin.scripting.ipc import (
     DEFAULT_MAX_PAYLOAD_BYTES,
     IpcFrameError,
@@ -72,6 +72,14 @@ def new_session_id() -> str:
     return uuid.uuid4().hex
 
 
+@deal.pre(
+    lambda target: target is None
+    or (
+        type(target) is dict
+        and len(target) <= DEAL_MAX_CMD_ARGS
+        and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in target)
+    )
+)
 def normalize_target(target: Mapping[str, Any] | None) -> dict[str, str]:
     """Keep only string identity fields; drop empty values and UNO objects."""
     if not target:
@@ -87,6 +95,11 @@ def normalize_target(target: Mapping[str, Any] | None) -> dict[str, str]:
     return out
 
 
+@deal.pre(
+    lambda msg: type(msg) is dict
+    and len(msg) <= DEAL_MAX_CMD_ARGS
+    and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in msg)
+)
 def target_from_load(msg: Mapping[str, Any]) -> dict[str, str]:
     """Build ``target`` from an explicit dict plus top-level load aliases."""
     raw = msg.get("target")
@@ -111,6 +124,17 @@ def target_from_load(msg: Mapping[str, Any]) -> dict[str, str]:
     return target
 
 
+@deal.pre(
+    lambda mode, target: ascii_bounded(mode, DEAL_MAX_TOKEN)
+    and (
+        target is None
+        or (
+            type(target) is dict
+            and len(target) <= DEAL_MAX_CMD_ARGS
+            and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in target)
+        )
+    )
+)
 def target_identity_key(mode: str, target: Mapping[str, str] | None) -> tuple[str, str, str, str, str]:
     """Stable key so reopening the same cell/script reuses ``session_id``."""
     t = normalize_target(target)
@@ -128,6 +152,21 @@ def session_id_of(message: Mapping[str, Any]) -> str:
     return str(raw).strip() if raw is not None else ""
 
 
+@deal.pre(
+    lambda msg, session_id, mode="", target=None: type(msg) is dict
+    and len(msg) <= DEAL_MAX_CMD_ARGS
+    and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in msg)
+    and ascii_bounded(session_id, DEAL_MAX_TOKEN)
+    and ascii_bounded(mode, DEAL_MAX_TOKEN)
+    and (
+        target is None
+        or (
+            type(target) is dict
+            and len(target) <= DEAL_MAX_CMD_ARGS
+            and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in target)
+        )
+    )
+)
 def stamp_session(
     msg: Mapping[str, Any],
     *,
@@ -148,6 +187,7 @@ def stamp_session(
     return out
 
 
+@deal.pre(lambda exc: isinstance(exc, BaseException))
 def exception_traceback(exc: BaseException) -> str:
     """Full traceback string for *exc*."""
     return "".join(traceback.format_exception(type(exc), exc, exc.__traceback__))

@@ -93,7 +93,19 @@ def _meta_chunks_from_spans(
     return chunks
 
 
-@deal.pre(lambda sentences: type(sentences) is list and len(sentences) <= DEAL_MAX_SHAPE_DIM)
+@deal.pre(
+    lambda sentences: type(sentences) is list
+    and len(sentences) <= DEAL_MAX_SHAPE_DIM
+    and all(
+        type(s) is tuple
+        and len(s) == 3
+        and type(s[0]) is int
+        and type(s[1]) is int
+        and type(s[2]) is str
+        and str_bounded(s[2], DEAL_MAX_SOURCE)
+        for s in sentences
+    )
+)
 def _sentences_spans_ok(sentences: object) -> bool:
     """True when *sentences* is ordered ``(start, end, text)`` with ``0 <= start <= end``.
 
@@ -296,7 +308,12 @@ def split_passage_locale_runs_to_chunk_meta(
     return _meta_chunks_from_spans(passage, all_spans, base_meta)
 
 
-@deal.pre(lambda text, base_meta, prose=True, locale_bcp47=None: str_bounded(text, DEAL_MAX_SOURCE) and type(base_meta) is dict and len(base_meta) <= DEAL_MAX_SHAPE_DIM)
+@deal.pre(
+    lambda text, base_meta, *args, **kwargs: str_bounded(text, DEAL_MAX_SOURCE)
+    and type(base_meta) is dict
+    and len(base_meta) <= DEAL_MAX_SHAPE_DIM
+    and (kwargs.get("locale_bcp47") is None or ascii_bounded(kwargs.get("locale_bcp47"), DEAL_MAX_TOKEN))
+)
 def split_passage_to_chunk_meta(
     text: str,
     base_meta: dict[str, Any],
