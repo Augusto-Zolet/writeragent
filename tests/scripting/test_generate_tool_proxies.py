@@ -145,4 +145,5 @@ def test_rpc_call_logic_in_generated_code():
     code = generate_module(tools)
     assert "_rpc_call" in code
     assert "write_pickle_frame(sys.stdout.buffer, request)" in code
-    assert "read_pickle_frame(sys.stdin.buffer, require_dict=True)" in code
+    assert "max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES" in code
+    assert "read_pickle_frame(" in code

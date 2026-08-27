@@ -10,7 +10,7 @@ import sys
 import uuid
 from typing import Any
 
-from plugin.scripting.ipc import read_pickle_frame, write_pickle_frame
+from plugin.scripting.ipc import DEFAULT_MAX_PAYLOAD_BYTES, read_pickle_frame, write_pickle_frame
 
 
 def _write_frame(payload: dict[str, Any]) -> None:
@@ -18,7 +18,9 @@ def _write_frame(payload: dict[str, Any]) -> None:
 
 
 def _read_host_response(context: str) -> dict[str, Any]:
-    response = read_pickle_frame(sys.stdin.buffer, require_dict=True)
+    response = read_pickle_frame(
+        sys.stdin.buffer, require_dict=True, max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES
+    )
     if response is None:
         raise ConnectionError(f"Lost connection to LibreOffice host during {context}")
     return response

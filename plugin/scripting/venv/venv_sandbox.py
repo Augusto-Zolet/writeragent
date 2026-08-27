@@ -630,11 +630,11 @@ def _ensure_mpl_agg() -> None:
     global _MPL_AGG_SET
     if _MPL_AGG_SET:
         return
-    _MPL_AGG_SET = True
     mpl = optional_module("matplotlib")
     if mpl is not None and hasattr(mpl, "use"):
         try:
             mpl.use("Agg")
+            _MPL_AGG_SET = True
         except Exception:
             pass
 

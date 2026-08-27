@@ -13,6 +13,7 @@ Derived from ``VENV_AUTHORIZED_IMPORTS``, ``BASE_BUILTIN_MODULES``, and
 
 from __future__ import annotations
 
+from plugin.framework.constants import AUTO_IMPORTS
 from plugin.scripting.sandbox import (
     BASE_BUILTIN_MODULES,
     CALC_AUTHORIZED_IMPORTS,
@@ -110,15 +111,37 @@ def _join_modules(modules: tuple[str, ...]) -> str:
     return ", ".join(modules)
 
 
+def _auto_import_alias(module_name: str, import_stmt: str) -> str:
+    marker = " as "
+    if marker in import_stmt:
+        return import_stmt.rsplit(marker, 1)[-1].strip()
+    return module_name
+
+
+def _auto_imports_prompt_lists() -> tuple[str, str]:
+    """Alias list and module list for LLM prose, derived from AUTO_IMPORTS."""
+    aliases: list[str] = []
+    modules: list[str] = []
+    for module_name, import_stmt in AUTO_IMPORTS.items():
+        aliases.append(_auto_import_alias(module_name, import_stmt))
+        modules.append(module_name)
+    if not modules:
+        return "", ""
+    if len(modules) == 1:
+        do_not = modules[0]
+    else:
+        do_not = ", ".join(modules[:-1]) + f", or {modules[-1]}"
+    return ", ".join(aliases), do_not
+
+
 @deal.post(lambda result: isinstance(result, str) and result.startswith(PYTHON_VENV_SANDBOX_CONTEXT_PREFIX))
 def format_venv_import_policy_for_prompt(*, compact: bool = False) -> str:
     """Sandbox context prefix first, then import rules for LLM prompts."""
+    aliases, do_not_import = _auto_imports_prompt_lists()
     auto_imports = (
-        "Pre-imported (do not write import lines): np, pd, sp, st, plt, math, dt, re, random, "
-        "statistics, collections, itertools, json, csv, calc. "
+        f"Pre-imported (do not write import lines): {aliases}. "
         "When =PY has data range args, xl(\"%Pn%\") is also injected (binding-only Excel bridge; not a live sheet read). "
-        "DO NOT import numpy, pandas, sympy, scipy.stats, matplotlib.pyplot, math, datetime, "
-        "or plugin.scripting.calc_functions. "
+        f"DO NOT import {do_not_import}. "
         "Prefer np/sp/pd/st and scipy over hand-rolled Python; use dt for dates, plt for charts. "
         "For folder SQL analytics over CSV/Parquet use the trusted query_folder_sql (or run_sql) helper when available."
     )

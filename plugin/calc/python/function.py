@@ -52,6 +52,11 @@ log = logging.getLogger(__name__)
 
 # Calc legacy add-in bridge accepts scalar double/string returns only. List results are
 # emitted one scalar per formula evaluation (matrix block or repeated recalc).
+# Keys include repr(worker_data) so the same formula with different data args
+# does not share a session. repr of a large grid is expensive and a weak identity;
+# a later change could use packed-payload digest + cell count. Do not key on id():
+# recals would collide. Two formulas with the same code but different data must
+# stay on separate sessions (see tests/calc/python/test_function.py).
 _MATRIX_SCALAR_SESSIONS_LOCK = threading.Lock()
 _MATRIX_SCALAR_SESSIONS: dict[tuple[int, tuple, str], WorkerResultSession] = {}
 

@@ -26,7 +26,7 @@ if _PROJECT_ROOT not in sys.path:
 from plugin.framework.uno_bootstrap import register_alias_importer
 register_alias_importer()
 
-from plugin.scripting.ipc import read_pickle_frame, write_pickle_frame
+from plugin.scripting.ipc import DEFAULT_MAX_PAYLOAD_BYTES, read_pickle_frame, write_pickle_frame
 from plugin.scripting.venv.venv_sandbox import reset_sandbox_session, run_sandboxed_code, serialize_result
 
 
@@ -181,7 +181,9 @@ def main() -> None:
     while True:
         req_id = ""
         try:
-            request = read_pickle_frame(stdin, require_dict=True)
+            request = read_pickle_frame(
+                stdin, require_dict=True, max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES
+            )
             if request is None:
                 break
             req_id = str(request.get("id", ""))

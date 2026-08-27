@@ -23,7 +23,7 @@ Topic docs: [docs/scripting/librepy-split.md](../../docs/scripting/librepy-split
 - Scripting domain registries (Phases 1–6) are shipped — do not add a fourth ad-hoc registry.
 - `venv/calc_functions_*.py` alphabet splits are intentional; do not merge them.
 - Do **not** slim `trusted_action_registry.py` / `venv_diagnostics.py` for LibrePy while those modules still work.
-- Worker and editor pickle reads must pass `ipc.DEFAULT_MAX_PAYLOAD_BYTES`; do not call `read_frame_payload` unbounded.
+- Worker and editor pickle reads must pass `ipc.DEFAULT_MAX_PAYLOAD_BYTES`; do not call `read_frame_payload` unbounded. Same cap on the child harness, generated RPC (`writeragent_api` / `generate_tool_proxies`), ppt-master child IPC, and the compute-service stdio loop.
 - Do **not** drop `plugin/calc/analyzer.py` from the LibrePy bundle.
 - Jupyter import (`plugin/notebook/`, vendored `plugin/contrib/nbformat/`) ships in LibrePy; do not exclude it from the allowlist.
 - Shipped LibrePy (`make deploy-core`) defaults to `log_level` WARN; a checkout that still has `plugin/tests/` defaults to DEBUG.

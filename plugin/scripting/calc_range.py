@@ -110,6 +110,14 @@ def _deal_calc_range_other_ok(other: object) -> bool:
     )
 
 
+def _deal_binary_op_pre(self: Any, other: object) -> bool:
+    return (
+        len(self._values) <= DEAL_MAX_SHAPE_DIM
+        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
+        and _deal_calc_range_other_ok(other)
+    )
+
+
 class CalcRange:
     """Rectangular sheet range exposed to user/venv scripts.
 
@@ -313,115 +321,59 @@ class CalcRange:
             raise TypeError(f"Multi-cell arithmetic requires NumPy: {exc}") from exc
 
     # Binary arithmetic
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __add__(self, other: Any) -> Any:
         return self._binary_op(other, operator.add)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __radd__(self, other: Any) -> Any:
         return self._binary_op(other, operator.add, is_reverse=True)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __sub__(self, other: Any) -> Any:
         return self._binary_op(other, operator.sub)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __rsub__(self, other: Any) -> Any:
         return self._binary_op(other, operator.sub, is_reverse=True)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __mul__(self, other: Any) -> Any:
         return self._binary_op(other, operator.mul)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __rmul__(self, other: Any) -> Any:
         return self._binary_op(other, operator.mul, is_reverse=True)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __truediv__(self, other: Any) -> Any:
         return self._binary_op(other, operator.truediv)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __rtruediv__(self, other: Any) -> Any:
         return self._binary_op(other, operator.truediv, is_reverse=True)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __floordiv__(self, other: Any) -> Any:
         return self._binary_op(other, operator.floordiv)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __rfloordiv__(self, other: Any) -> Any:
         return self._binary_op(other, operator.floordiv, is_reverse=True)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __mod__(self, other: Any) -> Any:
         return self._binary_op(other, operator.mod)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __rmod__(self, other: Any) -> Any:
         return self._binary_op(other, operator.mod, is_reverse=True)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __pow__(self, other: Any) -> Any:
         return self._binary_op(other, operator.pow)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __rpow__(self, other: Any) -> Any:
         return self._binary_op(other, operator.pow, is_reverse=True)
 
@@ -436,51 +388,27 @@ class CalcRange:
         return self._unary_op(operator.abs)
 
     # Rich comparisons (aligned through _binary_op: 1x1 returns bool; multi-cell returns bool ndarray)
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __eq__(self, other: Any) -> Any:
         return self._binary_op(other, operator.eq)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __ne__(self, other: Any) -> Any:
         return self._binary_op(other, operator.ne)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __lt__(self, other: Any) -> Any:
         return self._binary_op(other, operator.lt)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __le__(self, other: Any) -> Any:
         return self._binary_op(other, operator.le)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __gt__(self, other: Any) -> Any:
         return self._binary_op(other, operator.gt)
 
-    @deal.pre(
-        lambda self, other: len(self._values) <= DEAL_MAX_SHAPE_DIM
-        and (not self._values or len(self._values[0]) <= DEAL_MAX_SHAPE_DIM)
-        and _deal_calc_range_other_ok(other)
-    )
+    @deal.pre(_deal_binary_op_pre)
     def __ge__(self, other: Any) -> Any:
         return self._binary_op(other, operator.ge)
 

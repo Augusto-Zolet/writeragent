@@ -11,6 +11,7 @@ from __future__ import annotations
 from plugin.framework.prompts import (
     python_specialized_sub_agent_hint,
 )
+from plugin.framework.constants import AUTO_IMPORTS
 from plugin.scripting.import_policy import (
     PYTHON_VENV_SANDBOX_CONTEXT_PREFIX,
     format_inprocess_import_policy_for_prompt,
@@ -72,6 +73,18 @@ def test_venv_policy_preimported_lists_aliases():
     assert "binding-only" in policy
     assert "scipy.stats" in policy
     assert "matplotlib.pyplot" in policy
+
+
+def test_venv_policy_auto_imports_match_constants():
+    from plugin.scripting.import_policy import _auto_import_alias
+
+    compact = format_venv_import_policy_for_prompt(compact=True)
+    full = format_venv_import_policy_for_prompt(compact=False)
+    for module_name, import_stmt in AUTO_IMPORTS.items():
+        alias = _auto_import_alias(module_name, import_stmt)
+        for policy in (compact, full):
+            assert alias in policy
+            assert module_name in policy
 
 
 def test_inprocess_policy_is_stdlib_focused():

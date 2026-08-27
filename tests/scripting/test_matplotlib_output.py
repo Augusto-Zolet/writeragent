@@ -18,6 +18,26 @@ from plugin.scripting.payload_codec import (
 PNG_MAGIC = b"\x89PNG"
 
 
+def test_ensure_mpl_agg_retries_after_use_failure(monkeypatch):
+    from plugin.scripting.venv import venv_sandbox as vs
+
+    calls = {"n": 0}
+
+    class _Mpl:
+        def use(self, backend: str) -> None:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("backend busy")
+
+    monkeypatch.setattr(vs, "_MPL_AGG_SET", False)
+    monkeypatch.setattr(vs, "optional_module", lambda name: _Mpl() if name == "matplotlib" else None)
+    vs._ensure_mpl_agg()
+    assert vs._MPL_AGG_SET is False
+    vs._ensure_mpl_agg()
+    assert vs._MPL_AGG_SET is True
+    assert calls["n"] == 2
+
+
 # ---------------------------------------------------------------------------
 # Codec predicate tests (no matplotlib needed)
 # ---------------------------------------------------------------------------

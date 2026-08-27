@@ -13,7 +13,7 @@ import threading
 import uuid
 from typing import Any
 from plugin.framework.constants import WORKFLOW_TASK_PREFIXES as _WORKFLOW_TASK_PREFIXES
-from plugin.scripting.ipc import read_pickle_frame, write_pickle_frame
+from plugin.scripting.ipc import DEFAULT_MAX_PAYLOAD_BYTES, read_pickle_frame, write_pickle_frame
 
 # Re-export so venv scripts and tests share the comment-scan prefix tuple.
 WORKFLOW_TASK_PREFIXES = _WORKFLOW_TASK_PREFIXES
@@ -66,7 +66,9 @@ def _rpc_call(tool_name: str, **kwargs) -> dict:
     with _lock:
         write_pickle_frame(sys.stdout.buffer, request)
         # Block and read the response frame from the host on stdin
-        response = read_pickle_frame(sys.stdin.buffer, require_dict=True)
+        response = read_pickle_frame(
+            sys.stdin.buffer, require_dict=True, max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES
+        )
         if response is None:
             raise ConnectionError("Lost connection to LibreOffice host during tool call")
 

@@ -15,6 +15,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from plugin.scripting.ipc import (
+    DEFAULT_MAX_PAYLOAD_BYTES,
     IpcFrameError,
     pack_pickle_frame,
     read_frame_payload,
@@ -72,6 +73,14 @@ def test_pickle_frame_size_limit_raises():
 
     with pytest.raises(IpcFrameError, match="Invalid test frame size"):
         read_frame_payload(io.BytesIO(frame), max_payload_bytes=8, frame_label="test frame")
+
+
+def test_pickle_frame_default_cap_rejects_oversized_header():
+    import struct
+
+    oversized = struct.pack("!I", DEFAULT_MAX_PAYLOAD_BYTES + 1) + b"x"
+    with pytest.raises(IpcFrameError, match="Invalid IPC frame size"):
+        read_pickle_frame(io.BytesIO(oversized), max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES)
 
 
 def test_json_line_roundtrip():

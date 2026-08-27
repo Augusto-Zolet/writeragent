@@ -28,7 +28,12 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 from plugin.framework.worker_pool import StderrTail, get_subprocess_creationflags, start_stderr_drain
-from plugin.scripting.ipc import read_pickle_frame, read_pickle_frame_with_timeout, write_pickle_frame
+from plugin.scripting.ipc import (
+    DEFAULT_MAX_PAYLOAD_BYTES,
+    read_pickle_frame,
+    read_pickle_frame_with_timeout,
+    write_pickle_frame,
+)
 from plugin.scripting.sandbox import optimize_popen_pipes
 
 log = logging.getLogger("compute_service.worker")
@@ -47,7 +52,7 @@ def run_worker_stdio_loop(handler: Callable[[dict[str, Any]], dict[str, Any]]) -
 
     while True:
         try:
-            req = read_pickle_frame(stdin_bin)
+            req = read_pickle_frame(stdin_bin, max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES)
             if req is None:
                 break
             if not isinstance(req, dict):
