@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from plugin.framework.config import get_config_str
 from plugin.framework.client.model_fetcher import get_text_model
@@ -70,7 +70,12 @@ class EvalRunListener(BaseActionListener):
             self.is_running = False
 
     def run_suite(self) -> None:
-        from tests.eval_runner import run_benchmark_suite
+        # TYPE_CHECKING is true for Pyright: do not follow tests.eval_runner → plugin.main.
+        # Runtime TYPE_CHECKING is false: import stays lazy until Run.
+        if TYPE_CHECKING:
+            def run_benchmark_suite(*args: Any, **kwargs: Any) -> dict[str, Any]: ...
+        else:
+            from tests.eval_runner import run_benchmark_suite
         from plugin.framework.uno_context import process_events_to_idle
 
         model_name = self.dialog.getControl("models").getText()

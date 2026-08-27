@@ -660,14 +660,15 @@ check-ext:
 # We try to detect one that has the 'uno' module available, falling back to 'python' if none found.
 LO_PYTHON ?= $(shell python3 -c "import uno" 2>/dev/null && echo python3 || (python -c "import uno" 2>/dev/null && echo python || echo python))
 
+# -j6 leaves a core free. Do not pass basedpyright --threads: it nests workers on this pool.
 typecheck: manifest ruff-for-build
 	@echo "=== typecheck: basedpyright + bandit + opengrep + pyspector + ty + thread-safety + mypy (parallel) ==="
-	@$(MAKE) -j7 basedpyright-run bandit opengrep-lint pyspector ty-run thread-safety-lint mypy-run
+	@$(MAKE) -j6 basedpyright-run bandit opengrep-lint pyspector ty-run thread-safety-lint mypy-run
 
 # Same tools as typecheck, but basedpyright analyzes numpy/pandas/etc. implementation.
 typecheck-full: manifest ruff-for-build
 	@echo "=== typecheck-full: basedpyright (library source) + bandit + opengrep + pyspector + ty + thread-safety + mypy (parallel) ==="
-	@$(MAKE) -j7 basedpyright-full-run bandit opengrep-lint pyspector ty-run thread-safety-lint mypy-run
+	@$(MAKE) -j6 basedpyright-full-run bandit opengrep-lint pyspector ty-run thread-safety-lint mypy-run
 
 # Unit pytest only: no *_uno.py collection, no testing_runner / live soffice.
 # Exact command: $(PYTHON) -m pytest tests -m "not slow and not integration" --ignore-glob='*_uno.py'
@@ -902,10 +903,10 @@ mypy-run: ensure-uno
 
 # Future task: try enabling `reportMissingTypeArgument = true` in pyproject.toml to enforce generic type parameters (dict[str, Any], list[str])
 basedpyright-run: ensure-uno
-	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright "$(PYTHON)" -m basedpyright --threads
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright "$(PYTHON)" -m basedpyright
 
 basedpyright-full-run: ensure-uno
-	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright-full "$(PYTHON)" -m basedpyright --threads -p pyrightconfig.full.json
+	@"$(PYTHON)" $(SCRIPTS)/run_timed.py basedpyright-full "$(PYTHON)" -m basedpyright -p pyrightconfig.full.json
 
 pyrefly-run: ensure-uno
 	@"$(PYTHON)" $(SCRIPTS)/run_timed.py pyrefly "$(PYTHON)" -m pyrefly check
