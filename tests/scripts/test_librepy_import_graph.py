@@ -241,6 +241,8 @@ def test_librepy_entry_imports_avoid_writeragent_only_modules():
     import plugin.writer.images.image_tools  # noqa: F401
     import plugin.writer.math.latex_dialog  # noqa: F401
     import plugin.writer.xhtml_style_postprocess  # noqa: F401
+    import plugin.notebook.import_filter  # noqa: F401
+    import plugin.notebook.writer_importer  # noqa: F401
 
     loaded = set(sys.modules) - before
     bad: list[str] = []

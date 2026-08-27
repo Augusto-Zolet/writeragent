@@ -301,6 +301,13 @@ def test_generated_manifest_includes_import_filter():
     pytest.fail("neither scripts/ nor META-INF/manifest.xml present")
 
 
+def test_librepy_core_manifest_includes_import_filter():
+    path = Path(_repo_root()) / "extension-core" / "META-INF" / "manifest.xml"
+    if not path.is_file():
+        pytest.skip("extension-core manifest not in this tree")
+    _assert_manifest_lists_import_filter(path.read_text(encoding="utf-8"))
+
+
 def test_detect_method():
     ctx = Mock()
     filter_comp = JupyterNotebookImportFilter(ctx)

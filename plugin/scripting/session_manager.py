@@ -33,7 +33,7 @@ def _msgbox(ctx: Any, message: str) -> None:
 
 
 def _has_notebook_registry(doc: Any) -> bool:
-    """Optional Writer notebook integration (excluded from LibrePy core bundle)."""
+    """Writer notebook registry; ImportError only if the notebook package is absent."""
     try:
         from plugin.notebook.cell_registry import has_notebook_registry
     except ImportError:

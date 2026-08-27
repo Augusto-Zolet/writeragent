@@ -94,6 +94,18 @@ def test_librepy_bundle_includes_xl_static_rewrite():
     assert "plugin/calc/python/workbook_lifecycle.py" in paths
 
 
+def test_librepy_bundle_includes_notebook_and_nbformat():
+    """File → Open .ipynb ships in LibrePy; chat/LLM stay excluded."""
+    paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
+    assert "plugin/notebook/import_filter.py" in paths
+    assert "plugin/notebook/writer_importer.py" in paths
+    assert "plugin/notebook/notebook_runner.py" in paths
+    assert "plugin/contrib/nbformat/reader.py" in paths
+    assert "plugin/framework/async_stream.py" in paths
+    assert "plugin/framework/client/llm_client.py" not in paths
+    assert "plugin/doc/document_helpers.py" not in paths
+
+
 def test_librepy_bundle_includes_extension_update_check():
     """Weekly update check + sync_request deps must ship in LibrePy.oxt."""
     paths = collect_librepy_plugin_paths(str(_REPO_ROOT))

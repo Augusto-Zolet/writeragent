@@ -4,6 +4,10 @@
 	<manifest:file-entry manifest:media-type="application/vnd.sun.star.uno-component;type=Python" manifest:full-path="plugin/main_core.py" />
 	<manifest:file-entry manifest:media-type="application/vnd.sun.star.uno-component;type=Python" manifest:full-path="plugin/calc/python/addin_librepy.py" />
 	<manifest:file-entry manifest:media-type="application/vnd.sun.star.uno-component;type=Python" manifest:full-path="plugin/librepy/panel_factory.py" />
+	<manifest:file-entry manifest:media-type="application/vnd.sun.star.uno-component;type=Python" manifest:full-path="plugin/notebook/import_filter.py" />
+	<manifest:file-entry manifest:media-type="application/vnd.sun.star.configuration-data" manifest:full-path="registry/org/openoffice/TypeDetection/Types.xcu" />
+	<manifest:file-entry manifest:media-type="application/vnd.sun.star.configuration-data" manifest:full-path="registry/org/openoffice/TypeDetection/Filters.xcu" />
+	<manifest:file-entry manifest:media-type="application/vnd.sun.star.configuration-data" manifest:full-path="registry/org/openoffice/TypeDetection/Misc.xcu" />
 	<manifest:file-entry manifest:media-type="application/vnd.sun.star.configuration-data" manifest:full-path="Addons.xcu" />
 	<manifest:file-entry manifest:media-type="application/vnd.sun.star.configuration-data" manifest:full-path="Accelerators.xcu" />
 	<manifest:file-entry manifest:media-type="application/vnd.sun.star.configuration-data" manifest:full-path="ProtocolHandler.xcu" />

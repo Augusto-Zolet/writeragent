@@ -31,6 +31,10 @@ _REQUIRED_RUNTIME = (
     "registry/org/openoffice/Office/CalcAddIns.xcu",
     "registry/org/openoffice/Office/UI/Sidebar.xcu",
     "registry/org/openoffice/Office/UI/Factories.xcu",
+    "plugin/notebook/import_filter.py",
+    "registry/org/openoffice/TypeDetection/Types.xcu",
+    "registry/org/openoffice/TypeDetection/Filters.xcu",
+    "registry/org/openoffice/TypeDetection/Misc.xcu",
 )
 
 _REQUIRED_UI = (

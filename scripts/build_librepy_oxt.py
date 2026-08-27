@@ -51,6 +51,7 @@ LIBREPY_EXTENSION_INCLUDES = [
     "extension-core/XPythonFunction.rdb",
     "extension-core/Jobs.xcu",
     "extension-core/registry/",
+    "extension/registry/org/openoffice/TypeDetection/",
     "extension/assets/",
 ]
 
