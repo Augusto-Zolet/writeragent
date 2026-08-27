@@ -183,8 +183,7 @@ class RichTextChatWidget:
         if not content or not content.strip():
             return
         self.truncate(stream_start_len)
-        # Insert at the cut (view caret should stay there). append_rich_message
-        # reveals the caret after copy — do not mutate the document just to scroll.
+        # Insert at the cut. Scroll is SelectAll in Hidden mode, not reveal_caret.
         self.append_rich_message(content, role="assistant")
 
     def append_user_message(self, text: str, on_after_insert=None) -> None:
@@ -1000,86 +999,20 @@ def _dispatch_rich_uno(control: Any, command: str, ctx: Any = None) -> bool:  # 
         return False
 
 
-def _accessible_set_selection(obj: Any, start: int, end: int) -> bool:
-    """XAccessibleText.setSelection. Skip VCLXWindow's no-op setSelection (exp 5)."""
-    if obj is None:
-        return False
-    acc: Any = obj
-    try:
-        getter = getattr(obj, "getAccessibleContext", None)
-        if callable(getter):
-            ctx = getter()
-            if ctx is not None:
-                acc = ctx
-    except Exception:
-        acc = obj
-    # XAccessibleText has both. Stock peer setSelection is XTextComponent and
-    # a no-op (exp 5) — it has no getCharacterCount, so walk children instead.
-    count_fn = getattr(acc, "getCharacterCount", None)
-    set_fn = getattr(acc, "setSelection", None)
-    if callable(count_fn) and callable(set_fn):
-        try:
-            acc.setSelection(start, end)
-            return True
-        except Exception:
-            pass
-    try:
-        nch = int(acc.getAccessibleChildCount())
-    except Exception:
-        return False
-    for i in range(min(nch, 8)):
-        try:
-            child = acc.getAccessibleChild(i)
-        except Exception:
-            continue
-        if _accessible_set_selection(child, start, end):
-            return True
-    return False
-
-
-def _set_rich_selection_range(control: Any, start: int, end: int) -> bool:
-    """Set [start, end) on the rich control. 1-char is non-collapsed (ShowCursor).
-
-    Always try XAccessibleText. control.setSelection is a no-op on stock
-    (peer is VCLXWindow, not XTextComponent) but would otherwise return first.
-    """
-    peer = None
-    try:
-        peer = control.getPeer() if hasattr(control, "getPeer") else None
-    except Exception:
-        peer = None
-    if _accessible_set_selection(control, start, end) or _accessible_set_selection(peer, start, end):
-        log_rich_scroll("set_selection", control=control, start=start, end=end, via="accessible")
-        return True
-    try:
-        import uno
-        if hasattr(control, "setSelection"):
-            control.setSelection(uno.createUnoStruct("com.sun.star.awt.Selection", start, end))
-            log_rich_scroll("set_selection", control=control, start=start, end=end, via="control")
-            return True
-    except Exception as e:
-        log.debug("_set_rich_selection_range control: %s", e)
-    return False
-
-
 def _scroll_rich_to_tail(control: Any, ctx: Any = None) -> None:
-    """Stick-to-bottom without SelectAll (whole-control flash).
+    """SelectAll for stick-to-bottom, keeping EESelectionMode::Hidden.
 
-    Collapsed (0-char) carets skip ShowCursor, so first select the last
-    character (non-collapsed), then collapse to 0-char at the end.
-    Never .uno:SelectAll — that paints the whole transcript (exp 15-16).
+    OSelectAllDispatcher: EditView.SetSelection(All()) then ShowCursor.
+    DrawSelectionXOR is a no-op while Hidden (impedit.cxx). GetFocus on the
+    viewport switches to Std (visible highlight); LoseFocus + HideInactiveSelection
+    switches back. SelectAll itself does not GrabFocus. Restore query first so
+    the viewport is Hidden, then SelectAll, then restore again. Do not setFocus
+    or reveal_caret around this (that is the flash: GetFocus + Std + All()).
     """
-    del ctx  # same signature as the old dispatcher helper
-    n = get_control_text_length(control)
-    if n <= 0:
-        return
-    _set_rich_selection_range(control, n - 1, n)
-    _set_rich_selection_range(control, n, n)
-
-
-def _dispatch_rich_select_all(control: Any, ctx: Any = None) -> None:  # pyright: ignore[reportUnusedFunction]
-    """Back-compat alias: one-char tail then collapse, not SelectAll."""
-    _scroll_rich_to_tail(control, ctx)
+    from plugin.framework.uno_context import restore_query_if_user_still_there
+    restore_query_if_user_still_there()
+    _dispatch_rich_uno(control, ".uno:SelectAll", ctx)
+    restore_query_if_user_still_there()
 
 
 def append_text_chunk(control, text, auto_scroll=True, style_window=None, ctx=None):
@@ -1095,7 +1028,7 @@ def append_text_chunk(control, text, auto_scroll=True, style_window=None, ctx=No
             return
         # Do not setFocus on stream. setFocus + focus_preserved(query) stole
         # document typing (exp 10): stock Toolkit has no getFocusWindow
-        # (PyUNO hasattr lies). Scroll with 1-char tail selection, not SelectAll.
+        # (PyUNO hasattr lies). SelectAll on the rich peer scrolls (exp 6/7, 17 revert).
         cursor = model.createTextCursor()
         cursor.gotoEnd(False)
         _apply_sidebar_para_margins(cursor)

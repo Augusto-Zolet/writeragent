@@ -46,7 +46,6 @@ from plugin.chatbot.rich_text_control import (
     get_control_text_length,
     _scroll_rich_to_tail,
     log_rich_scroll,
-    reveal_rich_control_caret,
 )
 from plugin.calc.navigation import (
     extract_cell_links_from_html,
@@ -374,7 +373,6 @@ def _copy_formatted_from_hidden_doc_to_control(
             if inserted:
                 if auto_scroll:
                     _scroll_rich_to_tail(control, ctx)
-                    reveal_rich_control_caret(control, ctx=ctx, reason="copy", _already_focus_preserved=True)
                 log_rich_scroll("copy_done", control=control, role=role, auto_scroll=int(auto_scroll))
                 log.info(
                     "_copy_formatted_from_hidden_doc_to_control: ok control_len=%d role=%s",
@@ -452,7 +450,6 @@ def append_rich_messages_via_clipboard(
             ):
                 any_inserted = True
                 _scroll_rich_to_tail(control, ctx)
-                reveal_rich_control_caret(control, ctx=ctx, reason="history_batch")
             else:
                 log.warning(
                     "append_rich_messages_via_clipboard: batch insert into control failed messages=%d",
@@ -565,7 +562,11 @@ def append_rich_text_via_clipboard(
             with focus_preserved(ctx):
                 _ensure_trailing_line_break(control)
             if auto_scroll:
-                reveal_rich_control_caret(control, ctx=ctx, reason="user_trailing_break")
+                # Do not reveal_caret. That setFocus GetFocus-es the viewport,
+                # which switches EESelectionMode to Std while SelectAll is still
+                # covering the whole control (user-message flash). Agent stream
+                # never reveal_caret, so it does not flash.
+                _scroll_rich_to_tail(control, ctx)
             if callable(on_after_insert):
                 try:
                     on_after_insert(get_control_text_length(control))

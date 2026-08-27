@@ -196,17 +196,17 @@ class TestHistoryMessageBatching:
              patch("plugin.chatbot.rich_text_paste.configure_hidden_writer_for_chat") as mock_cfg, \
              patch("plugin.chatbot.rich_text_paste.append_rich_text") as mock_append, \
              patch("plugin.chatbot.rich_text_paste._append_hidden_doc_to_control", return_value=True) as mock_copy, \
-             patch("plugin.chatbot.rich_text_paste.reveal_rich_control_caret") as mock_reveal:
+             patch("plugin.chatbot.rich_text_paste._scroll_rich_to_tail") as mock_scroll:
             append_rich_messages_via_clipboard(ctx, control, items)
 
         mock_create.assert_called_once_with(ctx)
         mock_cfg.assert_called_once_with(doc)
         assert mock_append.call_count == 10
         mock_copy.assert_called_once()
-        mock_reveal.assert_called_once_with(control, ctx=ctx, reason="history_batch")
+        mock_scroll.assert_called_once_with(control, ctx)
         doc.close.assert_called_once_with(True)
 
-    def test_append_user_message_reveals_caret_after_trailing_break(self):
+    def test_append_user_message_scrolls_tail_after_trailing_break(self):
         control = MagicMock()
         control.getModel.return_value = MagicMock(Text="prior\n\n")
         ctx = MagicMock()
@@ -221,16 +221,15 @@ class TestHistoryMessageBatching:
              ), \
              patch("plugin.chatbot.rich_text_paste._ensure_trailing_line_break") as mock_trailing, \
              patch("plugin.chatbot.rich_text_paste.focus_preserved", _immediate_focus), \
-             patch("plugin.chatbot.rich_text_paste.reveal_rich_control_caret") as mock_reveal, \
+             patch("plugin.chatbot.rich_text_paste._scroll_rich_to_tail") as mock_scroll, \
              patch("plugin.chatbot.rich_text_paste.get_control_text_length", return_value=100):
             append_rich_text_via_clipboard(ctx, control, "hello", role="user", auto_scroll=True)
 
         mock_trailing.assert_called_once_with(control)
-        assert mock_reveal.call_count == 1
-        assert mock_reveal.call_args.kwargs.get("reason") == "user_trailing_break"
+        assert mock_scroll.call_count >= 1
         doc.close.assert_called_once_with(True)
 
-    def test_append_rich_messages_reveals_caret_after_each_batch(self):
+    def test_append_rich_messages_scrolls_tail_after_each_batch(self):
         control = MagicMock()
         control.getModel.return_value = MagicMock(Text="")
         ctx = MagicMock()
@@ -242,14 +241,13 @@ class TestHistoryMessageBatching:
              patch("plugin.chatbot.rich_text_paste.configure_hidden_writer_for_chat"), \
              patch("plugin.chatbot.rich_text_paste.append_rich_text") as mock_append, \
              patch("plugin.chatbot.rich_text_paste._append_hidden_doc_to_control", return_value=True) as mock_copy, \
-             patch("plugin.chatbot.rich_text_paste.reveal_rich_control_caret") as mock_reveal:
+             patch("plugin.chatbot.rich_text_paste._scroll_rich_to_tail") as mock_scroll:
             append_rich_messages_via_clipboard(ctx, control, items, batch_chars=HISTORY_RENDER_BATCH_CHARS)
 
         assert mock_create.call_count == 2
         assert mock_append.call_count == 2
         assert mock_copy.call_count == 2
-        assert mock_reveal.call_count == 2
-        assert all(c.kwargs.get("reason") == "history_batch" for c in mock_reveal.call_args_list)
+        assert mock_scroll.call_count == 2
         assert doc.close.call_count == 2
 
 
