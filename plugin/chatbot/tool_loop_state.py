@@ -82,6 +82,7 @@ def is_delegate_gateway(func_name: str) -> bool:
     return func_name in DELEGATE_GATEWAY_TOOL_NAMES
 
 
+@deal.pre(lambda func_args: type(func_args) is dict and len(func_args) <= DEAL_MAX_CMD_ARGS)
 def domain_from_delegate_args(func_args: Mapping[str, Any]) -> str:
     domain = func_args.get("domain")
     if isinstance(domain, str) and domain.strip():
