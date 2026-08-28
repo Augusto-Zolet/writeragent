@@ -272,7 +272,7 @@ LibreOffice’s UI (VCL) is single-threaded. To keep the UI responsive during lo
 This flat architecture avoids nested callbacks and makes state transitions explicit.
 
 > [!NOTE]
-> **Drain ownership vs listener no-ops:** Chat Send starts the drain from a UNO action listener and **must** keep calling `pump_ui_idle` so the UI repaints and Stop stays actionable. Harmful reentry is a *second* nested drain / raw secondary pump — not “any pump while a listener is on the stack.” Ownership guards and IPC stderr drains are detailed in [threading.md](threading.md). Off-main-thread UNO is covered separately by [uno-thread-safety.md](uno-thread-safety.md).
+> **Drain ownership vs listener no-ops:** Chat Send **posts** the drain onto `QueueExecutor` so Send `actionPerformed` can return before `run_stream_drain_loop` starts. GTK/VCL does not deliver a second dialog ActionEvent (Stop) while Send’s listener is still on the stack, even if `processEventsToIdle` runs. The drain itself **must** keep calling `pump_ui_idle` so the UI repaints and Stop stays actionable. Harmful reentry is a *second* nested drain / raw secondary pump — not “any pump while a listener is on the stack.” Stream SelectAll also calls `restore_query_if_user_still_there()` (`query.setFocus()`); that aborts Stop’s ActionEvent unless `note_user_left_query()` has run (Stop mouseEntered/mousePressed). Do **not** `bind_executor` on the panel queue until `_run_send_drain` is running — Stop’s `cancel_pending_work` would drop the posted closer and leave Send stuck busy. Ownership guards and IPC stderr drains are detailed in [threading.md](threading.md). Off-main-thread UNO is covered separately by [uno-thread-safety.md](uno-thread-safety.md).
 
 ### Tool-loop command boundary
 

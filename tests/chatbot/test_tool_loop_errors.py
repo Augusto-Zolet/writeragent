@@ -223,3 +223,29 @@ def test_stream_error_stt_fallback_does_not_reenter_send(test_instance):
     assert test_instance.session.messages[-1]["role"] == "user"
     assert test_instance.session.messages[-1]["content"] == "hello\nspoken words"
     assert test_instance._spawn_llm_worker.call_args.kwargs["query_text"] == "hello\nspoken words"
+
+
+def test_reused_llm_client_registers_on_current_send_scope(test_instance, mock_get_tools):
+    """Packet B2: Stop on send 2+ must close HTTP on the reused LlmClient."""
+    from plugin.framework.queue_executor import SendCancellation, agent_session
+
+    mock_get_tools.get_schemas.return_value = []
+    existing = test_instance.client
+    existing.stop = MagicMock()
+    scope = SendCancellation()
+    test_instance._start_tool_calling_async = MagicMock()
+
+    with (
+        patch("plugin.chatbot.tool_loop.sync_sidebar_text_model", return_value=None),
+        patch("plugin.chatbot.tool_loop.get_config_int", return_value=128),
+        patch("plugin.chatbot.tool_loop.get_toolkit", return_value=None),
+        patch("plugin.chatbot.tool_loop.LlmClient") as mock_llm_cls,
+        patch("plugin.framework.client.model_fetcher.has_native_vision", return_value=False),
+        agent_session(scope),
+    ):
+        test_instance._do_send_chat_with_tools("hello", MagicMock(), "writer")
+
+    mock_llm_cls.assert_not_called()
+    assert test_instance.client is existing
+    scope.cancel()
+    existing.stop.assert_called()
