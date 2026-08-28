@@ -64,7 +64,12 @@ class TestVisionPoolSupervisor:
 
         pool = VisionProcessPool(num_workers=1, default_timeout_sec=15)
         try:
-            res = pool.execute(helper="extract_text", file_path=str(img_path), req_id="v-file-1")
+            res = pool.execute(
+                helper="extract_text",
+                file_path=str(img_path),
+                req_id="v-file-1",
+                allow_paths=(str(tmp_path),),
+            )
             assert res.get("id") == "v-file-1"
             assert "status" in res
         finally:
@@ -73,9 +78,21 @@ class TestVisionPoolSupervisor:
     def test_pool_file_path_not_found(self) -> None:
         pool = VisionProcessPool(num_workers=1, default_timeout_sec=15)
         try:
-            res = pool.execute(helper="extract_text", file_path="/tmp/non_existent_12345.png", req_id="v-missing")
-            assert res.get("status") == "error"
-            assert res.get("code") == "FILE_NOT_FOUND"
+            denied = pool.execute(
+                helper="extract_text",
+                file_path="/tmp/non_existent_12345.png",
+                req_id="v-denied",
+            )
+            assert denied.get("status") == "error"
+            assert denied.get("code") == "FILE_PATH_DENIED"
+            missing = pool.execute(
+                helper="extract_text",
+                file_path="/tmp/non_existent_12345.png",
+                req_id="v-missing",
+                allow_paths=("/tmp",),
+            )
+            assert missing.get("status") == "error"
+            assert missing.get("code") == "FILE_NOT_FOUND"
         finally:
             pool.shutdown()
 
@@ -146,7 +163,7 @@ class TestVisionHttpEndpoint:
         assert body.get("id") == "test-ocr-1"
         assert "status" in body
 
-    def test_vision_success_file_path(self, vision_server: str, tmp_path) -> None:
+    def test_vision_file_path_denied_by_default(self, vision_server: str, tmp_path) -> None:
         img_path = tmp_path / "endpoint_img.png"
         img_path.write_bytes(base64.b64decode(_TINY_PNG_B64))
 
@@ -155,9 +172,38 @@ class TestVisionHttpEndpoint:
             {"id": "test-ocr-file", "helper": "extract_text", "file_path": str(img_path)},
             headers={"Authorization": "Bearer vision-secret"},
         )
-        assert status == 200
-        assert body.get("id") == "test-ocr-file"
-        assert "status" in body
+        assert status == 400
+        assert body.get("code") == "FILE_PATH_DENIED"
+
+    def test_vision_file_path_allowed_prefix(self, tmp_path) -> None:
+        img_path = tmp_path / "allowed.png"
+        img_path.write_bytes(base64.b64decode(_TINY_PNG_B64))
+        port = get_free_port()
+        settings = ComputeSettings(
+            host="127.0.0.1",
+            port=port,
+            api_key="vision-secret",
+            ocr_workers=1,
+            ocr_allow_paths=(str(tmp_path),),
+        )
+        app = create_wsgi_app(settings)
+        server = WSGIDualStackServer("127.0.0.1", port, max_threads=4)
+        server.set_app(app)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        time.sleep(0.15)
+        try:
+            status, body = self._post(
+                f"http://127.0.0.1:{port}",
+                {"id": "test-ocr-ok", "helper": "extract_text", "file_path": str(img_path)},
+                headers={"Authorization": "Bearer vision-secret"},
+            )
+            assert status == 200
+            assert body.get("id") == "test-ocr-ok"
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
 
     def test_vision_missing_image(self, vision_server: str) -> None:
         status, body = self._post(

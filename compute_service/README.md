@@ -15,6 +15,7 @@ python compute_service/server.py --host 127.0.0.1 --port 8000
 - `GET /health` → `{"status":"healthy","service":"python-compute","version":"<version>"}` (no auth required)
 - `POST /v1/execute` → `{ "id?", "code", "data?", "mode?", "session_id?", "timeout_ms?", "init_script?" }`
   (`init_script` runs **once** per worker: shared uses `{session_id}:init`, isolated uses a hash of the script. Later cells are seeded from that namespace; a changed script replaces the snapshot.)
+- Docker (hardened run flags): `./compute_service/start-docker.sh` — see **Production / Collabora Online** below.
 
 ---
 
@@ -126,10 +127,11 @@ Evaluates heavy document/image OCR and layout structure extraction in a dedicate
 | HTTP Status | Condition | Response Payload Shape |
 | :--- | :--- | :--- |
 | **`200 OK`** | Evaluation completed (success or runtime evaluation error) | `{"id"?: "...", "status": "ok"\|"error", "result"\|"error": ...}` |
-| **`400 Bad Request`** | Malformed JSON, non-object body, missing `code`, or missing `image_b64` | `{"id"?: "...", "status": "error", "error": "Bad Request: ..."}` |
+| **`400 Bad Request`** | Malformed JSON, missing `code`, `code` longer than `max_code_chars` (`CODE_TOO_LARGE`), or vision `file_path` not under `ocr.allow_paths` (`FILE_PATH_DENIED`) | `{"id"?: "...", "status": "error", "code"?: "...", "error": "..."}` |
 | **`401 Unauthorized`** | Missing or incorrect `Authorization: Bearer <secret>` | `{"status": "error", "error": "Unauthorized"}` + `WWW-Authenticate: Bearer` |
 | **`404 Not Found`** | Unknown path or unsupported HTTP method | Plaintext `Not Found` |
 | **`413 Payload Too Large`**| Request body exceeds `max_body_bytes` | `{"status": "error", "error": "Request body too large"}` |
+| **`503 Service Unavailable`** | Process or per-session in-flight cap (`INFLIGHT_LIMIT` / `SESSION_INFLIGHT_LIMIT`). coolwsd may map this to `#N/A`. | `{"id"?: "...", "status": "error", "code": "...", "error": "..."}` |
 | **`500 Internal Server Error`**| Unhandled server exception or JSON encoding failure | `{"id"?: "...", "status": "error", "error": "..."}` |
 
 ---
@@ -192,8 +194,34 @@ Example JSON: [`python-compute.example.json`](python-compute.example.json).
 | `PYTHON_COMPUTE_OCR_WORKERS` | Dedicated OCR/Vision worker subprocesses | `0` (disabled by default) |
 | `PYTHON_COMPUTE_OCR_TIMEOUT_SEC` | OCR/Vision execution timeout in seconds | `60` |
 | `PYTHON_COMPUTE_OCR_MAX_TASKS` | Tasks before recycling OCR worker process | `100` |
+| `PYTHON_COMPUTE_MAX_CODE_CHARS` | Max `code` string length | `262144` |
+| `PYTHON_COMPUTE_MAX_INFLIGHT` | Process-wide concurrent `/v1/execute` (HTTP 503 over) | `max(threads, workers)*2` |
+| `PYTHON_COMPUTE_MAX_INFLIGHT_PER_SESSION` | Concurrent shared-kernel jobs per `session_id` | `2` |
+| `PYTHON_COMPUTE_OCR_ALLOW_PATHS` | `{os.pathsep}`-separated prefixes allowed for vision `file_path` (empty = deny) | `""` |
 
 Key file permissions: readable only by the service user (e.g. mode `0400`).
+
+### Production / Collabora Online
+
+coolwsd is the only hop that should reach this process. Bind loopback, set the same Bearer secret as `security.python_compute.api_key`, and do **not** mount a host venv or docker.sock.
+
+`file_path` on `/v1/vision` is **denied** unless `ocr.allow_paths` is set. Prefer `image_b64`.
+
+`--network=none` cannot be combined with `-p` (published ports need a network namespace). Publish to loopback on the host, or use an internal bridge **without a default route**. Tenant sockets still fail via the AST sandbox plus missing egress.
+
+```bash
+./compute_service/start-docker.sh
+# or:
+docker build -f compute_service/Dockerfile -t python-compute .
+docker run --read-only --tmpfs /tmp:rw,size=64m,mode=1777 \
+  --memory=512m --cpus=1 --pids-limit=256 \
+  --security-opt no-new-privileges --cap-drop ALL \
+  -p 127.0.0.1:8000:8000 \
+  -e PYTHON_COMPUTE_API_KEY=same-secret-as-coolwsd \
+  python-compute
+```
+
+Shared `mode=shared` **must** use a per-document `session_id` (not a user id). Idle kernels are reset after `shared_kernel_ttl_sec`.
 
 ---
 

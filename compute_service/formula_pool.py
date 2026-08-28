@@ -78,20 +78,37 @@ class FormulaProcessPool(BaseProcessPool):
         if self._is_shutdown:
             return
         now = time.monotonic()
-        stale: list[str] = []
+        stale: list[tuple[str, BaseProcessWorker]] = []
         with self._cond:
             for sid, last_active in list(self._session_last_activity.items()):
                 if now - last_active >= self.shared_kernel_ttl_sec:
-                    stale.append(sid)
-            for sid in stale:
+                    worker = self._active_sessions.get(sid)
+                    if worker is not None:
+                        stale.append((sid, worker))
+        for sid, worker in stale:
+            # Reset the Python namespace *before* dropping maps so the same
+            # session_id cannot hash back onto leftover globals.
+            leased = self.lease_specific(worker, timeout_sec=2.0)
+            if leased is not None:
+                try:
+                    leased.execute({"action": "reset_session", "session_id": sid}, timeout_sec=2.0)
+                except Exception:
+                    log.exception("TTL reset_session failed for %s; killing worker", sid)
+                    leased.kill()
+                finally:
+                    self.release_worker(leased)
+            else:
+                log.warning("TTL eviction could not lease worker for %s; killing", sid)
+                worker.kill()
+            with self._cond:
                 self._session_last_activity.pop(sid, None)
-                worker = self._active_sessions.pop(sid, None)
-                if worker and worker in self._worker_sessions:
-                    self._worker_sessions[worker].discard(sid)
-                    if not self._worker_sessions[worker]:
-                        del self._worker_sessions[worker]
+                mapped = self._active_sessions.pop(sid, None)
+                if mapped and mapped in self._worker_sessions:
+                    self._worker_sessions[mapped].discard(sid)
+                    if not self._worker_sessions[mapped]:
+                        del self._worker_sessions[mapped]
         if stale:
-            log.info("Session TTL reaper evicted %d idle session(s): %s", len(stale), stale)
+            log.info("Session TTL reaper evicted %d idle session(s): %s", len(stale), [s for s, _w in stale])
 
     def _clear_worker_sessions_unlocked(self, worker: BaseProcessWorker) -> None:
         sessions = self._worker_sessions.pop(worker, set())

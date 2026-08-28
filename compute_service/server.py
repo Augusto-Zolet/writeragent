@@ -28,7 +28,7 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from compute_service import __version__
-from compute_service.config import ComputeSettings, ConfigError, load_settings
+from compute_service.config import ComputeSettings, ConfigError, load_settings, ocr_path_is_allowed
 
 log = logging.getLogger("compute_service")
 
@@ -196,6 +196,32 @@ def create_wsgi_app(
     startup does not pull WriterAgent ``plugin.framework.config``.
     """
     run_execute = execute_fn
+    inflight_sema = threading.BoundedSemaphore(settings.max_inflight)
+    session_inflight: dict[str, int] = {}
+    session_inflight_lock = threading.Lock()
+
+    def _acquire_inflight(session_id: str | None) -> str | None:
+        """Return an error code if rejected, else None. Caller must _release_inflight."""
+        if not inflight_sema.acquire(blocking=False):
+            return "INFLIGHT_LIMIT"
+        if session_id:
+            with session_inflight_lock:
+                used = session_inflight.get(session_id, 0)
+                if used >= settings.max_inflight_per_session:
+                    inflight_sema.release()
+                    return "SESSION_INFLIGHT_LIMIT"
+                session_inflight[session_id] = used + 1
+        return None
+
+    def _release_inflight(session_id: str | None) -> None:
+        if session_id:
+            with session_inflight_lock:
+                used = session_inflight.get(session_id, 0)
+                if used <= 1:
+                    session_inflight.pop(session_id, None)
+                else:
+                    session_inflight[session_id] = used - 1
+        inflight_sema.release()
 
     def wsgi_app(environ: dict[str, Any], start_response: Any) -> list[bytes]:
         nonlocal run_execute
@@ -237,6 +263,15 @@ def create_wsgi_app(
                     "400 Bad Request",
                     err_body,
                 )
+            if len(code) > settings.max_code_chars:
+                err_body = {
+                    "status": "error",
+                    "code": "CODE_TOO_LARGE",
+                    "error": f"code exceeds max_code_chars ({settings.max_code_chars}).",
+                }
+                if req_id is not None:
+                    err_body["id"] = req_id
+                return _start_json(start_response, "400 Bad Request", err_body)
 
             data = req_data.get("data")
             session_id = req_data.get("session_id")
@@ -261,7 +296,19 @@ def create_wsgi_app(
                 default_timeout_sec=settings.default_timeout_sec,
                 max_timeout_sec=settings.max_timeout_sec,
             )
-            sid = session_id if isinstance(session_id, str) else None
+            sid = session_id.strip() if isinstance(session_id, str) and session_id.strip() else None
+            inflight_sid = sid if mode == "shared" else None
+            limit_code = _acquire_inflight(inflight_sid)
+            if limit_code is not None:
+                err_body = {
+                    "status": "error",
+                    "code": limit_code,
+                    "error": "Too many in-flight compute requests.",
+                }
+                if req_id is not None:
+                    err_body["id"] = req_id
+                return _start_json(start_response, "503 Service Unavailable", err_body)
+
             log.info(
                 "exec /v1/execute id=%r mode=%s session=%r code_len=%d timeout=%ds",
                 req_id,
@@ -316,6 +363,8 @@ def create_wsgi_app(
                     "500 Internal Server Error",
                     err_body,
                 )
+            finally:
+                _release_inflight(inflight_sid)
 
         if path == "/v1/vision" and method == "POST":
             _principal, auth_err = authenticate_request(environ, settings)
@@ -349,6 +398,16 @@ def create_wsgi_app(
                     vision_err_body["id"] = req_id
                 return _start_json(start_response, "400 Bad Request", vision_err_body)
 
+            if path_str and not ocr_path_is_allowed(path_str, settings.ocr_allow_paths):
+                denied: dict[str, Any] = {
+                    "status": "error",
+                    "code": "FILE_PATH_DENIED",
+                    "error": "file_path is not under ocr.allow_paths (default deny).",
+                }
+                if req_id is not None:
+                    denied["id"] = req_id
+                return _start_json(start_response, "400 Bad Request", denied)
+
             params = req_data.get("params") or {}
             timeout_ms = req_data.get("timeout_ms")
             timeout_sec_opt: int | None = None
@@ -366,6 +425,7 @@ def create_wsgi_app(
                     params=params if isinstance(params, dict) else {},
                     timeout_sec=timeout_sec_opt,
                     req_id=req_id,
+                    allow_paths=settings.ocr_allow_paths,
                 )
                 if req_id is not None and isinstance(result_payload, dict):
                     result_payload["id"] = req_id

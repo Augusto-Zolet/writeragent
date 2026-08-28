@@ -53,8 +53,20 @@ class VisionProcessPool(BaseProcessPool):
         params: dict[str, Any] | None = None,
         timeout_sec: int | None = None,
         req_id: str | None = None,
+        allow_paths: tuple[str, ...] | list[str] | None = None,
     ) -> dict[str, Any]:
         """Execute a vision task on an available worker process."""
+        if file_path:
+            from compute_service.config import ocr_path_is_allowed
+
+            prefixes = () if allow_paths is None else allow_paths
+            if not ocr_path_is_allowed(file_path, prefixes):
+                return {
+                    "id": req_id,
+                    "status": "error",
+                    "code": "FILE_PATH_DENIED",
+                    "error": "file_path is not under ocr.allow_paths (default deny).",
+                }
         if not self.is_enabled():
             return {
                 "id": req_id,

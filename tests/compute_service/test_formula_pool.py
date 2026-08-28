@@ -194,6 +194,75 @@ class TestFormulaPoolSupervisor:
             assert res.get("status") == "error"
             # Code is either EXECUTION_TIMEOUT from pool or timeout from sandbox
             assert "timeout" in str(res.get("error", "")).lower() or "timeout" in str(res.get("code", "")).lower()
+            nxt = pool.execute(code="result = 1", timeout_sec=10, req_id="f-timeout-next")
+            assert nxt.get("status") == "ok"
+            assert nxt.get("result") == 1
+        finally:
+            pool.shutdown()
+
+    def test_timeout_tight_loop_then_next_cell(self) -> None:
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=1)
+        try:
+            res = pool.execute(
+                code="while True:\n    pass\nresult = 0",
+                timeout_sec=1,
+                req_id="f-loop",
+            )
+            assert res.get("status") == "error"
+            nxt = pool.execute(code="result = 2", timeout_sec=10, req_id="f-loop-next")
+            assert nxt.get("status") == "ok"
+            assert nxt.get("result") == 2
+        finally:
+            pool.shutdown()
+
+    def test_shared_hang_does_not_wedge_pool(self) -> None:
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=1)
+        try:
+            hung = pool.execute(
+                code="import time\ntime.sleep(5)\nresult = 1",
+                session_id="s-hang",
+                mode="shared",
+                timeout_sec=1,
+                req_id="sh-1",
+            )
+            assert hung.get("status") == "error"
+            iso = pool.execute(code="result = 3", mode="isolated", timeout_sec=10, req_id="sh-iso")
+            assert iso.get("status") == "ok"
+            assert iso.get("result") == 3
+        finally:
+            pool.shutdown()
+
+    def test_isolated_does_not_leak_globals(self) -> None:
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15)
+        try:
+            first = pool.execute(code="x = 1\nresult = x", mode="isolated", req_id="iso-1")
+            assert first.get("status") == "ok"
+            second = pool.execute(code="result = x", mode="isolated", req_id="iso-2")
+            assert second.get("status") == "error"
+        finally:
+            pool.shutdown()
+
+    def test_shared_sessions_do_not_cross(self) -> None:
+        pool = FormulaProcessPool(num_workers=2, default_timeout_sec=15)
+        try:
+            a = pool.execute(code="x = 11\nresult = x", session_id="doc-A", mode="shared", req_id="xa")
+            assert a.get("status") == "ok"
+            b = pool.execute(code="result = x", session_id="doc-B", mode="shared", req_id="xb")
+            assert b.get("status") == "error"
+            a2 = pool.execute(code="result = x", session_id="doc-A", mode="shared", req_id="xa2")
+            assert a2.get("status") == "ok"
+            assert a2.get("result") == 11
+        finally:
+            pool.shutdown()
+
+    def test_session_ttl_resets_namespace(self) -> None:
+        pool = FormulaProcessPool(num_workers=1, default_timeout_sec=15, shared_kernel_ttl_sec=0.25)
+        try:
+            setx = pool.execute(code="x = 99\nresult = x", session_id="ttl-1", mode="shared", req_id="ttl-set")
+            assert setx.get("status") == "ok"
+            time.sleep(0.7)
+            later = pool.execute(code="result = x", session_id="ttl-1", mode="shared", req_id="ttl-get")
+            assert later.get("status") == "error"
         finally:
             pool.shutdown()
 
@@ -417,6 +486,96 @@ class TestFormulaHttpEndpoint:
         assert body.get("id") == "req-1"
         assert body.get("status") == "ok"
         assert body.get("result") == 56
+
+    def test_http_timeout_is_200_error_then_next_ok(self, formula_server: str) -> None:
+        status, body = self._post(
+            formula_server,
+            {
+                "id": "slow-1",
+                "code": "import time\ntime.sleep(5)\nresult = 1",
+                "timeout_ms": 1500,
+            },
+            headers={"Authorization": "Bearer formula-secret"},
+        )
+        assert status == 200
+        assert body.get("status") == "error"
+        status2, body2 = self._post(
+            formula_server,
+            {"id": "slow-2", "code": "result = 4"},
+            headers={"Authorization": "Bearer formula-secret"},
+        )
+        assert status2 == 200
+        assert body2.get("status") == "ok"
+        assert body2.get("result") == 4
+
+    def test_http_code_too_large(self, formula_server: str) -> None:
+        status, body = self._post(
+            formula_server,
+            {"id": "big", "code": "result = 1\n" + ("x = 1\n" * 200000)},
+            headers={"Authorization": "Bearer formula-secret"},
+        )
+        assert status == 400
+        assert body.get("code") == "CODE_TOO_LARGE"
+
+    def test_http_eval_error_is_200(self, formula_server: str) -> None:
+        status, body = self._post(
+            formula_server,
+            {"id": "div0", "code": "result = 1 / 0"},
+            headers={"Authorization": "Bearer formula-secret"},
+        )
+        assert status == 200
+        assert body.get("status") == "error"
+        assert body.get("id") == "div0"
+        assert "error" in body
+
+    def test_http_inflight_limit_503(self) -> None:
+        port = get_free_port()
+        settings = ComputeSettings(
+            host="127.0.0.1",
+            port=port,
+            api_key="formula-secret",
+            workers=1,
+            threads=4,
+            max_inflight=1,
+        )
+        app = create_wsgi_app(settings)
+        server = WSGIDualStackServer("127.0.0.1", port, max_threads=4)
+        server.set_app(app)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        time.sleep(0.15)
+        try:
+            holder: list[tuple[int, dict]] = []
+
+            def _slow() -> None:
+                holder.append(
+                    self._post(
+                        f"http://127.0.0.1:{port}",
+                        {
+                            "id": "hold",
+                            "code": "import time\ntime.sleep(1.2)\nresult = 1",
+                            "timeout_ms": 5000,
+                        },
+                        headers={"Authorization": "Bearer formula-secret"},
+                    )
+                )
+
+            slow = threading.Thread(target=_slow)
+            slow.start()
+            time.sleep(0.2)
+            status, body = self._post(
+                f"http://127.0.0.1:{port}",
+                {"id": "busy", "code": "result = 2"},
+                headers={"Authorization": "Bearer formula-secret"},
+            )
+            assert status == 503
+            assert body.get("code") == "INFLIGHT_LIMIT"
+            slow.join(timeout=8)
+            assert holder and holder[0][0] == 200
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
 
     def test_execute_shared_session(self, formula_server: str) -> None:
         session_id = "session-http-123"

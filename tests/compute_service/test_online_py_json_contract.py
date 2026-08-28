@@ -30,6 +30,33 @@ class TestOnlinePyJsonContract:
         out = execute_code("result = [float('nan'), None]")
         assert out["status"] == "ok"
         assert out["result"] == [None, None]
+        json.dumps(out, allow_nan=False)
+
+    def test_inf_is_null(self) -> None:
+        out = execute_code("result = [float('inf'), float('-inf')]")
+        assert out["status"] == "ok"
+        assert out["result"] == [None, None]
+        json.dumps(out, allow_nan=False)
+
+    def test_one_by_one_stays_nested(self) -> None:
+        out = execute_code("result = [[7]]")
+        assert out["status"] == "ok"
+        assert out["result"] == [[7]]
+
+    def test_eval_error_payload(self) -> None:
+        out = execute_code("result = 1 / 0")
+        assert out["status"] == "error"
+        assert out.get("error")
+        json.dumps(out, allow_nan=False)
+
+    def test_ragged_grid_errors(self) -> None:
+        out = execute_code("result = [[1, 2], [3]]")
+        json.dumps(out, allow_nan=False)
+        if out["status"] == "ok":
+            # Service currently pads or passes through; must stay JSON-serializable.
+            assert out["result"] == [[1, 2], [3]] or out["result"] == [[1, 2], [3, None]]
+        else:
+            assert out.get("error")
 
     def test_1d_list_for_row_vector(self) -> None:
         out = execute_code("import numpy as np\nresult = np.array([10, 20, 30])")

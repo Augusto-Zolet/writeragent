@@ -77,6 +77,7 @@ Start here by task.
 | NumPy domain helpers (Viz, Symbolic, Units, Text, …) | [scripting/numpy-domains.md](scripting/numpy-domains.md) |
 | Excel / Calc `=PY` design stance | [scripting/ms-py-compatibility.md](scripting/ms-py-compatibility.md) |
 | Jupyter notebook import & execution | [writer/jupyter-notebook-import.md](writer/jupyter-notebook-import.md) |
+| Writer Python sidebar (Run Python Script ideas) | [writer/python-sidebar-ideas.md](writer/python-sidebar-ideas.md) |
 | Agent Search / Web | [chat/search.md](chat/search.md) |
 | MCP protocol | [mcp-protocol.md](mcp-protocol.md) |
 | Localization / translations | [localization.md](localization.md), [locales/README.md](../locales/README.md) |

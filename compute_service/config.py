@@ -35,6 +35,9 @@ _DEFAULT_IDLE_WORKER_TTL_SEC = 3600.0
 _DEFAULT_OCR_WORKERS = 0
 _DEFAULT_OCR_TIMEOUT_SEC = 60
 _DEFAULT_OCR_MAX_TASKS = 100
+_DEFAULT_MAX_CODE_CHARS = 262144
+_DEFAULT_MAX_INFLIGHT_PER_SESSION = 2
+_MIN_MAX_CODE_CHARS = 64
 
 _DEFAULT_LOG_LEVEL = "INFO"
 _VALID_LOG_LEVELS = frozenset({"DEBUG", "INFO", "WARNING", "WARN", "ERROR", "CRITICAL"})
@@ -50,6 +53,32 @@ def normalize_log_level(level: str) -> str:
 
 class ConfigError(ValueError):
     """Invalid compute-service configuration."""
+
+
+def ocr_path_is_allowed(file_path: str, allow_prefixes: tuple[str, ...] | list[str]) -> bool:
+    """True if *file_path* resolves to a file under one allowlisted prefix.
+
+    Empty *allow_prefixes* denies every path (callers should use image_b64).
+    """
+    prefixes = [str(p).strip() for p in allow_prefixes if str(p).strip()]
+    if not prefixes:
+        return False
+    try:
+        resolved = os.path.realpath(os.path.expanduser(file_path.strip()))
+    except (OSError, ValueError, TypeError):
+        return False
+    if not os.path.isfile(resolved):
+        # Allowlist check still applies for missing files so we do not leak existence
+        # via a different error before prefix match. Prefix-only:
+        pass
+    for raw in prefixes:
+        try:
+            base = os.path.realpath(os.path.expanduser(raw))
+        except (OSError, ValueError):
+            continue
+        if resolved == base or resolved.startswith(base + os.sep):
+            return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -70,6 +99,10 @@ class ComputeSettings:
     ocr_workers: int = _DEFAULT_OCR_WORKERS
     ocr_timeout_sec: int = _DEFAULT_OCR_TIMEOUT_SEC
     ocr_max_tasks: int = _DEFAULT_OCR_MAX_TASKS
+    max_code_chars: int = _DEFAULT_MAX_CODE_CHARS
+    max_inflight: int = 0  # 0 → computed in __init__ as max(threads, workers) * 2
+    max_inflight_per_session: int = _DEFAULT_MAX_INFLIGHT_PER_SESSION
+    ocr_allow_paths: tuple[str, ...] = ()
     log_level: str = _DEFAULT_LOG_LEVEL
     # Future: map authenticated principals to named profiles. Today always "default".
     default_principal: str = "default"
@@ -92,6 +125,10 @@ class ComputeSettings:
         ocr_workers: int = _DEFAULT_OCR_WORKERS,
         ocr_timeout_sec: int = _DEFAULT_OCR_TIMEOUT_SEC,
         ocr_max_tasks: int = _DEFAULT_OCR_MAX_TASKS,
+        max_code_chars: int = _DEFAULT_MAX_CODE_CHARS,
+        max_inflight: int | None = None,
+        max_inflight_per_session: int = _DEFAULT_MAX_INFLIGHT_PER_SESSION,
+        ocr_allow_paths: tuple[str, ...] | list[str] = (),
         log_level: str = _DEFAULT_LOG_LEVEL,
         default_principal: str = "default",
     ) -> None:
@@ -111,6 +148,13 @@ class ComputeSettings:
         object.__setattr__(self, "ocr_workers", ocr_workers)
         object.__setattr__(self, "ocr_timeout_sec", ocr_timeout_sec)
         object.__setattr__(self, "ocr_max_tasks", ocr_max_tasks)
+        object.__setattr__(self, "max_code_chars", int(max_code_chars))
+        thread_n = _DEFAULT_THREADS if eff_threads is None else int(eff_threads)
+        worker_n = _DEFAULT_WORKERS if eff_workers is None else int(eff_workers)
+        computed_inflight = max(thread_n, worker_n) * 2
+        object.__setattr__(self, "max_inflight", computed_inflight if max_inflight is None else int(max_inflight))
+        object.__setattr__(self, "max_inflight_per_session", int(max_inflight_per_session))
+        object.__setattr__(self, "ocr_allow_paths", tuple(str(p) for p in ocr_allow_paths if str(p).strip()))
         object.__setattr__(self, "log_level", log_level)
         object.__setattr__(self, "default_principal", default_principal)
 
@@ -153,6 +197,12 @@ class ComputeSettings:
             raise ConfigError("ocr_timeout_sec must be >= 1")
         if self.ocr_max_tasks < 1:
             raise ConfigError("ocr_max_tasks must be >= 1")
+        if self.max_code_chars < _MIN_MAX_CODE_CHARS:
+            raise ConfigError(f"max_code_chars must be >= {_MIN_MAX_CODE_CHARS}")
+        if self.max_inflight < 1:
+            raise ConfigError("max_inflight must be >= 1")
+        if self.max_inflight_per_session < 1:
+            raise ConfigError("max_inflight_per_session must be >= 1")
         if self.shared_kernel_ttl_sec < 0:
             raise ConfigError("shared_kernel_ttl_sec must be >= 0")
         if self.idle_worker_ttl_sec < 0:
@@ -160,6 +210,16 @@ class ComputeSettings:
         if self.log_level.upper() not in _VALID_LOG_LEVELS:
             raise ConfigError(f"Invalid log_level: {self.log_level!r} (must be one of {sorted(_VALID_LOG_LEVELS)})")
         # No API key ⇒ no auth (dev/test). Verification runs only when a key is set.
+
+
+def _as_path_tuple(value: Any) -> tuple[str, ...]:
+    if value is None or value == "":
+        return ()
+    if isinstance(value, str):
+        return tuple(part.strip() for part in value.split(os.pathsep) if part.strip())
+    if isinstance(value, (list, tuple)):
+        return tuple(str(part).strip() for part in value if str(part).strip())
+    raise ConfigError(f"ocr_allow_paths must be a list or {os.pathsep}-separated string")
 
 
 def _as_int(value: Any, *, field: str, default: int) -> int:
@@ -239,6 +299,12 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
             out["shared_kernel_ttl_sec"] = limits["session_ttl_sec"]
         if "idle_worker_ttl_sec" in limits:
             out["idle_worker_ttl_sec"] = limits["idle_worker_ttl_sec"]
+        if "max_code_chars" in limits:
+            out["max_code_chars"] = limits["max_code_chars"]
+        if "max_inflight" in limits:
+            out["max_inflight"] = limits["max_inflight"]
+        if "max_inflight_per_session" in limits:
+            out["max_inflight_per_session"] = limits["max_inflight_per_session"]
     ocr_cfg = raw.get("ocr")
     if isinstance(ocr_cfg, Mapping):
         if "workers" in ocr_cfg:
@@ -247,6 +313,8 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
             out["ocr_timeout_sec"] = ocr_cfg["timeout_sec"]
         if "max_tasks" in ocr_cfg:
             out["ocr_max_tasks"] = ocr_cfg["max_tasks"]
+        if "allow_paths" in ocr_cfg:
+            out["ocr_allow_paths"] = ocr_cfg["allow_paths"]
     logging_cfg = raw.get("logging")
     if isinstance(logging_cfg, Mapping):
         if "log_level" in logging_cfg:
@@ -272,6 +340,10 @@ def _flatten_config_json(raw: Mapping[str, Any]) -> dict[str, Any]:
         "ocr_workers",
         "ocr_timeout_sec",
         "ocr_max_tasks",
+        "ocr_allow_paths",
+        "max_code_chars",
+        "max_inflight",
+        "max_inflight_per_session",
         "log_level",
     ):
         if key in raw and key not in out:
@@ -319,6 +391,10 @@ def load_settings(
         "ocr_workers": _DEFAULT_OCR_WORKERS,
         "ocr_timeout_sec": _DEFAULT_OCR_TIMEOUT_SEC,
         "ocr_max_tasks": _DEFAULT_OCR_MAX_TASKS,
+        "max_code_chars": _DEFAULT_MAX_CODE_CHARS,
+        "max_inflight": None,
+        "max_inflight_per_session": _DEFAULT_MAX_INFLIGHT_PER_SESSION,
+        "ocr_allow_paths": (),
         "log_level": _DEFAULT_LOG_LEVEL,
     }
 
@@ -363,6 +439,14 @@ def load_settings(
         values["ocr_timeout_sec"] = env["PYTHON_COMPUTE_OCR_TIMEOUT_SEC"]
     if env.get("PYTHON_COMPUTE_OCR_MAX_TASKS"):
         values["ocr_max_tasks"] = env["PYTHON_COMPUTE_OCR_MAX_TASKS"]
+    if env.get("PYTHON_COMPUTE_MAX_CODE_CHARS"):
+        values["max_code_chars"] = env["PYTHON_COMPUTE_MAX_CODE_CHARS"]
+    if env.get("PYTHON_COMPUTE_MAX_INFLIGHT"):
+        values["max_inflight"] = env["PYTHON_COMPUTE_MAX_INFLIGHT"]
+    if env.get("PYTHON_COMPUTE_MAX_INFLIGHT_PER_SESSION"):
+        values["max_inflight_per_session"] = env["PYTHON_COMPUTE_MAX_INFLIGHT_PER_SESSION"]
+    if env.get("PYTHON_COMPUTE_OCR_ALLOW_PATHS"):
+        values["ocr_allow_paths"] = env["PYTHON_COMPUTE_OCR_ALLOW_PATHS"]
     if env.get("PYTHON_COMPUTE_LOG_LEVEL"):
         values["log_level"] = env["PYTHON_COMPUTE_LOG_LEVEL"]
 
@@ -451,6 +535,20 @@ def load_settings(
         ocr_max_tasks=_as_int(
             values["ocr_max_tasks"], field="ocr_max_tasks", default=_DEFAULT_OCR_MAX_TASKS
         ),
+        max_code_chars=_as_int(
+            values.get("max_code_chars"), field="max_code_chars", default=_DEFAULT_MAX_CODE_CHARS
+        ),
+        max_inflight=(
+            None
+            if values.get("max_inflight") is None or values.get("max_inflight") == ""
+            else _as_int(values.get("max_inflight"), field="max_inflight", default=1)
+        ),
+        max_inflight_per_session=_as_int(
+            values.get("max_inflight_per_session"),
+            field="max_inflight_per_session",
+            default=_DEFAULT_MAX_INFLIGHT_PER_SESSION,
+        ),
+        ocr_allow_paths=_as_path_tuple(values.get("ocr_allow_paths")),
         log_level=normalize_log_level(str(values["log_level"] or _DEFAULT_LOG_LEVEL)),
     )
     settings.validate()
