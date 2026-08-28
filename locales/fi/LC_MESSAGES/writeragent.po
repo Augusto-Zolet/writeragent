@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Finnish <LL@li.org>\n"
@@ -60,53 +60,19 @@ msgstr "Muistikirjan suoritus on tuettu vain LibreOffice Writerissa."
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"Tässä asiakirjassa ei ole tuotua muistikirjaa. Käytä ensin Työkalut → Tuo "
-"Jupyter-muistikirja…"
+"Tässä asiakirjassa ei ole tuotua muistikirjaa. Avaa ensin Jupyter-"
+"muistikirja (.ipynb) valikosta Tiedosto → Avaa."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Tälle ohjauselementille ei löytynyt muistikirjan solua."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Avaa ensin Writer-asiakirja."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Tuo Jupyter-muistikirja"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter-muistikirja"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Kaikki tiedostot"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "Muistikirjan tuonti on tuettu vain LibreOffice Writerissa."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "Muistikirjan tuonti epäonnistui: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Muistikirja tuotu.\n"
-"Soluja: {cells} (koodia: {code}, markdownia: {markdown})\n"
-"Koodin syöttökenttiä asiakirjassa: {shapes}\n"
-"Tulostekuvia: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1158,10 +1124,6 @@ msgstr "Suorita Draw-testit"
 msgid "Evaluation Dashboard"
 msgstr "Arvioinnin koontinäyttö"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Tuo Jupyter-muistikirja..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Virheenjäljitys"
@@ -1433,6 +1395,19 @@ msgstr "Tuntematon tutkimusvirhe."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Tutkimusvirhe: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "Tutkimusmuistiinpanot (automaattinen synteesi epäonnistui): {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Käytetyt lähteet:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Verkkotutkimus ei kerännyt käyttökelpoista näyttöä."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2168,11 +2143,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"Tässä Writer-asiakirjassa ei ole tuotua muistikirjarekisteriä. Käytä ensin "
-"Työkalut → Tuo Jupyter-muistikirja… -toimintoa."
+"Tässä Writer-asiakirjassa ei ole tuotua muistikirjarekisteriä. Avaa ensin "
+"Jupyter-muistikirja (.ipynb) valikosta Tiedosto → Avaa."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2218,12 +2193,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Tässä Writer-asiakirjassa ei ole tuotua Jupyter-muistikirjarekisteriä. Käytä"
-" Työkalut → Tuo Jupyter-muistikirja… ottaaksesi muistikirjan Python-istunnon"
-" nollauksen käyttöön."
+"Tässä Writer-asiakirjassa ei ole tuotua muistikirjarekisteriä. Avaa ensin "
+"Jupyter-muistikirja (.ipynb) ottaaksesi käyttöön muistikirjan Python-"
+"istunnon nollauksen."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

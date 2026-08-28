@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Lithuanian <LL@li.org>\n"
@@ -58,54 +58,19 @@ msgstr "Užrašinės vykdymas palaikomas tik „LibreOffice Writer“ programoje
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"Šiame dokumente nėra importuotos užrašinės. Pirmiausia naudokite „Įrankiai“ "
-"→ „Importuoti „Jupyter“ užrašinę…“."
+"Šiame dokumente nėra importuoto užrašų knygelės failo. Pirmiausia "
+"pasirinkite Failas → Atverti „Jupyter“ užrašų knygelę (.ipynb)."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Nepavyko rasti šio valdiklio užrašinės ląstelės."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Pirmiausia atidarykite „Writer“ dokumentą."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Importuoti „Jupyter“ užrašinę"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "„Jupyter“ užrašinė"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Visi failai"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr ""
-"Užrašinės importavimas palaikomas tik „LibreOffice Writer“ programoje."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "Nepavyko importuoti užrašinės: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Užrašinė importuota.\n"
-"Ląstelės: {cells} (kodas: {code}, „markdown“: {markdown})\n"
-"Kodo įvesties laukai dokumente: {shapes}\n"
-"Išvesties paveikslai: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1156,10 +1121,6 @@ msgstr "Vykdyti Draw testus"
 msgid "Evaluation Dashboard"
 msgstr "Vertinimo skydelis"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Importuoti „Jupyter“ užrašinę..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Derinimas"
@@ -1432,6 +1393,19 @@ msgstr "Nežinoma tyrimų klaida."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Tyrimų klaida: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "Tyrimo pastabos (automatinė sintezė nepavyko) užklausai: {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Naudoti šaltiniai:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Atliekant paiešką žiniatinklyje nepavyko surinkti tinkamų įrodymų."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2170,11 +2144,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"Šis „Writer“ dokumentas neturi importuoto užrašų knygelių registro. "
-"Pirmiausia naudokite Įrankiai → Importuoti „Jupyter“ užrašų knygelę…"
+"Šiame „Writer“ dokumente nėra importuoto užrašų knygelės registro. "
+"Pirmiausia pasirinkite Failas → Atverti „Jupyter“ užrašų knygelę (.ipynb)."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2222,12 +2196,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Šiame Writer dokumente nėra importuoto užrašų knygelės registro. Naudokite "
-"Priemonės → Importuoti Jupyter užrašų knygelę…, kad įgalintumėte užrašų "
-"knygelės Python seanso nustatymą iš naujo."
+"Šiame „Writer“ dokumente nėra importuoto užrašų knygelės registro. "
+"Pirmiausia pasirinkite Failas → Atverti „Jupyter“ užrašų knygelę (.ipynb), "
+"kad galėtumėte iš naujo paleisti užrašų knygelės „Python“ seansą."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

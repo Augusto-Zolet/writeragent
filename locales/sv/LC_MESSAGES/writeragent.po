@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WriterAgent 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: \n"
 "Language-Team: Swedish\n"
@@ -53,53 +53,19 @@ msgstr "Notebook-körning stöds endast i LibreOffice Writer."
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"Detta dokument har ingen importerad notebook. Använd Verktyg → Importera "
-"Jupyter Notebook… först."
+"Detta dokument har ingen importerad anteckningsbok. Arkiv → Öppna en "
+"Jupyter-anteckningsbok (.ipynb) först."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Kunde inte hitta notebook-cell för denna kontroll."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Öppna ett Writer-dokument först."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Importera Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Alla filer"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "Import av notebook stöds endast i LibreOffice Writer."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "Det gick inte att importera notebook: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Importerad notebook.\n"
-"Celler: {cells} (kod: {code}, markdown: {markdown})\n"
-"Kodinmatningsfält i dokumentet: {shapes}\n"
-"Utdata-bilder: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1148,10 +1114,6 @@ msgstr "Kör rit-tester"
 msgid "Evaluation Dashboard"
 msgstr "Utvärderingspanel"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Importera Jupyter Notebook..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Felsökning"
@@ -1425,6 +1387,21 @@ msgstr "Okänt forskningsfel."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Forskningsfel: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr ""
+"Forskningsanteckningar (automatisk sammanställning misslyckades) för: "
+"{query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Konsulterade källor:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Webbforskningen samlade inte in några användbara bevis."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2159,11 +2136,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
 "Detta Writer-dokument har inget register för importerade anteckningsböcker. "
-"Använd Verktyg → Importera Jupyter-anteckningsbok… först."
+"Arkiv → Öppna en Jupyter-anteckningsbok (.ipynb) först."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2210,12 +2187,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Detta Writer-dokument har inget importerat notebook-register. Använd Verktyg"
-" → Importera Jupyter Notebook… för att aktivera återställning av Python-"
-"session för notebook."
+"Detta Writer-dokument har inget register för importerade anteckningsböcker. "
+"Arkiv → Öppna en Jupyter-anteckningsbok (.ipynb) för att aktivera "
+"återställning av Python-session för anteckningsbok."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

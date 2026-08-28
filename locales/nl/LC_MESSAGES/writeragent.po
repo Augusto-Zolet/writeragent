@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Dutch <LL@li.org>\n"
@@ -58,53 +58,19 @@ msgstr "Notebook uitvoeren wordt alleen ondersteund in LibreOffice Writer."
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"Dit document heeft geen geïmporteerd notebook. Gebruik eerst Extra → Jupyter"
-" Notebook importeren…."
+"Dit document heeft geen geïmporteerd notebook. Bestand → Open eerst een "
+"Jupyter-notebook (.ipynb)."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Kon geen notebookcel vinden voor dit besturingselement."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Open eerst een Writer-document."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Jupyter Notebook importeren"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Alle bestanden"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "Notebook importeren wordt alleen ondersteund in LibreOffice Writer."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "Importeren van notebook mislukt: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Notebook geïmporteerd.\n"
-"Cellen: {cells} (code: {code}, markdown: {markdown})\n"
-"Code-invoervelden in document: {shapes}\n"
-"Uitvoer-afbeeldingen: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1160,10 +1126,6 @@ msgstr "Draw-tests uitvoeren"
 msgid "Evaluation Dashboard"
 msgstr "Evaluatiedashboard"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Jupyter Notebook importeren..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Debuggen"
@@ -1437,6 +1399,19 @@ msgstr "Onbekende onderzoeksfout."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Onderzoeksfout: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "Onderzoeksnotities (automatische synthese mislukt) voor: {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Geraadpleegde bronnen:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Webonderzoek heeft geen bruikbaar bewijs verzameld."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2175,11 +2150,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"Dit Writer-document heeft geen register voor geïmporteerde notebooks. "
-"Gebruik eerst Extra → Jupyter-notebook importeren…"
+"Dit Writer-document heeft geen geïmporteerd notebookregister. Bestand → Open"
+" eerst een Jupyter-notebook (.ipynb)."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2226,12 +2201,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Dit Writer-document heeft geen geïmporteerd notebookregister. Gebruik Extra "
-"→ Jupyter Notebook importeren… om het resetten van de Python-sessie van het "
-"notebook in te schakelen."
+"Dit Writer-document heeft geen geïmporteerd notebookregister. Bestand → Open"
+" een Jupyter-notebook (.ipynb) om de Python-sessie van het notebook opnieuw "
+"in te stellen."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

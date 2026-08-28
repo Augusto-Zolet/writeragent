@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Urdu <LL@li.org>\n"
@@ -58,53 +58,19 @@ msgstr "نوٹ بک چلانا صرف LibreOffice Writer میں معاون ہے�
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"اس دستاویز میں کوئی درآمد شدہ نوٹ بک نہیں ہے۔ پہلے Tools → Import Jupyter "
-"Notebook… استعمال کریں۔"
+"اس دستاویز میں کوئی درآمد شدہ نوٹ بک نہیں ہے۔ پہلے فائل → ایک Jupyter نوٹ بک"
+" (.ipynb) کھولیں۔"
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "اس کنٹرول کے لیے نوٹ بک سیل نہیں مل سکا۔"
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "پہلے ایک Writer دستاویز کھولیں۔"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Jupyter نوٹ بک درآمد کریں"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter نوٹ بک"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "تمام فائلیں"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "نوٹ بک درآمد کرنے کی سہولت صرف LibreOffice Writer میں دستیاب ہے۔"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "نوٹ بک درآمد کرنے میں ناکامی: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"نوٹ بک درآمد ہو گئی۔\n"
-"خلیات: {cells} (کوڈ: {code}، مارک ڈاؤن: {markdown})\n"
-"دستاویز میں کوڈ ان پٹ فیلڈز: {shapes}\n"
-"آؤٹ پٹ تصاویر: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1151,10 +1117,6 @@ msgstr "Draw ٹیسٹ چلائیں"
 msgid "Evaluation Dashboard"
 msgstr "تشخیصی ڈیش بورڈ"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Jupyter نوٹ بک درآمد کریں..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "ڈیبگ"
@@ -1427,6 +1389,19 @@ msgstr "نامعلوم تحقیقی خرابی۔"
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[تحقیقی خرابی: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "تحقیقی نوٹس (خودکار ترکیب ناکام رہی) برائے: {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "مشورہ کردہ ذرائع:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "ویب تحقیق میں کوئی قابل استعمال ثبوت نہیں ملا۔"
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2164,11 +2139,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"اس Writer دستاویز میں کوئی درآمد شدہ نوٹ بک رجسٹری نہیں ہے۔ پہلے Tools → "
-"Import Jupyter Notebook… استعمال کریں۔"
+"اس Writer دستاویز میں کوئی درآمد شدہ نوٹ بک رجسٹری نہیں ہے۔ پہلے فائل → ایک "
+"Jupyter نوٹ بک (.ipynb) کھولیں۔"
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2215,12 +2190,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"اس رائٹر دستاویز میں کوئی درآمد شدہ نوٹ بک رجسٹری نہیں ہے۔ نوٹ بک پائتھون "
-"سیشن ری سیٹ کو فعال کرنے کے لیے ٹولز → امپورٹ جیوپیٹر نوٹ بک... استعمال "
-"کریں۔"
+"اس Writer دستاویز میں کوئی درآمد شدہ نوٹ بک رجسٹری نہیں ہے۔ نوٹ بک Python "
+"سیشن ری سیٹ کو فعال کرنے کے لیے پہلے فائل → ایک Jupyter نوٹ بک (.ipynb) "
+"کھولیں۔"
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

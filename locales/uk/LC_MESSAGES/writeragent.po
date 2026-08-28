@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Ukrainian <LL@li.org>\n"
@@ -62,53 +62,19 @@ msgstr "Запуск блокнота підтримується лише в Lib
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"У цьому документі немає імпортованого блокнота. Спочатку скористайтеся "
-"Інструменти → Імпортувати Jupyter Notebook…"
+"У цьому документі немає імпортованого блокнота. Спочатку виберіть Файл → "
+"Відкрити Jupyter notebook (.ipynb)."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Не вдалося знайти клітинку блокнота для цього елемента керування."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Спочатку відкрийте документ Writer."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Імпортувати Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Усі файли"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "Імпорт Notebook підтримується лише в LibreOffice Writer."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "Не вдалося імпортувати блокнот: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Блокнот імпортовано.\n"
-"Клітинки: {cells} (код: {code}, розмітка: {markdown})\n"
-"Поля введення коду в документі: {shapes}\n"
-"Вихідні зображення: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1165,10 +1131,6 @@ msgstr "Запустити тести Draw"
 msgid "Evaluation Dashboard"
 msgstr "Панель оцінювання"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Імпортувати Jupyter Notebook..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Налагодження"
@@ -1442,6 +1404,19 @@ msgstr "Невідома помилка дослідження."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Помилка дослідження: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "Нотатки дослідження (автоматичний синтез не вдався) для: {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Використані джерела:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Веб-дослідження не зібрало жодних придатних до використання даних."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2182,11 +2157,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"Цей документ Writer не має реєстру імпортованих блокнотів. Спочатку "
-"скористайтеся Інструменти → Імпортувати блокнот Jupyter…"
+"У цьому документі Writer немає реєстру імпортованих блокнотів. Спочатку "
+"виберіть Файл → Відкрити Jupyter notebook (.ipynb)."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2233,12 +2208,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Цей документ Writer не має імпортованого реєстру блокнотів. Використовуйте "
-"Інструменти → Імпортувати Jupyter Notebook…, щоб увімкнути скидання сеансу "
-"Python для блокнота."
+"У цьому документі Writer немає реєстру імпортованих блокнотів. Виберіть Файл"
+" → Відкрити Jupyter notebook (.ipynb), щоб увімкнути скидання сеансу Python "
+"у блокноті."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Croatian <LL@li.org>\n"
@@ -58,53 +58,19 @@ msgstr "Pokretanje bilježnice podržano je samo u LibreOffice Writeru."
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"Ovaj dokument nema uvezenu bilježnicu. Prvo upotrijebite Alati → Uvezi "
-"Jupyter bilježnicu…"
+"Ovaj dokument nema uvezenu bilježnicu. Prvo odaberite Datoteka → Otvori "
+"Jupyter bilježnicu (.ipynb)."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Nije moguće pronaći ćeliju bilježnice za ovu kontrolu."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Prvo otvorite Writer dokument."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Uvezi Jupyter bilježnicu"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter bilježnica"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Sve datoteke"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "Uvoz bilježnice podržan je samo u LibreOffice Writeru."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "Neuspješan uvoz bilježnice: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Uvezena bilježnica.\n"
-"Ćelije: {cells} (kod: {code}, markdown: {markdown})\n"
-"Polja za unos koda u dokumentu: {shapes}\n"
-"Izlazne slike: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1155,10 +1121,6 @@ msgstr "Pokreni testove za Draw"
 msgid "Evaluation Dashboard"
 msgstr "Nadzorna ploča procjene"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Uvezi Jupyter bilježnicu..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Otklanjanje pogrešaka"
@@ -1432,6 +1394,19 @@ msgstr "Nepoznata pogreška istraživanja."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Pogreška istraživanja: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "Istraživačke bilješke (automatska sinteza nije uspjela) za: {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Korišteni izvori:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Web istraživanje nije prikupilo nikakve iskoristive dokaze."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2175,11 +2150,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"Ovaj Writer dokument nema registar uvezenih bilježnica. Prvo upotrijebite "
-"Alati → Uvezi Jupyter bilježnicu…"
+"Ovaj Writer dokument nema registar uvezenih bilježnica. Prvo odaberite "
+"Datoteka → Otvori Jupyter bilježnicu (.ipynb)."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2227,12 +2202,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Ovaj Writer dokument nema uvezen registar bilježnice. Koristite Alati → "
-"Uvezi Jupyter bilježnicu… za omogućavanje resetiranja Python sesije "
-"bilježnice."
+"Ovaj Writer dokument nema registar uvezenih bilježnica. Odaberite Datoteka →"
+" Otvori Jupyter bilježnicu (.ipynb) za omogućavanje ponovnog pokretanja "
+"Python sesije bilježnice."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

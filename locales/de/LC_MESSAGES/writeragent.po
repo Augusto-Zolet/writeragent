@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WriterAgent 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: 2024-03-21 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: German\n"
@@ -54,53 +54,19 @@ msgstr ""
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"Dieses Dokument enthält kein importiertes Notebook. Verwenden Sie zuerst "
-"Extras → Jupyter Notebook importieren…"
+"Dieses Dokument enthält kein importiertes Notebook. Datei → Öffnen Sie "
+"zuerst ein Jupyter-Notebook (.ipynb)."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Notebook-Zelle für dieses Steuerelement konnte nicht gefunden werden."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Öffnen Sie zuerst ein Writer-Dokument."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Jupyter Notebook importieren"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Alle Dateien"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "Der Import von Notebooks wird nur in LibreOffice Writer unterstützt."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "Fehler beim Importieren des Notebooks: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Notebook importiert.\n"
-"Zellen: {cells} (Code: {code}, Markdown: {markdown})\n"
-"Code-Eingabefelder im Dokument: {shapes}\n"
-"Ausgabebilder: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1167,10 +1133,6 @@ msgstr "Draw-Tests ausführen"
 msgid "Evaluation Dashboard"
 msgstr "Evaluations-Dashboard"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Jupyter Notebook importieren..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Fehlersuche"
@@ -1444,6 +1406,19 @@ msgstr "Unbekannter Forschungsfehler."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Forschungsfehler: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "Recherche-Notizen (automatische Synthese fehlgeschlagen) für: {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Konsultierte Quellen:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Die Web-Recherche hat keine verwertbaren Belege gefunden."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2197,11 +2172,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"Dieses Writer-Dokument hat keine importierte Notizbuch-Registrierung. "
-"Verwenden Sie zuerst Extras → Jupyter-Notizbuch importieren…."
+"Dieses Writer-Dokument enthält kein importiertes Notebook-Verzeichnis. Datei"
+" → Öffnen Sie zuerst ein Jupyter-Notebook (.ipynb)."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2250,12 +2225,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Dieses Writer-Dokument hat keine importierte Notebook-Registrierung. "
-"Verwenden Sie Extras → Jupyter Notebook importieren…, um das Zurücksetzen "
-"der Python-Sitzung für Notebooks zu aktivieren."
+"Dieses Writer-Dokument enthält kein importiertes Notebook-Verzeichnis. Datei"
+" → Öffnen Sie zuerst ein Jupyter-Notebook (.ipynb), um den Python-Sitzungs-"
+"Reset für Notebooks zu aktivieren."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

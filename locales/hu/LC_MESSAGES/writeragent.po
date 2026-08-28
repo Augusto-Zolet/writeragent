@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hungarian <LL@li.org>\n"
@@ -59,53 +59,19 @@ msgstr "A jegyzetfüzet futtatása csak a LibreOffice Writerben támogatott."
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"Ez a dokumentum nem tartalmaz importált jegyzetfüzetet. Először használja az"
-" Eszközök → Jupyter-jegyzetfüzet importálása… menüpontot."
+"Ebben a dokumentumban nincs importált jegyzetfüzet. Először válassza a Fájl "
+"→ Jupyter-jegyzetfüzet (.ipynb) megnyitása lehetőséget."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Nem található jegyzetfüzetcella ehhez a vezérlőhöz."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Először nyisson meg egy Writer-dokumentumot."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Jupyter Notebook importálása"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Minden fájl"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "A jegyzetfüzet importálása csak a LibreOffice Writerben támogatott."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "A jegyzetfüzet importálása sikertelen: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Jegyzetfüzet importálva.\n"
-"Cellák: {cells} (kód: {code}, markdown: {markdown})\n"
-"Kódbeviteli mezők a dokumentumban: {shapes}\n"
-"Kimeneti képek: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1161,10 +1127,6 @@ msgstr "Draw-tesztek futtatása"
 msgid "Evaluation Dashboard"
 msgstr "Értékelési irányítópult"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Jupyter Notebook importálása..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Hibakeresés"
@@ -1438,6 +1400,21 @@ msgstr "Ismeretlen kutatási hiba."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Kutatási hiba: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr ""
+"Kutatási jegyzetek (az automatikus szintetizálás sikertelen volt) ehhez: "
+"{query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Felhasznált források:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "A webes kutatás nem talált használható bizonyítékot."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2184,12 +2161,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"Ez a Writer-dokumentum nem rendelkezik importált jegyzetfüzet-"
-"nyilvántartással. Először használja az Eszközök → Jupyter-jegyzetfüzet "
-"importálása… menüpontot."
+"Ebben a Writer-dokumentumban nincs importált jegyzetfüzet-nyilvántartás. "
+"Először válassza a Fájl → Jupyter-jegyzetfüzet (.ipynb) megnyitása "
+"lehetőséget."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2238,12 +2215,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Ez a Writer-dokumentum nem tartalmaz importált notebook-nyilvántartást. "
-"Használja az Eszközök → Jupyter Notebook importálása… menüpontot a notebook "
-"Python-munkamenetének alaphelyzetbe állításához."
+"Ebben a Writer-dokumentumban nincs importált jegyzetfüzet-nyilvántartás. A "
+"jegyzetfüzet Python-munkamenetének alaphelyzetbe állításához válassza a Fájl"
+" → Jupyter-jegyzetfüzet (.ipynb) megnyitása lehetőséget."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

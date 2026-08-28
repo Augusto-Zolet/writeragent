@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Turkish <LL@li.org>\n"
@@ -58,54 +58,19 @@ msgstr "Not defteri çalıştırma yalnızca LibreOffice Writer'da desteklenir."
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"Bu belgede içe aktarılmış bir not defteri yok. Önce Araçlar → Jupyter Not "
-"Defterini İçe Aktar… seçeneğini kullanın."
+"Bu belgenin içe aktarılmış bir not defteri yok. Önce Dosya → Bir Jupyter not"
+" defteri (.ipynb) açın."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Bu denetim için not defteri hücresi bulunamadı."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Önce bir Writer belgesi açın."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Jupyter Notebook'u İçe Aktar"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Tüm dosyalar"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr ""
-"Notebook içe aktarma işlemi yalnızca LibreOffice Writer'da desteklenir."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "Notebook içe aktarılamadı: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Notebook içe aktarıldı.\n"
-"Hücreler: {cells} (kod: {code}, markdown: {markdown})\n"
-"Belgedeki kod giriş alanları: {shapes}\n"
-"Çıktı görselleri: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1156,10 +1121,6 @@ msgstr "Draw testlerini çalıştır"
 msgid "Evaluation Dashboard"
 msgstr "Değerlendirme Panosu"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Jupyter Notebook'u İçe Aktar..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Hata Ayıklama"
@@ -1431,6 +1392,20 @@ msgstr "Bilinmeyen araştırma hatası."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Araştırma hatası: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr ""
+"Şunun için araştırma notları (otomatik sentez başarısız oldu): {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Danışılan kaynaklar:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Web araştırması kullanılabilir bir kanıt toplamadı."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2170,11 +2145,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"Bu Writer belgesinde içe aktarılmış bir not defteri kaydı bulunmuyor. Önce "
-"Araçlar → Jupyter Not Defteri İçe Aktar… seçeneğini kullanın."
+"Bu Writer belgesinin içe aktarılmış bir not defteri kaydı yok. Önce Dosya → "
+"Bir Jupyter not defteri (.ipynb) açın."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2221,12 +2196,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Bu Writer belgesinde içe aktarılmış bir not defteri kaydı yok. Not defteri "
-"Python oturum sıfırlamasını etkinleştirmek için Araçlar → Jupyter Not "
-"Defterini İçe Aktar… seçeneğini kullanın."
+"Bu Writer belgesinin içe aktarılmış bir not defteri kaydı yok. Not defteri "
+"Python oturumunu sıfırlamayı etkinleştirmek için önce Dosya → Bir Jupyter "
+"not defteri (.ipynb) açın."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

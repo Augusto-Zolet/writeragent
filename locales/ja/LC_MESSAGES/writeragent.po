@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Japanese <LL@li.org>\n"
@@ -54,52 +54,19 @@ msgstr "ノートブックの実行はLibreOffice Writerでのみサポートさ
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"このドキュメントにはインポートされたノートブックがありません。先に「ツール」→「Jupyterノートブックをインポート…」を使用してください。"
+"このドキュメントにはインポートされたノートブックがありません。「ファイル」→「Jupyterノートブック (.ipynb) "
+"を開く」を先に実行してください。"
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "このコントロールに対応するノートブックセルが見つかりませんでした。"
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "先にWriterドキュメントを開いてください。"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Jupyter Notebookをインポート"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "すべてのファイル"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "ノートブックのインポートはLibreOffice Writerでのみサポートされています。"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "ノートブックのインポートに失敗しました: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"ノートブックをインポートしました。\n"
-"セル数: {cells} (コード: {code}, マークダウン: {markdown})\n"
-"ドキュメント内のコード入力フィールド: {shapes}\n"
-"出力画像: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1122,10 +1089,6 @@ msgstr "Draw テストを実行する"
 msgid "Evaluation Dashboard"
 msgstr "評価ダッシュボード"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Jupyter Notebookをインポート..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "デバッグ"
@@ -1390,6 +1353,19 @@ msgstr "不明な研究エラー。"
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[研究エラー: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "リサーチノート（自動合成に失敗しました）: {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "参照元:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Webリサーチで利用可能な証拠は見つかりませんでした。"
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2105,10 +2081,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"このWriterドキュメントにはインポートされたノートブックレジストリがありません。「ツール」→「Jupyterノートブックをインポート…」を先に実行してください。"
+"このWriterドキュメントにはインポートされたノートブックレジストリがありません。「ファイル」→「Jupyterノートブック (.ipynb) "
+"を開く」を先に実行してください。"
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2149,10 +2126,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"このWriterドキュメントにはインポートされたノートブックレジストリがありません。ノートブックのPythonセッションリセットを有効にするには、「ツール」→「Jupyterノートブックをインポート…」を使用してください。"
+"このWriterドキュメントにはインポートされたノートブックレジストリがありません。ノートブックのPythonセッションをリセットするには、「ファイル」→「Jupyterノートブック"
+" (.ipynb) を開く」を実行してください。"
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Traditional) <LL@li.org>\n"
@@ -55,51 +55,17 @@ msgstr "Notebook 執行僅支援於 LibreOffice Writer。"
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
-msgstr "此文件未匯入任何 Notebook。請先使用「工具」→「匯入 Jupyter Notebook…」。"
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
+msgstr "本文件未匯入任何筆記本。請先執行「檔案」→「開啟 Jupyter 筆記本 (.ipynb)」。"
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "找不到此控制項對應的 Notebook 儲存格。"
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "請先開啟一份 Writer 文件。"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "匯入 Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "所有檔案"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "僅 LibreOffice Writer 支援匯入 Notebook。"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "匯入 notebook 失敗：{error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"已匯入 notebook。\n"
-"儲存格：{cells} (程式碼：{code}, Markdown：{markdown})\n"
-"文件中的程式碼輸入欄位：{shapes}\n"
-"輸出影像：{images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1119,10 +1085,6 @@ msgstr "執行 Draw 測試"
 msgid "Evaluation Dashboard"
 msgstr "評估儀表板"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "匯入 Jupyter Notebook..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "除錯"
@@ -1380,6 +1342,19 @@ msgstr "未知研究錯誤。"
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[研究錯誤：{0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "研究筆記（自動綜合失敗），查詢內容：{query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "參考來源："
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "網路研究未收集到可用證據。"
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2088,9 +2063,9 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
-msgstr "此 Writer 文件沒有已匯入的筆記本登錄。請先使用「工具」→「匯入 Jupyter 筆記本…」。"
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
+msgstr "本 Writer 文件未匯入筆記本登錄檔。請先執行「檔案」→「開啟 Jupyter 筆記本 (.ipynb)」。"
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2131,10 +2106,10 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"此 Writer 文件沒有匯入的筆記本登錄檔。請使用「工具」→「匯入 Jupyter 筆記本…」來啟用筆記本 Python 工作階段重設功能。"
+"本 Writer 文件未匯入筆記本登錄檔。請先執行「檔案」→「開啟 Jupyter 筆記本 (.ipynb)」以啟用筆記本 Python 工作階段重設。"
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Czech <LL@li.org>\n"
@@ -59,53 +59,19 @@ msgstr ""
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"Tento dokument neobsahuje žádný importovaný poznámkový blok. Nejprve "
-"použijte Nástroje → Importovat Jupyter Notebook…"
+"Tento dokument neobsahuje žádný importovaný poznámkový blok. Nejprve zvolte "
+"Soubor → Otevřít poznámkový blok Jupyter (.ipynb)."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Pro tento ovládací prvek nebyla nalezena buňka poznámkového bloku."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Nejprve otevřete dokument Writeru."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Importovat Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Všechny soubory"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "Import notebooku je podporován pouze v LibreOffice Writeru."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "Import notebooku selhal: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Notebook byl importován.\n"
-"Buňky: {cells} (kód: {code}, markdown: {markdown})\n"
-"Vstupní pole kódu v dokumentu: {shapes}\n"
-"Výstupní obrázky: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1155,10 +1121,6 @@ msgstr "Spustit testy Draw"
 msgid "Evaluation Dashboard"
 msgstr "Informační panel hodnocení"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Importovat Jupyter Notebook..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Ladění"
@@ -1431,6 +1393,19 @@ msgstr "Neznámá chyba výzkumu."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Chyba výzkumu: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "Výzkumné poznámky (automatická syntéza selhala) pro: {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Použité zdroje:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Webový průzkum neshromáždil žádné použitelné důkazy."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2169,11 +2144,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"Tento dokument Writeru nemá žádný registr importovaných poznámkových bloků. "
-"Nejprve použijte Nástroje → Importovat poznámkový blok Jupyter…"
+"Tento dokument Writer neobsahuje žádný registr importovaných poznámkových "
+"bloků. Nejprve zvolte Soubor → Otevřít poznámkový blok Jupyter (.ipynb)."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2220,12 +2195,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Tento dokument Writeru nemá importovaný registr poznámkového bloku. Použijte"
-" Nástroje → Importovat Jupyter Notebook… pro povolení resetování relace "
-"Pythonu v poznámkovém bloku."
+"Tento dokument Writer neobsahuje žádný registr importovaných poznámkových "
+"bloků. Nejprve zvolte Soubor → Otevřít poznámkový blok Jupyter (.ipynb) pro "
+"povolení resetování relace Pythonu v poznámkovém bloku."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

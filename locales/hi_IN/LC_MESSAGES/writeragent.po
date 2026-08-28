@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hindi <LL@li.org>\n"
@@ -58,53 +58,19 @@ msgstr "नोटबुक रन केवल LibreOffice Writer में स�
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"इस दस्तावेज़ में कोई आयातित नोटबुक नहीं है। पहले उपकरण → Jupyter नोटबुक आयात"
-" करें… का उपयोग करें।"
+"इस दस्तावेज़ में कोई आयातित नोटबुक नहीं है। पहले फ़ाइल → एक जुपिटर नोटबुक "
+"(.ipynb) खोलें।"
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "इस नियंत्रण के लिए नोटबुक सेल नहीं मिल सका।"
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "पहले एक Writer दस्तावेज़ खोलें।"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Jupyter नोटबुक आयात करें"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter नोटबुक"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "सभी फ़ाइलें"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "नोटबुक आयात केवल LibreOffice Writer में समर्थित है।"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "नोटबुक आयात करने में विफल: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"नोटबुक आयातित।\n"
-"सेल्स: {cells} (कोड: {code}, मार्कडाउन: {markdown})\n"
-"दस्तावेज़ में कोड इनपुट फ़ील्ड: {shapes}\n"
-"आउटपुट चित्र: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1152,10 +1118,6 @@ msgstr "Draw परीक्षण चलाएँ"
 msgid "Evaluation Dashboard"
 msgstr "मूल्यांकन डैशबोर्ड"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Jupyter नोटबुक आयात करें..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "डिबग"
@@ -1428,6 +1390,19 @@ msgstr "अज्ञात अनुसंधान त्रुटि।"
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[अनुसंधान त्रुटि: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "इसके लिए शोध नोट्स (स्वचालित संश्लेषण विफल रहा): {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "परामर्श किए गए स्रोत:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "वेब शोध में कोई उपयोगी साक्ष्य नहीं मिला।"
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2172,11 +2147,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"इस Writer दस्तावेज़ में कोई आयातित नोटबुक रजिस्ट्री नहीं है। पहले Tools → "
-"Import Jupyter Notebook… का उपयोग करें।"
+"इस राइटर दस्तावेज़ में कोई आयातित नोटबुक रजिस्ट्री नहीं है। पहले फ़ाइल → एक "
+"जुपिटर नोटबुक (.ipynb) खोलें।"
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2223,12 +2198,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
 "इस राइटर दस्तावेज़ में कोई आयातित नोटबुक रजिस्ट्री नहीं है। नोटबुक पायथन "
-"सत्र रीसेट को सक्षम करने के लिए टूल्स → जुपिटर नोटबुक आयात करें… का उपयोग "
-"करें।"
+"सत्र रीसेट को सक्षम करने के लिए पहले फ़ाइल → एक जुपिटर नोटबुक (.ipynb) "
+"खोलें।"
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bulgarian <LL@li.org>\n"
@@ -59,53 +59,19 @@ msgstr "Изпълнението на тетрадка се поддържа с�
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"Този документ няма импортирана тетрадка. Първо използвайте Инструменти → "
-"Импортиране на Jupyter тетрадка…"
+"Този документ няма импортиран бележник. Първо изберете Файл → Отваряне на "
+"Jupyter бележник (.ipynb)."
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "Неуспешно намиране на клетка от тетрадка за този контролен елемент."
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "Първо отворете документ на Writer."
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Импортиране на Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter Notebook"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "Всички файлове"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "Импортирането на Notebook се поддържа само в LibreOffice Writer."
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "Неуспешно импортиране на notebook: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"Импортиран notebook.\n"
-"Клетки: {cells} (код: {code}, markdown: {markdown})\n"
-"Полета за въвеждане на код в документа: {shapes}\n"
-"Изходни изображения: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1165,10 +1131,6 @@ msgstr "Изпълнение на тестове за Draw"
 msgid "Evaluation Dashboard"
 msgstr "Табло за оценка"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Импортиране на Jupyter Notebook..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Отстраняване на грешки"
@@ -1440,6 +1402,19 @@ msgstr "Неизвестна грешка при проучването."
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[Грешка при проучването: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "Бележки от проучване (автоматичният синтез е неуспешен) за: {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "Използвани източници:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "Уеб проучването не събра използваеми доказателства."
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2183,11 +2158,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
 "Този документ на Writer няма регистър на импортирани бележници. Първо "
-"използвайте Инструменти → Импортиране на Jupyter бележник…"
+"изберете Файл → Отваряне на Jupyter бележник (.ipynb)."
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2235,12 +2210,12 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"Този документ на Writer няма импортиран регистър на тетрадки. Използвайте "
-"Инструменти → Импортиране на Jupyter Notebook…, за да активирате нулирането "
-"на Python сесията на тетрадката."
+"Този документ на Writer няма регистър на импортирани бележници. Първо "
+"изберете Файл → Отваряне на Jupyter бележник (.ipynb), за да активирате "
+"нулирането на Python сесията на бележника."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."

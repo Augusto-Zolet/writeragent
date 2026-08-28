@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-24 21:59-0400\n"
+"POT-Creation-Date: 2026-08-28 13:06-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bengali <LL@li.org>\n"
@@ -58,53 +58,19 @@ msgstr "নোটবুক রান শুধুমাত্র LibreOffice Wri
 
 #: plugin/notebook/notebook_runner.py
 msgid ""
-"This document has no imported notebook. Use Tools → Import Jupyter Notebook…"
-" first."
+"This document has no imported notebook. File → Open a Jupyter notebook "
+"(.ipynb) first."
 msgstr ""
-"এই নথিতে কোনো আমদানিকৃত নোটবুক নেই। প্রথমে Tools → Import Jupyter Notebook… "
-"ব্যবহার করুন।"
+"এই নথিতে কোনো ইম্পোর্ট করা নোটবুক নেই। প্রথমে ফাইল → একটি জুপিটার নোটবুক "
+"(.ipynb) খুলুন।"
 
 #: plugin/notebook/notebook_runner.py
 msgid "Could not find notebook cell for this control."
 msgstr "এই নিয়ন্ত্রণের জন্য নোটবুক সেল খুঁজে পাওয়া যায়নি।"
 
-#: plugin/notebook/notebook_runner.py plugin/notebook/import_dialog.py
+#: plugin/notebook/notebook_runner.py
 msgid "Open a Writer document first."
 msgstr "প্রথমে একটি Writer ডকুমেন্ট খুলুন।"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Jupyter Notebook"
-msgstr "Jupyter নোটবুক ইম্পোর্ট করুন"
-
-#: plugin/notebook/import_dialog.py
-msgid "Jupyter Notebook"
-msgstr "Jupyter নোটবুক"
-
-#: plugin/notebook/import_dialog.py
-msgid "All files"
-msgstr "সমস্ত ফাইল"
-
-#: plugin/notebook/import_dialog.py
-msgid "Import Notebook is only supported in LibreOffice Writer."
-msgstr "নোটবুক ইম্পোর্ট শুধুমাত্র LibreOffice Writer-এ সমর্থিত।"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid "Failed to import notebook: {error}"
-msgstr "নোটবুক ইম্পোর্ট করতে ব্যর্থ: {error}"
-
-#: plugin/notebook/import_dialog.py
-#, python-brace-format
-msgid ""
-"Imported notebook.\n"
-"Cells: {cells} (code: {code}, markdown: {markdown})\n"
-"Code input fields in document: {shapes}\n"
-"Output images: {images}"
-msgstr ""
-"নোটবুক ইম্পোর্ট করা হয়েছে।\n"
-"সেল: {cells} (কোড: {code}, মার্কডাউন: {markdown})\n"
-"ডকুমেন্টে কোড ইনপুট ফিল্ড: {shapes}\n"
-"আউটপুট ইমেজ: {images}"
 
 #: plugin/notebook/writer_importer.py
 msgid "Run code cell"
@@ -1157,10 +1123,6 @@ msgstr "Draw পরীক্ষা চালান"
 msgid "Evaluation Dashboard"
 msgstr "মূল্যায়ন ড্যাশবোর্ড"
 
-#: plugin/chatbot/hamburger_menu.py plugin/main.py
-msgid "Import Jupyter Notebook..."
-msgstr "Jupyter নোটবুক ইম্পোর্ট করুন..."
-
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "ডিবাগ"
@@ -1433,6 +1395,19 @@ msgstr "অজানা গবেষণা ত্রুটি।"
 #, python-brace-format
 msgid "[Research error: {0}]"
 msgstr "[গবেষণা ত্রুটি: {0}]"
+
+#: plugin/chatbot/web_research_deep.py
+#, python-brace-format
+msgid "Research notes (automatic synthesis failed) for: {query}"
+msgstr "এর জন্য গবেষণার নোট (স্বয়ংক্রিয় সংশ্লেষণ ব্যর্থ হয়েছে): {query}"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Sources consulted:"
+msgstr "পরামর্শ করা উৎসসমূহ:"
+
+#: plugin/chatbot/web_research_deep.py
+msgid "Web research collected no usable evidence."
+msgstr "ওয়েব গবেষণা কোনো ব্যবহারযোগ্য প্রমাণ সংগ্রহ করতে পারেনি।"
 
 #: plugin/chatbot/selection.py
 msgid "Please enter edit instructions!"
@@ -2173,11 +2148,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… first."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) first."
 msgstr ""
-"এই Writer ডকুমেন্টটিতে কোনো আমদানিকৃত নোটবুক রেজিস্ট্রি নেই। প্রথমে Tools → "
-"Import Jupyter Notebook… ব্যবহার করুন।"
+"এই Writer নথিতে কোনো ইম্পোর্ট করা নোটবুক রেজিস্ট্রি নেই। প্রথমে ফাইল → একটি "
+"জুপিটার নোটবুক (.ipynb) খুলুন।"
 
 #: plugin/scripting/session_manager.py
 msgid "Could not resolve notebook Python session."
@@ -2225,11 +2200,11 @@ msgstr ""
 
 #: plugin/scripting/session_manager.py
 msgid ""
-"This Writer document has no imported notebook registry. Use Tools → Import "
-"Jupyter Notebook… to enable notebook Python session reset."
+"This Writer document has no imported notebook registry. File → Open a "
+"Jupyter notebook (.ipynb) to enable notebook Python session reset."
 msgstr ""
-"এই Writer নথিতে কোনো ইমপোর্ট করা নোটবুক রেজিস্ট্রি নেই। নোটবুক পাইথন সেশন "
-"রিসেট সক্ষম করতে Tools → Import Jupyter Notebook… ব্যবহার করুন।"
+"এই Writer নথিতে কোনো ইম্পোর্ট করা নোটবুক রেজিস্ট্রি নেই। নোটবুক পাইথন সেশন "
+"রিসেট সক্রিয় করতে প্রথমে ফাইল → একটি জুপিটার নোটবুক (.ipynb) খুলুন।"
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
