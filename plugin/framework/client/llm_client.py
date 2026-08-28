@@ -21,6 +21,9 @@ Builds provider-aware LLM payloads and delegates chat HTTP execution to
 stripping, dev/release system prefix, date prefix on first system message,
 Anthropic/Gemini shims, OpenRouter merge (``merge_openrouter_chat_extra``), and
 logging redaction. Takes a config dict from ``get_api_config`` and UNO ``ctx``.
+Hosted providers with an empty API key raise ``AuthError`` from ``_resolve_auth``
+(do not catch it into ``{}`` — that made the client look like ``custom`` and
+surfaced a generic HTTP 401). Local/Ollama and ``header_style=none`` keep empty keys.
 
 Concurrency: construct a **new** ``LlmClient`` for each job (sidebar send,
 grammar worker, Calc ``=PROMPT()``, smol/web-research). The persistent HTTP
@@ -82,7 +85,6 @@ from plugin.framework.logging import init_logging, redact_sensitive_payload_for_
 from plugin.framework.client.auth import (
     resolve_auth_for_config,
     build_auth_headers,
-    AuthError,
     reject_control_chars_in_api_key,
 )
 from plugin.framework.errors import NetworkError
@@ -240,12 +242,15 @@ class LlmClient:
         return h
 
     def _resolve_auth(self):
-        """Resolve auth info from config."""
-        try:
-            return resolve_auth_for_config(self.config)
-        except AuthError:
-            log.exception("Auth resolution failed")
-            return {}
+        """Resolve auth info from config.
+
+        Swallowing ``AuthError`` here used to return ``{}``, so hosted missing
+        keys looked like provider ``custom`` and the HTTP layer reported 401.
+        Let ``missing_api_key`` / ``missing_endpoint`` / ``invalid_api_key``
+        propagate. Ollama and custom empty keys never raise in
+        ``resolve_auth_for_config``.
+        """
+        return resolve_auth_for_config(self.config)
 
     def _get_provider(self):
         """Get the provider ID from resolved auth."""

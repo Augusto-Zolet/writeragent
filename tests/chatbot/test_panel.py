@@ -13,7 +13,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from plugin.framework.config_schema import _get_schema_default
-from plugin.chatbot.panel import SendButtonListener, query_enter_triggers_primary_send
+from plugin.chatbot.panel import QueryKeyListener, SendButtonListener, query_enter_triggers_primary_send
 from plugin.framework.queue_executor import SendCancellation
 
 
@@ -77,6 +77,35 @@ class SendDisposeTests(unittest.TestCase):
         self.assertTrue(listener._stop_requested_fallback)
         self.assertIsNone(listener.ctx)
         self.assertIsNone(listener.panel)
+
+
+class _MockDisposedException(Exception):
+    """Name must include DisposedException so is_disposed_exception matches."""
+
+
+class _ConsumeEvent:
+    def __init__(self) -> None:
+        object.__setattr__(self, "KeyCode", 1280)
+        object.__setattr__(self, "Modifiers", 0)
+        object.__setattr__(self, "Consume", False)
+
+    def __setattr__(self, name, value):
+        if name == "Consume":
+            raise _MockDisposedException("event disposed")
+        object.__setattr__(self, name, value)
+
+
+class QueryKeyListenerDisposeTests(unittest.TestCase):
+    def test_consume_disposed_still_sends(self) -> None:
+        send_listener = MagicMock()
+        send_model = MagicMock()
+        send_model.Enabled = True
+        send_listener.send_control.getModel.return_value = send_model
+        listener = QueryKeyListener(send_listener)
+        event = _ConsumeEvent()
+        with patch("plugin.framework.config.get_config_bool", return_value=True):
+            listener.on_key_pressed(event)
+        send_listener.on_action_performed.assert_called_once_with(event)
 
 
 if __name__ == "__main__":

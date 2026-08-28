@@ -36,7 +36,7 @@ RequestPacer                      # per-client 50 ms burst guard
 LocalHttpsCertificateFallback     # local HTTPS verified-to-unverified retry policy
 ```
 
-`plugin/framework/client/llm_client.py` still owns provider shims, message normalization, date/dev prefixes, OpenRouter extra merging, response parsing, and token cleanup. `plugin/framework/client/http_transport.py` owns the persistent connection, close/stop behavior, one fresh-connection retry on connection exceptions, and local HTTPS certificate fallback. `plugin/framework/client/request_controls.py` owns the pacing constant and the local-only fallback rule.
+`plugin/framework/client/llm_client.py` still owns provider shims, message normalization, date/dev prefixes, OpenRouter extra merging, response parsing, and token cleanup. Hosted providers with an empty API key raise `AuthError` from `_resolve_auth` (do not catch it into `{}`). `plugin/framework/client/http_transport.py` owns the persistent connection, close/stop behavior, one fresh-connection retry on connection exceptions, and local HTTPS certificate fallback. `plugin/framework/client/request_controls.py` owns the pacing constant and the local-only fallback rule.
 
 ### Current Strengths
 

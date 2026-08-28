@@ -356,17 +356,16 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                 self.send_listener.disposing(None)
         except Exception as e:
             log.info("[RICH-SHUTDOWN]   send_listener.disposing raised from element: %s", e)
-        try:
+        # Teardown races with VCL/sidebar dispose; silent pass hid unexpected errors.
+        with suppress_disposed("set_default_focus_restore on dispose", logger=log):
             from plugin.framework.uno_context import set_default_focus_restore
 
             set_default_focus_restore(None)
-        except Exception:
-            pass
 
         # Clean up the always-present resize listener.
         # This listener is attached unconditionally in panel_wiring. Failing to
         # remove it during late VCL/sidebar teardown can contribute to crashes.
-        try:
+        with suppress_disposed("removeWindowListener on dispose", logger=log):
             tp = getattr(self, "toolpanel", None)
             rl = getattr(tp, "resize_listener", None) if tp else None
             root = getattr(self, "m_panelRootWindow", None)
@@ -374,8 +373,6 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                 root.removeWindowListener(rl)
             if tp:
                 tp.resize_listener = None
-        except Exception:
-            pass
 
         self.rich_text_widget = None
 
@@ -460,7 +457,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                     set_image_model(set_image_val, update_lru=False)
             chat_mode_selector = get_optional("chat_mode_selector")
             if chat_mode_selector:
-                try:
+                with suppress_disposed("refresh chat_mode_selector from config", logger=log):
                     from plugin.chatbot.chat_sidebar_mode import populate_mode_selector_with_flags, sidebar_mode_flags_for_doc_type
 
                     model = self._get_document_model()
@@ -470,8 +467,6 @@ class ChatPanelElement(unohelper.Base, XUIElement):
                     dt = cached or doc_type_label_for_enum(get_document_type(model))
                     flags = sidebar_mode_flags_for_doc_type(dt)
                     populate_mode_selector_with_flags(chat_mode_selector, flags)
-                except Exception:
-                    pass
             try:
                 # Backend indicator: show "Aider" / "Hermes" when external agent backend is enabled
                 self._update_backend_indicator(root)

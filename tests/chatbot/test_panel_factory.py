@@ -78,3 +78,77 @@ def test_send_and_tool_loop_refresh_via_session_not_builder():
         assert "plugin.doc.document_helpers.get_document_context_for_chat" not in imported
         src = path.read_text(encoding="utf-8")
         assert "refresh_document_context" in src
+
+
+class _MockDisposedException(Exception):
+    """Name must include DisposedException so is_disposed_exception matches."""
+
+
+def _thin_panel_element():
+    from plugin.chatbot.panel_factory import ChatPanelElement
+
+    el = object.__new__(ChatPanelElement)
+    el.send_listener = None
+    el.toolpanel = None
+    el.m_panelRootWindow = None
+    el.rich_text_widget = None
+    return el
+
+
+def test_disposing_swallows_disposed_focus_restore():
+    from unittest.mock import patch
+
+    el = _thin_panel_element()
+    with patch(
+        "plugin.framework.uno_context.set_default_focus_restore",
+        side_effect=_MockDisposedException("bridge gone"),
+    ):
+        el.disposing(None)
+    assert el.rich_text_widget is None
+
+
+def test_disposing_swallows_disposed_remove_window_listener():
+    from unittest.mock import MagicMock, patch
+
+    el = _thin_panel_element()
+    root = MagicMock()
+    root.removeWindowListener.side_effect = _MockDisposedException("window gone")
+    tp = MagicMock()
+    tp.resize_listener = MagicMock()
+    el.toolpanel = tp
+    el.m_panelRootWindow = root
+    with patch("plugin.framework.uno_context.set_default_focus_restore"):
+        el.disposing(None)
+    root.removeWindowListener.assert_called_once()
+
+
+def test_refresh_mode_selector_disposed_still_updates_backend_indicator():
+    from unittest.mock import MagicMock, patch
+
+    el = _thin_panel_element()
+    el.ctx = MagicMock()
+    el._in_refresh_controls = False
+    root = MagicMock()
+
+    def get_control(name):
+        if name == "chat_mode_selector":
+            return MagicMock()
+        return None
+
+    root.getControl.side_effect = get_control
+    el.m_panelRootWindow = root
+    el._update_backend_indicator = MagicMock()
+    with patch("plugin.chatbot.config_ui_helpers.populate_combobox_with_lru"), patch(
+        "plugin.chatbot.config_ui_helpers.populate_image_model_selector"
+    ), patch("plugin.chatbot.panel_factory.get_text_model", return_value="m"), patch(
+        "plugin.chatbot.panel_factory.get_config", return_value=""
+    ), patch(
+        "plugin.chatbot.panel_factory.get_current_endpoint", return_value=""
+    ), patch(
+        "plugin.chatbot.panel_factory.get_optional_control",
+        side_effect=lambda _root, name: MagicMock() if name == "chat_mode_selector" else None,
+    ), patch.object(
+        el, "_get_document_model", side_effect=_MockDisposedException("model disposed")
+    ):
+        el._refresh_controls_from_config()
+    el._update_backend_indicator.assert_called_once_with(root)

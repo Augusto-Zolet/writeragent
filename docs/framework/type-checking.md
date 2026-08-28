@@ -39,7 +39,7 @@ Static checking does **not** prove LibreOffice runtime behavior: UNO remains hig
   - **Idiom conflicts:** `reportConstantRedefinition` (UNO ImportError fallbacks), `reportImplicitAbstractClass` (tool `*Base` without `execute`), `reportPrivateLocalImportUsage` (facade re-exports), `reportUnnecessaryIsInstance` / `Cast` / `Comparison`, `reportUnreachable`, `reportMissingTypeStubs`, `reportCallInDefaultInitializer`, `reportUnsafeMultipleInheritance`, `reportMissingSuperCall` (UNO listeners / mixins skipping `super().__init__()`).
   - **Style / noise:** `reportImplicitStringConcatenation` (long prompts), `reportUnnecessaryTypeIgnoreComment` (ty/mypy ignores), plus the existing unused-parameter / deprecated / import-cycle disables.
   - **`reportMissingModuleSource`** / **`reportMissingImports`** stay off / none for `com.sun.star.*` stub resolution.
-- **Status:** Basedpyright still reports real gaps (argument types, optional access, uninitialized mixin attrs, unused symbols). Drive those down in batches; do not re-enable the idiom rules above without a coordinated code change.
+- **Status:** **`make basedpyright`** / **`make typecheck`** are green for this configured include set (optional-access and unbound-local batches such as Draw **`get_active_page()`** guards already shipped). Do **not** start another “drive down Basedpyright” pass, and do **not** re-enable the idiom rules above without a coordinated code change. New code must still satisfy the gate; the patterns below are how, not a backlog.
 
 ### Pyrefly (experimental)
 
@@ -52,11 +52,11 @@ Static checking does **not** prove LibreOffice runtime behavior: UNO remains hig
 
 ## Basedpyright vs `ty` and mypy (what differed in practice)
 
-All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plugin/`** scope (contrib, lib, and tests excluded). **`make typecheck`** runs **`ruff-for-build`**, then **`basedpyright`**, **bandit**, **opengrep**, **`pyspector`**, **`ty`**, thread-safety lint, and **`mypy`** in parallel. **`make test`** runs **`typecheck`**, then tests. **`make release`** runs **`typecheck-full`**. A full Basedpyright pass still finds **real issues and strictness gaps** that **`ty`** (and **`mypy`**) often did not report on the same codebase, or reported much less loudly.
+All three tools share **`types-unopy`**, **`make fix-uno`**, and the same **`plugin/`** scope (contrib, lib, and tests excluded). **`make typecheck`** runs **`ruff-for-build`**, then **`basedpyright`**, **bandit**, **opengrep**, **`pyspector`**, **`ty`**, thread-safety lint, and **`mypy`** in parallel. **`make test`** runs **`typecheck`**, then tests. **`make release`** runs **`typecheck-full`**. Basedpyright is stricter than **`ty`** / **`mypy`** on optional access, overrides, and JSON-shaped **`Any`**; those differences are why the gate exists. The catalog below is **what we already fixed**, so new code can copy the same patterns.
 
 ### Optional and `None` narrowing
 
-- **`reportOptionalMemberAccess`**: Pyright is aggressive about **calling methods on values that may be `None`**. Example: **`DrawBridge.get_active_page()`** can return **`None`** at runtime; without an explicit **`if page is None: ...`** early exit, uses like **`page.getCount()`** were errors under Pyright even when **`ty`** accepted the file. **Fix**: guard or assert before use (Draw shape tools in **`plugin/draw/shapes.py`**).
+- **`reportOptionalMemberAccess`**: Pyright is aggressive about **calling methods on values that may be `None`**. **`DrawBridge.get_active_page()`** can return **`None`**; Draw shape tools in **`plugin/draw/shapes.py`** already **`if page is None:`** before **`page.getCount()`** / other use. Copy that guard (or raise) on new call sites — do not treat this as an open cleanup.
 - **`reportPossiblyUnboundVariable`**: Assignments only on some branches (e.g. **`compiled`** only inside **`if use_regex:`**, or **`restore_snapshot`** only inside **`try`**) can be flagged when a later branch uses the name. **Fix**: initialize before the branch (**`compiled = None`**) or declare **`restore_snapshot: dict[str, Any] | None = None`** before **`try`**, then assign (**`search.py`**, **`testing_runner.py`**).
 
 ### Overrides, bases, and variance

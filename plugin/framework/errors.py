@@ -380,6 +380,13 @@ def format_error_message(e: Exception) -> str:
 
     # Typed exceptions first. Substring checks below are last-resort for
     # stdlib/HTTP-library strings we do not own a subclass for.
+    if isinstance(e, ConfigError) and getattr(e, "code", "") == "missing_api_key":
+        provider = ""
+        if isinstance(e.details, dict):
+            provider = str(e.details.get("provider") or "").strip()
+        if provider and provider != "custom":
+            return _("No API key configured for {0}. Open Settings and add a key.").format(provider)
+        return _("No API key configured. Open Settings and add a key.")
     if isinstance(e, VenvNotFoundError):
         return _("Python venv not found. Open Settings → Python, set the venv path, then Test.")
     if isinstance(e, VenvTimeoutError):

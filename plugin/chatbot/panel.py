@@ -250,11 +250,9 @@ class QueryKeyListener(BaseKeyListener):
             return
         if not sc.getModel().Enabled:
             return
-        try:
+        with suppress_disposed("QueryKeyListener Consume", logger=log):
             if hasattr(e, "Consume"):
                 setattr(e, "Consume", True)
-        except Exception:
-            pass
         self.send_listener.on_action_performed(e)
 
 

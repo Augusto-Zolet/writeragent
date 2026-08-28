@@ -4,9 +4,10 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from plugin.framework.client.auth import AuthError
 from plugin.framework.client.llm_client import LlmClient, strip_leaked_chat_template_control_tokens
-from plugin.framework.errors import NetworkError
-from plugin.tests.testing_utils import MockContext, create_mock_http_response
+from plugin.framework.errors import format_error_message
+from plugin.tests.testing_utils import MockContext
 
 
 @pytest.fixture
@@ -95,6 +96,38 @@ def test_custom_endpoint_and_key():
     }
     client_no_key = LlmClient(config_no_key, MockContext())
     assert "Authorization" not in client_no_key._headers()
+    assert client_no_key._get_provider() == "ollama"
+
+
+def test_hosted_empty_api_key_raises_before_http():
+    """Missing hosted keys must raise AuthError, not look like custom/401."""
+    ctx = MockContext()
+    for endpoint, provider in (
+        ("https://api.openai.com", "openai"),
+        ("https://openrouter.ai/api", "openrouter"),
+    ):
+        for api_key in ("", "   "):
+            client = LlmClient({"endpoint": endpoint, "api_key": api_key, "model": "x"}, ctx)
+            with pytest.raises(AuthError) as exc_info:
+                client._resolve_auth()
+            assert exc_info.value.code == "missing_api_key"
+            assert exc_info.value.provider == provider
+            with pytest.raises(AuthError):
+                client._get_provider()
+            with pytest.raises(AuthError):
+                client._headers()
+            with pytest.raises(AuthError):
+                client.make_chat_request([{"role": "user", "content": "hi"}], 8)
+            msg = format_error_message(exc_info.value)
+            assert "Invalid API Key" not in msg
+            assert "No API key configured" in msg
+
+
+def test_custom_empty_api_key_omits_auth_headers():
+    client = LlmClient({"endpoint": "http://127.0.0.1:8080/v1", "api_key": ""}, MockContext())
+    assert client._get_provider() == "custom"
+    assert "Authorization" not in client._headers()
+    assert "x-api-key" not in client._headers()
 
 
 def test_persistent_connections(client):
@@ -424,7 +457,7 @@ def test_stream_connection_error_after_content_does_not_retry():
     from plugin.framework.errors import NetworkError
 
     ctx = MockContext()
-    client = LlmClient({"endpoint": "https://api.openai.com", "model": "gpt-4"}, ctx)
+    client = LlmClient({"endpoint": "https://api.openai.com", "api_key": "sk-test", "model": "gpt-4"}, ctx)
     chunks: list[str] = []
 
     def iterate_then_drop(_response):
@@ -492,7 +525,7 @@ def test_request_with_tools_sync_tls_retry():
 def test_stream_request_with_tools_malformed_tool_arguments():
     ctx = MockContext()
     # Explicitly instantiate with an HTTPS endpoint so the HTTPSConnection mock is hit
-    client = LlmClient({"endpoint": "https://api.openai.com", "model": "gpt-4"}, ctx)
+    client = LlmClient({"endpoint": "https://api.openai.com", "api_key": "sk-test", "model": "gpt-4"}, ctx)
 
     # This simulates a provider sending deltas that concatenate to a malformed
     # JSON string (missing closing brace/quote) inside the tool function arguments.
