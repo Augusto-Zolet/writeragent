@@ -461,6 +461,11 @@ class WriterAgentConfig:
             self.saved_python_scripts = {}
         if "Universal Sample" not in self.saved_python_scripts:
             self.saved_python_scripts["Universal Sample"] = _DEFAULT_PYTHON_SCRIPTS["Universal Sample"]
+        elif isinstance(self.saved_python_scripts.get("Universal Sample"), str):
+            curr = self.saved_python_scripts["Universal Sample"]
+            if 'cell_address="A1"' in curr or 'wa.shape.upsert_shape(' in curr:
+                curr = curr.replace('cell_address="A1"', 'cell="A1"').replace('wa.shape.upsert_shape(', 'wa.shape.upsert(')
+                self.saved_python_scripts["Universal Sample"] = curr
 
         return self
 

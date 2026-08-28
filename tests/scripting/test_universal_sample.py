@@ -106,3 +106,16 @@ def test_config_injects_universal_sample():
     assert "import writeragent as wa" in config.saved_python_scripts["Universal Sample"]
 
 
+def test_config_migrates_old_universal_sample():
+    from plugin.framework.config_schema import WriterAgentConfig
+
+    old_code = 'wa.calc.insert_cell_html(cell_address="A1", html="hi")\nwa.shape.upsert_shape(action="create")'
+    config = WriterAgentConfig.from_dict({"saved_python_scripts": {"Universal Sample": old_code}})
+    config.validate()
+    migrated = config.saved_python_scripts["Universal Sample"]
+    assert 'cell="A1"' in migrated
+    assert "cell_address=" not in migrated
+    assert "wa.shape.upsert(" in migrated
+
+
+
