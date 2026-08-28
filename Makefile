@@ -220,7 +220,7 @@ help:
 	@echo "  make set-config             List all config keys"
 	@echo "  make test                   Run ty, mypy, pyright, pyspector, bandit, pytest + LO tests + excel-py-roundtrip"
 	@echo "  make pytest                 Unit pytest only (xdist -n -1; PYTEST_WORKERS=0 for serial)"
-	@echo "  make mock-llm               Fake OpenAI chat server on :18766 (sidebar soak / rich-text scroll)"
+	@echo "  make mock-llm               Fake OpenAI chat server on :18766 (sidebar soak: scroll, tools, Stop, errors)"
 	@echo "  make test-uno               UNO tests only via testing_runner (serial live soffice)"
 	@echo "  make excel-py-roundtrip     Excel↔DAG sample fidelity over PythonExcelSamples/"
 	@echo ""
@@ -695,7 +695,7 @@ pytest:
 	@echo "=== pytest ==="
 	$(PYTEST_UNIT)
 
-# Dev-only OpenAI-compatible stub (not MCP: 18766, not 8765/18765). See docs/chat-rich-text-control-sidebar.md
+# Dev-only OpenAI-compatible stub (not MCP: 18766, not 8765/18765). See docs/chat/rich-text-control-sidebar.md
 mock-llm:
 	$(PYTHON) scripts/mock_llm_server.py
 

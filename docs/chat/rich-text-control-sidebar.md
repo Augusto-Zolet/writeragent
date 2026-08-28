@@ -254,14 +254,164 @@ Width at creation/sync uses `last_response_rect` (placeholder fill, inset only).
 
 ### Mock LLM for sidebar soak
 
-To chat endlessly without a real model (streaming HTML, scroll, and the `web_research` tool loop), run a stdlib OpenAI-compatible stub:
+To chat without a real model (streaming HTML, scroll, tool loops, Stop, empty replies, errors), run a stdlib OpenAI-compatible stub:
 
 ```bash
 make mock-llm
 # or: .venv/bin/python scripts/mock_llm_server.py --delay-ms 30 --offline
+# Soak Stop:     .venv/bin/python scripts/mock_llm_server.py --delay-ms 40 --scenario ramble
+# Soak errors:   .venv/bin/python scripts/mock_llm_server.py --fail hang --fail-after-chunks 4
 ```
 
-Default bind is **`http://127.0.0.1:18766`** (not `8765` / `18765`, which are MCP). In Settings: that endpoint, model `writeragent-mock`, Rich Text Control Sidebar on. Plain “hello” streams two HTML paragraphs (rotating lists/tables/code). Phrases like “look up …” emit `web_research`; the same server scripts the smol `web_search` → `visit_webpage` → `final_answer` steps. `--offline` skips live DuckDuckGo (`final_answer` only). Tests: `tests/scripts/test_mock_llm_server.py`.
+Default bind is **`http://127.0.0.1:18766`** (not `8765` / `18765`, which are MCP). In Settings: that endpoint, model `writeragent-mock`, Rich Text Control Sidebar on. **Record** sends native `input_audio` on chat completions; the mock replies with canned HTML (`Hello from the mock microphone.`, `--transcript` to change it). `GET /v1/models` advertises audio input and lists `writeragent-mock-whisper` for the STT combobox. `POST /v1/audio/transcriptions` (JSON or multipart) returns `{"text": …}` for the fallback path.
+
+Plain “hello” streams two HTML paragraphs (rotating lists/tables/code). Phrases like “look up …” emit `web_research`; the same server scripts the smol `web_search` → `visit_webpage` → `final_answer` steps. `--offline` skips live DuckDuckGo (`final_answer` only). `--scenario` forces a journey on user turns; `--fail` fails every request. Tests: `tests/scripts/test_mock_llm_server.py`.
+
+**Phrase table** (case-insensitive; first match wins; missing tools fall back to HTML):
+
+| Say… | What happens |
+|------|----------------|
+| `look up …` | `web_research` (then smol search loop) |
+| `comment` | `add_comment` or empty-doc `apply_document_content` |
+| `keep talking` / `ramble` / `stop me` | ~200 content chunks — hit **Stop**, then send again |
+| `say nothing` / `empty reply` | no content, `finish_reason=length` (empty-model debug banner) |
+| `think out loud` | several `delta.reasoning` chunks, then HTML |
+| `think tags` | XML think markers inside `content` |
+| `reasoning details` | `reasoning_content` + `reasoning_details` then HTML |
+| `fill the sidebar` / `very long` | 40 paragraphs + table + nested lists |
+| `outline this` / `use the writer toolset` | `delegate_to_specialized_writer_toolset` (`document_research`) |
+| `two tools` / `in parallel` | `search_in_document` + `get_document_tree` in one round |
+| `insert filler` / `append a paragraph` | `apply_document_content` at end |
+| `list sheets` / `list pages` | Calc/Draw list tools when advertised |
+| `crash the stream` / `error 500` | HTTP 500 JSON error |
+| `rate limit` / `error 429` | HTTP 429 |
+| `hang the stream` | a few SSE chunks, then the socket drops (no `[DONE]`) |
+| `sse pings` | `: ping` comments between events (`--sse-comments` does this for every stream) |
+
+Specialized inner HTTP (when the request advertises `get_document_tree` plus `final_answer` / `specialized_workflow_finished`): `get_document_tree` then `final_answer`. That is how a writer-delegate soak continues after the gateway call.
+
+### Mock LLM agent test plan
+
+Hand these packets to separate agents. Each case is something **pytest cannot paint**: live SSE + the main-thread drain loop (`pump_ui_idle`) + real UNO (RichTextControl, tools, Record). Unit tests already cover `decide_completion` and HTTP envelopes in `tests/scripts/test_mock_llm_server.py`.
+
+**Shared setup (every packet)**
+
+1. `make mock-llm` (or `.venv/bin/python scripts/mock_llm_server.py` with flags noted per case). Bind `http://127.0.0.1:18766`.
+2. WriterAgent Settings: that endpoint, model `writeragent-mock`, Rich Text Control Sidebar **on**. Dummy API key if Settings require one.
+3. Fresh Writer document unless the case says Calc/Draw or empty doc.
+4. Log: `writeragent_debug.log` next to `writeragent.json`. Optional: `RICH_SCROLL_VERBOSE_DEBUG = True` in `rich_text_control.py` for `[RICH-SCROLL]` lines.
+5. Pass = UI behavior below **and** LibreOffice still accepts the **next** send (no stuck Stop, no frozen VCL).
+
+Assign by packet id (`A`–`H`). Do not skip the “why hard” line — that is the reason the mock exists.
+
+#### Packet A — stream, HTML paste, scroll
+
+*Hard: hidden-Writer copy after `STREAM_DONE`, VisArea, caret-follow, no `setFocus` steal. See scroll diagnostics above.*
+
+| ID | Mock | Steps | Pass | Watch |
+|----|------|-------|------|-------|
+| A1 | default, send `hello` | Stream then formatted rerender | Plain stream first; after done, bold/lists as in rotating templates; query field keeps focus | `_copy_formatted_from_hidden_doc_to_control: ok`; no `phase=reveal_caret` on user insert |
+| A2 | send 5–8 hellos | Fill transcript | Newest text visible; no jump to top on each send | `phase=user_append_done`; after `copy_done` expect trailing-break then Hidden scroll, not `reason=user_trailing_break` |
+| A3 | `fill the sidebar` | One huge HTML message, then **resize** sidebar | Viewport stays on newest text; no H-scrollbar gutter | `phase=sync_bounds` then Hidden SelectAll, not `reason=resize` / `phase=reveal_caret` |
+| A4 | rotating templates | Send until you see list, ordered list, table, `<pre>` | Cells and monospace survive paste | fallback WARNING lines absent |
+| A5 | default | Click into the **Writer document** during stream, type | Keystrokes stay in the document, not the history control | no `setFocus` on stream append |
+| A6 | default | Toggle rich setting off, restart, send hello; toggle on, restart | Plain path vs rich path; history reloads scrolled to bottom | `config rich_text_control_sidebar=` |
+
+#### Packet B — Stop, drain loop, Send/Record FSM
+
+*Hard: Stop while a worker holds the SSE socket; drain must exit; `SendButtonState` Record/Stop Rec/Send. Queue items are `StreamQueueKind`, not strings.*
+
+| ID | Mock | Steps | Pass | Watch |
+|----|------|-------|------|-------|
+| B1 | `--delay-ms 40`, type `keep talking` (or `--scenario ramble`) | Click **Stop** while words still arrive | Stream stops; button returns to Send; **next hello works** | no second nested drain; Stop stays clickable during stream (`pump_ui_idle`) |
+| B2 | ramble | Stop, immediately Send again | No double-stream, no stuck “Starting…” | worker join / `_active_q` cleared |
+| B3 | ramble | Click Stop twice | Second click is a no-op, not a crash | |
+| B4 | empty query box, venv configured | Record → Stop Rec without speaking long | Button Record ↔ Stop Rec ↔ Send; no send if truly empty and no wav | `SendEventKind.RECORD_CLICKED` / `STOP_REC_CLICKED` |
+| B5 | ramble | Resize / click other sidebar widgets **during** stream | UI paints; Stop still works | drain owns `processEventsToIdle` |
+
+#### Packet C — empty / truncated model
+
+*Hard: `format_empty_model_response_debug` is only visible on a real drain. Pytest never shows the banner.*
+
+| ID | Mock | Steps | Pass | Watch |
+|----|------|-------|------|-------|
+| C1 | `say nothing` | Send | `[No text from model; any tool changes were still applied.]` plus `[Debug: round=…, finish_reason=…length…]` | warning in debug log; `finish_reason=length` |
+| C2 | C1 then `hello` | Recovery | Normal HTML chat; no stuck error state | |
+| C3 | `--scenario empty` | Several empty rounds | Banner each time, transcript does not grow garbage HTML | |
+
+#### Packet D — reasoning vs content
+
+*Hard: `[Thinking]` vs HTML paste race; field names in `stream_normalizer` (`llm-hacks.md`). Unit tests parse deltas; they do not paint the sidebar.*
+
+| ID | Mock | Steps | Pass | Watch |
+|----|------|-------|------|-------|
+| D1 | `think out loud` | Send | `[Thinking]` appears **during** stream, then HTML after `STREAM_DONE`; thinking is **not** parsed as a tool call | `delta.reasoning` chunks |
+| D2 | `think tags` | Send | In-content XML think markers handled; final HTML is the body, not raw tags in the rich control (or documented fallback) | content think markers |
+| D3 | `reasoning details` | Send | `reasoning_content` / `reasoning_details` still show thinking then HTML | |
+| D4 | D1 then tool phrase `look up cats` | Next turn | Reasoning from the previous turn is **not** stuffed into tool_calls | display-only reasoning |
+
+#### Packet E — tool loop, nested agent, document refresh
+
+*Hard: mutating UNO on the UI thread while the drain runs; nested smol HTTP; mid-loop `[DOCUMENT CONTENT]` refresh. Pytest mocks `LlmClient` and tools.*
+
+| ID | Mock | Steps | Pass | Watch |
+|----|------|-------|------|-------|
+| E1 | `--offline`, `look up latest Python` | Web research | Status/thinking for search steps; final HTML summary in main chat; DuckDuckGo not required | smol `web_search` → `visit_webpage` → `final_answer`; `_record_assistant_start` only on final report |
+| E2 | omit `--offline`, same phrase | Live search optional | If network ok, visit_webpage uses a URL from hits; still ends in HTML | |
+| E3 | Doc with text “Welcome…”, type `add a comment` | Comment tool | Comment anchored on first word; sidebar “Comment inserted” | `add_comment`; undo stack has the comment |
+| E4 | **Empty** Writer doc, `insert a comment` | apply then comment | Text inserted at beginning, then comment on `Hello` | two-round tool loop; document context refresh |
+| E5 | `insert filler` | Mutate end | Paragraph appended; **next** hello’s system prompt sees new length (not stale snapshot) | `apply_document_content`; `refresh_document_context` |
+| E6 | `two tools` / `in parallel` | One send | `search_in_document` **and** `get_document_tree` run; one HTML wrap-up | `accumulate_delta` two `index` values |
+| E7 | `outline this` | Delegate | Nested agent status while main drain stays alive; then main-chat HTML; Stop still works mid-delegate | `delegate_to_specialized_writer_toolset` domain `document_research`; inner `get_document_tree` then `final_answer` |
+| E8 | E7 + click Stop during nested work | Cancel | Nested work stops; UI recovers; next hello works | `resolve_stop_checker()`, not a panel boolean alone |
+
+#### Packet F — HTTP errors, hang, SSE quirks
+
+*Hard: half-closed SSE under `processEventsToIdle`; error queue item vs freeze. Auth/HTTP errors are easy in pytest; hung sockets are not.*
+
+| ID | Mock | Steps | Pass | Watch |
+|----|------|-------|------|-------|
+| F1 | `crash the stream` | Send, then `hello` | Error surfaced (not a hang); hello recovers | HTTP 500 JSON `error` object |
+| F2 | `rate limit` / `error 429` | Send | Distinct 429 handling or at least a visible error; recover with hello | |
+| F3 | `hang the stream` or `--fail hang --fail-after-chunks 4` | Send | UI does **not** freeze forever; Stop or timeout/error; next send works | no `[DONE]`; worker must not block VCL |
+| F4 | `--sse-comments` or `sse pings` | hello | Stream still parses; comments ignored | `: ping` between `data:` lines |
+| F5 | `--fail http500` for **all** requests | Open sidebar send | Consistent error path; Settings still usable | |
+| F6 | F3 during ramble (`--scenario ramble --fail hang`) | Stop vs hang | Either Stop or error; never a wedged soffice | |
+
+#### Packet G — native audio and STT
+
+*Hard: Record child + main-thread `STOP_REC` + `input_audio` on the next chat POST; history strips blobs; STT fallback when `has_native_audio` is False. See [audio-architecture.md](audio-architecture.md).*
+
+Canned transcript default: `Hello from the mock microphone.` (`--transcript` to change).
+
+| ID | Mock | Steps | Pass | Watch |
+|----|------|-------|------|-------|
+| G1 | default mock as **chat** model | Record ~1s (or silence) → Stop Rec | Native chat path (not `/audio/transcriptions`); HTML contains canned transcript and optional `~Ns` | `has_native_audio` is not False; `input_audio` in request; log “supports native audio” |
+| G2 | G1 + type `hello` in the box while recording / before send | Typed text + audio | HTML echoes typed text **and** transcript | |
+| G3 | G1 | After reply, inspect history / new session | No huge base64 in SQLite; `[Audio Attached]` or equivalent | `history_db.message_to_dict` strips `input_audio` |
+| G4 | Silence auto-stop (Settings silence ms > 0) | Speak then pause | Auto-stop posts `STOP_REC` on **main thread**; same native reply as G1 | `auto_stopped` IPC; `execute_on_main_thread` |
+| G5 | STT model `writeragent-mock-whisper`; force chat model **without** native audio (`audio_support_map` False, or a text-only id on the same endpoint if you add one) | Record | Fallback `POST /v1/audio/transcriptions` or chat “Transcribe this audio exactly…”; query becomes canned text then normal chat | `transcribe_audio`; multipart vs JSON |
+| G6 | `--transcript Custom line.` | G1 | Sidebar shows **Custom line.** | |
+| G7 | Record during an in-flight ramble | Should refuse or queue sanely | No two workers; button state consistent | |
+| G8 | Missing venv / audio unsupported | Empty box | Record hidden or error from Test Python; Send still works for typed text | `SendButtonState.audio_supported` |
+
+#### Packet H — decks, session, recovery cross-cuts
+
+*Hard: same drain + rich control on Calc/Draw; session switch mid-stream.*
+
+| ID | Mock | Steps | Pass | Watch |
+|----|------|-------|------|-------|
+| H1 | Calc, `list sheets` | Open Calc sidebar, send | Tool runs if advertised; HTML wrap-up; resize still ok | `list_sheets` |
+| H2 | Draw/Impress, `list pages` | Same | `list_pages` | |
+| H3 | Writer A1–A3 in **Calc** and **Draw** decks | hello + fill the sidebar | Rich control exists; scroll/resize; no plain field stuck visible | `on_rich_control_ready` |
+| H4 | Mid-ramble, switch document / close doc | | Error or clean abort; no `DisposedException` swallowed into a freeze | `is_disposed_exception` / `DocumentDisposedError` |
+| H5 | Clear transcript / new chat, then hello | | History batch paste; scroll at bottom | `append_rich_messages_via_clipboard` |
+| H6 | Light/dark theme switch with a long flood transcript | | Readable; no leftover inverse selection | |
+| H7 | Exit LO during ramble | | No worse crash than plain path (nested hidden Writer) | |
+
+**Out of scope for this mock** (do not assign): real ASR quality, librarian/brainstorming/ppt-master modes, image gen, MCP clients, `=PROMPT()` cells.
+
+**Suggested split:** one agent per packet; A+D can share a Writer window; G needs a mic/venv; E needs a named Writer doc; F should not share a soffice with A (error/hang).
 
 ### References
 
