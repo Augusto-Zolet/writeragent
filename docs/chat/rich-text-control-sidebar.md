@@ -372,7 +372,7 @@ Assign by packet id (`A`–`H`). Do not skip the “why hard” line — that is
 | ID | Mock | Steps | Pass | Watch |
 |----|------|-------|------|-------|
 | F1 | `crash the stream` | Send, then `hello` | Error surfaced (not a hang); hello recovers | HTTP 500 JSON `error` object; match **current query** only, not librarian history |
-| F2 | `rate limit` / `error 429` | Send | Distinct 429 handling or at least a visible error; recover with hello | |
+| F2 | `rate limit` / `error 429` | Send | Distinct 429 handling or at least a visible error; recover with hello | Do not HTML-rerender the previous assistant over `[API error: …]` |
 | F3 | `hang the stream` or `--fail hang --fail-after-chunks 4` | Send | UI does **not** freeze forever; Stop or timeout/error; next send works | no `[DONE]`; worker must not block VCL |
 | F4 | `--sse-comments` or `sse pings` | hello | Stream still parses; comments ignored | `: ping` between `data:` lines |
 | F5 | `--fail http500` for **all** requests | Open sidebar send | Consistent error path; Settings still usable | |

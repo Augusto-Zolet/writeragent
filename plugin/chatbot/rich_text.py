@@ -303,7 +303,16 @@ def append_rich_text(doc, text, role="assistant", style_window=None):
 
 
 def finalize_sidebar_assistant_response(listener) -> None:
-    """Re-import the last assistant message as HTML when rich sidebar is active."""
+    """Re-import the last assistant message as HTML when rich sidebar is active.
+
+    Skip HTML rerender after an API error. Drain ERROR appends ``[API error: …]``
+    after ``_assistant_stream_start_len``; rerender looks up the previous HTML
+    assistant message and ``truncate_control_from`` would delete that error line
+    (Packet F HTTP 429/500 looked like a leftover hello).
+    """
+    if getattr(listener, "_terminal_status", None) == "Error":
+        listener._plain_text_stripper = None
+        return
     listener.rerender_rich_text_session()
     stripper = getattr(listener, "_plain_text_stripper", None)
     if stripper is not None:
