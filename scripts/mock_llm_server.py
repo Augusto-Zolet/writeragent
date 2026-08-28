@@ -60,6 +60,22 @@ _RESEARCH_RE = re.compile(
     re.IGNORECASE,
 )
 _HTTP_URL_RE = re.compile(r"https?://[^\s)>\"]+", re.IGNORECASE)
+# Smolagents records prior steps as Action JSON in user/assistant *content*,
+# not OpenAI assistant.tool_calls. Require a line starting with Action: so the
+# system-prompt example ("Example Action:") is ignored even if a later blob
+# copies it. Packet E live soak: without this, every nested round re-issues
+# web_search (or skips get_document_tree).
+_ACTION_NAME_RE = re.compile(r'(?m)^Action:\s*\{\s*"name"\s*:\s*"([^"]+)"')
+# Inner document_research often has no get_document_tree. Call *one* discovery
+# tool first so Packet E7 shows nested status and E8 has time to click Stop.
+# Do not walk every discovery tool — delegate_read_document with an empty path
+# opens junk files and never reaches specialized_workflow_finished.
+_SPECIALIZED_INNER_PRE_FINISH = (
+    "get_document_tree",
+    "list_nearby_files",
+    "search_nearby_files",
+    "grep_nearby_files",
+)
 
 # Phrase → scenario. First match wins. Keep distinct from research/comment keywords.
 _SCENARIO_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
@@ -109,6 +125,8 @@ _DELEGATE_WRITER = "delegate_to_specialized_writer_toolset"
 @dataclass
 class MockLLMConfig:
     delay_ms: int = 25
+    # None means use delay_ms. Packet E8: keep SSE snappy, stretch nested stream=False POSTs.
+    sync_delay_ms: int | None = None
     offline: bool = False
     always_research: bool = False
     scenario: str = "none"
@@ -117,6 +135,15 @@ class MockLLMConfig:
     fail_after_chunks: int = DEFAULT_FAIL_AFTER_CHUNKS
     sse_comments: bool = False
     transcript: str = DEFAULT_TRANSCRIPT
+
+
+def response_delay_s(config: MockLLMConfig, *, stream: bool) -> float:
+    """Seconds to sleep between SSE chunks, or once before a non-streaming JSON body."""
+    if stream:
+        ms = config.delay_ms
+    else:
+        ms = config.delay_ms if config.sync_delay_ms is None else config.sync_delay_ms
+    return max(0, int(ms)) / 1000.0
 
 
 @dataclass
@@ -300,12 +327,50 @@ def _assistant_tool_names(messages: list[Any]) -> list[str]:
     return names
 
 
+def _action_tool_names(messages: list[Any]) -> list[str]:
+    """Tool names from smolagents Action JSON in non-system message content."""
+    names: list[str] = []
+    for msg in messages:
+        if not isinstance(msg, dict) or msg.get("role") == "system":
+            continue
+        text = _as_text(msg.get("content"))
+        names.extend(_ACTION_NAME_RE.findall(text))
+    return names
+
+
+def _called_tool_names(messages: list[Any]) -> list[str]:
+    """Native tool_calls plus smolagents Action-in-content history."""
+    return _assistant_tool_names(messages) + _action_tool_names(messages)
+
+
+def _current_query(messages: list[Any], fallback: str = "") -> str:
+    """``### CURRENT QUERY:`` from non-system messages; last marker wins.
+
+    Smol later turns are often only ``Step budget:`` plus Action/Observation,
+    so `_last_user_text` is the banner. Scan earlier messages and reuse
+    `current_query_text` (rfind) so a double marker keeps the last suffix.
+    """
+    for msg in reversed(messages):
+        if not isinstance(msg, dict) or msg.get("role") == "system":
+            continue
+        text = _as_text(msg.get("content"))
+        if _CURRENT_QUERY_MARK in text:
+            return current_query_text(text)
+    return current_query_text(fallback)
+
+
 def _is_smol_research(tool_names: set[str]) -> bool:
     # final_answer alone is also used by specialized inner agents; require search tools.
     return bool(tool_names & {"web_search", "visit_webpage"})
 
 
 def _is_specialized_inner(tool_names: set[str]) -> bool:
+    # Live document_research inner HTTP advertises specialized_workflow_finished
+    # plus domain tools; get_document_tree is often *not* on that list (core
+    # tree is not a specialized_domain tool). Phrase "outline this" must not
+    # fall through to the main-chat delegate scenario (Packet E7).
+    if "specialized_workflow_finished" in tool_names:
+        return True
     return "get_document_tree" in tool_names and bool(
         tool_names & {"final_answer", "specialized_workflow_finished"}
     )
@@ -357,7 +422,7 @@ def _extract_document_words(messages: list[Any]) -> list[str]:
 def _first_url(text: str) -> str:
     match = _HTTP_URL_RE.search(text or "")
     if match:
-        return match.group(0).rstrip(".,;")
+        return match.group(0).rstrip(".,;\"'")
     return "https://example.com/mock-research"
 
 
@@ -425,6 +490,31 @@ def _html_research_summary(topic: str, tool_text: str) -> str:
     )
 
 
+def _html_tool_wrapup(user_text: str, tool_name: str, tool_text: str) -> str:
+    """Main-chat HTML after a tool round. Research wording is only for web_research."""
+    if tool_name == "web_research":
+        return _html_research_summary(user_text, tool_text)
+    snippet = html.escape((tool_text or "").strip().replace("\n", " ")[:280])
+    safe_user = html.escape((user_text or "that request").strip()[:80] or "that request")
+    if tool_name == "apply_document_content":
+        return f"<p>Inserted content into the document.</p><p>{snippet or '(empty)'}</p>"
+    if tool_name.startswith("delegate_to_specialized"):
+        return (
+            f"<p>Specialized agent finished <strong>{safe_user}</strong>.</p>"
+            f"<p>{snippet or '(empty)'}</p>"
+        )
+    if tool_name in {"search_in_document", "get_document_tree", "list_sheets", "list_pages"}:
+        return (
+            f"<p>Ran <code>{html.escape(tool_name)}</code>.</p>"
+            f"<p>{snippet or '(empty)'}</p>"
+        )
+    safe_tool = html.escape(tool_name or "tool")
+    return (
+        f"<p>Finished <code>{safe_tool}</code> for <strong>{safe_user}</strong>.</p>"
+        f"<p>{snippet or '(empty)'}</p>"
+    )
+
+
 def _html_flood(topic: str) -> str:
     safe = html.escape((topic or "flood").strip()[:80] or "flood")
     paras = "".join(f"<p>Flood paragraph {i} about {safe}. Padding for VisArea and caret-follow.</p>" for i in range(1, FLOOD_PARAS + 1))
@@ -476,50 +566,73 @@ def _tool_or_html(
 
 
 def _smol_research_completion(messages: list[Any], tool_names: set[str], config: MockLLMConfig, user_text: str) -> Completion:
-    called = _assistant_tool_names(messages)
+    called = _called_tool_names(messages)
+    query = _current_query(messages, user_text) or "mock research"
     if config.offline:
         return Completion(
             tool_name="final_answer",
-            tool_args={"answer": _plain_research_report(user_text)},
+            tool_args={"answer": _plain_research_report(query)},
             finish_reason="tool_calls",
         )
     if "visit_webpage" in called:
         return Completion(
             tool_name="final_answer",
-            tool_args={"answer": _plain_research_report(user_text)},
+            tool_args={"answer": _plain_research_report(query)},
             finish_reason="tool_calls",
         )
     if "web_search" in called:
         last_tool_text = ""
         for msg in reversed(messages):
-            if isinstance(msg, dict) and msg.get("role") == "tool":
-                last_tool_text = _as_text(msg.get("content"))
-                break
+            if not isinstance(msg, dict):
+                continue
+            blob = _as_text(msg.get("content"))
+            if msg.get("role") == "tool" or "Observation:" in blob or "<h2>Search Results</h2>" in blob:
+                last_tool_text = blob
+                if _first_url(last_tool_text) != "https://example.com/mock-research":
+                    break
         return Completion(
             tool_name="visit_webpage",
             tool_args={"url": _first_url(last_tool_text)},
             finish_reason="tool_calls",
         )
-    query = current_query_text(user_text)
     return Completion(
         tool_name="web_search",
-        tool_args={"query": query or "mock research", "recency": "any"},
+        tool_args={"query": query, "recency": "any"},
         finish_reason="tool_calls",
     )
 
 
+def _specialized_inner_args(name: str) -> dict[str, Any]:
+    if name == "get_document_tree":
+        return {"strategy": "heading_only", "depth": 1}
+    if name == "search_nearby_files":
+        return {"query": "outline"}
+    if name == "grep_nearby_files":
+        return {"pattern": "outline"}
+    return {}
+
+
 def _specialized_inner_completion(messages: list[Any], tool_names: set[str]) -> Completion:
-    called = _assistant_tool_names(messages)
+    called = _called_tool_names(messages)
     finish_name = "final_answer" if "final_answer" in tool_names else "specialized_workflow_finished"
-    if "get_document_tree" in called:
+    # One discovery step, then finish. Calling every advertised tool (especially
+    # delegate_read_document with path="") loops the inner agent (Packet E7 soak).
+    if any(name in called for name in _SPECIALIZED_INNER_PRE_FINISH):
         return Completion(
             tool_name=finish_name,
-            tool_args={"answer": "Mock outline complete. Headings were read via get_document_tree."},
+            tool_args={"answer": "Mock outline complete. Nested document_research tools finished."},
             finish_reason="tool_calls",
         )
+    for name in _SPECIALIZED_INNER_PRE_FINISH:
+        if name in tool_names:
+            return Completion(
+                tool_name=name,
+                tool_args=_specialized_inner_args(name),
+                finish_reason="tool_calls",
+            )
     return Completion(
-        tool_name="get_document_tree",
-        tool_args={"strategy": "heading_only", "depth": 1},
+        tool_name=finish_name,
+        tool_args={"answer": "Mock outline complete. Nested document_research tools finished."},
         finish_reason="tool_calls",
     )
 
@@ -662,7 +775,7 @@ def decide_completion(payload: dict[str, Any], config: MockLLMConfig, turns: _Tu
                 tool_text = _as_text(msg.get("content"))
                 break
         return Completion(
-            content=_html_research_summary(user_text, tool_text),
+            content=_html_tool_wrapup(user_text, last_called_tool, tool_text),
             reasoning=reasoning,
             finish_reason="stop",
         )
@@ -1011,14 +1124,20 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
             unused_status, hang = _effective_fail(config, completion)
             if unused_status is not None:
                 return
+            delay = response_delay_s(config, stream=stream)
             if not stream:
+                # Nested smol / specialized agents use stream=False. Without this
+                # sleep, Packet E7/E8 nested work finishes in a few milliseconds.
+                # --sync-delay-ms stretches only that path so Stop is clickable
+                # without slowing main-chat SSE (which would eat the nested window).
+                if delay:
+                    time.sleep(delay)
                 self._send_json(200, sync_response_body(completion, model))
                 return
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
-            delay = max(0, int(config.delay_ms)) / 1000.0
             comments = bool(config.sse_comments or completion.sse_comments)
             max_chunks = int(config.fail_after_chunks) if hang else None
             written = 0
@@ -1046,7 +1165,8 @@ def serve(host: str, port: int, config: MockLLMConfig) -> None:
     print(
         f"Mock LLM on http://{host}:{port}/v1 (model {MOCK_MODEL_ID}; "
         f"offline={config.offline} always_research={config.always_research} "
-        f"scenario={config.scenario} fail={config.fail} delay_ms={config.delay_ms})",
+        f"scenario={config.scenario} fail={config.fail} delay_ms={config.delay_ms} "
+        f"sync_delay_ms={config.sync_delay_ms})",
         flush=True,
     )
     httpd.serve_forever()
@@ -1056,7 +1176,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="WriterAgent mock OpenAI chat endpoint")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--delay-ms", type=int, default=25, help="Pause between SSE chunks")
+    parser.add_argument(
+        "--delay-ms",
+        type=int,
+        default=25,
+        help="Pause between SSE chunks (and before sync JSON unless --sync-delay-ms is set)",
+    )
+    parser.add_argument(
+        "--sync-delay-ms",
+        type=int,
+        default=None,
+        help="Pause before each non-streaming JSON response (nested smol/specialized). Default: --delay-ms",
+    )
     parser.add_argument(
         "--offline",
         action="store_true",
@@ -1094,6 +1225,7 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     config = MockLLMConfig(
         delay_ms=args.delay_ms,
+        sync_delay_ms=args.sync_delay_ms,
         offline=args.offline,
         always_research=args.always_research,
         scenario=args.scenario,
