@@ -167,3 +167,16 @@ def test_rpc_call_logic_in_generated_code():
     assert "write_pickle_frame(sys.stdout.buffer, request)" in code
     assert "max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES" in code
     assert "read_pickle_frame(" in code
+
+
+def test_indexes_domain_becomes_index():
+    tools = [
+        _as_tool(MockTool("indexes_create", "Create index.", {}, specialized_domain="indexes")),
+    ]
+    groups = group_tools(tools)
+    assert "index" in groups
+    assert "indexe" not in groups
+    code = generate_module(tools)
+    compile(code, "<generated>", "exec")
+    assert "class _IndexProxy:" in code
+    assert "index = _IndexProxy()" in code

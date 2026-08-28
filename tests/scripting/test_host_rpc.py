@@ -144,3 +144,21 @@ def test_apply_document_content_proxy_omits_optional_defaults():
     params = inspect.signature(api.writer.apply_document_content).parameters
     assert params["dry_run"].default is None
     assert params["target"].default is None
+
+
+def test_resolve_allowed_tools_indexes_and_exempt_domains():
+    allowed_indexes = resolve_allowed_tools("indexes")
+    assert allowed_indexes is not None
+    assert "indexes_create" in allowed_indexes
+    assert "list_open_documents" in allowed_indexes
+
+    allowed_images = resolve_allowed_tools("images")
+    assert allowed_images is not None
+    assert "image_insert" in allowed_images
+
+
+def test_handle_tool_call_frame_invalid_tool_name_type():
+    import pytest
+
+    with pytest.raises(RuntimeError, match="Invalid tool_call"):
+        handle_tool_call_frame({"type": "tool_call", "tool": 123}, stdin_write=MagicMock())

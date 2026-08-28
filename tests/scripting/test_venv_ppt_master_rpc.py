@@ -36,14 +36,19 @@ def test_dispatch_tool_call_writes_response():
 
     written: list[bytes] = []
 
-    with patch("plugin.ppt_master.venv.host_rpc.execute_tool_on_main_thread", return_value={"status": "ok"}) as mock_tool:
+    with patch("plugin.scripting.host_rpc.execute_tool", return_value={"status": "ok"}) as mock_tool:
         handled = dispatch_worker_response(
             {"type": "tool_call", "id": "abc", "tool": "validate_ppt_master_project", "args": {"project_path": "/tmp/p"}},
             stdin_write=written.append,
         )
 
     assert handled is True
-    mock_tool.assert_called_once_with("validate_ppt_master_project", {"project_path": "/tmp/p"})
+    mock_tool.assert_called_once_with(
+        "validate_ppt_master_project",
+        {"project_path": "/tmp/p"},
+        caller="ppt_master_venv",
+        allowed_tools=None,
+    )
     assert len(written) == 1
     resp = read_pickle_frame(io.BytesIO(written[0]), require_dict=True)
     assert resp is not None

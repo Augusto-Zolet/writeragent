@@ -143,7 +143,7 @@ DOMAIN_TOOLS = {   'bookmark': [   'bookmark_cleanup',
                   'image_list_nearby_files',
                   'image_replace',
                   'image_set_properties'],
-    'indexe': ['indexes_add_mark', 'indexes_create', 'indexes_list', 'indexes_update_all'],
+    'index': ['indexes_add_mark', 'indexes_create', 'indexes_list', 'indexes_update_all'],
     'mail_merge': [   'mail_merge_insert_field',
                       'mail_merge_list_fields',
                       'mail_merge_list_sources',
@@ -689,8 +689,8 @@ class _ImagesProxy:
 images = _ImagesProxy()
 
 
-class _IndexeProxy:
-    """Proxy for indexe tools."""
+class _IndexProxy:
+    """Proxy for index tools."""
 
     def add_mark(self, text: str, *, kind: str | None = None, primary_key: str | None = None, secondary_key: str | None = None, target: str | None = None, old_content: str | None = None) -> dict:
         """Add an index mark (e.g."""
@@ -708,7 +708,7 @@ class _IndexeProxy:
         """Refresh/update all document indexes (table of contents, bibliography, etc.)."""
         return _rpc_call("indexes_update_all")
 
-indexe = _IndexeProxy()
+index = _IndexProxy()
 
 
 class _MailMergeProxy:

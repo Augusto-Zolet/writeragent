@@ -207,7 +207,9 @@ def group_tools(tools: list["ToolBase"]) -> dict[str, list[tuple[str, "ToolBase"
             rest = name
 
         # Singularize namespace for nicer usage: footnote.insert instead of footnotes.insert
-        if namespace.endswith("s") and namespace not in ("images", "styles", "forms"):
+        if namespace == "indexes":
+            namespace = "index"
+        elif namespace.endswith("s") and namespace not in ("images", "styles", "forms"):
             # Very basic singularization
             namespace = namespace[:-1]
 
@@ -233,7 +235,6 @@ def generate_module(tools: list["ToolBase"]) -> str:
         'import sys',
         'import threading',
         'import uuid',
-        'from typing import Any',
         'from plugin.framework.constants import WORKFLOW_TASK_PREFIXES as _WORKFLOW_TASK_PREFIXES',
         'from plugin.scripting.ipc import DEFAULT_MAX_PAYLOAD_BYTES, read_pickle_frame, write_pickle_frame',
         '',

@@ -50,10 +50,13 @@ def resolve_allowed_tools(python_tool_domain: str | None) -> frozenset[str] | No
 
     names = DOMAIN_TOOLS.get(python_tool_domain)
     if names is None:
-        # generate_tool_proxies singularizes "footnotes" → "footnote".
-        singular = python_tool_domain
-        if python_tool_domain.endswith("s") and python_tool_domain not in ("images", "styles", "forms"):
+        # generate_tool_proxies singularizes "footnotes" → "footnote", "indexes" → "index".
+        if python_tool_domain == "indexes":
+            singular = "index"
+        elif python_tool_domain.endswith("s") and python_tool_domain not in ("images", "styles", "forms"):
             singular = python_tool_domain[:-1]
+        else:
+            singular = python_tool_domain
         names = DOMAIN_TOOLS.get(singular)
     return frozenset(names or ()) | _ALWAYS_ALLOWED
 

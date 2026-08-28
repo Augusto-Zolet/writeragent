@@ -93,19 +93,9 @@ def dispatch_worker_response(
         return True
 
     if frame_type == "tool_call":
-        tool_name = response.get("tool")
-        if not isinstance(tool_name, str):
-            raise RuntimeError(f"Invalid tool_call: {tool_name!r}")
-        args = response.get("args") or {}
-        call_id = response.get("id")
-        try:
-            res = execute_tool_on_main_thread(tool_name, args if isinstance(args, dict) else {})
-            tool_response = {"status": "ok", "id": call_id, "result": res}
-        except Exception as exc:
-            log.exception("ppt-master tool_call %s failed", tool_name)
-            tool_response = {"status": "error", "id": call_id, "message": str(exc)}
-        stdin_write(pack_pickle_frame(tool_response))
-        return True
+        from plugin.scripting.host_rpc import handle_tool_call_frame
+
+        return handle_tool_call_frame(response, stdin_write=stdin_write, caller="ppt_master_venv")
 
     if frame_type == "llm_request":
         call_id = response.get("id")
