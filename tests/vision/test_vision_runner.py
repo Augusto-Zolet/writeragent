@@ -186,6 +186,36 @@ def test_run_and_insert_vision_for_selection_loops_by_name(mock_pairs, mock_run,
 @patch("plugin.vision.vision_runner.merge_vision_params", side_effect=lambda _ctx, params: dict(params or {}))
 @patch("plugin.vision.vision_runner.run_trusted_vision")
 @patch("plugin.doc.visual_helpers.graphic_objects_in_selection")
+def test_run_and_insert_vision_for_selection_reverse_discovery_order(mock_pairs, mock_run, _mock_merge):
+    """When discovery returns reverse click order, the host loop follows that order."""
+    ctx = MagicMock()
+    doc = MagicMock()
+    mock_pairs.return_value = [("Img2", MagicMock()), ("Img1", MagicMock())]
+
+    def _run(_ctx, _doc, *, helper, params):
+        name = params["image_name"]
+        return {
+            "status": "ok",
+            "helper": helper,
+            "full_text": f"text-{name}",
+            "html": f"<p>{name}</p>",
+            "metrics": {"line_count": 1},
+            "warnings": [],
+        }
+
+    mock_run.side_effect = _run
+
+    with patch("plugin.vision.vision_egress.insert_vision_result") as insert:
+        run_and_insert_vision_for_selection(ctx, doc, helper="extract_text", params={"lang": "en"})
+
+    assert mock_run.call_args_list[0].kwargs["params"]["image_name"] == "Img2"
+    assert mock_run.call_args_list[1].kwargs["params"]["image_name"] == "Img1"
+    assert insert.call_count == 2
+
+
+@patch("plugin.vision.vision_runner.merge_vision_params", side_effect=lambda _ctx, params: dict(params or {}))
+@patch("plugin.vision.vision_runner.run_trusted_vision")
+@patch("plugin.doc.visual_helpers.graphic_objects_in_selection")
 def test_run_and_insert_vision_for_selection_image_name_short_circuits(mock_pairs, mock_run, _mock_merge):
     ctx = MagicMock()
     doc = MagicMock()

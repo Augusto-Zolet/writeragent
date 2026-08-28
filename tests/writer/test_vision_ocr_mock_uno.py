@@ -63,14 +63,15 @@ def _assert_graphics_named(doc: Any, names: list[str]) -> None:
         assert name in found, f"graphic {name!r} missing; have {found!r}"
 
 
-def _make_fake_run_vision(captured: list[tuple[str, str]]):
+def _make_fake_run_vision(captured: list[tuple[str, str]], *, run_id: int = 0):
     def fake_run_vision(_ctx: Any, spec: dict[str, Any], png_bytes: bytes, context: dict[str, Any] | None = None):
         params = spec.get("params") if isinstance(spec, dict) else {}
         image_name = str((params or {}).get("image_name") or "")
         if not image_name and context:
             image_name = str(context.get("image_name") or "")
         digest = hashlib.sha256(png_bytes).hexdigest()[:8]
-        token = f"OCR_{image_name}_{digest}"
+        prefix = f"R{run_id}_" if run_id else ""
+        token = f"OCR_{prefix}{image_name}_{digest}"
         captured.append((image_name, token))
         return {
             "status": "ok",
@@ -85,9 +86,43 @@ def _make_fake_run_vision(captured: list[tuple[str, str]]):
     return fake_run_vision
 
 
-def _run_mock_ocr(ctx: Any, doc: Any) -> tuple[dict[str, Any], list[tuple[str, str]]]:
+def _make_failing_run_vision_on_image(fail_image_name: str, captured: list[tuple[str, str]]):
+    ok = _make_fake_run_vision(captured)
+
+    def fake_run_vision(_ctx: Any, spec: dict[str, Any], png_bytes: bytes, context: dict[str, Any] | None = None):
+        params = spec.get("params") if isinstance(spec, dict) else {}
+        image_name = str((params or {}).get("image_name") or "")
+        if not image_name and context:
+            image_name = str(context.get("image_name") or "")
+        if image_name == fail_image_name:
+            captured.append((image_name, "FAILED"))
+            return {
+                "status": "error",
+                "code": "VISION_ERROR",
+                "helper": "extract_text",
+                "message": f"mock OCR failed for {image_name}",
+            }
+        return ok(_ctx, spec, png_bytes, context)
+
+    return fake_run_vision
+
+
+def _run_mock_ocr(ctx: Any, doc: Any, *, run_id: int = 0) -> tuple[dict[str, Any], list[tuple[str, str]]]:
     captured: list[tuple[str, str]] = []
-    with patch("plugin.vision.vision_runner.run_vision", side_effect=_make_fake_run_vision(captured)):
+    with patch(
+        "plugin.vision.vision_runner.run_vision",
+        side_effect=_make_fake_run_vision(captured, run_id=run_id),
+    ):
+        result = run_and_insert_vision_for_selection(ctx, doc, helper="extract_text", params={})
+    return result, captured
+
+
+def _run_mock_ocr_expect_fail(ctx: Any, doc: Any, *, fail_image_name: str) -> tuple[dict[str, Any], list[tuple[str, str]]]:
+    captured: list[tuple[str, str]] = []
+    with patch(
+        "plugin.vision.vision_runner.run_vision",
+        side_effect=_make_failing_run_vision_on_image(fail_image_name, captured),
+    ):
         result = run_and_insert_vision_for_selection(ctx, doc, helper="extract_text", params={})
     return result, captured
 
@@ -274,6 +309,108 @@ def test_mock_ocr_images_only(ctx, doc):
         token_a = _ocr_token_for_name(captured, fixture["names"][0])
         token_b = _ocr_token_for_name(captured, fixture["names"][1])
         _assert_strict_order(body, token_a, token_b)
+        _assert_graphics_named(doc, fixture["names"])
+    finally:
+        _cleanup_temp_paths(fixture["temp_paths"])
+
+
+@native_test
+@with_native_doc("writer")
+def test_mock_ocr_multi_select_reverse_click_order(ctx, doc):
+    """Discovery in reverse click order still inserts OCR in reading order (after each anchor)."""
+    fixture = _build_labeled_fixture(ctx, doc, image_count=2)
+    name1, name2 = fixture["names"]
+    g1, g2 = fixture["graphics"]
+    reversed_pairs = [(name2, g2), (name1, g1)]
+    try:
+        _select_whole_document(doc)
+        with patch("plugin.doc.visual_helpers.graphic_objects_in_selection", return_value=reversed_pairs):
+            result, captured = _run_mock_ocr(ctx, doc)
+        assert result["images_processed"] == 2
+        assert [name for name, _unused in captured] == [name2, name1]
+        body = doc.getText().getString()
+        token_a = _ocr_token_for_name(captured, name1)
+        token_b = _ocr_token_for_name(captured, name2)
+        _assert_strict_order(body, "T0", token_a, "T1", token_b, "T3")
+        _assert_graphics_named(doc, fixture["names"])
+    finally:
+        _cleanup_temp_paths(fixture["temp_paths"])
+
+
+@native_test
+@with_native_doc("writer")
+def test_mock_ocr_mid_loop_failure_leaves_partial_insert(ctx, doc):
+    """Image 2 OCR fails: image 1 inserted, 2–3 untouched, labels and graphics remain."""
+    fixture = _build_labeled_fixture(ctx, doc, image_count=3)
+    fail_name = fixture["names"][1]
+    try:
+        _select_whole_document(doc)
+        result, captured = _run_mock_ocr_expect_fail(ctx, doc, fail_image_name=fail_name)
+        assert result["status"] == "error"
+        assert result.get("code") == "VISION_ERROR" or "mock OCR failed" in str(result.get("message") or "")
+        body = doc.getText().getString()
+        token_a = _ocr_token_for_name(captured, fixture["names"][0])
+        assert token_a in body
+        assert body.count(token_a) == 1
+        for label in ("T0", "T1", "T2", "T3"):
+            assert label in body, f"label {label!r} missing after partial OCR failure"
+        for image_name, token in captured:
+            if image_name == fail_name:
+                assert token == "FAILED"
+            else:
+                assert token.startswith("OCR_")
+        excluded = [token for image_name, token in captured if image_name == fixture["names"][2]]
+        assert not excluded, f"unexpected OCR for image 3 after failure on image 2: {excluded!r}"
+        for name in fixture["names"][1:]:
+            stray = [token for image_name, token in captured if image_name == name and token != "FAILED"]
+            assert not stray, f"unexpected successful OCR token for {name!r}: {stray!r}"
+        _assert_strict_order(body, "T0", token_a, "T1", "T2", "T3")
+        _assert_graphics_named(doc, fixture["names"])
+    finally:
+        _cleanup_temp_paths(fixture["temp_paths"])
+
+
+@native_test
+@with_native_doc("writer")
+def test_mock_ocr_rerun_stacks_below_each_image(ctx, doc):
+    """Second OCR pass inserts another block below each graphic without losing anchors."""
+    fixture = _build_labeled_fixture(ctx, doc, image_count=3)
+    try:
+        _select_whole_document(doc)
+        result1, captured1 = _run_mock_ocr(ctx, doc, run_id=1)
+        assert result1["images_processed"] == 3
+        _select_whole_document(doc)
+        result2, captured2 = _run_mock_ocr(ctx, doc, run_id=2)
+        assert result2["images_processed"] == 3
+        body = doc.getText().getString()
+        tokens = [
+            (
+                _ocr_token_for_name(captured1, name),
+                _ocr_token_for_name(captured2, name),
+            )
+            for name in fixture["names"]
+        ]
+        for first, second in tokens:
+            assert first != second, f"expected distinct tokens per run, got {first!r} and {second!r}"
+            assert body.count(first) == 1
+            assert body.count(second) == 1
+            # Re-run inserts immediately after the image, pushing prior OCR down.
+            assert body.find(second) < body.find(first), (
+                f"expected newest OCR below image before prior OCR for {first!r}/{second!r}"
+            )
+        _assert_strict_order(
+            body,
+            "T0",
+            tokens[0][1],
+            tokens[0][0],
+            "T1",
+            tokens[1][1],
+            tokens[1][0],
+            "T2",
+            tokens[2][1],
+            tokens[2][0],
+            "T3",
+        )
         _assert_graphics_named(doc, fixture["names"])
     finally:
         _cleanup_temp_paths(fixture["temp_paths"])
