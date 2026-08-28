@@ -859,6 +859,7 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
 
                     # Scope is cleared in finally; workers use resolve_stop_checker().
                     with agent_session() as cancel_scope:
+                        cancel_scope.bind_executor(self.queue_executor)
                         self._send_cancellation = cancel_scope
                         try:
                             self._do_send()

@@ -9,7 +9,7 @@ import pytest
 from plugin.chatbot.smol_agent import WriterAgentSmolModel
 from plugin.doc.document_research_specialized import DelegateReadDocument
 from plugin.framework.client.llm_client import LlmClient
-from plugin.framework.queue_executor import SendCancellation, agent_session, default_executor
+from plugin.framework.queue_executor import SendCancellation, QueueExecutor, SendCancelled, agent_session, default_executor, is_agent_active
 
 
 def test_send_cancellation_stops_registered_clients():
@@ -106,6 +106,80 @@ def test_agent_session_yields_send_cancellation():
     with agent_session() as scope:
         assert isinstance(scope, SendCancellation)
         assert not scope.is_cancelled()
+
+
+def test_agent_session_aborts_cancel_registered_clients():
+    client = MagicMock()
+    with pytest.raises(RuntimeError):
+        with agent_session() as scope:
+            scope.register_client(client)
+            raise RuntimeError("crash during send")
+    client.stop.assert_called_once()
+    assert is_agent_active() is False
+
+
+def test_agent_session_success_does_not_cancel():
+    from plugin.framework.queue_executor import _WorkItem
+
+    client = MagicMock()
+    item = _WorkItem("pending", lambda: None, (), {}, blocking=True)
+    default_executor._work_queue.put(item)
+
+    with agent_session() as scope:
+        scope.register_client(client)
+
+    client.stop.assert_not_called()
+    assert not scope.is_cancelled()
+    assert not item.cancelled
+    assert is_agent_active() is False
+
+
+def test_agent_session_stop_then_success_does_not_double_cancel():
+    client = MagicMock()
+    with agent_session() as scope:
+        scope.register_client(client)
+        scope.cancel()
+    client.stop.assert_called_once()
+
+
+def test_agent_session_abort_cancels_pending_main_thread_work():
+    from plugin.framework.queue_executor import _WorkItem
+
+    item = _WorkItem("id", lambda: None, (), {}, blocking=True)
+    default_executor._work_queue.put(item)
+
+    with pytest.raises(RuntimeError):
+        with agent_session():
+            raise RuntimeError("crash")
+
+    assert item.cancelled
+    assert item.event is not None
+    assert item.event.wait(timeout=1.0)
+    assert item.exception is not None
+
+
+def test_cancel_clears_bound_executor_not_unrelated():
+    from plugin.framework.queue_executor import _WorkItem
+
+    bound = QueueExecutor()
+    other = QueueExecutor()
+
+    bound_item = _WorkItem("bound", lambda: None, (), {}, blocking=True)
+    other_item = _WorkItem("other", lambda: None, (), {}, blocking=True)
+    bound._work_queue.put(bound_item)
+    other._work_queue.put(other_item)
+
+    scope = SendCancellation()
+    scope.bind_executor(bound)
+    scope.cancel()
+
+    assert bound_item.cancelled
+    assert bound_item.event is not None
+    assert bound_item.event.wait(timeout=1.0)
+    assert isinstance(bound_item.exception, SendCancelled)
+
+    assert not other_item.cancelled
+    assert other._work_queue.qsize() == 1
 
 
 def test_smol_executor_aborts_before_next_step_when_cancelled():

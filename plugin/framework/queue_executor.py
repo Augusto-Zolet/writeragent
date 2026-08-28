@@ -89,15 +89,22 @@ class SendCancelled(Exception):
 class SendCancellation:
     """Per-send cancellation: flag, registered HTTP clients, and optional hooks."""
 
-    __slots__ = ("_cancelled", "_lock", "_hooks")
+    __slots__ = ("_cancelled", "_lock", "_hooks", "_executors")
 
     def __init__(self) -> None:
         self._cancelled = threading.Event()
         self._lock = threading.Lock()
         self._hooks: list[Callable[[], None]] = []
+        self._executors: list[QueueExecutor] = []
 
     def is_cancelled(self) -> bool:
         return self._cancelled.is_set()
+
+    def bind_executor(self, executor: "QueueExecutor") -> None:
+        """Track a :class:`QueueExecutor` whose pending work Stop must cancel."""
+        with self._lock:
+            if executor not in self._executors:
+                self._executors.append(executor)
 
     def register_client(self, client: Any) -> None:
         # Resolve .stop() at registration time so cancel() only needs one list of
@@ -119,12 +126,16 @@ class SendCancellation:
         # cancellation don't produce a torn iteration.
         with self._lock:
             hooks = list(self._hooks)
+            executors = list(self._executors)
         for hook in hooks:
             try:
                 hook()
             except Exception:
                 log.exception("SendCancellation: error in cancel hook")
-        default_executor.cancel_pending_work()
+        if not executors:
+            executors = [default_executor]
+        for executor in executors:
+            executor.cancel_pending_work()
 
 
 def get_current_send_cancellation() -> SendCancellation | None:
@@ -149,12 +160,20 @@ def agent_session() -> Generator[SendCancellation, None, None]:
     """Mark a chat/agent session as active and expose a :class:`SendCancellation` scope."""
     global _AGENT_ACTIVE_COUNT
     scope = SendCancellation()
+    scope.bind_executor(default_executor)
     token = _current_send_cancellation.set(scope)
     with _AGENT_ACTIVE_LOCK:
         _AGENT_ACTIVE_COUNT += 1
+    abort = True
     try:
         yield scope
+        abort = False
     finally:
+        # Cancel on abort (exception / GeneratorExit), not on success. Stop and
+        # disposing() call cancel() while still inside the with-body; do not
+        # cancel again when _do_send returns normally after Stop.
+        if abort and not scope.is_cancelled():
+            scope.cancel()
         _current_send_cancellation.reset(token)
         with _AGENT_ACTIVE_LOCK:
             _AGENT_ACTIVE_COUNT = max(0, _AGENT_ACTIVE_COUNT - 1)
@@ -422,6 +441,9 @@ class QueueExecutor:
 
     def _enqueue_work(self, fn, args, kwargs, blocking=True):
         """Add work item to queue."""
+        scope = get_current_send_cancellation()
+        if scope is not None:
+            scope.bind_executor(self)
         item_id = str(uuid.uuid4())
         item = _WorkItem(item_id, fn, args, kwargs, blocking)
         self._work_queue.put(item)

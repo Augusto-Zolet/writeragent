@@ -318,7 +318,13 @@ Each sidebar **Send** runs under a **`SendCancellation`** scope ([`plugin/framew
 
 - Sets a **thread-safe** cancelled flag (`scope.is_cancelled()`).
 - Calls `stop()` on every **`LlmClient`** registered for that send (closes the persistent HTTP socket so blocking reads fail fast).
-- Cancels pending main-thread queue work ([`QueueExecutor.cancel_pending_work`](../../plugin/framework/queue_executor.py)) and runs registered agent-backend `stop()` hooks.
+- Cancels pending main-thread queue work on every **bound** [`QueueExecutor`](../../plugin/framework/queue_executor.py) (`bind_executor` / `agent_session` binds `default_executor`; the sidebar also binds its panel `queue_executor`). Bare scopes with no binds still fall back to `default_executor`. Runs registered agent-backend `stop()` hooks.
+
+#### When `agent_session` cancels (abort vs success)
+
+- **Stop / dispose:** `StopSendEffect` or `disposing()` call `scope.cancel()` while `_do_send` is still inside `agent_session`. The drain exits; `_do_send` returns normally. **`agent_session` must not cancel again** on success (would close finished HTTP and `cancel_pending_work()` unrelated grammar/MCP items).
+- **Crash / abort:** An exception propagates out of the `with agent_session()` body. `agent_session` calls `scope.cancel()` once if not already cancelled (closes HTTP, wakes blocked `execute_on_main_thread` waiters).
+- **Success:** Normal return (including handled errors that only set `_terminal_status` without raising). **No cancel.**
 
 #### Why the first implementation looked fixed but was not
 
@@ -354,7 +360,7 @@ Two separate bugs caused that:
 | Long-running smol sub-agent | Use [`SmolAgentExecutor`](../../plugin/chatbot/smol_agent.py); do not hand-roll `agent.run` without the same stop/interrupt behavior. |
 | UNO + HTTP (document research) | Open/close document on main thread only; run inner smol agent on the **async worker**—never wrap the whole agent in `execute_on_main_thread`. |
 
-Tests: [`tests/framework/test_send_cancellation.py`](../../tests/framework/test_send_cancellation.py) (stable checker after scope cleared, executor abort before next step).
+Tests: [`tests/framework/test_send_cancellation.py`](../../tests/framework/test_send_cancellation.py) (stable checker after scope cleared, executor abort before next step, abort vs success, bound executors).
 
 #### Related threading rule
 
