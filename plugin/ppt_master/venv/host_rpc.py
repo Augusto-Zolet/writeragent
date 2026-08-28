@@ -69,36 +69,9 @@ def handle_llm_request(payload: dict[str, Any]) -> dict[str, Any]:
 
 def execute_tool_on_main_thread(tool_name: str, args: dict[str, Any]) -> Any:
     """Dispatch a registered WriterAgent tool on the LO main thread (UNO-safe)."""
-    from plugin.doc.doc_type import is_calc, is_draw, is_writer
-    from plugin.framework.queue_executor import execute_on_main_thread
-    from plugin.framework.tool import ToolContext
-    from plugin.framework.uno_context import get_active_document, get_ctx
-    from plugin.main import get_tools
+    from plugin.scripting.host_rpc import execute_tool
 
-    def _run() -> Any:
-        uno_ctx = get_ctx()
-        doc = get_active_document(uno_ctx)
-        if not doc:
-            raise RuntimeError("No active document found to run tool")
-        if is_calc(doc):
-            doc_type = "calc"
-        elif is_writer(doc):
-            doc_type = "writer"
-        elif is_draw(doc):
-            doc_type = "draw"
-        else:
-            doc_type = ""
-        registry = get_tools()
-        tctx = ToolContext(
-            doc=doc,
-            ctx=uno_ctx,
-            doc_type=doc_type,
-            services=registry._services,
-            caller="ppt_master_venv",
-        )
-        return registry.execute(tool_name, tctx, **args)
-
-    return execute_on_main_thread(_run)
+    return execute_tool(tool_name, args, caller="ppt_master_venv")
 
 
 def dispatch_worker_response(

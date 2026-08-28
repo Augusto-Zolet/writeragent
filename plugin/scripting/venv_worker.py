@@ -115,6 +115,35 @@ def _maybe_dispatch_ppt_master_response(
     )
 
 
+def _maybe_dispatch_intermediate_response(
+    response: dict[str, Any],
+    *,
+    stdin_write: Callable[[bytes], None],
+    allowed_tools: frozenset[str] | None = None,
+    caller: str = "script",
+    on_worker_event: Callable[[dict[str, Any]], None] | None = None,
+    stop_checker: Callable[[], bool] | None = None,
+) -> bool:
+    """Handle tool_call (any build) then ppt-master llm_request / worker_event frames."""
+    from plugin.scripting.host_rpc import handle_tool_call_frame
+
+    # Tool RPC is the shared venv→LO path (Run Python Script, chat python, ppt-master).
+    # Handle it here so LibrePy / WriterAgent-without-ppt_master still round-trip.
+    if handle_tool_call_frame(
+        response,
+        stdin_write=stdin_write,
+        allowed_tools=allowed_tools,
+        caller=caller,
+    ):
+        return True
+    return _maybe_dispatch_ppt_master_response(
+        response,
+        stdin_write=stdin_write,
+        on_worker_event=on_worker_event,
+        stop_checker=stop_checker,
+    )
+
+
 _HARNESS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "venv", "worker_harness.py")
 _instances: dict[str, PythonWorkerManager] = {}
 _registry_lock = threading.Lock()
@@ -273,6 +302,8 @@ class PythonWorkerManager:
         on_heartbeat: Callable[[dict[str, Any]], None] | None = None,
         on_worker_event: Callable[[dict[str, Any]], None] | None = None,
         stop_checker: Callable[[], bool] | None = None,
+        python_tool_domain: str | None = None,
+        caller: str = "script",
     ) -> dict[str, Any]:
         request = self._build_request(
             code,
@@ -299,6 +330,9 @@ class PythonWorkerManager:
                 # signal/thread timeout fires first and returns a clean error frame without
                 # terminating the warm subprocess (preserving shared workbook sessions).
                 host_read_timeout_sec = float(timeout_sec) + float(HOST_IPC_READ_GRACE_SEC)
+                from plugin.scripting.host_rpc import resolve_allowed_tools
+
+                allowed_tools = resolve_allowed_tools(python_tool_domain)
 
                 try:
                     while True:
@@ -327,18 +361,20 @@ class PythonWorkerManager:
                                         stdin,
                                         blob,
                                         timeout_sec=write_timeout_sec,
-                                        label="PPT-Master host response",
+                                        label="host RPC response",
                                     )
                                 except subprocess.TimeoutExpired as exc:
                                     # The worker requested host work before this write. Retrying the
                                     # whole turn could duplicate UNO mutations already performed.
                                     raise _NonReplayableIpcWriteTimeout(
-                                        f"PPT-Master host response timed out after {write_timeout_sec:g} seconds"
+                                        f"host RPC response timed out after {write_timeout_sec:g} seconds"
                                     ) from exc
 
-                            if _maybe_dispatch_ppt_master_response(
+                            if _maybe_dispatch_intermediate_response(
                                 response,
                                 stdin_write=_stdin_write,
+                                allowed_tools=allowed_tools,
+                                caller=caller,
                                 on_worker_event=on_worker_event,
                                 stop_checker=stop_checker,
                             ):
@@ -395,6 +431,7 @@ class PythonWorkerManager:
         allow_heartbeat: bool = False,
         heartbeat_grace_sec: int | None = None,
         on_heartbeat: Callable[[dict[str, Any]], None] | None = None,
+        python_tool_domain: str | None = None,
     ) -> dict[str, Any]:
         """Run *code* in the warm worker, or handle *action* (e.g. reset_session).
 
@@ -424,6 +461,7 @@ class PythonWorkerManager:
                 allow_heartbeat=allow_heartbeat,
                 heartbeat_grace_sec=heartbeat_grace_sec,
                 on_heartbeat=on_heartbeat,
+                python_tool_domain=python_tool_domain,
             )
 
     def execute_ppt_master_turn(
@@ -453,6 +491,7 @@ class PythonWorkerManager:
                 action="ppt_master_turn",
                 on_worker_event=on_worker_event,
                 stop_checker=stop_checker,
+                caller="ppt_master_venv",
             )
         if raw.get("status") == "error":
             return raw
@@ -844,9 +883,11 @@ def run_code_in_user_venv(
 
     *worker_pool* selects which warm child to use (e.g. embeddings vs Calc/chat default).
 
-    *active_domain* / *python_tool_domain* are reserved for future venv→LO tool RPC (not wired yet).
+    *active_domain* is unused (chat specialized domain). *python_tool_domain*
+    scopes venv→LO tool RPC: ``None`` = all tools, ``""`` = disabled (``=PY()``),
+    a domain name = that domain's proxies. See ``plugin.scripting.host_rpc``.
     """
-    del active_domain, python_tool_domain  # deferred — see docs/enabling_numpy_in_libreoffice.md §7
+    del active_domain  # chat specialized domain is not the tool-RPC allowlist
     if not action and not (code or "").strip():
         return _worker_error("WORKER_IPC_ERROR", "No code provided.")
 
@@ -871,6 +912,7 @@ def run_code_in_user_venv(
         heartbeat_grace_sec=heartbeat_grace_sec,
         on_heartbeat=on_heartbeat,
         action=action,
+        python_tool_domain=python_tool_domain,
     )
 
 

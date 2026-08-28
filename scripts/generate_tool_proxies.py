@@ -145,8 +145,14 @@ def schema_to_signature(tool: "ToolBase") -> tuple[list[str], list[str]]:
         if schema_key in required:
             positional.append(f"{py_name}: {py_type}")
         else:
-            default = _param_default(schema)
-            keyword.append(f"{py_name}: {py_type} = {default}")
+            if "default" in schema:
+                default = _param_default(schema)
+                keyword.append(f"{py_name}: {py_type} = {default}")
+            else:
+                # Omit from the wire (see _rpc_call dropping None) so the tool's
+                # own default applies. A boolean default of True was making
+                # apply_document_content(..., dry_run=True) a silent no-op.
+                keyword.append(f"{py_name}: {py_type} | None = None")
     return positional, keyword
 
 
@@ -223,12 +229,11 @@ def generate_module(tools: list["ToolBase"]) -> str:
         'per-tool classes are the public script API (IDE jump and types). Change this',
         'generator if the file is too large; do not slim the generated module by hand.',
         '"""',
-        'import json',
         'import os',
         'import sys',
         'import threading',
         'import uuid',
-        'from typing import Any, Dict, List, Optional, Union',
+        'from typing import Any',
         'from plugin.framework.constants import WORKFLOW_TASK_PREFIXES as _WORKFLOW_TASK_PREFIXES',
         'from plugin.scripting.ipc import DEFAULT_MAX_PAYLOAD_BYTES, read_pickle_frame, write_pickle_frame',
         '',
@@ -245,36 +250,12 @@ def generate_module(tools: list["ToolBase"]) -> str:
         '',
         'def _rpc_call(tool_name: str, **kwargs) -> dict:',
         '    """Send a tool call to the LibreOffice host and block for the result."""',
+        '    kwargs = {k: v for k, v in kwargs.items() if v is not None}',
         '    if not IS_WORKER:',
         '        try:',
-        '            from plugin.framework.uno_context import get_ctx, get_active_document',
-        '            from plugin.doc.doc_type import is_calc, is_writer, is_draw',
-        '            from plugin.main import get_tools',
-        '            from plugin.framework.tool import ToolContext',
+        '            from plugin.scripting.host_rpc import execute_tool',
         '',
-        '            uno_ctx = get_ctx()',
-        '            doc = get_active_document(uno_ctx)',
-        '            if not doc:',
-        '                raise RuntimeError("No active document found to run tool")',
-        '',
-        '            if is_calc(doc):',
-        '                doc_type = "calc"',
-        '            elif is_writer(doc):',
-        '                doc_type = "writer"',
-        '            elif is_draw(doc):',
-        '                doc_type = "draw"',
-        '            else:',
-        '                doc_type = ""',
-        '',
-        '            registry = get_tools()',
-        '            tctx = ToolContext(',
-        '                doc=doc,',
-        '                ctx=uno_ctx,',
-        '                doc_type=doc_type,',
-        '                services=registry._services,',
-        '                caller="script"',
-        '            )',
-        '            return registry.execute(tool_name, tctx, **kwargs)',
+        '            return execute_tool(tool_name, kwargs, caller="script")',
         '        except Exception as e:',
         '            raise RuntimeError(f"Failed to execute tool in-process: {e}")',
         '',
@@ -351,7 +332,7 @@ def generate_module(tools: list["ToolBase"]) -> str:
                     rpc_pairs.append((extra, extra))
                     if "*" not in all_params_list:
                         all_params_list.append("*")
-                    all_params_list.append(f'{extra}: str = ""')
+                    all_params_list.append(f'{extra}: str | None = None')
                     all_params = ", ".join(all_params_list)
             if rpc_pairs:
                 kwargs_body = ", " + ", ".join(f"{schema_key}={py_name}" for schema_key, py_name in rpc_pairs)

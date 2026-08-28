@@ -451,7 +451,7 @@ def test_ppt_master_write_timeout_does_not_replay(monkeypatch):
     result = mgr._execute_ipc_unlocked("result = 1", timeout_sec=1)
 
     assert result["status"] == "error"
-    assert "PPT-Master host response timed out" in result["message"]
+    assert "host RPC response timed out" in result["message"]
     assert len(dispatch_calls) == 1
     assert mgr._write_frame_with_timeout.call_count == 1
     assert mgr._read_response_bytes.call_count == 1
@@ -596,6 +596,7 @@ def test_run_venv_code_timeout_capped(mock_execute, mock_lo_python, mock_cfg, mo
         heartbeat_grace_sec=None,
         on_heartbeat=None,
         action=None,
+        python_tool_domain=None,
     )
 
     mock_execute.reset_mock()
@@ -615,6 +616,7 @@ def test_run_venv_code_timeout_capped(mock_execute, mock_lo_python, mock_cfg, mo
         heartbeat_grace_sec=None,
         on_heartbeat=None,
         action=None,
+        python_tool_domain=None,
     )
 
     mock_execute.reset_mock()
@@ -634,6 +636,7 @@ def test_run_venv_code_timeout_capped(mock_execute, mock_lo_python, mock_cfg, mo
         heartbeat_grace_sec=None,
         on_heartbeat=None,
         action=None,
+        python_tool_domain=None,
     )
 
     mock_execute.reset_mock()
@@ -653,6 +656,7 @@ def test_run_venv_code_timeout_capped(mock_execute, mock_lo_python, mock_cfg, mo
         heartbeat_grace_sec=None,
         on_heartbeat=None,
         action=None,
+        python_tool_domain=None,
     )
 
 
@@ -1138,4 +1142,40 @@ def test_worker_read_rejects_oversize_length_prefix():
     too_big = struct.pack("!I", DEFAULT_MAX_PAYLOAD_BYTES + 1)
     with pytest.raises(IpcFrameError, match="venv worker frame"):
         mgr._read_frame_bytes(io.BytesIO(too_big), read_exact=lambda n: too_big[:n])
+
+
+def test_maybe_dispatch_tool_call_without_ppt_master(monkeypatch):
+    """tool_call must round-trip even when ppt-master is not bundled."""
+    import builtins
+
+    from plugin.scripting.venv_worker import _maybe_dispatch_intermediate_response
+
+    real_import = builtins.__import__
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "plugin.ppt_master.venv.host_rpc" or (
+            name == "plugin.ppt_master" and fromlist and "venv" in fromlist
+        ):
+            raise ImportError(f"No module named {name!r}")
+        return real_import(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    written: list[bytes] = []
+    with patch("plugin.scripting.host_rpc.execute_tool", return_value={"ok": True}) as mock_tool:
+        handled = _maybe_dispatch_intermediate_response(
+            {"type": "tool_call", "id": "t1", "tool": "apply_document_content", "args": {"content": ["x"]}},
+            stdin_write=written.append,
+        )
+    assert handled is True
+    mock_tool.assert_called_once_with(
+        "apply_document_content",
+        {"content": ["x"]},
+        caller="script",
+        allowed_tools=None,
+    )
+    assert len(written) == 1
+    resp = read_pickle_frame(io.BytesIO(written[0]), require_dict=True)
+    assert resp is not None
+    assert resp["status"] == "ok"
+    assert resp["id"] == "t1"
 

@@ -256,7 +256,7 @@ _DEFAULT_PYTHON_SCRIPTS = {
         "        )\n"
         "    elif doc_type == \"calc\":\n"
         "        wa.calc.insert_cell_html(\n"
-        "            cell_address=\"A1\",\n"
+        "            cell=\"A1\",\n"
         "            html=\"<h1>Hello from Python SDK</h1><p>Here is some <b>rich HTML content</b>.</p>\"\n"
         "        )\n"
         "    else:\n"

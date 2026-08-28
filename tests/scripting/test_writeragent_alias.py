@@ -87,7 +87,6 @@ def test_writeragent_api_in_process_rpc():
         with patch("writeragent.IS_WORKER", False):
             res = writeragent.sheet.list_sheets()
             assert res == "mocked_sheets_list"
-            # In-process: registry.execute is called with tool_name, tctx
             mock_registry.execute.assert_called_once()
             call_args = mock_registry.execute.call_args[0]
             assert call_args[0] == "list_sheets"

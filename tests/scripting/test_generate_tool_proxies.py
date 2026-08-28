@@ -43,7 +43,26 @@ def test_schema_to_signature_positional_and_keyword():
     )
     pos, kw = schema_to_signature(_as_tool(tool))
     assert pos == ["req: str"]
-    assert kw == ["opt: int = 10", "opt2: bool = True"]
+    assert kw == ["opt: int = 10", "opt2: bool | None = None"]
+
+
+def test_schema_to_signature_optional_bool_without_default_is_none():
+    """apply_document_content dry_run has no schema default; True would be a silent no-op."""
+    tool = MockTool(
+        "apply_document_content",
+        "Insert or replace content.",
+        {
+            "type": "object",
+            "properties": {
+                "content": {"type": "array"},
+                "dry_run": {"type": "boolean"},
+            },
+            "required": ["content"],
+        },
+    )
+    pos, kw = schema_to_signature(_as_tool(tool))
+    assert pos == ["content: list"]
+    assert kw == ["dry_run: bool | None = None"]
 
 def test_schema_to_signature_empty_schema():
     tool = MockTool("test_tool", "desc", {})
@@ -143,7 +162,8 @@ def test_range_schema_becomes_range_name_python_param():
 def test_rpc_call_logic_in_generated_code():
     tools = [_as_tool(MockTool("t", "d", {}))]
     code = generate_module(tools)
-    assert "_rpc_call" in code
+    assert "kwargs = {k: v for k, v in kwargs.items() if v is not None}" in code
+    assert "from plugin.scripting.host_rpc import execute_tool" in code
     assert "write_pickle_frame(sys.stdout.buffer, request)" in code
     assert "max_payload_bytes=DEFAULT_MAX_PAYLOAD_BYTES" in code
     assert "read_pickle_frame(" in code

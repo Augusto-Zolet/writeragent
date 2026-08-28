@@ -48,6 +48,7 @@ def test_execute_python_addin_single_range_unchanged():
             assert is_calc_range_payload(wire)
             assert wire["shape"] == [3, 1]
             assert wire["data"] == [[1.0], [2.0], [3.0]]
+            assert mock_run.call_args.kwargs.get("python_tool_domain") == ""
     finally:
         _clear_sessions()
 

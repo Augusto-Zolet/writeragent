@@ -1256,6 +1256,8 @@ def _execute_python_addin_impl(
                 code,
                 data=worker_data,
                 session_id=session_id,
+                # Formula recalc must not mutate the document via writeragent tools.
+                python_tool_domain="",
                 **init_kwargs,
             )
 

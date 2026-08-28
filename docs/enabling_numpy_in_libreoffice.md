@@ -70,7 +70,7 @@ All design choices below follow from that constraint.
 
 1. **Persistent worker:** `[PythonWorkerManager](plugin/scripting/venv_worker.py)` spawns the venv’s `python` once per executable path and keeps it alive.
 2. **Namespace per request (configurable):** `[worker_harness.py](plugin/scripting/venv/worker_harness.py)` → `[venv_sandbox.py](plugin/scripting/venv/venv_sandbox.py)` uses a `[LocalPythonExecutor](plugin/contrib/smolagents/local_python_executor.py)`. Default **Isolated** mode gives each `=PY()` cell a fresh namespace (init script still seeds once). **Shared kernel** mode (`[session_manager.py](plugin/scripting/session_manager.py)`) keeps one workbook namespace across cells — see [§6 Session modes](#session-modes-and-recalc-semantics).
-3. **Length-prefixed Pickle5 IPC:** `[PythonWorkerManager](plugin/scripting/venv_worker.py)` ↔ `[worker_harness.py](plugin/scripting/venv/worker_harness.py)` exchange framed request/response dicts; `data` / `result` use `[split_grid](scripting/numpy-serialization.md#strategy-3-split-grid-serialization-detail)` when dense. Protocol detail: [Venv subprocess IPC](scripting/numpy-serialization.md#worker-protocol). Bidirectional **tool RPC** is **not** wired yet ([§7](#7-deferred-roadmap)).
+3. **Length-prefixed Pickle5 IPC:** `[PythonWorkerManager](plugin/scripting/venv_worker.py)` ↔ `[worker_harness.py](plugin/scripting/venv/worker_harness.py)` exchange framed request/response dicts; `data` / `result` use `[split_grid](scripting/numpy-serialization.md#strategy-3-split-grid-serialization-detail)` when dense. Protocol detail: [Venv subprocess IPC](scripting/numpy-serialization.md#worker-protocol). Bidirectional **tool RPC** (`import writeragent as wa` → `wa.writer.apply_document_content(...)`) is wired on the same pipe for **Run Python Script** / chat; it is **disabled** during `=PY()` recalc ([§7](#venv--libreoffice-tool-rpc)).
 
 **Pros:** Sidesteps ABI issues; any Python version in the venv; avoids spawn overhead on every call; optional shared-kernel mode for multi-cell pipelines.  
 **Cons:** User must create and maintain a venv; in **Isolated** mode, re-pass data via `data` / `data_range` or cell references unless Shared kernel is enabled.
@@ -138,7 +138,7 @@ For Monaco (recommended editor UI), also install `pywebview` (on Linux: `PyQt6 P
 | Shared warm worker                            | All of the above          | One subprocess per venv path (`[venv_worker.py](plugin/scripting/venv_worker.py)`)                      |
 
 
-There is **no UNO API inside the child process** today — scripts compute and return values; document updates happen via the UI, formula spill, or (on the chat path) normal document tools.
+Scripts compute and return values. **Run Python Script…** (and chat `run_venv_python_script`) can also call WriterAgent tools from the venv via `import writeragent as wa` (same Pickle5 pipe; host runs UNO). `=PY()` recalc does **not** — formula evaluation stays side-effect free.
 
 *(Developer note: an older in-process* `execute_python_script` *path uses LibreOffice’s embedded Python and is **not** used by* `=PY()`*.)*
 
@@ -174,10 +174,10 @@ Prefer `result = …` for the value that should appear in the sheet or script UI
 
 You can also ask the sidebar chat to run the same venv Python. The model uses the specialized tool `run_venv_python_script` (domain `python`) — same warm worker as the menus and `=PY()`. Chat runs are always **isolated** (they do not share the Calc workbook kernel).
 
-The assistant does **not** write into the document from inside the venv subprocess:
+The chat model still typically uses a two-phase workflow (compute in venv, then host tools). User scripts can also call tools **from the venv** via `import writeragent as wa` ([§7 tool RPC](#venv--libreoffice-tool-rpc)).
 
 1. **Compute:** Call `run_venv_python_script` with numpy/pandas code; read serialized `result`.
-2. **Insert:** Call existing Calc/Writer tools (`write_formula_range`, `set_style`, `create_chart`, etc.).
+2. **Insert:** Call existing Calc/Writer tools (`write_formula_range`, `set_style`, `create_chart`, etc.), or have the script call `wa.writer.apply_document_content(...)` itself.
 
 
 | Context                             | `data` / `data_range`? | Injected in subprocess?                |
@@ -800,9 +800,22 @@ Apps Script’s sheet object model remains a useful **API design reference** for
 
 ### Venv ↔ LibreOffice tool RPC
 
-> **Status: Not implemented.** [`writeragent_api.py`](../plugin/scripting/writeragent_api.py) is generated from tool metadata (`scripts/generate_tool_proxies.py`), but the warm worker does **not** handle `tool_call` lines yet. There is no shipping dual-mode `import writeragent as wa` SDK for venv scripts today — assign `result`; on the optional chat path the model calls Calc/Writer tools after compute ([§3](#using-the-chat-assistant-optional)).
+> **Status: Shipped** for **Run Python Script…** and chat `run_venv_python_script`. **Disabled** during Calc `=PY()` recalc (`python_tool_domain=""`). LibrePy omits the generated proxy (`writeragent_api.py`).
 
-**Intended behavior (when built):** venv proxies send `tool_call` on the wire; `PythonWorkerManager` dispatches via `ToolRegistry.execute()` and replies with `tool_result` until `code_result`. Domain-scoped tools only. Follow-on sugar (`sheet.range("A1:B2").values = matrix`) only after RPC exists.
+[`writeragent_api.py`](../plugin/scripting/writeragent_api.py) is generated from tool metadata (`scripts/generate_tool_proxies.py` / `make proxy-stubs`). In the venv child (`WRITERAGENT_IS_WORKER=1`) proxies send a `tool_call` Pickle5 frame on stdout; [`PythonWorkerManager`](../plugin/scripting/venv_worker.py) dispatches via [`host_rpc.execute_tool`](../plugin/scripting/host_rpc.py) → `ToolRegistry.execute()` on the LibreOffice main thread and replies on stdin until the code result frame. Optional kwargs default to `None` and are **omitted on the wire**, so tool defaults apply (`apply_document_content` is a real edit, not a silent `dry_run`).
+
+**Usage:**
+
+```python
+import writeragent as wa
+
+wa.writer.apply_document_content(
+    content=["<h1>Hello</h1>", "<p>Inserted from the venv.</p>"],
+    target="end",
+)
+```
+
+The shipped **Universal Sample** script in Settings → Python does the same (Writer HTML, Calc `insert_cell_html`, plus a shape). `run_venv_python_script` cannot be called from a script (it would re-enter the warm worker). Domain-scoped allowlists (`python_tool_domain="writer"` / `"footnotes"`) are enforced on the host; they are not a new IPC type. Follow-on sugar (`sheet.range("A1:B2").values = matrix`) only after this RPC stays stable.
 
 ### Calc UX backlog {#calc-ux-backlog}
 
@@ -871,7 +884,7 @@ Remaining work lives in the child doc (or [§7 backlog](#calc-ux-backlog)). Do *
 | Calc UX (object cards, named ranges, soft timeout, edit-dialog tiers, …) | [§7 backlog](#calc-ux-backlog) |
 | Domain helpers (Geospatial / Audio remaining; Analysis, Viz, SymPy, Units, Forecast, Text, Optimize, Quant shipped or partial) | [scripting/numpy-domains.md](scripting/numpy-domains.md); SageMath: [sagemath-integration-dev-plan.md](sagemath-integration-dev-plan.md) |
 | Serialization / Cython `vec_pack` download | [scripting/numpy-serialization.md](scripting/numpy-serialization.md#future-work--serialization-performance) |
-| Venv ↔ LO tool RPC | [§7](#venv--libreoffice-tool-rpc) |
+| Venv ↔ LO tool RPC | [§7](#venv--libreoffice-tool-rpc) (Run Python Script / chat shipped; `=PY()` disabled) |
 | Collabora Online (Steps A–C landed; plot / Monaco remain) | [scripting/numpy-jailsafe.md](scripting/numpy-jailsafe.md), [online#16010](https://github.com/CollaboraOnline/online/issues/16010) |
 | Monaco editor remaining phases | [scripting/monaco-editor-dev-plan.md](scripting/monaco-editor-dev-plan.md) |
 | Jupyter Writer import (Phase 1: import + ▶ run, ATX markdown, output replace) | [writer/jupyter-notebook-import.md](writer/jupyter-notebook-import.md) |

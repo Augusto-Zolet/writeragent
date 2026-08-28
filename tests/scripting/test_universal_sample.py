@@ -77,7 +77,10 @@ def test_universal_sample_calc():
         code = _DEFAULT_PYTHON_SCRIPTS["Universal Sample"]
         exec(code, {"__name__": "__main__"})
         
-        mock_insert.assert_called_once()
+        mock_insert.assert_called_once_with(
+            cell="A1",
+            html="<h1>Hello from Python SDK</h1><p>Here is some <b>rich HTML content</b>.</p>",
+        )
         mock_upsert.assert_called_once_with(
             action="create",
             shape_type="star24",
