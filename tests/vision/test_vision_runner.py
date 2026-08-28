@@ -173,6 +173,14 @@ def test_run_and_insert_vision_for_selection_loops_by_name(mock_pairs, mock_run,
     assert mock_run.call_args_list[0].kwargs["params"]["image_name"] == "Img1"
     assert mock_run.call_args_list[1].kwargs["params"]["image_name"] == "Img2"
     assert insert.call_count == 2
+    first_result = insert.call_args_list[0].args[2]
+    second_result = insert.call_args_list[1].args[2]
+    assert first_result["html"] == "<p>Img1</p>"
+    assert second_result["html"] == "<p>Img2</p>"
+    assert first_result["full_text"] == "text-Img1"
+    assert second_result["full_text"] == "text-Img2"
+    assert insert.call_args_list[0].kwargs["params"]["image_name"] == "Img1"
+    assert insert.call_args_list[1].kwargs["params"]["image_name"] == "Img2"
 
 
 @patch("plugin.vision.vision_runner.merge_vision_params", side_effect=lambda _ctx, params: dict(params or {}))

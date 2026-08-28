@@ -115,7 +115,15 @@ def _deal_grid_values_ok(values: object) -> bool:
     )
 
 
-def _deal_calc_range_other_ok(other: object) -> bool:
+def _deal_calc_range_other_ok_pytest(other: object) -> bool:
+    if other is None or isinstance(other, (bool, int, float, str)):
+        return True
+    return isinstance(other, CalcRange) and _deal_grid_values_ok(other._values)
+
+
+def _deal_calc_range_other_ok_crosshair(other: object) -> bool:
+    # cover-all: unbounded int/str on binary ops exploded CrossHair the same way
+    # inner grid cells did; keep a tiny numeric/ascii slice under the engine.
     if other is None or isinstance(other, bool):
         return True
     if isinstance(other, int):
@@ -125,6 +133,11 @@ def _deal_calc_range_other_ok(other: object) -> bool:
     if isinstance(other, str):
         return ascii_bounded(other, 4)
     return isinstance(other, CalcRange) and _deal_grid_values_ok(other._values)
+
+
+_deal_calc_range_other_ok = (
+    _deal_calc_range_other_ok_crosshair if UNDER_CROSSHAIR else _deal_calc_range_other_ok_pytest
+)
 
 
 def _deal_binary_op_pre(self: Any, other: object) -> bool:

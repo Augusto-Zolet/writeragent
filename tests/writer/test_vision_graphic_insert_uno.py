@@ -99,3 +99,19 @@ def test_vision_html_insert_after_each_graphic_preserves_intervening_text(ctx, d
     assert intervening in body, f"intervening text was deleted during multi OCR insert: {body!r}"
     assert "OCR_ONE" in body and "OCR_TWO" in body
     assert len(list_graphic_objects(doc)) >= 2
+    idx_before = body.find("BEFORE ")
+    idx_ocr_one = body.find("OCR_ONE")
+    idx_between = body.find(intervening)
+    idx_ocr_two = body.find("OCR_TWO")
+    idx_after = body.find(" AFTER")
+    for label, idx in (
+        ("BEFORE ", idx_before),
+        ("OCR_ONE", idx_ocr_one),
+        (intervening, idx_between),
+        ("OCR_TWO", idx_ocr_two),
+        (" AFTER", idx_after),
+    ):
+        assert idx >= 0, f"{label!r} not found in {body!r}"
+    assert idx_before < idx_ocr_one < idx_between < idx_ocr_two < idx_after, (
+        f"expected strict document order, got {body!r}"
+    )

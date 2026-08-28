@@ -112,7 +112,12 @@ def test_transcribe_audio_openrouter_uses_json_body(mock_sync):
 
     with patch("plugin.framework.client.model_fetcher.has_native_audio", return_value=False):
         client = LlmClient(
-            {"endpoint": "https://openrouter.ai/api", "stt_model": "mistralai/voxtral-mini-transcribe", "is_openrouter": True},
+            {
+                "endpoint": "https://openrouter.ai/api",
+                "stt_model": "mistralai/voxtral-mini-transcribe",
+                "is_openrouter": True,
+                "api_key": "test-key",
+            },
             ctx,
         )
 

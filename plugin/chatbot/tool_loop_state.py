@@ -53,7 +53,6 @@ def _describe_empty_response_content(content: Any) -> str:
             type(item) is dict
             and len(item) <= DEAL_MAX_CMD_ARGS
             and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in item)
-            and all(v is None or (isinstance(v, str) and ascii_bounded(v, DEAL_MAX_TOKEN)) for v in item.values())
             for item in tool_calls
         )
     )
