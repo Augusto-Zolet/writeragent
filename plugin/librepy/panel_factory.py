@@ -35,6 +35,7 @@ from plugin.framework.uno_bootstrap import ensure_plugin_on_path
 ensure_plugin_on_path(__file__, levels_up=3, also_add_contrib=True)
 
 from plugin.framework.errors import UnoObjectError, suppress_disposed
+from plugin.framework.sidebar_column import sidebar_column_width, sync_childframe_width
 from plugin.framework.uno_context import get_extension_url, get_ctx
 
 if TYPE_CHECKING:
@@ -97,13 +98,18 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         parent_w = parent_rect.Width
         parent_h = parent_rect.Height
         current_h = 0
+        current_w = 0
         with suppress_disposed("getHeightForWidth getPosSize", logger=log):
             before = self.PanelWindow.getPosSize()
             current_h = before.Height if before else 0
+            current_w = before.Width if before else 0
         if current_h <= 0:
             current_h = parent_h if parent_h > 0 else 400
 
-        eff_w = width if width > 0 else (parent_w if parent_w > 0 else 200)
+        # Fill the content box. min(nWidth, parent); 180 AppFont is a leak.
+        # Do not cap at 800px: HiDPI columns are often 900+.
+        min_w = self.getMinimalWidth()
+        eff_w = sidebar_column_width(width, parent_w, current_w, min_w=min_w)
 
         log.info(
             "[LIBREPY LAYOUT] getHeightForWidth deck_hint=%s parent=%sx%s eff_w=%s",
@@ -113,6 +119,8 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
             eff_w,
         )
         with suppress_disposed("getHeightForWidth setPosSize", logger=log):
+            if parent_w != eff_w:
+                sync_childframe_width(self.parent_window, eff_w)
             self.PanelWindow.setPosSize(0, 0, eff_w, current_h, 15)
         rl = getattr(self, "resize_listener", None)
         if rl is not None:

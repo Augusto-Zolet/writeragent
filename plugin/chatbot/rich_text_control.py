@@ -221,30 +221,9 @@ def _is_automatic_char_color(color) -> bool:
     return color < 0 or color == 0xFFFFFFFF
 
 
-def _clear_button_right_edge(root_window, fallback: int) -> int:
-    """Right edge of the Clear button row (matches ``compute_chat_panel_layout`` content_right)."""
-    if root_window is None or not hasattr(root_window, "getControl"):
-        return fallback
-    try:
-        clear = root_window.getControl("clear")
-        if clear is not None:
-            cr = clear.getPosSize()
-            return int(cr.X) + int(cr.Width)
-    except Exception as e:
-        log.debug("_clear_button_right_edge: %s", e)
-    return fallback
-
-
-def _rich_inner_width(px: int, pw: int, inset: int, root_window) -> int:
-    """Inner width capped to the live Clear button row (same edge as query in ``panel_resize``).
-
-    The hidden ``response`` placeholder stretches to the panel right margin; the visible
-    RichTextControl must not — it aligns with Send/Stop/Clear like ``query`` and ``status``.
-    """
-    placeholder_right = px + pw - inset
-    content_right = _clear_button_right_edge(root_window, placeholder_right)
-    right = min(placeholder_right, content_right)
-    return max(20, right - (px + inset))
+def _rich_inner_width(pw: int, inset: int) -> int:
+    """Inner width of the visible RichTextControl: fill the placeholder."""
+    return max(20, pw - 2 * inset)
 
 
 def _content_bounds_for_rich_control(root_window, placeholder_ctrl, placeholder_rect=None):
@@ -260,7 +239,7 @@ def _content_bounds_for_rich_control(root_window, placeholder_ctrl, placeholder_
     return (
         px + inset,
         py + inset,
-        _rich_inner_width(px, pw, inset, root_window),
+        _rich_inner_width(pw, inset),
         max(20, ph - 2 * inset),
     )
 
@@ -461,6 +440,9 @@ def _apply_rich_control_style_defaults_on_model(model, style_window=None) -> Non
         ("PaintTransparent", False),
         ("MultiLine", True),
         ("VScroll", True),
+        ("HScroll", False),
+        ("AutoHScroll", False),
+        ("HardLineBreaks", False),
         # If a 1-char tail selection is left (collapse missed), hide it when
         # Ask/instruct has focus (exp 16). Harmless if selection is collapsed.
         ("HideInactiveSelection", True),
@@ -568,6 +550,79 @@ def _apply_control_surface_colors(control, bg_color) -> None:
         log.debug("_apply_control_surface_colors model failed: %s", e)
 
 
+def _log_scrollish_props(label, obj) -> None:
+    if obj is None:
+        return
+    try:
+        info = obj.getPropertySetInfo() if hasattr(obj, "getPropertySetInfo") else None
+        names = []
+        if info is not None:
+            names = sorted(p.Name for p in info.getProperties())
+        interesting = [n for n in names if any(s in n.lower() for s in ("scroll", "paper", "wrap", "multi", "rich"))]
+        log.debug("%s scroll-ish props=%s", label, interesting)
+        getter = getattr(obj, "getPropertyValue", None)
+        for n in interesting:
+            try:
+                val = getter(n) if getter else getattr(obj, n, "?")
+                log.debug("  %s.%s=%r", label, n, val)
+            except Exception as e:
+                log.debug("  %s.%s err %s", label, n, e)
+    except Exception as e:
+        log.debug("%s prop dump failed: %s", label, e)
+
+
+def _uno_bool_false():
+    try:
+        import uno
+        return uno.Bool(False)
+    except Exception:
+        return False
+
+
+def _disable_rich_hscroll(control) -> None:
+    """Clear WB_HSCROLL on the VCL window so ensureScrollbars disposes m_pHScroll.
+
+    Model HScroll=False is not enough after createPeer: getWinBits already ran.
+    ORichTextPeer::setProperty("HScroll") calls adjustTwoStateWinBit + StyleChanged
+    which calls ensureScrollbars().
+    """
+    if control is None:
+        return
+    false = _uno_bool_false()
+    try:
+        model = control.getModel()
+        _log_scrollish_props("rich-model", model)
+        if model is not None and hasattr(model, "setPropertyValue"):
+            for name in ("HScroll", "HardLineBreaks"):
+                try:
+                    model.setPropertyValue(name, false)
+                    log.debug("_disable_rich_hscroll model.%s=False", name)
+                except Exception as e:
+                    log.debug("_disable_rich_hscroll model.%s failed: %s", name, e)
+    except Exception as e:
+        log.debug("_disable_rich_hscroll model: %s", e)
+    try:
+        peer = control.getPeer() if hasattr(control, "getPeer") else None
+        impl = "None"
+        try:
+            if peer is not None and hasattr(peer, "getImplementationName"):
+                impl = peer.getImplementationName()
+            elif peer is not None:
+                impl = type(peer).__name__
+        except Exception:
+            impl = type(peer).__name__ if peer is not None else "None"
+        log.debug("_disable_rich_hscroll peer impl=%s has_setProperty=%s", impl, bool(peer is not None and hasattr(peer, "setProperty")))
+        _log_scrollish_props("rich-peer", peer)
+        if peer is not None and hasattr(peer, "setProperty"):
+            try:
+                peer.setProperty("HScroll", false)
+                log.debug("_disable_rich_hscroll peer.setProperty(HScroll, False) ok")
+            except Exception as e:
+                log.debug("_disable_rich_hscroll peer.setProperty(HScroll) failed: %s", e)
+    except Exception as e:
+        log.debug("_disable_rich_hscroll peer: %s", e)
+
+
 def _create_rich_control_peer(smgr, ctx, toolkit, field_model, parent_window):
     """Create a VCL peer for a form RichText TextField model."""
     parent_peer = None
@@ -605,6 +660,12 @@ def _create_rich_control_peer(smgr, ctx, toolkit, field_model, parent_window):
                         except Exception as add_err:
                             log.debug("create_sidebar_rich_text_control: addControl failed: %s", add_err)
                     log.info("create_sidebar_rich_text_control: peer via %s (%s)", service, label)
+                    try:
+                        h = field_model.getPropertyValue("HScroll") if hasattr(field_model, "getPropertyValue") else "?"
+                        log.debug("create_sidebar_rich_text_control: model.HScroll at createPeer=%r", h)
+                    except Exception as e:
+                        log.debug("create_sidebar_rich_text_control: model.HScroll read failed: %s", e)
+                    _disable_rich_hscroll(control)
                     return control
                 except Exception as e:
                     last_err = e
@@ -646,6 +707,9 @@ def _try_dialog_embedded_rich_control(root_window, placeholder_ctrl, placeholder
             ("Tabstop", False),
             ("MultiLine", True),
             ("VScroll", True),
+            ("HScroll", False),
+            ("AutoHScroll", False),
+            ("HardLineBreaks", False),
         ):
             _set_model_property(embedded, prop, val)
 
@@ -658,6 +722,7 @@ def _try_dialog_embedded_rich_control(root_window, placeholder_ctrl, placeholder
         control = root_window.getControl(RICH_CONTROL_NAME)
         if control is not None:
             log.info("create_sidebar_rich_text_control: dialog-embedded control via getControl")
+            _disable_rich_hscroll(control)
             return control
         log.debug("create_sidebar_rich_text_control: insertByName ok but getControl returned None")
     except Exception as e:

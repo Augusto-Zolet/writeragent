@@ -74,6 +74,7 @@ try:
 except ImportError:
     TOOLPANEL = 3  # Fallback
 
+from plugin.framework.sidebar_column import sidebar_column_width, sync_childframe_width
 from plugin.framework.uno_listeners import BaseItemListener, BaseTextListener
 from plugin.framework.config import get_config, get_current_endpoint
 from plugin.framework.client.model_fetcher import get_text_model, get_image_model, set_image_model, set_text_model
@@ -94,7 +95,7 @@ DEFAULT_LIBRARIAN_GREETING = "AI: I'm the WriterAgent Librarian — a host who c
 
 # XDL path inside the .oxt
 XDL_PATH = "Dialogs/ChatPanelDialog.xdl"
-_PRE_NEGOTIATION_PANEL_WIDTH = 420
+_PRE_NEGOTIATION_PANEL_WIDTH = 320
 
 # Default system prompt for the chat sidebar (imported from main inside methods to avoid unopkg errors)
 DEFAULT_SYSTEM_PROMPT_FALLBACK = "You are a helpful assistant."
@@ -163,21 +164,23 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         return self.PanelWindow
 
     def getHeightForWidth(self, nWidth: int):  # pyright: ignore[reportIncompatibleMethodOverride]
-        """Return LayoutSize and ensure our PanelWindow width matches the allocated sidebar column.
+        """Return LayoutSize and fill the deck viewport.
 
-        This is now the *single source of truth* for the panel's horizontal size.
-        The old bidirectional root-sync dance in _PanelResizeListener has been removed.
-
-        Key fix for the persistent H scrollbar:
-        - On startup (and some resizes) LO passes a huge deck_hint (main frame width, ~1170px)
-          even when the sidebar is docked narrow.
-        - If our current actual width is modest (<450) but the hint is huge, we clamp
-          instead of widening the root to ~1160px and creating a permanent scrollbar.
+        nWidth is rContentBox.GetWidth(). The GTK ChildFrame size-request can
+        stick (Keith: parent 992 while deck_hint 806). Sync width-only.
         """
         width = nWidth
         if not self.parent_window or not self.PanelWindow or width <= 0:
             return uno.createUnoStruct("com.sun.star.ui.LayoutSize", 100, -1, 400)
+        if getattr(self, "_in_hfw", False):
+            return uno.createUnoStruct("com.sun.star.ui.LayoutSize", 100, -1, 400)
+        self._in_hfw = True
+        try:
+            return self._hfw_body(width)
+        finally:
+            self._in_hfw = False
 
+    def _hfw_body(self, width: int):
         parent_rect = self.parent_window.getPosSize()
         parent_w = parent_rect.Width
         parent_h = parent_rect.Height
@@ -196,41 +199,31 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         if current_h <= 0:
             current_h = parent_h if parent_h > 0 else 400
 
-        # NOTE (2026-05): This getHeightForWidth logic (including the relatively simple
-        # handling of large deck_hints) is restored from commit af649476 because it
-        # produced better real-world horizontal scrollbar behavior in the plain-text
-        # sidebar. Later experiments (aggressive 480px caps on large hints + tighter
-        # child margins) made the H scrollbar appear more persistently, even when
-        # the user widened the sidebar.
-        #
-        # Future changes to this function should be made very carefully and tested
-        # thoroughly with the layout_sanity log and real sidebar resizing.
-        #
-        # Simple policy:
-        # - Prefer the deck hint when it looks like a real column width.
-        # - If deck hint is huge (>500, typical of startup "frame width" queries) but we are
-        #   currently narrow (<450), this is the classic docked-startup mis-hint.
-        #   Clamp to something that will actually fit the docked column.
-        if deck_w > 0:
-            if deck_w > 500 and 0 < current_w < 450:
-                # Startup huge-hint while actually docked narrow → clamp hard.
-                eff_w = min(deck_w, parent_w if parent_w > 0 else 380, 420)
-            else:
-                eff_w = deck_w
-        elif parent_w > 0:
-            eff_w = parent_w
-        else:
-            eff_w = 220
+        # Fill the content box. min(nWidth, parent); 180 AppFont is a leak.
+        min_w = self.getMinimalWidth()
+        eff_w = sidebar_column_width(deck_w, parent_w, current_w, min_w=min_w)
 
-        log.debug("getHeightForWidth deck_hint=%s parent=%sx%s current_root=%s eff_W=%s" % (deck_w, parent_w, parent_h, "%sx%s" % (before.Width, before.Height) if before else None, eff_w))
+        log.info("getHeightForWidth deck_hint=%s parent=%sx%s current_root=%s eff_W=%s" % (deck_w, parent_w, parent_h, "%sx%s" % (before.Width, before.Height) if before else None, eff_w))
         rl = getattr(self, "resize_listener", None)
         if rl is not None and hasattr(rl, "note_width_negotiated"):
             with suppress_disposed("getHeightForWidth note_width_negotiated", logger=log):
                 rl.note_width_negotiated()
         with suppress_disposed("getHeightForWidth setPosSize", logger=log):
+            # Width only on the ChildFrame. HEIGHT would stick Keith's 2488 request.
+            # Native weld never needs this; AWT preferred size on HiDPI does.
+            if parent_w != eff_w:
+                log.info("childframe_sync %s -> %s", parent_w, eff_w)
+                sync_childframe_width(self.parent_window, eff_w)
             self.PanelWindow.setPosSize(0, 0, eff_w, current_h, 15)
             after = self.PanelWindow.getPosSize()
-            log.debug("getHeightForWidth root_after=%sx%s" % (after.Width, after.Height))
+            parent_after = self.parent_window.getPosSize()
+            log.info(
+                "getHeightForWidth root_after=%sx%s parent_after=%sx%s",
+                after.Width,
+                after.Height,
+                parent_after.Width,
+                parent_after.Height,
+            )
 
         if rl is not None:
             with suppress_disposed("getHeightForWidth relayout_now", logger=log):
@@ -244,7 +237,8 @@ class ChatToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
         return uno.createUnoStruct("com.sun.star.ui.LayoutSize", 100, -1, 400)
 
     def getMinimalWidth(self):
-        return 180
+        # XDL dlg:width=180 is AppFont, ~300px on this machine (Clear right=304).
+        return 320
 
 
 class ChatPanelElement(unohelper.Base, XUIElement):
@@ -338,8 +332,12 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         with suppress_disposed("constrain panel window", logger=log):
             parent_rect = self.xParentWindow.getPosSize()
             current_rect = self.m_panelRootWindow.getPosSize()
-            source_w = parent_rect.Width if parent_rect.Width > 0 else current_rect.Width
-            target_w = min(source_w if source_w > 0 else self.toolpanel.getMinimalWidth() if self.toolpanel else 180, _PRE_NEGOTIATION_PANEL_WIDTH)
+            parent_w = parent_rect.Width if parent_rect else 0
+            current_w = current_rect.Width if current_rect else 0
+            # 180 here used to be XDL AppFont treated as pixels; children are
+            # already ~304px (Clear), so a 180px root overflowed and seeded H-scroll.
+            min_w = self.toolpanel.getMinimalWidth() if self.toolpanel else _PRE_NEGOTIATION_PANEL_WIDTH
+            target_w = sidebar_column_width(0, parent_w, current_w, min_w=min_w)
             target_h = current_rect.Height if current_rect.Height > 0 else (
                 parent_rect.Height if parent_rect.Height > 0 else 400
             )

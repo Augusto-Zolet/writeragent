@@ -184,6 +184,7 @@ def _wireControls(self, root_window, has_recording, ensure_extension_on_path):  
         _tp = getattr(self, "toolpanel", None)
         _resize = _PanelResizeListener(controls)
         _resize._root_window = root_window  # for defensive self-removal in disposing()
+        _resize._parent_window = getattr(_tp, "parent_window", None)
         root_window.addWindowListener(_resize)
         self._panel_resize_listener = _resize
         if _tp is not None:

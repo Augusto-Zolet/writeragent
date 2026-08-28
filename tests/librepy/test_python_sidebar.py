@@ -302,9 +302,10 @@ def test_python_tool_panel_get_height_for_width_handles_all_sizes():
     listener = MagicMock()
     panel.resize_listener = listener
 
-    # Normal column width
+    # deck_hint is the viewport; ChildFrame request is synced to it (width only)
     panel.getHeightForWidth(350)
     panel_win.setPosSize.assert_called_with(0, 0, 350, 400, 15)
+    parent_win.setPosSize.assert_called_with(0, 0, 350, 0, 4)
     listener.relayout_now.assert_called_with(panel_win)
 
     # Wide column width (> 500)
@@ -315,13 +316,13 @@ def test_python_tool_panel_get_height_for_width_handles_all_sizes():
     panel_win.setPosSize.assert_called_with(0, 0, 750, 400, 15)
     listener.relayout_now.assert_called_with(panel_win)
 
-    # Frame-sized query
+    # Frame-sized query must fill the docked column, not the document frame
     panel_win.reset_mock()
     listener.reset_mock()
     panel_win.getPosSize.return_value = SimpleNamespace(Width=300, Height=400)
     parent_win.getPosSize.return_value = SimpleNamespace(Width=300, Height=400)
     panel.getHeightForWidth(1262)
-    panel_win.setPosSize.assert_called_with(0, 0, 1262, 400, 15)
+    panel_win.setPosSize.assert_called_with(0, 0, 300, 400, 15)
     listener.relayout_now.assert_called_with(panel_win)
 
 

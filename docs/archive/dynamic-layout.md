@@ -19,7 +19,7 @@ Pure function: `compute_chat_panel_layout(width, height, snapshot)`.
 2. **Measure bottom band height** from the snapshot: `cluster_height = bottom_bottom - status_top` (all controls in `_BOTTOM_CLUSTER`).
 3. **Anchor bottom band**: `bottom_top = height - bottom_margin - cluster_height`; shift every bottom control by the same delta from its XDL `y`.
 4. **Size transcript**: `response.height = bottom_top - gap - response.y` with fixed XDL gap (2px) and minimum height (30px).
-5. **Stretch width** for `response`, `query`, `status`, and model combos; clamp `status`/query/model rows with `_content_right_from_layout` / `_CONTENT_EDGE_CLAMP` (Clear button right, capped by panel width).
+5. **Stretch width** for `response`, `query`, `status`, and model combos to `width - right_margin`. Overflow-clamp every control (including Send/Stop/Clear) so nothing is wider than the column.
 
 **XDL baseline:** Mutually exclusive rows (text `model_*` vs image `image_model_*` / aspect / base size) share the same Y positions so `_BOTTOM_CLUSTER` height is identical in both visibility modes.
 
@@ -31,7 +31,7 @@ Rich text does not participate in layout math. [`sync_rich_control_bounds`](../p
 
 Called by the deck layouter with a **width hint** (`deck_w`):
 
-1. Computes **`eff_w`** from the deck hint (with the startup mis-hint clamp when the panel is docked narrow but the hint is frame-wide).
+1. Computes **`eff_w`** via `sidebar_column_width`: fill the content box; ignore frame-sized hints when parent/current still look like a docked column.
 2. **`setPosSize(0, 0, eff_w, current_h)`** — updates width only; keeps the root height LibreOffice already allocated.
 3. Calls **`resize_listener.relayout_now(PanelWindow)`** because `windowResized` does not always fire after programmatic resize.
 4. Returns `LayoutSize(100, -1, 400)`.
@@ -67,7 +67,7 @@ There is no deferred relayout chain, height clamp history, or gap re-capture fro
 
 1. Open Writer → WriterAgent sidebar.
 2. **Height**: transcript grows/shrinks; status/query/buttons stay visible at the bottom.
-3. **Width**: response/query/combos stretch; no persistent H scrollbar when docked narrow.
+3. **Width**: drag narrower — no gutter, no H scrollbar. Drag wider — controls fill the column.
 4. **Rich text**: transcript fills space above status on startup without clicking.
 5. Debug log: `[LAYOUT] response_rect … root=WxH` — one line per relayout, no height-clamp spam.
 

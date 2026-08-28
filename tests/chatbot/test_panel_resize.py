@@ -91,15 +91,32 @@ class TestComputeChatPanelLayout:
         assert response.height >= 30
         assert status.y + status.height <= 220
 
-    def test_content_edge_matches_clear_button_row(self):
+    def test_stretch_controls_fill_column(self):
         layouts = compute_chat_panel_layout(900, 500, _xdl_snapshot())
-        clear_right = layouts["clear"].x + layouts["clear"].width
-        for name in ("status", "query", "chat_mode_selector", "model_selector", "image_model_selector", "aspect_ratio_selector"):
+        right = 900 - 4
+        for name in ("status", "query", "chat_mode_selector", "model_selector"):
             rect = layouts[name]
-            assert rect.x + rect.width <= clear_right
-            assert rect.width < 200
+            assert rect.x + rect.width == right
+        assert layouts["response"].x + layouts["response"].width == right
         assert layouts["chat_mode_selector"].width == layouts["model_selector"].width
 
+    def test_narrow_panel_no_child_overflows(self):
+        layouts = compute_chat_panel_layout(180, 500, _xdl_snapshot())
+        right = 180 - 4
+        for name, rect in layouts.items():
+            assert rect.x + rect.width <= right, name
+
+
+    def test_hidpi_mapped_positions_do_not_overflow(self):
+        # 3x AppFont mapping: Clear X sits past a 400px column unless we move X.
+        snapshot = {
+            name: (x * 3, y * 3, w * 3, h * 3) for name, (x, y, w, h) in _xdl_snapshot().items()
+        }
+        layouts = compute_chat_panel_layout(400, 900, snapshot)
+        right = 400 - 4
+        for name, rect in layouts.items():
+            assert rect.x >= 0, name
+            assert rect.x + rect.width <= right, name
 
 class TestPanelResizeListenerIntegration:
     def test_listener_applies_layout_and_syncs_rich_control(self):

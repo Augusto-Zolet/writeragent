@@ -2,6 +2,7 @@ import logging
 
 from dataclasses import dataclass
 
+from plugin.framework.sidebar_column import sync_childframe_width
 from plugin.framework.uno_listeners import BaseWindowListener
 
 log = logging.getLogger(__name__)
@@ -25,8 +26,6 @@ _STRETCH_CONTROLS = frozenset({
     "image_model_selector",
     "aspect_ratio_selector",
 })
-
-_CONTENT_EDGE_CLAMP = frozenset({"status", "query", "chat_mode_selector", "model_selector", "image_model_selector", "aspect_ratio_selector"})
 
 # ChatPanelDialog.xdl: response top=16 height=110, status top=128 -> gap=2.
 _XDL_GAP_BELOW_RESPONSE = 2
@@ -86,41 +85,26 @@ def compute_chat_panel_layout(
         return {}
 
     bottom_top_initial, cluster_height, response_y = _cluster_metrics(snapshot)
-    response_x, _unused, response_ow, _unused2 = snapshot["response"]
+    response_x, _oy, _ow, _oh = snapshot["response"]
     bottom_top_new = height - bottom_margin - cluster_height
     cluster_delta = bottom_top_new - bottom_top_initial
     response_h = max(min_response_height, bottom_top_new - response_gap - response_y)
-    response_w = max(2 * response_ow // 3, width - response_x - right_margin)
+    response_w = max(20, width - response_x - right_margin)
+    response_x, response_w = _clamp_to_column(response_x, response_w, width, right_margin)
 
-    # Pre-calculate the content right bound used for clamping specific controls (typically clear button's right edge)
-    clear_snap = snapshot.get("clear")
-    if clear_snap:
-        content_right = clear_snap[0] + clear_snap[2]
-    else:
-        content_right = response_x + response_w
-    content_right = min(content_right, width - right_margin)
-
+    # Fill the column. Shrinking width-only left HiDPI Clear/indicator X past
+    # the viewport (deck H-bar). Move X too so nothing extends past the column.
     layouts: dict[str, ControlRect] = {}
     for name, (ox, oy, ow, oh) in snapshot.items():
         if name == "response":
             continue
 
-        min_w = 2 * ow // 3 if name in _STRETCH_CONTROLS else ow
         if name in _STRETCH_CONTROLS:
-            new_w = max(min_w, width - ox - right_margin)
+            new_w = max(20, width - ox - right_margin)
         else:
             new_w = ow
 
-        # Clamp specific controls to the content_right edge
-        if name in _CONTENT_EDGE_CLAMP:
-            cap = content_right - ox
-            if cap > 0:
-                new_w = min(new_w, max(min_w, cap))
-
-        # Ensure no control overflows the right margin
-        if ox + new_w > width - right_margin:
-            new_w = max(20, width - ox - right_margin)
-
+        ox, new_w = _clamp_to_column(ox, new_w, width, right_margin)
         new_y = oy + cluster_delta if name in _BOTTOM_CLUSTER else oy
         layouts[name] = ControlRect(ox, new_y, new_w, oh)
 
@@ -128,11 +112,26 @@ def compute_chat_panel_layout(
     return layouts
 
 
+def _clamp_to_column(x: int, w: int, width: int, right_margin: int) -> tuple[int, int]:
+    """Keep a control inside the column. Shrink width, then slide X if needed."""
+    max_right = width - right_margin
+    if max_right <= 0:
+        return 0, max(20, width)
+    if x + w > max_right:
+        w = max(20, max_right - x)
+    if x + w > max_right:
+        w = min(w, max(20, max_right))
+        x = max(0, max_right - w)
+    if x < 0:
+        x = 0
+    return x, w
+
+
 class _PanelResizeListener(BaseWindowListener):  # pyright: ignore[reportUnusedClass]  # constructed from panel_wiring; covered by tests
     """Repositions sidebar controls when the panel root is resized.
 
     Layout policy: XDL snapshot defines control sizes and bottom-band spacing;
-    runtime only anchors the bottom band and stretches the transcript vertically.
+    runtime anchors the bottom band and stretches the transcript to fill the column.
     """
 
     def __init__(self, controls):
@@ -140,6 +139,7 @@ class _PanelResizeListener(BaseWindowListener):  # pyright: ignore[reportUnusedC
         self._snapshot: dict[str, tuple[int, int, int, int]] | None = None
         self._in_relayout = False
         self._root_window = None
+        self._parent_window = None
         self._width_negotiated = False
         self._last_response_rect = None
 
@@ -218,6 +218,17 @@ class _PanelResizeListener(BaseWindowListener):  # pyright: ignore[reportUnusedC
         w, h = int(r.Width), int(r.Height)
         if w <= 0 or h <= 0:
             return
+
+        # Shrink can skip getHeightForWidth. Keep the ChildFrame request = dialog.
+        parent = getattr(self, "_parent_window", None)
+        if parent is not None:
+            try:
+                pr = parent.getPosSize()
+                if pr.Width != w:
+                    log.info("childframe_sync relayout %s -> %s", pr.Width, w)
+                    sync_childframe_width(parent, w)
+            except Exception:
+                pass
 
         if self._snapshot is None:
             self._capture_snapshot(win)
