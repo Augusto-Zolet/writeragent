@@ -363,6 +363,105 @@ def _get_char_colors(doc, range_cursor):
     return colors
 
 
+def _insert_colored_chars_at_end(doc, chars, *, color_offset=0):
+    """Insert *chars* at document end with per-char CharBackColor."""
+    text = doc.getText()
+    for i, ch in enumerate(chars):
+        ins = text.createTextCursor()
+        ins.gotoEnd(False)
+        text.insertString(ins, ch, False)
+        cc = text.createTextCursor()
+        cc.gotoEnd(False)
+        cc.goLeft(1, True)
+        cc.setPropertyValue("CharBackColor", COLORS[(color_offset + i) % len(COLORS)])
+
+
+def _cursor_spanning_offsets(doc, start_off, length):
+    """Return an XTextCursor selecting *length* normalized chars from *start_off*."""
+    text = doc.getText()
+    range_cursor = text.createTextCursor()
+    range_cursor.gotoStart(False)
+    _move_cursor_by_offset(range_cursor, start_off)
+    _move_cursor_by_offset(range_cursor, length, expand=True)
+    return range_cursor
+
+
+def _paragraph_strings(doc):
+    """Body paragraph texts in document order (normalized)."""
+    text = doc.getText()
+    paras = []
+    enum = text.createEnumeration()
+    while enum.hasMoreElements():
+        el = enum.nextElement()
+        if not (hasattr(el, "supportsService") and el.supportsService("com.sun.star.text.Paragraph")):
+            continue
+        cur = text.createTextCursorByRange(el.getStart())
+        cur.gotoRange(el.getEnd(), True)
+        paras.append(_normalize(cur.getString()))
+    return paras
+
+
+def _letter_colors_from_range(doc, range_cursor):
+    """CharBackColor for non-newline characters in *range_cursor*."""
+    return [c for ch, c in zip(range_cursor.getString(), _get_char_colors(doc, range_cursor)) if ch != "\n"]
+
+
+@native_test
+@with_native_doc("writer")
+def test_cross_paragraph_same_length_replacement_preserves_colors(ctx, doc):
+    """replace_preserving_format across a paragraph break keeps per-char background colors."""
+    text = doc.getText()
+    sep = text.createTextCursor()
+    sep.gotoEnd(False)
+    text.insertString(sep, "\n", False)
+
+    def body_len():
+        cur = text.createTextCursor()
+        cur.gotoStart(False)
+        cur.gotoEnd(True)
+        return len(_normalize(cur.getString()))
+
+    start_off = body_len()
+    para1 = "HELLO"
+    para2 = "WORLD"
+    _insert_colored_chars_at_end(doc, para1, color_offset=0)
+    br = text.createTextCursor()
+    br.gotoEnd(False)
+    text.insertControlCharacter(br, 0, False)  # PARAGRAPH_BREAK
+    _insert_colored_chars_at_end(doc, para2, color_offset=len(para1))
+    end_off = body_len()
+    span_len = end_off - start_off
+
+    rng = _cursor_spanning_offsets(doc, start_off, span_len)
+    old_text = _normalize(rng.getString())
+    assert old_text == "HELLO\nWORLD", f"setup range text: {old_text!r}"
+
+    expected_para1_colors = [COLORS[i % len(COLORS)] for i in range(len(para1))]
+    expected_para2_colors = [COLORS[(len(para1) + i) % len(COLORS)] for i in range(len(para2))]
+    assert _letter_colors_from_range(doc, rng) == expected_para1_colors + expected_para2_colors
+
+    new_text = "YELLO\nWORLD"
+    assert len(new_text) == len(old_text)
+    _replace_text_preserving_format(doc, rng, new_text, ctx)
+
+    paras = _paragraph_strings(doc)
+    yello_paras = [p for p in paras if "YELLO" in p]
+    world_paras = [p for p in paras if "WORLD" in p]
+    assert len(yello_paras) == 1 and len(world_paras) == 1, paras
+    assert yello_paras[0] != world_paras[0], "paragraphs merged after cross-paragraph replace"
+
+    sd = doc.createSearchDescriptor()
+    sd.SearchString = "YELLO"
+    found_yello = doc.findFirst(sd)
+    assert found_yello, "YELLO not found after replace"
+    sd.SearchString = "WORLD"
+    found_world = doc.findFirst(sd)
+    assert found_world, "WORLD not found after replace"
+
+    assert _letter_colors_from_range(doc, found_yello) == expected_para1_colors
+    assert _letter_colors_from_range(doc, found_world) == expected_para2_colors
+
+
 @native_test
 @with_native_doc("writer")
 def test_same_length_replacement_preserves_colors(ctx, doc):
