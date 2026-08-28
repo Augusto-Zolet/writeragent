@@ -67,13 +67,6 @@ def handle_llm_request(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def execute_tool_on_main_thread(tool_name: str, args: dict[str, Any]) -> Any:
-    """Dispatch a registered WriterAgent tool on the LO main thread (UNO-safe)."""
-    from plugin.scripting.host_rpc import execute_tool
-
-    return execute_tool(tool_name, args, caller="ppt_master_venv")
-
-
 def dispatch_worker_response(
     response: dict[str, Any],
     *,
