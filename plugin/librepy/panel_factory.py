@@ -35,7 +35,7 @@ from plugin.framework.uno_bootstrap import ensure_plugin_on_path
 ensure_plugin_on_path(__file__, levels_up=3, also_add_contrib=True)
 
 from plugin.framework.errors import UnoObjectError, suppress_disposed
-from plugin.framework.sidebar_column import sidebar_column_width, sync_childframe_width
+from plugin.framework.sidebar_column import sidebar_column_width
 from plugin.framework.uno_context import get_extension_url, get_ctx
 
 if TYPE_CHECKING:
@@ -119,8 +119,6 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
             eff_w,
         )
         with suppress_disposed("getHeightForWidth setPosSize", logger=log):
-            if parent_w != eff_w:
-                sync_childframe_width(self.parent_window, eff_w)
             self.PanelWindow.setPosSize(0, 0, eff_w, current_h, 15)
         rl = getattr(self, "resize_listener", None)
         if rl is not None:

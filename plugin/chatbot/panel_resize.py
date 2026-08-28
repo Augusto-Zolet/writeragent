@@ -2,7 +2,6 @@ import logging
 
 from dataclasses import dataclass
 
-from plugin.framework.sidebar_column import sync_childframe_width
 from plugin.framework.uno_listeners import BaseWindowListener
 
 log = logging.getLogger(__name__)
@@ -141,6 +140,7 @@ class _PanelResizeListener(BaseWindowListener):  # pyright: ignore[reportUnusedC
         self._root_window = None
         self._parent_window = None
         self._width_negotiated = False
+        self._viewport_w = 0
         self._last_response_rect = None
 
     @property
@@ -158,9 +158,8 @@ class _PanelResizeListener(BaseWindowListener):  # pyright: ignore[reportUnusedC
     def relayout_now(self, win):
         if not win:
             return
-        if not self._width_negotiated and self._snapshot is None:
-            _resize_debug("relayout_now: deferred until deck width negotiated")
-            return
+        # Do not wait for deck negotiation. Keith create-time: root=320 with
+        # max_child_right=1087 seeded the H-bar until the first widen.
         if self._in_relayout:
             _resize_debug("relayout_now: skipped (in_relayout)")
             return
@@ -173,11 +172,17 @@ class _PanelResizeListener(BaseWindowListener):  # pyright: ignore[reportUnusedC
             self._in_relayout = False
 
     def on_window_resized(self, rEvent):
-        _resize_debug("windowResized: W=%d H=%d" % (rEvent.Source.getPosSize().Width, rEvent.Source.getPosSize().Height))
+        r = rEvent.Source.getPosSize()
+        log.info("[LAYOUT] source=windowResized root=%dx%d", r.Width, r.Height)
+        # Do not setPosSize the dialog here. windowResized can beat
+        # getHeightForWidth on a widen drag (1x: 465 then hfw 465); snapping
+        # back to last deck_hint would fight the splitter.
         self.relayout_now(rEvent.Source)
 
-    def note_width_negotiated(self):
+    def note_width_negotiated(self, viewport_w: int = 0):
         self._width_negotiated = True
+        if viewport_w > 0:
+            self._viewport_w = int(viewport_w)
 
     def _capture_snapshot(self, win):
         r = win.getPosSize()
@@ -218,17 +223,15 @@ class _PanelResizeListener(BaseWindowListener):  # pyright: ignore[reportUnusedC
         w, h = int(r.Width), int(r.Height)
         if w <= 0 or h <= 0:
             return
-
-        # Shrink can skip getHeightForWidth. Keep the ChildFrame request = dialog.
-        parent = getattr(self, "_parent_window", None)
-        if parent is not None:
-            try:
-                pr = parent.getPosSize()
-                if pr.Width != w:
-                    log.info("childframe_sync relayout %s -> %s", pr.Width, w)
-                    sync_childframe_width(parent, w)
-            except Exception:
-                pass
+        # Column is last getHeightForWidth. Before the first hfw, the first
+        # layout width (320) is the column so a GTK jump (320→383) is not filled.
+        # A windowResized grow without a new deck_hint is GTK, not a drag.
+        # Do not setPosSize the dialog here; that can beat hfw on a widen.
+        if self._viewport_w <= 0:
+            self._viewport_w = w
+        elif w > self._viewport_w:
+            log.info("[LAYOUT] cap_width window=%s viewport=%s", w, self._viewport_w)
+            w = self._viewport_w
 
         if self._snapshot is None:
             self._capture_snapshot(win)
@@ -249,14 +252,19 @@ class _PanelResizeListener(BaseWindowListener):  # pyright: ignore[reportUnusedC
         response = layouts.get("response")
         if response is not None:
             self._last_response_rect = (response.x, response.y, response.width, response.height)
+            max_right = 0
+            for rect in layouts.values():
+                max_right = max(max_right, rect.x + rect.width)
             log.info(
-                "[LAYOUT] response_rect x=%d y=%d w=%d h=%d root=%dx%d",
+                "[LAYOUT] response_rect x=%d y=%d w=%d h=%d root=%dx%d max_child_right=%d overflow=%s",
                 response.x,
                 response.y,
                 response.width,
                 response.height,
                 w,
                 h,
+                max_right,
+                "YES" if max_right > w - 2 else "no",
             )
             rich = self._c.get("response_rich")
             if rich is not None:

@@ -174,6 +174,79 @@ class TestPanelResizeListenerIntegration:
         response = layouts["response"]
         assert response.x + response.width <= 180 - 4
 
+    def test_create_time_overflow_is_clamped_before_negotiation(self):
+        # Keith: FIRST LAYOUT root=320 max_child_right=1087 overflow=YES
+        snapshot = {
+            name: (x * 3, y * 3, w * 3, h * 3) for name, (x, y, w, h) in _xdl_snapshot().items()
+        }
+        controls = {
+            name: _mock_control(x, y, w, h) for name, (x, y, w, h) in snapshot.items()
+        }
+        parent = MagicMock()
+        parent.getPosSize.return_value = SimpleNamespace(Width=1115, Height=1684)
+        root = MagicMock()
+        root.getPosSize.return_value = SimpleNamespace(Width=320, Height=400)
+        listener = _PanelResizeListener(controls)
+        listener._parent_window = parent
+        listener.relayout_now(root)
+        right = 320 - 4
+        for name, ctrl in controls.items():
+            ps = ctrl.getPosSize()
+            assert ps.X + ps.Width <= right, name
+        parent.setPosSize.assert_not_called()
+
+    def test_create_gtk_jump_before_hfw_does_not_become_the_column(self):
+        # 1x H8 log: FIRST LAYOUT 320 then windowResized 383 before hfw.
+        # Filling 383 is how the default H-bar gets its extra width.
+        snapshot = _xdl_snapshot()
+        controls = {
+            name: _mock_control(x, y, w, h) for name, (x, y, w, h) in snapshot.items()
+        }
+        root = MagicMock()
+        root.getPosSize.return_value = SimpleNamespace(Width=320, Height=400)
+        listener = _PanelResizeListener(controls)
+        listener.relayout_now(root)
+        root.getPosSize.return_value = SimpleNamespace(Width=383, Height=485)
+        listener.on_window_resized(SimpleNamespace(Source=root))
+        root.setPosSize.assert_not_called()
+        right = 320 - 4
+        for name, ctrl in controls.items():
+            ps = ctrl.getPosSize()
+            assert ps.X + ps.Width <= right, name
+
+    def test_window_resized_grow_layouts_to_viewport_not_gtk_inflation(self):
+        # Keith 2026-08-28: query_text then windowResized 995→1019, no hfw.
+        # Do not setPosSize the dialog (that fights a widen drag). Layout to 995.
+        snapshot = _xdl_snapshot()
+        controls = {
+            name: _mock_control(x, y, w, h) for name, (x, y, w, h) in snapshot.items()
+        }
+        root = MagicMock()
+        root.getPosSize.return_value = SimpleNamespace(Width=1019, Height=2488)
+        listener = _PanelResizeListener(controls)
+        listener.note_width_negotiated(995)
+        listener.on_window_resized(SimpleNamespace(Source=root))
+        root.setPosSize.assert_not_called()
+        right = 995 - 4
+        for name, ctrl in controls.items():
+            ps = ctrl.getPosSize()
+            assert ps.X + ps.Width <= right, name
+
+    def test_window_resized_shrink_trusts_the_window(self):
+        snapshot = _xdl_snapshot()
+        controls = {
+            name: _mock_control(x, y, w, h) for name, (x, y, w, h) in snapshot.items()
+        }
+        root = MagicMock()
+        root.getPosSize.return_value = SimpleNamespace(Width=800, Height=500)
+        listener = _PanelResizeListener(controls)
+        listener.note_width_negotiated(995)
+        listener.on_window_resized(SimpleNamespace(Source=root))
+        root.setPosSize.assert_not_called()
+        q = controls["query"].getPosSize()
+        assert q.X + q.Width <= 800 - 4
+        assert q.Width > 700
+
 
 class TestSidebarHeaderButtonListeners:
     def test_settings_button_listener(self):
