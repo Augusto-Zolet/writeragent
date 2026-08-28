@@ -90,6 +90,11 @@ def _deal_excel_src_ok_crosshair(src: object) -> bool:
 
 # Import-time only — do not branch inside ``@deal.pre`` lambdas.
 _deal_excel_src_ok = _deal_excel_src_ok_crosshair if UNDER_CROSSHAIR else _deal_excel_src_ok_pytest
+# ``ast_source_offset`` lineno: CrossHair uses 4 so SMT stays tiny. Pytest must
+# accept real multiline ``xl(`` (AST ``end_lineno`` can exceed 4). Cap at
+# DEAL_MAX_SOURCE — a ``str_bounded`` script cannot have more lines than chars.
+# A hard ``lineno <= 4`` on both profiles rejected 5-line Excel scripts in pytest.
+_AST_OFFSET_MAX_LINENO = 4 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
 
 _P_TOKEN_RE = re.compile(r"^%P(\d+)%$", re.IGNORECASE)
 # Bare Excel placeholder in source (not anchored); same length as ``_Pn_`` sentinel.
@@ -312,7 +317,7 @@ def _find_xl_calls(code: str) -> tuple[list[_XlCall], list[str]]:
     lambda src, lineno, col: _deal_excel_src_ok(src)
     and type(lineno) is int
     and type(col) is int
-    and 0 <= lineno <= 4
+    and 0 <= lineno <= _AST_OFFSET_MAX_LINENO
     and 0 <= col <= DEAL_MAX_SOURCE
 )
 def ast_source_offset(src: str, lineno: int, col: int) -> int:

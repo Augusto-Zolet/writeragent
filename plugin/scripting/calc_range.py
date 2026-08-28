@@ -443,11 +443,11 @@ _deal_inner_grid_cell_ok = _deal_inner_grid_cell_ok_crosshair if UNDER_CROSSHAIR
 
 
 def _deal_json_list_of_grids_arg_ok_pytest(obj: object) -> bool:
-    return (not hasattr(obj, "__len__")) or len(obj) <= DEAL_MAX_SHAPE_DIM
+    return (not isinstance(obj, (list, tuple, str, bytes, dict, set))) or len(obj) <= DEAL_MAX_SHAPE_DIM
 
 
 def _deal_json_list_of_grids_arg_ok_crosshair(obj: object) -> bool:
-    return type(obj) in (list, tuple) and len(obj) <= DEAL_MAX_SHAPE_DIM
+    return isinstance(obj, (list, tuple)) and len(obj) <= DEAL_MAX_SHAPE_DIM
 
 
 _deal_json_list_of_grids_arg_ok = (
