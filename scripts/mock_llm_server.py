@@ -275,7 +275,7 @@ def _tool_names(tools: Any) -> set[str]:
 def _last_user_text(messages: list[Any]) -> str:
     for msg in reversed(messages):
         if isinstance(msg, dict) and msg.get("role") == "user":
-            return _as_text(msg.get("content")).strip()
+            return current_query_text(_as_text(msg.get("content")))
     return ""
 
 
@@ -500,10 +500,7 @@ def _smol_research_completion(messages: list[Any], tool_names: set[str], config:
             tool_args={"url": _first_url(last_tool_text)},
             finish_reason="tool_calls",
         )
-    query = user_text
-    marker = "### CURRENT QUERY:"
-    if marker in user_text:
-        query = user_text.split(marker, 1)[-1].strip()
+    query = current_query_text(user_text)
     return Completion(
         tool_name="web_search",
         tool_args={"query": query or "mock research", "recency": "any"},
@@ -956,13 +953,15 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
             return False
 
         def _drop_client_socket(self) -> None:
-            """Packet F hang: drop the socket (no [DONE]). Returning from
-            do_POST on HTTP/1.1 keep-alive would leave the client blocked
-            on readline until request_timeout.
+            """Packet F hang: half-close the socket (no [DONE]). Returning
+            from do_POST on HTTP/1.1 keep-alive would leave the client
+            blocked on readline until request_timeout. SHUT_WR (not
+            SHUT_RDWR) lets the client see EOF after flushed chunks
+            without RST that can drop unread send-buffer data.
             """
             self.close_connection = True
             try:
-                self.connection.shutdown(socket.SHUT_RDWR)
+                self.connection.shutdown(socket.SHUT_WR)
             except OSError:
                 pass
 

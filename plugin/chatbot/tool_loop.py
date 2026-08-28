@@ -581,7 +581,7 @@ class ToolCallingMixin:
         # Drain ERROR items are format_error_payload dicts (see _spawn_llm_worker),
         # not Exception — format_error_message() requires Exception (deal.pre).
         if isinstance(e, dict):
-            err_msg = str(e.get("message") or e)
+            err_msg = str(e.get("message") or e.get("code") or e)
         elif isinstance(e, Exception):
             err_msg = format_error_message(e)
         else:

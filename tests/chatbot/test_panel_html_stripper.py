@@ -97,3 +97,11 @@ class TestPanelHTMLStripper:
         finalize_sidebar_assistant_response(send)
         send.rerender_rich_text_session.assert_not_called()
         assert send._plain_text_stripper is None
+
+    def test_finalize_rerenders_when_stopped(self):
+        send = _make_plain_send_listener()
+        send.rerender_rich_text_session = MagicMock()
+        send._terminal_status = "Stopped"
+        send._plain_text_stripper = None
+        finalize_sidebar_assistant_response(send)
+        send.rerender_rich_text_session.assert_called_once()

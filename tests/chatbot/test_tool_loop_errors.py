@@ -244,3 +244,18 @@ def test_handle_stream_error_payload_dict(test_instance):
     assert "500" in joined
     assert "mock LLM soak failure" in joined
     assert test_instance._terminal_status == "Error"
+
+
+def test_handle_stream_error_payload_dict_missing_message(test_instance):
+    payload = {"status": "error", "code": "HTTP_ERROR"}
+    with (
+        patch("plugin.chatbot.tool_loop.get_text_model", return_value="chat-model"),
+        patch("plugin.chatbot.tool_loop.get_current_endpoint", return_value="https://example"),
+        patch("plugin.chatbot.tool_loop.get_stt_model", return_value=""),
+    ):
+        recovered = test_instance._handle_stream_error(payload)
+    assert recovered is None
+    joined = "".join(test_instance.responses)
+    assert "[API error:" in joined
+    assert "HTTP_ERROR" in joined
+    assert test_instance._terminal_status == "Error"

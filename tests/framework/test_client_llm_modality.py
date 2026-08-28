@@ -234,3 +234,11 @@ def test_format_error_message_edge_cases():
     msg_4 = _format_http_error_response(400, "Bad Request", together_err)
     assert "HTTP Error 400" in msg_4
     assert "MessageContent" in msg_4 or "deserialize" in msg_4
+
+    # Chat path uses this helper, not format_error_message(HTTPError).
+    json_429 = '{"error": {"message": "mock LLM soak failure", "type": "rate_limit_error"}}'
+    msg_429 = _format_http_error_response(429, "Too Many Requests", json_429)
+    assert "Rate limited" in msg_429
+    assert "429" in msg_429
+    assert "mock LLM soak failure" in msg_429
+    assert "HTTP Error 429 from AI Provider" not in msg_429

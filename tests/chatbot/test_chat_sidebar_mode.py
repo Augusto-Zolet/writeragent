@@ -79,11 +79,27 @@ def test_mode_from_selector_prefers_selected_index_over_stale_text():
     )
 
 
+def test_mode_from_selector_oob_index_falls_back_to_text():
+    ctrl = MagicMock()
+    labels = get_mode_labels(include_brainstorming=True)
+    ctrl.getSelectedItemPos.return_value = 99
+    ctrl.getText.return_value = labels[1]
+    assert mode_from_selector(ctrl, include_brainstorming=True) == CHAT_MODE_IMAGE
+
+
 def test_set_selector_mode_selects_by_index():
     ctrl = MagicMock()
     labels = get_mode_labels(include_brainstorming=True)
     set_selector_mode(ctrl, CHAT_MODE_WEB_RESEARCH, include_brainstorming=True)
     ctrl.selectItemPos.assert_called_once_with(2, True)
+    ctrl.setText.assert_called_once_with(labels[2])
+
+
+def test_set_selector_mode_sets_text_if_select_item_pos_raises():
+    ctrl = MagicMock()
+    labels = get_mode_labels(include_brainstorming=True)
+    ctrl.selectItemPos.side_effect = Exception("disposed")
+    set_selector_mode(ctrl, CHAT_MODE_WEB_RESEARCH, include_brainstorming=True)
     ctrl.setText.assert_called_once_with(labels[2])
 
 
