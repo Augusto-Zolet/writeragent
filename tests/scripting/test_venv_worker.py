@@ -1179,3 +1179,9 @@ def test_maybe_dispatch_tool_call_without_ppt_master(monkeypatch):
     assert resp["status"] == "ok"
     assert resp["id"] == "t1"
 
+
+def test_python_worker_manager_sets_is_worker_env():
+    mgr = PythonWorkerManager(sys.executable, {"PATH": "/usr/bin"})
+    assert mgr.env.get("WRITERAGENT_IS_WORKER") == "1"
+
+

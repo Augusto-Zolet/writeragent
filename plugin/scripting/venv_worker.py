@@ -194,6 +194,7 @@ class PythonWorkerManager:
     def __init__(self, exe: str, env: dict[str, str]) -> None:
         self.exe = exe
         self.env = dict(env)
+        self.env["WRITERAGENT_IS_WORKER"] = "1"
         self._proc: subprocess.Popen[Any] | None = None
         self._io_lock = threading.Lock()
         self._primed = False
@@ -946,6 +947,7 @@ def warm_venv_worker(uno_ctx: Any, pool: str = WORKER_POOL_DEFAULT) -> None:
         return
     assert exe is not None
     child_env = scrub_subprocess_env(dict(os.environ))
+    child_env["WRITERAGENT_IS_WORKER"] = "1"
 
     manager = PythonWorkerManager.get(exe, child_env, pool=pool)
     manager.warm()
