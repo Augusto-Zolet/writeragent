@@ -250,3 +250,113 @@ def test_http_404(mock_http):
     with pytest.raises(HTTPError) as err:
         urlopen(mock_http + "/nope", timeout=5)
     assert err.value.code == 404
+
+
+def test_comment_with_document_text_calls_add_comment():
+    doc_system_msg = (
+        "You are WriterAgent.\n\n"
+        "[DOCUMENT CONTENT]\n"
+        "Document length: 30 characters.\n\n"
+        "[DOCUMENT START]\n"
+        "Welcome to the document test.\n"
+        "[END DOCUMENT]"
+    )
+    out = decide_completion(
+        {
+            "messages": [
+                {"role": "system", "content": doc_system_msg},
+                {"role": "user", "content": "Please add a comment to this document"},
+            ],
+            "tools": _tools("add_comment", "apply_document_content"),
+        },
+        MockLLMConfig(delay_ms=0),
+    )
+    assert out.tool_name == "add_comment"
+    assert out.tool_args is not None
+    assert out.tool_args["search"] == "Welcome"
+    assert "Mock comment" in out.tool_args["content"]
+
+
+def test_comment_with_empty_document_calls_apply_document_content():
+    empty_system_msg = (
+        "You are WriterAgent.\n\n"
+        "[DOCUMENT CONTENT]\n"
+        "[DOCUMENT START]\n\n"
+        "[END DOCUMENT]"
+    )
+    out = decide_completion(
+        {
+            "messages": [
+                {"role": "system", "content": empty_system_msg},
+                {"role": "user", "content": "insert a comment"},
+            ],
+            "tools": _tools("add_comment", "apply_document_content"),
+        },
+        MockLLMConfig(delay_ms=0),
+    )
+    assert out.tool_name == "apply_document_content"
+    assert out.tool_args is not None
+    assert out.tool_args["target"] == "beginning"
+    assert len(out.tool_args["content"]) > 0
+
+
+def test_comment_after_apply_content_step():
+    out = decide_completion(
+        {
+            "messages": [
+                {"role": "user", "content": "insert a comment"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "c1",
+                            "type": "function",
+                            "function": {
+                                "name": "apply_document_content",
+                                "arguments": '{"target":"beginning","content":["<p>Hello world</p>"]}',
+                            },
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "c1", "content": '{"status": "ok", "inserted": true}'},
+            ],
+            "tools": _tools("add_comment", "apply_document_content"),
+        },
+        MockLLMConfig(delay_ms=0),
+    )
+    assert out.tool_name == "add_comment"
+    assert out.tool_args is not None
+    assert out.tool_args["search"] == "Hello"
+
+
+def test_comment_after_add_comment_step():
+    out = decide_completion(
+        {
+            "messages": [
+                {"role": "user", "content": "insert a comment"},
+                {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "c2",
+                            "type": "function",
+                            "function": {
+                                "name": "add_comment",
+                                "arguments": '{"search":"Hello","content":"Mock comment"}',
+                            },
+                        }
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "c2", "content": '{"status": "ok", "comment_added": true}'},
+            ],
+            "tools": _tools("add_comment", "apply_document_content"),
+        },
+        MockLLMConfig(delay_ms=0),
+    )
+    assert out.tool_name is None
+    assert out.content is not None
+    assert "Comment" in out.content
+    assert out.finish_reason == "stop"
+

@@ -34,6 +34,7 @@ DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 18766
 MOCK_MODEL_ID = "writeragent-mock"
 
+_COMMENT_RE = re.compile(r"\bcomments?\b", re.IGNORECASE)
 _RESEARCH_RE = re.compile(
     r"\b(research|search|look up|look-up|latest|news|who is|what is)\b",
     re.IGNORECASE,
@@ -122,11 +123,34 @@ def _is_smol_research(tool_names: set[str]) -> bool:
 
 
 def _is_main_chat(tool_names: set[str]) -> bool:
-    return "web_research" in tool_names
+    return bool(tool_names & {"web_research", "add_comment", "apply_document_content"})
 
 
 def _looks_like_research(text: str) -> bool:
     return bool(_RESEARCH_RE.search(text or ""))
+
+
+def _looks_like_comment(text: str) -> bool:
+    return bool(_COMMENT_RE.search(text or ""))
+
+
+def _extract_document_words(messages: list[Any]) -> list[str]:
+    """Extract plain words from the [DOCUMENT CONTENT] block in conversation messages."""
+    for msg in messages:
+        if not isinstance(msg, dict):
+            continue
+        content = _as_text(msg.get("content"))
+        if "[DOCUMENT CONTENT]" in content:
+            doc_section = content.split("[DOCUMENT CONTENT]", 1)[1]
+            if "[END DOCUMENT]" in doc_section:
+                doc_section = doc_section.split("[END DOCUMENT]", 1)[0]
+            cleaned = re.sub(r"\[DOCUMENT (?:START|END)\]", " ", doc_section)
+            cleaned = re.sub(r"\[\.\.\..*?\.\.\.\]", " ", cleaned)
+            cleaned = re.sub(r"\[Document (?:content unavailable|text reading failed[^\]]*)\]", " ", cleaned)
+            cleaned = re.sub(r"^Document length:\s*\d+\s*characters\.", " ", cleaned, flags=re.MULTILINE)
+            words = re.findall(r"\b[A-Za-z0-9_-]+\b", cleaned)
+            return words
+    return []
 
 
 def _first_url(text: str) -> str:
@@ -254,9 +278,25 @@ def decide_completion(payload: dict[str, Any], config: MockLLMConfig, turns: _Tu
         )
 
     turn = turns.next_turn() if turns is not None else 1
-    reasoning = "Mock thinking: pick HTML chat or call web_research."
+    reasoning = "Mock thinking: pick HTML chat or call tool."
 
     if _is_main_chat(tool_names) and last_role == "tool":
+        last_called_tool = called[-1] if called else ""
+        if last_called_tool == "add_comment":
+            return Completion(
+                content="<p>Comment inserted successfully.</p>",
+                reasoning=reasoning,
+                finish_reason="stop",
+            )
+        if last_called_tool == "apply_document_content" and _looks_like_comment(user_text):
+            words = _extract_document_words(messages)
+            first_word = words[0] if words else "Hello"
+            return Completion(
+                reasoning="Mock thinking: inserted text, now adding comment to first word.",
+                tool_name="add_comment",
+                tool_args={"search": first_word, "content": f"Mock comment on '{first_word}'"},
+                finish_reason="tool_calls",
+            )
         tool_text = ""
         for msg in reversed(messages):
             if isinstance(msg, dict) and msg.get("role") == "tool":
@@ -266,6 +306,23 @@ def decide_completion(payload: dict[str, Any], config: MockLLMConfig, turns: _Tu
             content=_html_research_summary(user_text, tool_text),
             reasoning=reasoning,
             finish_reason="stop",
+        )
+
+    if _is_main_chat(tool_names) and _looks_like_comment(user_text):
+        words = _extract_document_words(messages)
+        if words:
+            first_word = words[0]
+            return Completion(
+                reasoning="Mock thinking: found document text, adding comment to first word.",
+                tool_name="add_comment",
+                tool_args={"search": first_word, "content": f"Mock comment on '{first_word}'"},
+                finish_reason="tool_calls",
+            )
+        return Completion(
+            reasoning="Mock thinking: document is empty, inserting initial text with apply_document_content.",
+            tool_name="apply_document_content",
+            tool_args={"target": "beginning", "content": ["<p>Hello world from mock LLM.</p>"]},
+            finish_reason="tool_calls",
         )
 
     if _is_main_chat(tool_names) and (config.always_research or _looks_like_research(user_text)):

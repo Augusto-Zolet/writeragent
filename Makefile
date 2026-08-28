@@ -103,9 +103,13 @@ else
     UNOPKG := unopkg
 endif
 
+# Directory of *this* Makefile, not $(CURDIR). `make release` runs
+# `make -f $(PROJECT_ROOT)/Makefile test-uno` from a stripped tree in /tmp
+# (no Makefile there). Using CURDIR made PROJECT_ROOT=/tmp/... and
+# recursive `$(MAKE) lo-kill` failed with "No rule to make target".
+PROJECT_ROOT := $(abspath $(dir $(firstword $(MAKEFILE_LIST))))
 # Prefer project .venv so "make test" uses venv even when shell isn't activated
-PROJECT_ROOT := $(CURDIR)
-ifneq ($(wildcard .venv/bin/python),)
+ifneq ($(wildcard $(PROJECT_ROOT)/.venv/bin/python),)
     PYTHON := $(PROJECT_ROOT)/.venv/bin/python
 endif
 OPENGREP_DIR := tests/semgrep
@@ -119,7 +123,7 @@ OPENGREP_EXCLUDES := --exclude=plugin/contrib --exclude=plugin/lib
 OPENGREP_SCAN_FLAGS := --error --severity ERROR --taint-intrafile $(OPENGREP_EXCLUDES)
 OPENGREP_ENV := SEMGREP_SEND_METRICS=off
 ifeq ($(OS),Windows_NT)
-ifneq ($(wildcard .venv/Scripts/python.exe),)
+ifneq ($(wildcard $(PROJECT_ROOT)/.venv/Scripts/python.exe),)
     PYTHON := $(PROJECT_ROOT)/.venv/Scripts/python.exe
 endif
 endif
@@ -696,8 +700,8 @@ mock-llm:
 	$(PYTHON) scripts/mock_llm_server.py
 
 test-uno:
-	@$(MAKE) lo-kill
-	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
+	@$(MAKE) -C "$(PROJECT_ROOT)" lo-kill
+	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
 
 test-run:
 	@$(MAKE) pytest
@@ -736,13 +740,13 @@ vhs:
 		-k hypothesis -s --hypothesis-verbosity=verbose
 
 test-visible:
-	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
+	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
 
 lo-test-threadguard:
 	WRITERAGENT_UNO_THREAD_GUARD=1 $(MAKE) test-uno
 
 lo-test-threadguard-visible:
-	WRITERAGENT_UNO_THREAD_GUARD=1 PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) lo-kill; exit $$EXIT_CODE
+	WRITERAGENT_UNO_THREAD_GUARD=1 PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --visible test_charts_uno test_enhanced_charts_uno test_document_research_grep_uno test_rich_html_uno; EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
 
 opengrep-lint:
 	@test -x "$(OPENGREP)" || (echo "opengrep not found — run: make opengrep-install" && exit 1)
