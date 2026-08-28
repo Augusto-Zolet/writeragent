@@ -163,8 +163,11 @@ def _repair_latex_clashes(text: str) -> str:
 
 
 
-_JSON_CHARS = frozenset(
-    "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789{}[],\": \t\n\r"
+# Identity repair under CrossHair: charset only needs to distinguish strip/empty vs body.
+_JSON_CHARS = (
+    frozenset("{}\n ")
+    if UNDER_CROSSHAIR
+    else frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789{}[],\": \t\n\r")
 )
 
 
@@ -173,8 +176,8 @@ def _deal_json_text_ok_pytest(text: object) -> bool:
 
 
 def _deal_json_text_ok_crosshair(text: object) -> bool:
-    # cover-all 33127995861: identity repair still 103k lines at SOURCE=16.
-    return isinstance(text, str) and len(text) <= 4 and all(
+    # cover-all 33127995861: 103k at SOURCE=16; 33180040863 still ~16m/15m at len=4.
+    return isinstance(text, str) and len(text) <= 2 and all(
         c in _JSON_CHARS for c in text
     )
 

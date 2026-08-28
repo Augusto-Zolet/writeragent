@@ -23,7 +23,7 @@ from __future__ import annotations
 import dataclasses
 from typing import Any, cast
 
-from plugin.framework.deal_shim import DEAL_MAX_CMD_ARGS, DEAL_MAX_SOURCE, DEAL_MAX_TOKEN, ascii_bounded, str_bounded, deal
+from plugin.framework.deal_shim import DEAL_MAX_CMD_ARGS, DEAL_MAX_SOURCE, DEAL_MAX_TOKEN, UNDER_CROSSHAIR, ascii_bounded, str_bounded, deal
 
 # Aligned with upstream python-sdk LATEST_PROTOCOL_VERSION.
 MCP_PROTOCOL_VERSION = "2025-11-25"
@@ -61,7 +61,10 @@ class JsonRpcParseError:
 
 @deal.pre(
     lambda msg: not isinstance(msg, dict)
-    or len(msg) <= DEAL_MAX_CMD_ARGS
+    or (
+        len(msg) <= DEAL_MAX_CMD_ARGS
+        and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in msg)
+    )
 )
 @deal.post(lambda result: isinstance(result, (ParsedJsonRpcRequest, JsonRpcParseError)))
 def parse_jsonrpc_request(msg: object) -> ParsedJsonRpcRequest | JsonRpcParseError:
@@ -70,6 +73,8 @@ def parse_jsonrpc_request(msg: object) -> ParsedJsonRpcRequest | JsonRpcParseErr
     Notifications (missing ``id`` or ``id`` is null) are not requests — callers should
     treat ``req_id is None`` before calling this, or check ``"id" not in msg``.
     """
+    # sys.modules["crosshair"] sniff is engine-hostile (cover-all 33180040863 ~7m).
+    # crosshair: off
     if not isinstance(msg, dict):
         return JsonRpcParseError("Invalid JSON-RPC 2.0 request")
     raw = cast("dict[str, Any]", msg)
@@ -207,15 +212,44 @@ class CallToolRequestParams:
 
     @classmethod
     def from_params(cls, params: dict[str, Any]) -> CallToolRequestParams:
-        name = params.get("name")
-        if not isinstance(name, str) or not name:
-            raise ValueError("tools/call requires params.name")
-        arguments = params.get("arguments", {})
-        if arguments is None:
-            arguments = {}
-        if not isinstance(arguments, dict):
-            raise ValueError("tools/call params.arguments must be an object")
-        return cls(name=name, arguments=dict(arguments))
+        return _call_tool_request_params_from_dict(params)
+
+
+_DEAL_CALL_DICT_LEN = 2 if UNDER_CROSSHAIR else DEAL_MAX_CMD_ARGS
+_DEAL_CALL_KEY_LEN = 4 if UNDER_CROSSHAIR else DEAL_MAX_TOKEN
+_DEAL_CALL_VAL_LEN = 4 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+
+
+def _deal_call_tool_params_ok(params: object) -> bool:
+    # cover-all 33180040863: unbounded params → 3400 examples on from_params.
+    return (
+        type(params) is dict
+        and len(params) <= _DEAL_CALL_DICT_LEN
+        and all(type(k) is str and ascii_bounded(k, _DEAL_CALL_KEY_LEN) for k in params)
+        and all(
+            v is None
+            or (isinstance(v, str) and ascii_bounded(v, _DEAL_CALL_VAL_LEN))
+            or (
+                type(v) is dict
+                and len(v) <= _DEAL_CALL_DICT_LEN
+                and all(type(nk) is str and ascii_bounded(nk, _DEAL_CALL_KEY_LEN) for nk in v)
+            )
+            for v in params.values()
+        )
+    )
+
+
+@deal.pre(lambda params: _deal_call_tool_params_ok(params))
+def _call_tool_request_params_from_dict(params: dict[str, Any]) -> CallToolRequestParams:
+    name = params.get("name")
+    if not isinstance(name, str) or not name:
+        raise ValueError("tools/call requires params.name")
+    arguments = params.get("arguments", {})
+    if arguments is None:
+        arguments = {}
+    if not isinstance(arguments, dict):
+        raise ValueError("tools/call params.arguments must be an object")
+    return CallToolRequestParams(name=name, arguments=dict(arguments))
 
 
 def call_tool_result(text: str, *, is_error: bool = False) -> dict[str, Any]:

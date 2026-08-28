@@ -101,15 +101,33 @@ PROVIDERS: Dict[str, ProviderConfig] = {
 }
 
 
-_URL_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._:/")
-# cover-all 33127995861: _resolve_provider_id 231k lines at URL=32 (substring scan).
-_DEAL_RESOLVE_URL_LEN = 8 if UNDER_CROSSHAIR else DEAL_MAX_URL
+# Substring scan over host_matches: full URL alphabet at len=8 was ~53m / 230k lines.
+# CrossHair only needs chars that actually appear in PROVIDERS.host_matches.
+_URL_CHARS = (
+    frozenset("".join(frag for cfg in PROVIDERS.values() for frag in cfg.host_matches) + ":/")
+    if UNDER_CROSSHAIR
+    else frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._:/")
+)
+_DEAL_RESOLVE_URL_LEN = 3 if UNDER_CROSSHAIR else DEAL_MAX_URL
+_PROVIDER_HINTS = frozenset(PROVIDERS)
+
+
+def _deal_resolve_hint_ok_pytest(provider_hint: object) -> bool:
+    return provider_hint is None or (isinstance(provider_hint, str) and ascii_bounded(provider_hint, DEAL_MAX_TOKEN))
+
+
+def _deal_resolve_hint_ok_crosshair(provider_hint: object) -> bool:
+    # Finite hint set covers ``normalized in PROVIDERS`` without  TOKEN^4 strings.
+    return provider_hint is None or provider_hint in _PROVIDER_HINTS
+
+
+_deal_resolve_hint_ok = _deal_resolve_hint_ok_crosshair if UNDER_CROSSHAIR else _deal_resolve_hint_ok_pytest
 
 
 @deal.pre(
     lambda endpoint, provider_hint=None: ascii_bounded(endpoint, _DEAL_RESOLVE_URL_LEN)
     and all(c in _URL_CHARS for c in endpoint)
-    and (provider_hint is None or ascii_bounded(provider_hint, DEAL_MAX_TOKEN))
+    and _deal_resolve_hint_ok(provider_hint)
 )
 def _resolve_provider_id(endpoint: str, provider_hint: Optional[str] = None) -> str:
     """

@@ -28,6 +28,11 @@ DELEGATE_TASK_CHAT_MAX = 120
 # cover-all 33127995861: max_len 1..120 * SOURCE=16 ascii ate 114k lines on truncate.
 _DEAL_TRUNCATE_TASK_LEN = 8 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
 _DEAL_TRUNCATE_MAX_LEN = 8 if UNDER_CROSSHAIR else DELEGATE_TASK_CHAT_MAX
+# cover-all 33180040863: describe_empty / domain_from_delegate still multi-10m at TOKEN=16.
+_DEAL_EMPTY_TC_LEN = 2 if UNDER_CROSSHAIR else DEAL_MAX_CMD_ARGS
+_DEAL_EMPTY_TOKEN_LEN = 4 if UNDER_CROSSHAIR else DEAL_MAX_TOKEN
+_DEAL_FUNC_ARG_TOKEN_LEN = 4 if UNDER_CROSSHAIR else DEAL_MAX_TOKEN
+_DEAL_FUNC_ARG_DICT_LEN = 2 if UNDER_CROSSHAIR else DEAL_MAX_CMD_ARGS
 _EMPTY_MODEL_DEBUG_CONTENT_PREVIEW_MAX = 120
 
 
@@ -48,11 +53,13 @@ def _describe_empty_response_content(content: Any) -> str:
     lambda tool_calls, *_unused, **__: tool_calls is None
     or (
         type(tool_calls) is list
-        and len(tool_calls) <= DEAL_MAX_CMD_ARGS
+        and len(tool_calls) <= _DEAL_EMPTY_TC_LEN
         and all(
             type(item) is dict
-            and len(item) <= DEAL_MAX_CMD_ARGS
-            and all(type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) for k in item)
+            # Master dropped item.values() (values are not always tiny strings).
+            # Keep that keys-only shape; use the PR CrossHair length caps.
+            and len(item) <= _DEAL_EMPTY_TC_LEN
+            and all(type(k) is str and ascii_bounded(k, _DEAL_EMPTY_TOKEN_LEN) for k in item)
             for item in tool_calls
         )
     )
@@ -106,8 +113,8 @@ def _deal_func_args_ok_pytest(func_args: object) -> bool:
 
 
 def _deal_func_args_ok_crosshair(func_args: object) -> bool:
-    return type(func_args) is dict and len(func_args) <= DEAL_MAX_CMD_ARGS and all(
-        type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN) and (v is None or (isinstance(v, str) and ascii_bounded(v, DEAL_MAX_TOKEN)))
+    return type(func_args) is dict and len(func_args) <= _DEAL_FUNC_ARG_DICT_LEN and all(
+        type(k) is str and ascii_bounded(k, _DEAL_FUNC_ARG_TOKEN_LEN) and (v is None or (isinstance(v, str) and ascii_bounded(v, _DEAL_FUNC_ARG_TOKEN_LEN)))
         for k, v in func_args.items()
     )
 
@@ -123,6 +130,7 @@ def domain_from_delegate_args(func_args: Mapping[str, Any]) -> str:
     return "?"
 
 
+@deal.pre(lambda func_args: _deal_func_args_ok(func_args))
 def delegate_status_label(func_args: Mapping[str, Any]) -> str:
     return f"delegate ({domain_from_delegate_args(func_args)})"
 
@@ -163,6 +171,13 @@ def format_delegate_running_chat_line(func_args: Mapping[str, Any]) -> str:
     return f"[Running delegate ({domain})...]\n"
 
 
+@deal.pre(
+    lambda func_args, result_data: _deal_func_args_ok(func_args)
+    and type(result_data) is dict
+    and len(result_data) <= _DEAL_FUNC_ARG_DICT_LEN
+    and all(type(k) is str and ascii_bounded(k, _DEAL_FUNC_ARG_TOKEN_LEN) for k in result_data)
+    and all(v is None or (isinstance(v, str) and ascii_bounded(v, _DEAL_FUNC_ARG_TOKEN_LEN)) for v in result_data.values())
+)
 def format_delegate_result_chat_line(func_args: Mapping[str, Any], result_data: Mapping[str, Any]) -> str:
     """Completion line for delegate gateway tools (domain shown; success is short)."""
     domain = domain_from_delegate_args(func_args)

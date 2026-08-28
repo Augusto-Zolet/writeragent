@@ -94,13 +94,18 @@ _deal_excel_src_ok = _deal_excel_src_ok_crosshair if UNDER_CROSSHAIR else _deal_
 # ast_source_offset lineno: CrossHair uses 4 so SMT stays tiny. Pytest must
 # accept real multiline ``xl(`` (AST ``end_lineno`` can exceed 4). Cap at
 # DEAL_MAX_SOURCE — a ``str_bounded`` script cannot have more lines than chars.
-_AST_OFFSET_MAX_LINENO = 4 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
-_AST_OFFSET_MAX_SRC = 4 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
-_AST_OFFSET_MAX_COL = 4 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
-# Tiny alphabet: cover-all 33127995861 still read 1.05M lines at SOURCE=16 with
-# the Excel placeholder alphabet. splitlines/encode only needs a newline.
+_AST_OFFSET_MAX_LINENO = 2 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+_AST_OFFSET_MAX_SRC = 2 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+_AST_OFFSET_MAX_COL = 2 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+# Tiny alphabet: 33127995861 1.05M lines at SOURCE=16; 33180040863 still ~44m at len=4.
 _AST_OFFSET_CHARS = frozenset("AB \n")
 _DEAL_BINDING_A1_LEN = DEAL_MAX_CELL_REF if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+_DEAL_RESOLVED_LEN = 2 if UNDER_CROSSHAIR else DEAL_MAX_CMD_ARGS
+# cover-all 33180040863: _normalize_bindings ~59m — kind/note were unbounded strings.
+_DEAL_NOTE_LEN = 4 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+_RESOLVED_KINDS = frozenset(("range", "unresolved", "table_snapshot", "anchor_snapshot"))
+_DEAL_CONVERT_LIST = 2 if UNDER_CROSSHAIR else DEAL_MAX_CMD_ARGS
+_DEAL_CONVERT_STR = 4 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
 
 
 def _deal_ast_offset_src_ok_pytest(src: object) -> bool:
@@ -459,6 +464,10 @@ def _excel_execution_order(model: ExcelWorkbookModel) -> list[ExcelPyCell]:
     return cells
 
 
+@deal.pre(
+    lambda current, candidate: ascii_bounded(current or "", _DEAL_BINDING_A1_LEN)
+    and ascii_bounded(candidate or "", _DEAL_BINDING_A1_LEN)
+)
 def _prefer_excel_dep_token(current: str, candidate: str) -> str:
     """When merging deps that snap to the same A1, keep the Excel-native token if any.
 
@@ -475,18 +484,20 @@ def _prefer_excel_dep_token(current: str, candidate: str) -> str:
 
 @deal.pre(
     lambda resolved, header_modes: type(resolved) is list
-    and len(resolved) <= DEAL_MAX_CMD_ARGS
+    and len(resolved) <= _DEAL_RESOLVED_LEN
     and all(
         isinstance(r, ResolvedDep)
+        and r.kind in _RESOLVED_KINDS
+        and ascii_bounded(r.note or "", _DEAL_NOTE_LEN)
         and (r.a1 is None or ascii_bounded(r.a1, _DEAL_BINDING_A1_LEN))
         and (r.original is None or ascii_bounded(r.original, _DEAL_BINDING_A1_LEN))
         for r in resolved
     )
     and type(header_modes) is dict
-    and len(header_modes) <= DEAL_MAX_CMD_ARGS
+    and len(header_modes) <= _DEAL_RESOLVED_LEN
     and all(
         type(k) is int
-        and 0 <= k <= DEAL_MAX_CMD_ARGS
+        and 0 <= k <= _DEAL_RESOLVED_LEN
         and isinstance(v, str)
         and v in ("omit", "true", "false")
         for k, v in header_modes.items()
@@ -543,13 +554,13 @@ def _normalize_bindings(
 
 @deal.pre(
     lambda model, cell, *_unused, **__: isinstance(model.scripts, list)
-    and len(model.scripts) <= DEAL_MAX_CMD_ARGS
-    and all(isinstance(s, str) and str_bounded(s, DEAL_MAX_SOURCE) for s in model.scripts)
+    and len(model.scripts) <= _DEAL_CONVERT_LIST
+    and all(isinstance(s, str) and str_bounded(s, _DEAL_CONVERT_STR) for s in model.scripts)
     and type(cell.script_index) is int
     # Body fail-closes on OOR / negative index; a range pre here would hide that path.
     and isinstance(cell.deps, list)
-    and len(cell.deps) <= DEAL_MAX_CMD_ARGS
-    and all(isinstance(d, str) and ascii_bounded(d, DEAL_MAX_SOURCE) for d in cell.deps)
+    and len(cell.deps) <= _DEAL_CONVERT_LIST
+    and all(isinstance(d, str) and ascii_bounded(d, _DEAL_CONVERT_STR) for d in cell.deps)
 )
 def convert_cell_to_dag(
     model: ExcelWorkbookModel,
@@ -659,10 +670,10 @@ def convert_cell_to_dag(
 
 @deal.pre(
     lambda model, *_unused, **__: isinstance(model.scripts, list)
-    and len(model.scripts) <= DEAL_MAX_CMD_ARGS
-    and all(isinstance(s, str) and str_bounded(s, DEAL_MAX_SOURCE) for s in model.scripts)
+    and len(model.scripts) <= _DEAL_CONVERT_LIST
+    and all(isinstance(s, str) and str_bounded(s, _DEAL_CONVERT_STR) for s in model.scripts)
     and isinstance(model.cells, list)
-    and len(model.cells) <= DEAL_MAX_CMD_ARGS
+    and len(model.cells) <= _DEAL_CONVERT_LIST
 )
 def convert_model_to_dag(model: ExcelWorkbookModel, *, best_effort: bool = False) -> ConversionReport:
     """Convert every PY cell in *model* to DAG-style ``=PY`` formulas."""
