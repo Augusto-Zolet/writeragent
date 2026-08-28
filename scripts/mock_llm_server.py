@@ -29,6 +29,7 @@ import html
 import io
 import json
 import re
+import socket
 import sys
 import threading
 import time
@@ -142,11 +143,28 @@ def completion_tool_calls(completion: Completion) -> list[tuple[str, dict[str, A
     return calls
 
 
+_CURRENT_QUERY_MARK = "### CURRENT QUERY:"
+
+
+def current_query_text(user_text: str) -> str:
+    """Phrase-match the current user turn, not librarian/smol conversation history.
+
+    Sub-agents wrap the task as ``### CONVERSATION HISTORY:`` plus
+    ``### CURRENT QUERY:``. Matching the whole blob would keep firing
+    ``crash the stream`` / ``hang the stream`` on a later ``hello``.
+    """
+    text = user_text or ""
+    idx = text.rfind(_CURRENT_QUERY_MARK)
+    if idx >= 0:
+        return text[idx + len(_CURRENT_QUERY_MARK) :].strip()
+    return text.strip()
+
+
 def detect_scenario(user_text: str, forced: str = "none") -> str:
     forced = (forced or "none").strip().lower()
     if forced and forced != "none":
         return forced
-    text = user_text or ""
+    text = current_query_text(user_text)
     for sid, pattern in _SCENARIO_PATTERNS:
         if pattern.search(text):
             return sid
@@ -933,8 +951,20 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
+                self._drop_client_socket()
                 return True
             return False
+
+        def _drop_client_socket(self) -> None:
+            """Packet F hang: drop the socket (no [DONE]). Returning from
+            do_POST on HTTP/1.1 keep-alive would leave the client blocked
+            on readline until request_timeout.
+            """
+            self.close_connection = True
+            try:
+                self.connection.shutdown(socket.SHUT_RDWR)
+            except OSError:
+                pass
 
         def do_POST(self) -> None:  # noqa: N802
             path = urlparse(self.path).path
@@ -1002,6 +1032,7 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
                 self.wfile.flush()
                 written += 1
                 if max_chunks is not None and written >= max_chunks:
+                    self._drop_client_socket()
                     return
                 if delay:
                     time.sleep(delay)

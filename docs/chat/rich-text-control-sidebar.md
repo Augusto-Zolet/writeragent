@@ -265,7 +265,7 @@ make mock-llm
 
 Default bind is **`http://127.0.0.1:18766`** (not `8765` / `18765`, which are MCP). In Settings: that endpoint, model `writeragent-mock`, Rich Text Control Sidebar on. **Record** sends native `input_audio` on chat completions; the mock replies with canned HTML (`Hello from the mock microphone.`, `--transcript` to change it). `GET /v1/models` advertises audio input and lists `writeragent-mock-whisper` for the STT combobox. `POST /v1/audio/transcriptions` (JSON or multipart) returns `{"text": …}` for the fallback path.
 
-Plain “hello” streams two HTML paragraphs (rotating lists/tables/code). Phrases like “look up …” emit `web_research`; the same server scripts the smol `web_search` → `visit_webpage` → `final_answer` steps. `--offline` skips live DuckDuckGo (`final_answer` only). `--scenario` forces a journey on user turns; `--fail` fails every request. Tests: `tests/scripts/test_mock_llm_server.py`.
+Plain “hello” streams two HTML paragraphs (rotating lists/tables/code). Phrases like “look up …” emit `web_research`; the same server scripts the smol `web_search` → `visit_webpage` → `final_answer` steps. `--offline` skips live DuckDuckGo (`final_answer` only). `--scenario` forces a journey on user turns; `--fail` fails every request. Phrase matching uses the last `### CURRENT QUERY:` suffix when librarian/smol wraps the task, so a recovery `hello` after `crash the stream` does not keep matching conversation history. Tests: `tests/scripts/test_mock_llm_server.py`.
 
 **Phrase table** (case-insensitive; first match wins; missing tools fall back to HTML):
 
@@ -371,7 +371,7 @@ Assign by packet id (`A`–`H`). Do not skip the “why hard” line — that is
 
 | ID | Mock | Steps | Pass | Watch |
 |----|------|-------|------|-------|
-| F1 | `crash the stream` | Send, then `hello` | Error surfaced (not a hang); hello recovers | HTTP 500 JSON `error` object |
+| F1 | `crash the stream` | Send, then `hello` | Error surfaced (not a hang); hello recovers | HTTP 500 JSON `error` object; match **current query** only, not librarian history |
 | F2 | `rate limit` / `error 429` | Send | Distinct 429 handling or at least a visible error; recover with hello | |
 | F3 | `hang the stream` or `--fail hang --fail-after-chunks 4` | Send | UI does **not** freeze forever; Stop or timeout/error; next send works | no `[DONE]`; worker must not block VCL |
 | F4 | `--sse-comments` or `sse pings` | hello | Stream still parses; comments ignored | `: ping` between `data:` lines |
