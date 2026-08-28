@@ -571,10 +571,11 @@ def _log_scrollish_props(label, obj) -> None:
         log.debug("%s prop dump failed: %s", label, e)
 
 
-def _uno_bool_false():
+def _uno_bool_false() -> bool:
     try:
         import uno
-        return uno.Bool(False)
+        uno_bool = getattr(uno, "Bool", bool)
+        return bool(uno_bool(False))
     except Exception:
         return False
 
