@@ -116,14 +116,13 @@ def _deal_grid_values_ok(values: object) -> bool:
 
 
 def _deal_calc_range_other_ok(other: object) -> bool:
-    t = type(other)
-    if t is type(None) or t is bool:
+    if other is None or isinstance(other, bool):
         return True
-    if t is int:
+    if isinstance(other, int):
         return -8 <= other <= 8
-    if t is float:
+    if isinstance(other, float):
         return True
-    if t is str:
+    if isinstance(other, str):
         return ascii_bounded(other, 4)
     return isinstance(other, CalcRange) and _deal_grid_values_ok(other._values)
 
@@ -452,12 +451,11 @@ def _deal_inner_grid_cell_ok_pytest(c: object) -> bool:
 def _deal_inner_grid_cell_ok_crosshair(c: object) -> bool:
     # cover-all 33127995861: unbounded str/int cells made _materialize 530k lines
     # and compare dunders 90–172k each. Tiny ints + 4-char ascii still hits None/str/int.
-    t = type(c)
-    if t is type(None):
+    if c is None:
         return True
-    if t is int:
+    if isinstance(c, int):
         return -8 <= c <= 8
-    if t is str:
+    if isinstance(c, str):
         return ascii_bounded(c, 4)
     return False
 
@@ -470,13 +468,13 @@ def _deal_json_list_of_grids_arg_ok_pytest(obj: object) -> bool:
 
 
 def _deal_json_list_of_grids_arg_ok_crosshair(obj: object) -> bool:
-    if type(obj) not in (list, tuple) or len(obj) > DEAL_MAX_SHAPE_DIM:
+    if not isinstance(obj, (list, tuple)) or len(obj) > DEAL_MAX_SHAPE_DIM:
         return False
     for item in obj:
-        if type(item) not in (list, tuple) or len(item) > DEAL_MAX_SHAPE_DIM:
+        if not isinstance(item, (list, tuple)) or len(item) > DEAL_MAX_SHAPE_DIM:
             return False
         for row in item:
-            if type(row) in (list, tuple):
+            if isinstance(row, (list, tuple)):
                 if len(row) > DEAL_MAX_SHAPE_DIM:
                     return False
                 if not all(_deal_inner_grid_cell_ok(c) for c in row):
