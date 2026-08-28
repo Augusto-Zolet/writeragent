@@ -35,6 +35,10 @@ def test_format_error_message():
     err = urllib.error.HTTPError("url", 403, "Forbidden", {}, None)
     assert "Forbidden" in format_error_message(err)
 
+    err = urllib.error.HTTPError("url", 429, "Too Many Requests", {}, None)
+    assert "429" in format_error_message(err)
+    assert "Rate limited" in format_error_message(err)
+
     # Socket / Connection errors
     err = urllib.error.URLError("Connection refused")
     assert "Connection Refused" in format_error_message(err)

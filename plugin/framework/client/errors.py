@@ -66,6 +66,12 @@ def format_error_for_display(e):
     """Return user-friendly error string for display in cells or dialogs."""
     from plugin.framework.errors import format_error_payload
 
+    # Drain loop ERROR items are format_error_payload dicts, not Exception.
+    # format_error_payload(dict) would wrap the whole mapping as INTERNAL_ERROR.
+    if isinstance(e, dict):
+        msg = e.get("message")
+        if msg:
+            return _("Error: {0}").format(msg)
     payload = format_error_payload(e)
     return _("Error: {0}").format(payload.get("message", format_error_message(e)))
 

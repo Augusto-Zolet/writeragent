@@ -223,3 +223,24 @@ def test_stream_error_stt_fallback_does_not_reenter_send(test_instance):
     assert test_instance.session.messages[-1]["role"] == "user"
     assert test_instance.session.messages[-1]["content"] == "hello\nspoken words"
     assert test_instance._spawn_llm_worker.call_args.kwargs["query_text"] == "hello\nspoken words"
+
+
+def test_handle_stream_error_payload_dict(test_instance):
+    """Drain ERROR items are format_error_payload dicts, not Exception."""
+    payload = {
+        "status": "error",
+        "code": "HTTP_ERROR",
+        "message": "HTTP Error 500 from AI Provider: Internal Server Error. mock LLM soak failure",
+    }
+    with (
+        patch("plugin.chatbot.tool_loop.get_text_model", return_value="chat-model"),
+        patch("plugin.chatbot.tool_loop.get_current_endpoint", return_value="https://example"),
+        patch("plugin.chatbot.tool_loop.get_stt_model", return_value=""),
+    ):
+        recovered = test_instance._handle_stream_error(payload)
+    assert recovered is None
+    joined = "".join(test_instance.responses)
+    assert "[API error:" in joined
+    assert "500" in joined
+    assert "mock LLM soak failure" in joined
+    assert test_instance._terminal_status == "Error"

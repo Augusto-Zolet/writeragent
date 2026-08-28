@@ -66,6 +66,12 @@ class TestErrorHandling(unittest.TestCase):
         display_str_generic = format_error_for_display(exc_generic)
         self.assertEqual(display_str_generic, 'Error: System error')
 
+    def test_format_error_for_display_payload_dict(self):
+        display_str = format_error_for_display(
+            {"status": "error", "code": "HTTP_ERROR", "message": "HTTP Error 500 from AI Provider"}
+        )
+        self.assertEqual(display_str, "Error: HTTP Error 500 from AI Provider")
+
     def test_librepy_exceptions_hierarchy_and_codes(self):
         from plugin.framework.errors import (
             CalcError,
