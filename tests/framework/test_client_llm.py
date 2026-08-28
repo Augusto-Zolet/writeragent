@@ -6,8 +6,8 @@ import pytest
 
 from plugin.framework.client.auth import AuthError
 from plugin.framework.client.llm_client import LlmClient, strip_leaked_chat_template_control_tokens
-from plugin.framework.errors import format_error_message
-from plugin.tests.testing_utils import MockContext
+from plugin.framework.errors import NetworkError, format_error_message
+from plugin.tests.testing_utils import MockContext, create_mock_http_response
 
 
 @pytest.fixture
