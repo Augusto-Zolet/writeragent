@@ -584,8 +584,15 @@ class ToolCallingMixin:
                     log.exception("STT fallback after native-audio error failed")
                 return None
 
-        # If we reached here, it's either not a modality error or STT is not configured
-        err_msg = format_error_message(e)
+        # If we reached here, it's either not a modality error or STT is not configured.
+        # Drain ERROR items are format_error_payload dicts (see _spawn_llm_worker),
+        # not Exception — format_error_message() requires Exception (deal.pre).
+        if isinstance(e, dict):
+            err_msg = str(e.get("message") or e.get("code") or e)
+        elif isinstance(e, Exception):
+            err_msg = format_error_message(e)
+        else:
+            err_msg = str(e)
         self._append_response("\n[API error: %s]\n" % err_msg)
         self._terminal_status = "Error"
         self._set_status("Error")

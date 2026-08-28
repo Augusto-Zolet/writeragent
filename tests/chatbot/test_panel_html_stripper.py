@@ -97,3 +97,21 @@ class TestPanelHTMLStripper:
         send.rerender_rich_text_session.assert_not_called()
         finalize_sidebar_assistant_response(send, allow_rerender=True)
         send.rerender_rich_text_session.assert_called_once()
+
+    def test_finalize_skips_rerender_on_api_error(self):
+        """Packet F: HTTP 429/500 must not be replaced by the previous HTML reply."""
+        send = _make_plain_send_listener()
+        send.rerender_rich_text_session = MagicMock()
+        send._terminal_status = "Error"
+        send._plain_text_stripper = StreamingHTMLStripper()
+        finalize_sidebar_assistant_response(send)
+        send.rerender_rich_text_session.assert_not_called()
+        assert send._plain_text_stripper is None
+
+    def test_finalize_rerenders_when_stopped_status(self):
+        send = _make_plain_send_listener()
+        send.rerender_rich_text_session = MagicMock()
+        send._terminal_status = "Stopped"
+        send._plain_text_stripper = None
+        finalize_sidebar_assistant_response(send)
+        send.rerender_rich_text_session.assert_called_once()

@@ -21,8 +21,15 @@ def _format_http_error_response(status, reason, err_body):  # pyright: ignore[re
     This remains client-specific because it parses provider error JSON bodies
     and falls back to raw snippets — behavior that is only relevant on the
     LLM HTTP path.
+
+    Persistent ``http.client`` (``LlmClient``) never raises ``urllib``
+    ``HTTPError``, so ``format_error_message()``'s 429 branch never runs on
+    the chat drain. Map 429 here so Packet F2 shows a rate-limit sentence.
     """
-    base = _("HTTP Error {0} from AI Provider: {1}").format(status, reason)
+    if status == 429:
+        base = _("Rate limited (429). Wait a moment and try again.")
+    else:
+        base = _("HTTP Error {0} from AI Provider: {1}").format(status, reason)
     if not err_body or not err_body.strip():
         return base
     from plugin.framework.errors import safe_json_loads
@@ -66,6 +73,11 @@ def format_error_for_display(e):
     """Return user-friendly error string for display in cells or dialogs."""
     from plugin.framework.errors import format_error_payload
 
+    # Drain loop ERROR items are format_error_payload dicts, not Exception.
+    # format_error_payload(dict) would wrap the whole mapping as INTERNAL_ERROR.
+    if isinstance(e, dict):
+        msg = e.get("message") or e.get("code") or str(e)
+        return _("Error: {0}").format(msg)
     payload = format_error_payload(e)
     return _("Error: {0}").format(payload.get("message", format_error_message(e)))
 

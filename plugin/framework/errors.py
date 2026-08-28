@@ -374,6 +374,8 @@ def format_error_message(e: Exception) -> str:
             return _("API access Forbidden. Your key may lack permissions for this model.")
         if code == 404:
             return _("Endpoint not found (404). Check your URL and Model name.")
+        if code == 429:
+            return _("Rate limited (429). Wait a moment and try again.")
         if code >= 500:
             return _("Server error ({0}). The AI provider is having issues.").format(code)
         return _("HTTP Error {0}: {1}").format(code, reason)

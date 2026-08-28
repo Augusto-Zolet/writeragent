@@ -305,11 +305,19 @@ def append_rich_text(doc, text, role="assistant", style_window=None):
 def finalize_sidebar_assistant_response(listener, *, allow_rerender: bool = True) -> None:
     """Re-import the last assistant message as HTML when rich sidebar is active.
 
+    Skip HTML rerender after an API error. Drain ERROR appends ``[API error: …]``
+    after ``_assistant_stream_start_len``; rerender looks up the previous HTML
+    assistant message and ``truncate_control_from`` would delete that error line
+    (Packet F HTTP 429/500 looked like a leftover hello).
+
     Skip rerender after Stop. STOP_REQUESTED stores session content
     ``No response.``; ``rerender_last_assistant_if_html`` then truncates the
     stream tail — including the ``[Stopped by user]`` append — and pastes that
     placeholder (Packet B1: ramble vanished, marker never visible).
     """
+    if getattr(listener, "_terminal_status", None) == "Error":
+        listener._plain_text_stripper = None
+        return
     if allow_rerender:
         listener.rerender_rich_text_session()
     stripper = getattr(listener, "_plain_text_stripper", None)

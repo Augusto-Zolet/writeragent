@@ -150,10 +150,30 @@ def mode_from_label(label: str, *, include_brainstorming: bool = False, include_
 
 
 def mode_from_selector(ctrl: Any, *, include_brainstorming: bool = False, include_writing_plan: bool = True, include_ppt_master: bool = False) -> str:
-    """Read the selected sidebar mode from a combobox control."""
+    """Read the selected sidebar mode from a combobox control.
+
+    Prefer ``getSelectedItemPos`` over ``getText``. The ChatPanel ComboBox is
+    ``spin=true``; the edit field can keep the XDL default ``Chat`` while the
+    selected index is Librarian (last ``addItems`` entry). Send then ran the
+    librarian path despite the visible label.
+    """
     # crosshair: off
     if not ctrl:
         return CHAT_MODE_CHAT
+    flags = SidebarModeFlags(
+        include_brainstorming=include_brainstorming,
+        include_writing_plan=include_writing_plan,
+        include_ppt_master=include_ppt_master,
+    )
+    modes = _modes_for(flags)
+    try:
+        if hasattr(ctrl, "getSelectedItemPos"):
+            idx = int(ctrl.getSelectedItemPos())
+            if 0 <= idx < len(modes):
+                return modes[idx]
+    except Exception as e:
+        # Disposed ComboBox / missing UNO method — fall through to getText.
+        log.debug("chat_mode_selector: getSelectedItemPos failed: %s", e)
     try:
         if hasattr(ctrl, "getText"):
             return mode_from_label(
@@ -268,13 +288,18 @@ def set_selector_mode(ctrl: Any, mode: str, *, include_brainstorming: bool = Fal
     labels = get_mode_labels(**flags.__dict__)
     idx = modes.index(mode)
     label = labels[idx]
-    try:
-        if hasattr(ctrl, "selectItemPos"):
+    # Separate tries: a selectItemPos raise must not skip setText, which
+    # unsticks the XDL default Chat label on spin=true ComboBoxes.
+    if hasattr(ctrl, "selectItemPos"):
+        try:
             ctrl.selectItemPos(idx, True)
-        elif hasattr(ctrl, "setText"):
+        except Exception as e:
+            log.debug("chat_mode_selector: selectItemPos failed: %s", e)
+    if hasattr(ctrl, "setText"):
+        try:
             ctrl.setText(label)
-    except Exception as e:
-        log.debug("chat_mode_selector: set selection failed: %s", e)
+        except Exception as e:
+            log.debug("chat_mode_selector: setText failed: %s", e)
 
 
 def set_selector_mode_with_flags(ctrl: Any, mode: str, flags: SidebarModeFlags) -> None:

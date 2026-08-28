@@ -29,6 +29,7 @@ import html
 import io
 import json
 import re
+import socket
 import sys
 import threading
 import time
@@ -142,11 +143,28 @@ def completion_tool_calls(completion: Completion) -> list[tuple[str, dict[str, A
     return calls
 
 
+_CURRENT_QUERY_MARK = "### CURRENT QUERY:"
+
+
+def current_query_text(user_text: str) -> str:
+    """Phrase-match the current user turn, not librarian/smol conversation history.
+
+    Sub-agents wrap the task as ``### CONVERSATION HISTORY:`` plus
+    ``### CURRENT QUERY:``. Matching the whole blob would keep firing
+    ``crash the stream`` / ``hang the stream`` on a later ``hello``.
+    """
+    text = user_text or ""
+    idx = text.rfind(_CURRENT_QUERY_MARK)
+    if idx >= 0:
+        return text[idx + len(_CURRENT_QUERY_MARK) :].strip()
+    return text.strip()
+
+
 def detect_scenario(user_text: str, forced: str = "none") -> str:
     forced = (forced or "none").strip().lower()
     if forced and forced != "none":
         return forced
-    text = user_text or ""
+    text = current_query_text(user_text)
     for sid, pattern in _SCENARIO_PATTERNS:
         if pattern.search(text):
             return sid
@@ -257,7 +275,7 @@ def _tool_names(tools: Any) -> set[str]:
 def _last_user_text(messages: list[Any]) -> str:
     for msg in reversed(messages):
         if isinstance(msg, dict) and msg.get("role") == "user":
-            return _as_text(msg.get("content")).strip()
+            return current_query_text(_as_text(msg.get("content")))
     return ""
 
 
@@ -482,10 +500,7 @@ def _smol_research_completion(messages: list[Any], tool_names: set[str], config:
             tool_args={"url": _first_url(last_tool_text)},
             finish_reason="tool_calls",
         )
-    query = user_text
-    marker = "### CURRENT QUERY:"
-    if marker in user_text:
-        query = user_text.split(marker, 1)[-1].strip()
+    query = current_query_text(user_text)
     return Completion(
         tool_name="web_search",
         tool_args={"query": query or "mock research", "recency": "any"},
@@ -933,8 +948,22 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self.end_headers()
+                self._drop_client_socket()
                 return True
             return False
+
+        def _drop_client_socket(self) -> None:
+            """Packet F hang: half-close the socket (no [DONE]). Returning
+            from do_POST on HTTP/1.1 keep-alive would leave the client
+            blocked on readline until request_timeout. SHUT_WR (not
+            SHUT_RDWR) lets the client see EOF after flushed chunks
+            without RST that can drop unread send-buffer data.
+            """
+            self.close_connection = True
+            try:
+                self.connection.shutdown(socket.SHUT_WR)
+            except OSError:
+                pass
 
         def do_POST(self) -> None:  # noqa: N802
             path = urlparse(self.path).path
@@ -1002,6 +1031,7 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
                 self.wfile.flush()
                 written += 1
                 if max_chunks is not None and written >= max_chunks:
+                    self._drop_client_socket()
                     return
                 if delay:
                     time.sleep(delay)

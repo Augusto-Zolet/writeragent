@@ -20,6 +20,7 @@ from scripts.mock_llm_server import (
     MockLLMConfig,
     _TurnState,
     completion_tool_calls,
+    current_query_text,
     decide_completion,
     detect_scenario,
     iter_sse_payloads,
@@ -581,6 +582,47 @@ def test_fail_and_hang_completions():
     assert hung.hang is True
 
 
+def test_current_query_ignores_librarian_history_phrases():
+    """Packet F recovery: hello after crash must not keep matching crash the stream."""
+    wrapped = (
+        "New task:\n### CONVERSATION HISTORY:\nUser: crash the stream\n\n"
+        "Assistant HTML leftover\n\n### CURRENT QUERY:\nhello"
+    )
+    assert current_query_text(wrapped) == "hello"
+    assert detect_scenario(wrapped) == ""
+    still_crash = wrapped.replace("### CURRENT QUERY:\nhello", "### CURRENT QUERY:\ncrash the stream")
+    assert detect_scenario(still_crash) == "fail_http"
+    hello_after = decide_completion(
+        {"messages": [{"role": "user", "content": wrapped}], "tools": _tools("web_research")},
+        MockLLMConfig(delay_ms=0),
+    )
+    assert hello_after.http_error is None
+    assert hello_after.hang is False
+    assert hello_after.content is not None
+
+
+def test_current_query_empty_suffix_does_not_match_crash():
+    assert current_query_text("### CURRENT QUERY:\n") == ""
+    assert detect_scenario("### CURRENT QUERY:\n") == ""
+    double = "### CURRENT QUERY:\ncrash the stream\n### CURRENT QUERY:\nhello"
+    assert current_query_text(double) == "hello"
+    assert detect_scenario(double) == ""
+
+
+def test_current_query_ignores_librarian_history_look_up():
+    """look up / comment matchers must use the current turn, not history."""
+    wrapped = (
+        "New task:\n### CONVERSATION HISTORY:\nUser: look up cats\n\n"
+        "### CURRENT QUERY:\nhello"
+    )
+    out = decide_completion(
+        {"messages": [{"role": "user", "content": wrapped}], "tools": _tools("web_research")},
+        MockLLMConfig(delay_ms=0),
+    )
+    assert out.tool_name is None
+    assert out.content is not None
+
+
 def test_forced_scenario_overrides_phrase():
     out = decide_completion(
         {"messages": [{"role": "user", "content": "look up cats"}], "tools": _tools("web_research")},
@@ -613,8 +655,11 @@ def test_http_500_and_429(mock_http_fail):
 
 
 def test_http_hang_stream_incomplete(mock_http_hang):
+    from urllib.error import URLError
     from urllib.request import Request, urlopen
+    import http.client
     import json as json_mod
+    import socket as socket_mod
 
     req = Request(
         mock_http_hang + "/v1/chat/completions",
@@ -628,10 +673,48 @@ def test_http_hang_stream_incomplete(mock_http_hang):
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urlopen(req, timeout=2) as resp:
-        raw = resp.read().decode("utf-8")
+    raw = ""
+    try:
+        with urlopen(req, timeout=2) as resp:
+            raw = resp.read().decode("utf-8")
+    except (http.client.IncompleteRead, URLError, ConnectionResetError, socket_mod.timeout, BrokenPipeError) as err:
+        # SHUT_WR EOF is usually IncompleteRead; keep whatever SSE the mock
+        # flushed before the half-close.
+        for obj in (err, getattr(err, "reason", None)):
+            partial = getattr(obj, "partial", None)
+            if isinstance(partial, bytes) and partial:
+                raw = partial.decode("utf-8", errors="replace")
+                break
     assert "[DONE]" not in raw
     assert raw.count("data:") >= 1
+
+
+def test_http_hang_nonstream_drops(mock_http_hang):
+    from urllib.error import URLError
+    from urllib.request import Request, urlopen
+    import http.client
+    import json as json_mod
+
+    req = Request(
+        mock_http_hang + "/v1/chat/completions",
+        data=json_mod.dumps(
+            {
+                "model": MOCK_MODEL_ID,
+                "stream": False,
+                "messages": [{"role": "user", "content": "hello"}],
+            }
+        ).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    raw = b""
+    try:
+        with urlopen(req, timeout=2) as resp:
+            raw = resp.read()
+    except (http.client.IncompleteRead, URLError, ConnectionResetError, BrokenPipeError):
+        return
+    assert b"[DONE]" not in raw
+    assert b'"choices"' not in raw
 
 
 def test_http_ramble_many_chunks(mock_http):
