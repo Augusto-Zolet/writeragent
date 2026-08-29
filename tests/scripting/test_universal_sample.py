@@ -52,7 +52,10 @@ def test_universal_sample_writer():
         code = _DEFAULT_PYTHON_SCRIPTS["Universal Sample"]
         exec(code, {"__name__": "__main__"})
         
-        mock_apply.assert_called_once()
+        mock_apply.assert_called_once_with(
+            content=["<h1>Hello from WriterAgent</h1>", "<p>Rich <b>HTML</b> at the end.</p>"],
+            target="end",
+        )
         mock_upsert.assert_called_once_with(
             action="create",
             shape_type="star24",
@@ -79,7 +82,7 @@ def test_universal_sample_calc():
         
         mock_insert.assert_called_once_with(
             cell="A1",
-            html="<h1>Hello from Python SDK</h1><p>Here is some <b>rich HTML content</b>.</p>",
+            html="<h1>Hello from WriterAgent</h1><p>Rich <b>HTML</b>.</p>",
         )
         mock_upsert.assert_called_once_with(
             action="create",
@@ -103,19 +106,51 @@ def test_config_injects_universal_sample():
     
     config.validate()
     assert "Universal Sample" in config.saved_python_scripts
-    assert "import writeragent as wa" in config.saved_python_scripts["Universal Sample"]
+    sample = config.saved_python_scripts["Universal Sample"]
+    assert "import writeragent as wa" in sample
+    assert any(
+        "apply_document_content(" in line and "target=" in line
+        for line in sample.splitlines()
+    )
+    assert any(
+        "insert_cell_html(" in line and "html=" in line
+        for line in sample.splitlines()
+    )
+    assert any(
+        "shape.upsert(" in line and "shape_type=" in line
+        for line in sample.splitlines()
+    )
 
 
 def test_config_migrates_old_universal_sample():
-    from plugin.framework.config_schema import WriterAgentConfig
+    from plugin.framework.config_schema import WriterAgentConfig, _DEFAULT_PYTHON_SCRIPTS
 
     old_code = 'wa.calc.insert_cell_html(cell_address="A1", html="hi")\nwa.shape.upsert_shape(action="create")'
     config = WriterAgentConfig.from_dict({"saved_python_scripts": {"Universal Sample": old_code}})
     config.validate()
     migrated = config.saved_python_scripts["Universal Sample"]
-    assert 'cell="A1"' in migrated
+    assert migrated == _DEFAULT_PYTHON_SCRIPTS["Universal Sample"]
+    assert "Hello from Python SDK" not in migrated
     assert "cell_address=" not in migrated
-    assert "wa.shape.upsert(" in migrated
+
+
+def test_config_migrates_function_wrapped_universal_sample():
+    from plugin.framework.config_schema import WriterAgentConfig, _DEFAULT_PYTHON_SCRIPTS
+
+    old_wrapped = 'import writeragent as wa\n\ndef run():\n    print("x")\n\nif __name__ == "__main__":\n    run()'
+    config = WriterAgentConfig.from_dict({"saved_python_scripts": {"Universal Sample": old_wrapped}})
+    config.validate()
+    assert config.saved_python_scripts["Universal Sample"] == _DEFAULT_PYTHON_SCRIPTS["Universal Sample"]
+    assert "def run()" not in config.saved_python_scripts["Universal Sample"]
+
+
+def test_config_keeps_user_edited_universal_sample():
+    from plugin.framework.config_schema import WriterAgentConfig
+
+    custom = 'print("my own script")\nwa.shape.upsert(action="create")'
+    config = WriterAgentConfig.from_dict({"saved_python_scripts": {"Universal Sample": custom}})
+    config.validate()
+    assert config.saved_python_scripts["Universal Sample"] == custom
 
 
 

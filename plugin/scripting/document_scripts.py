@@ -2,7 +2,15 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Document-attached named Python scripts and Calc workbook init scripts (UserDefinedProperties)."""
+"""Document-attached named Python scripts and Calc workbook init scripts (UserDefinedProperties).
+
+Picker entries are independent source strings. There is no ``import`` / call
+into another My Scripts or This Document script from a running script today
+(``run_venv_python_script`` is blocked in the venv to avoid re-entering the
+warm worker). A future helper (e.g. ``wa.scripts.run("name")`` that fetches
+the stored body on the host and execs it in the same sandbox namespace)
+would let libraries live in shared or document scripts.
+"""
 
 # =========================================================================================
 # WARNING: PARITY INVARIANT WITH MONACO JAVASCRIPT FRONTEND

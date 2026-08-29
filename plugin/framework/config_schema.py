@@ -30,6 +30,7 @@ of truth; ``set_manifest_modules`` rebuilds the derived tables at import.
 import dataclasses
 import logging
 import os
+import textwrap
 from typing import Any, Callable, Dict
 
 from plugin.framework.deal_shim import UNDER_CROSSHAIR, deal
@@ -227,57 +228,52 @@ def _is_lru_list_config_key(key: str) -> bool:
     return False
 
 _DEFAULT_PYTHON_SCRIPTS = {
-    "Prime Numbers": (
-        "# Calculate primes, sharing the sieve via sp.primerange().\n"
-        "low, high = sp.prime(1000), sp.prime(1010)\n\n"
-        "result = {\n"
-        "    \"title\": \"Prime Numbers in Range\",\n"
-        "    \"primes\": [\n"
-        "        {\"position\": i, \"prime\": p}\n"
-        "        for i, p in zip(range(1000, 1011),\n"
-        "                        list(sp.primerange(low, high + 1)))\n"
-        "    ]\n"
-        "}"
-    ),
-    "Hello WriterAgent": (
-        "# A simple hello world script\n"
-        "result = \"Hello from WriterAgent Python script!\""
-    ),
-    "Universal Sample": (
-        "import writeragent as wa\n\n"
-        "def run():\n"
-        "    doc_type = wa.get_active_document_type()\n"
-        "    print(f\"Detected active document type: {doc_type}\")\n\n"
-        "    # 1. Insert Rich HTML Content\n"
-        "    if doc_type == \"writer\":\n"
-        "        wa.writer.apply_document_content(\n"
-        "            content=[\"<h1>Hello from Python SDK</h1>\", \"<p>Here is some <b>rich HTML content</b> inserted at the end.</p>\"],\n"
-        "            target=\"end\"\n"
-        "        )\n"
-        "    elif doc_type == \"calc\":\n"
-        "        wa.calc.insert_cell_html(\n"
-        "            cell=\"A1\",\n"
-        "            html=\"<h1>Hello from Python SDK</h1><p>Here is some <b>rich HTML content</b>.</p>\"\n"
-        "        )\n"
-        "    else:\n"
-        "        print(\"Unsupported document type for rich text insertion.\")\n\n"
-        "    # 2. Insert a 24-sided Star Shape\n"
-        "    # Width/height are in 100ths of a mm (e.g., 4000 = 4cm)\n"
-        "    wa.shape.upsert(\n"
-        "        action=\"create\",\n"
-        "        shape_type=\"star24\",\n"
-        "        x=2000,\n"
-        "        y=5000,\n"
-        "        width=4000,\n"
-        "        height=4000,\n"
-        "        fill_color=\"blue\",\n"
-        "        text=\"24-sided Star\"\n"
-        "    )\n"
-        "    print(\"Inserted a 24-sided blue star shape.\")\n\n"
-        "if __name__ == \"__main__\":\n"
-        "    run()"
-    )
+    "Prime Numbers": textwrap.dedent("""\
+        # Calculate primes, sharing the sieve via sp.primerange().
+        low, high = sp.prime(1000), sp.prime(1010)
+
+        result = {
+            "title": "Prime Numbers in Range",
+            "primes": [
+                {"position": i, "prime": p}
+                for i, p in zip(range(1000, 1011),
+                                list(sp.primerange(low, high + 1)))
+            ]
+        }"""),
+    "Hello WriterAgent": textwrap.dedent("""\
+        # A simple hello world script
+        result = "Hello from WriterAgent Python script!"
+        """).rstrip(),
+    "Universal Sample": textwrap.dedent("""\
+        import writeragent as wa
+
+        doc_type = wa.get_active_document_type()
+        print(f"Detected active document type: {doc_type}")
+
+        # 1. Insert rich HTML
+        if doc_type == "writer":
+            wa.writer.apply_document_content(content=["<h1>Hello from WriterAgent</h1>", "<p>Rich <b>HTML</b> at the end.</p>"], target="end")
+        elif doc_type == "calc":
+            wa.calc.insert_cell_html(cell="A1", html="<h1>Hello from WriterAgent</h1><p>Rich <b>HTML</b>.</p>")
+        else:
+            print("Unsupported document type for rich text insertion.")
+
+        # 2. 24-sided star (sizes in 100ths of a mm; 4000 = 4cm)
+        wa.shape.upsert(action="create", shape_type="star24", x=2000, y=5000, width=4000, height=4000, fill_color="blue", text="24-sided Star")
+        print("Inserted a 24-sided blue star shape.")
+        """).strip(),
 }
+
+# Shipped Universal Sample used these tokens; replace the whole script, not a
+# substring patch, so Monaco shows the one-line-call version.
+# ``if __name__ == "__main__": run()`` is the previous function-wrapped sample —
+# Run Python Script already execs at module top-level with ``__name__ == "__main__"``.
+_LEGACY_UNIVERSAL_SAMPLE_MARKERS = (
+    'cell_address="A1"',
+    "wa.shape.upsert_shape(",
+    "Hello from Python SDK",
+    'if __name__ == "__main__":\n    run()',
+)
 
 
 # Default endpoint normalizer.
@@ -338,9 +334,9 @@ class WriterAgentConfig:
     parallel_tool_calls: bool = True
     # Merged into POST \u2026/chat/completions JSON when OpenRouter is active; see AGENTS.md.
     openrouter_chat_extra: Dict[str, Any] = dataclasses.field(default_factory=dict)
-    last_python_script_name_writer: str = "Prime Numbers"
-    last_python_script_name_calc: str = "Prime Numbers"
-    last_python_script_name_draw: str = "Prime Numbers"
+    last_python_script_name_writer: str = "Universal Sample"
+    last_python_script_name_calc: str = "Universal Sample"
+    last_python_script_name_draw: str = "Universal Sample"
 
     # Text analytics (sentiment etc.) — see plugin/scripting/text_analytics.py.
     # engine is "transformers" for now (good multilingual default); model can be overridden
@@ -463,9 +459,8 @@ class WriterAgentConfig:
             self.saved_python_scripts["Universal Sample"] = _DEFAULT_PYTHON_SCRIPTS["Universal Sample"]
         elif isinstance(self.saved_python_scripts.get("Universal Sample"), str):
             curr = self.saved_python_scripts["Universal Sample"]
-            if 'cell_address="A1"' in curr or 'wa.shape.upsert_shape(' in curr:
-                curr = curr.replace('cell_address="A1"', 'cell="A1"').replace('wa.shape.upsert_shape(', 'wa.shape.upsert(')
-                self.saved_python_scripts["Universal Sample"] = curr
+            if any(marker in curr for marker in _LEGACY_UNIVERSAL_SAMPLE_MARKERS):
+                self.saved_python_scripts["Universal Sample"] = _DEFAULT_PYTHON_SCRIPTS["Universal Sample"]
 
         return self
 
