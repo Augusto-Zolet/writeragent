@@ -310,6 +310,8 @@ Hand these packets to separate agents. Each case is something **pytest cannot pa
 
 Assign by packet id (`A`–`H`). Do not skip the “why hard” line — that is the reason the mock exists.
 
+**v2 (scripted, no humans):** [Mock LLM tests v2](#mock-llm-tests-v2--scripted-b--e--f--g-audio) is the CI contract for Stop, tool-loop, HITL, HTTP/SSE, then **mocked Record**. Packets A (scroll/resize) and H (theme/exit) stay soak. v1 tables remain the human/agent checklist; v2 IDs are what `make test-uno` should own.
+
 #### Packet A — stream, HTML paste, scroll
 
 *Hard: hidden-Writer copy after `STREAM_DONE`, VisArea, caret-follow, no `setFocus` steal. See scroll diagnostics above.*
@@ -334,6 +336,8 @@ Assign by packet id (`A`–`H`). Do not skip the “why hard” line — that is
 | B3 | ramble | Click Stop twice | Second click is a no-op, not a crash | |
 | B4 | empty query box, venv configured | Record → Stop Rec without speaking long | Button Record ↔ Stop Rec ↔ Send; no send if truly empty and no wav | `SendEventKind.RECORD_CLICKED` / `STOP_REC_CLICKED` |
 | B5 | ramble | Resize / click other sidebar widgets **during** stream | UI paints; Stop still works | drain owns `processEventsToIdle` |
+
+**v2 scripted extras (B):** see [v2 Packet B](#v2-packet-b--stop-sendrecord-fsm). Not automated: **B5** (resize during stream). **B4** only if Record is invoked via `RECORD_CLICKED` without a real mic (optional wav fixture).
 
 #### Packet C — empty / truncated model
 
@@ -371,6 +375,8 @@ Assign by packet id (`A`–`H`). Do not skip the “why hard” line — that is
 | E7 | `outline this` | Delegate | Nested agent status while main drain stays alive; then main-chat HTML; Stop still works mid-delegate | `delegate_to_specialized_writer_toolset` domain `document_research`; inner discovery tool (often `list_nearby_files`, or `get_document_tree` when advertised) then `specialized_workflow_finished` (canned outline) — not main-chat HTML as the specialized `answer` |
 | E8 | E7 + click Stop during nested work (`--delay-ms 80 --sync-delay-ms 8000` so inner `stream=False` POSTs stay clickable without a slow main SSE eating the window) | Cancel | Nested work stops; UI recovers; next hello works | `resolve_stop_checker()`, not a panel boolean alone |
 
+**v2 scripted extras (E):** HITL Accept/Change/Reject on the same Send/Stop widgets, Calc `list sheets`, context refresh after mutate, Stop during tool round — [v2 Packet E](#v2-packet-e--tools-delegate-hitl).
+
 #### Packet F — HTTP errors, hang, SSE quirks
 
 *Hard: half-closed SSE under `processEventsToIdle`; error queue item vs freeze. Auth/HTTP errors are easy in pytest; hung sockets are not.*
@@ -383,6 +389,8 @@ Assign by packet id (`A`–`H`). Do not skip the “why hard” line — that is
 | F4 | `--sse-comments` or `sse pings` | hello | Stream still parses; comments ignored | `: ping` between `data:` lines |
 | F5 | `--fail http500` for **all** requests | Open sidebar send | Consistent error path; Settings still usable | |
 | F6 | F3 during ramble (`--scenario ramble --fail hang`) | Stop vs hang | Either Stop or error; never a wedged soffice | |
+
+**v2 scripted extras (F):** 401/403, timeout, malformed SSE, `[DONE]` twice, recovery after each class of error — [v2 Packet F](#v2-packet-f--http-sse-errors).
 
 #### Packet G — native audio and STT
 
@@ -401,6 +409,8 @@ Canned transcript default: `Hello from the mock microphone.` (`--transcript` to 
 | G7 | Record during an in-flight ramble | Should refuse or queue sanely | No two workers; button state consistent | |
 | G8 | Missing venv / audio unsupported | Empty box | Record hidden or error from Test Python; Send still works for typed text | `SendButtonState.audio_supported` |
 
+**v2 scripted extras (G):** fake WAV + Record/Stop Rec dispatch, no mic — [v2 Packet G](#v2-packet-g--mocked-audio-record--stt). After B/E/F.
+
 #### Packet H — decks, session, recovery cross-cuts
 
 *Hard: same drain + rich control on Calc/Draw; session switch mid-stream.*
@@ -418,6 +428,211 @@ Canned transcript default: `Hello from the mock microphone.` (`--transcript` to 
 **Out of scope for this mock** (do not assign): real ASR quality, librarian/brainstorming/ppt-master modes, image gen, MCP clients, `=PROMPT()` cells.
 
 **Suggested split:** one agent per packet; A+D can share a Writer window; G needs a mic/venv; E needs a named Writer doc; F should not share a soffice with A (error/hang).
+
+---
+
+## Mock LLM tests v2 — scripted B / E / F (+ G audio)
+
+**Goal:** every case below runs in **`testing_runner` / `make test-uno`** (or a dedicated `make test-mock-sidebar` that is still no-human). No eyeballs, no resize, no “does the viewport look right.” Pass = logs + control/query text + UNO document + **SendButtonState** (or button labels) + **next hello succeeds**.
+
+**Why B/E/F first:** Stop, drain, tools, HITL. Packet A scroll/resize and Packet H theme/exit stay soak. Packet C/D can piggy-back the same harness once Send works.
+
+**Packet G (mocked audio) is next after B/E/F is boring** — lower priority only because manual Record feels fine, but it is a **second FSM** (`AudioRecorderState`: idle → initializing → recording → stopping) stacked on Send/Stop Rec/Send. That stack has acted up (busy vs recording, Stop vs Stop Rec, Record during ramble). Script it with a **fake capture child** (no mic, no `sounddevice`). The mock LLM already accepts `input_audio` and `/v1/audio/transcriptions`.
+
+Optional WAV fixture: a few hundred ms of tone (or zeros) plus trailing silence so auto-stop / duration (`~Ns`) can be real bytes on the wire. The **words** in the reply stay canned (`--transcript`); nobody is scoring ASR.
+
+### Harness (brief)
+
+One native test module (e.g. `tests/chatbot/test_mock_llm_sidebar_uno.py`). Shared setup:
+
+1. Start mock in-process (`make_handler_class` + `ThreadingHTTPServer` on 18766 or an ephemeral port).
+2. Point `endpoint` / `text_model` at `writeragent-mock` for this LO user profile (test helper; restore after).
+3. Open Writer (or Calc when the case says so), **open the chat sidebar** so wiring created `SendButtonListener`.
+4. Hooks below; `toolkit.processEventsToIdle()` (or existing drain helper) between steps.
+5. Teardown: Stop if busy, shut mock, restore config.
+
+Run serial (`testing_runner`); do not xdist a live soffice + one mock port.
+
+### Hooks (shipped, debug / non-release only)
+
+Do **not** synthesize screen clicks. Drive the same listeners the widgets use.
+
+**Code:** [`plugin/chatbot/sidebar_test_hooks.py`](../../plugin/chatbot/sidebar_test_hooks.py). Live panels: debug-only `_LIVE_CHAT_PANELS` in that module (not allocated in release). `panel_factory` `register_live_chat_panel` is a cached no-op when `thread_guard` is the release stub. HITL Change without a dialog: `SendButtonListener.apply_approval_query_override`. In-process mock flags: [`tests/chatbot/mock_llm_harness.py`](../../tests/chatbot/mock_llm_harness.py) `mock_config`.
+
+**Release:** `scripts/strip_code.py` replaces the hook module with a stub (no `WeakSet`; `register_live_panel` is a no-op; other exports raise `RuntimeError("sidebar test hooks are not in release builds")`). Runtime also refuses if `thread_guard` is the release stub. LibrePy does not ship this module. Unit tests: [`tests/chatbot/test_sidebar_test_hooks.py`](../../tests/chatbot/test_sidebar_test_hooks.py).
+
+| Hook | Does | Used for |
+|------|------|----------|
+| `sidebar_panel()` / `send_listener()` | Live `SendButtonListener` after deck init | Everything |
+| `set_query_text(s)` | Query model `Text = s` + `TEXT_UPDATED` | All sends |
+| `press_send()` | `dispatch(SEND_CLICKED)` or Send `on_action_performed` with Label Send | Start stream |
+| `press_stop()` | `dispatch(STOP_CLICKED)` | Cancel (Windows/ActionEvent path) |
+| `press_stop_mouse()` | `notify_stop_mouse_pressed(send_listener)` | GTK path (Packet B1) |
+| `pump_until(pred, timeout)` | Idle-pump until log/UI predicate | “while ramble chunks arrive” |
+| `transcript_contains(s)` / `query_text()` | Rich or plain response + query box | Stopped banner, errors, recovery |
+| `send_state()` | `is_busy`, labels Send/Stop/Record/Accept/Change/Reject | FSM |
+| `wait_idle()` | `is_busy is False` and not recording | Between cases |
+| `next_hello_ok()` | set `hello`, send, wait idle, assistant HTML or plain “hello” path | **Required closer on almost every case** |
+| `mock_config(**flags)` | ramble delay, `sync_delay_ms`, `--offline`, `--fail hang` | B/E8/F |
+| `press_record()` | `dispatch(RECORD_CLICKED)` | G — start capture |
+| `press_stop_rec()` | `dispatch(STOP_REC_CLICKED)` | G — stop capture (not `STOP_CLICKED`) |
+| `inject_wav(path or bytes)` | Skip venv/PortAudio; host sees a finished temp WAV as if the child wrote it | G native + STT |
+| `stub_recorder_child()` | Fake IPC: `{"status":"ready"}` then stop/exit without a device | G initializing vs recording |
+| `set_audio_supported(bool)` | Force `SendButtonState.audio_supported` / `audio_support_map` | G8, STT fallback |
+| `audio_status()` | `AudioRecorderState.status` + `has_audio` | G illegal combos |
+
+HITL (same two buttons, different labels):
+
+| Hook | Does |
+|------|------|
+| `press_accept()` | Send `on_action_performed` while Label is Accept |
+| `press_change()` / `press_reject()` | Stop listener Change/Reject branches — **must not** be `STOP_CLICKED` |
+| `approval_active()` | `_approval_event is not None` |
+
+Optional later: `press_record()` / `press_stop_rec()` (`RECORD_CLICKED` / `STOP_REC_CLICKED`) without opening a device.
+
+**Invariant:** `press_stop_mouse()` while `approval_active()` is a no-op (see `notify_stop_mouse_pressed`). Tests must cover that.
+
+### Pass / fail (every v2 case)
+
+- LibreOffice still alive; no nested drain (`NestedDrainOwnerError` absent).
+- After terminal state: `is_busy is False`; Send enabled for typed text.
+- `next_hello_ok()` unless the case is “second Stop is no-op” (then hello after).
+- Queue kinds in logs are `StreamQueueKind` names, not ad-hoc strings (if logged).
+
+### Out of v2 (do not script)
+
+Resize sidebar, H-scrollbar, “click into Writer during stream,” light/dark, LO exit during ramble, real microphone ASR, MCP, `=PROMPT()`, brainstorming UI, image gen, VisArea/scroll-to-bottom as a visual check.
+
+---
+
+### v2 Packet B — Stop, Send/Record FSM
+
+Mock: `--delay-ms 40` (and ramble phrases) unless noted.
+
+| ID | Drive | Pass (assert) |
+|----|--------|----------------|
+| **B1a** | `keep talking`; pump until ≥1 chunk; `press_stop()` | Log `Stop clicked` or `STOP_CLICKED`; transcript has `[Stopped by user]`; **not** replaced by `No response.`; `is_busy` becomes false; `next_hello_ok()` |
+| **B1b** | Same; cancel with `press_stop_mouse()` only | Same as B1a (GTK path). Log `STOP_CLICKED (mousePressed)` |
+| **B1c** | B1a; after Stop, rich tail not re-pasted as full HTML of the ramble | No `_copy_formatted…` success **after** stop for that turn (or skip-rerender log) |
+| **B2** | Stop then `press_send()` immediately (`hello` or ramble) | One in-flight send; no stuck Starting…; `_active_q` not dual-owned; `next_hello_ok()` if second was ramble+stop+hello |
+| **B3** | Ramble; `press_stop()` twice quickly | Second is no-op (log at most one cancel scope or second `STOP_CLICKED` with `not is_busy` ignored); no exception; hello |
+| **B3b** | `press_stop()` when **idle** | No crash; labels unchanged; Send still works |
+| **B6** | `press_send()` twice without waiting (double Send) | FSM rejects second (`is_busy`); one stream; hello after done or after stop |
+| **B7** | Send with **empty** query, no audio | No `StartSendEffect` / no HTTP to mock (mock request count 0) |
+| **B8** | TEXT_UPDATED empty ↔ nonempty | Send enabled only when `has_text` and not busy (label Send) |
+| **B9** | Ramble until **natural end** (no Stop); wait idle | Button Send; then Stop during a **second** ramble still works (no stale cancel scope) |
+| **B10** | Stop; `next_hello_ok()`; ramble+Stop again | Cancel works twice in one panel lifetime |
+| **B11** | Stop; assert query box text restored or left as designed; `stream focus: left query` if Stop pointer path | No focus restore **after** Stop that would steal the next Send |
+| **B12** | Record hooks if cheap: empty box `RECORD_CLICKED` then `STOP_REC_CLICKED` with no wav | Returns to Send; no chat POST; typed hello still works. **Skip** if Record needs a real device |
+| **B13** | `press_send()` then Stop **before** first SSE chunk (`delay-ms` high) | Cancelled starting state; not stuck Stop; hello |
+| **B14** | Stop during `[Thinking]`-style ramble (`think out loud` + delay) | Thinking cleared or frozen; Stopped banner or idle; hello |
+| **B15** | Serial: hello (complete) → ramble+Stop → `say nothing` → hello | Four terminals; never stuck busy |
+
+---
+
+### v2 Packet E — tools, delegate, HITL
+
+Writer with body text “Welcome to WriterAgent.” unless **empty** is specified. Mock `--offline` for research unless E2.
+
+| ID | Drive | Pass (assert) |
+|----|--------|----------------|
+| **E1** | `--offline`, `look up latest Python` | `web_research` or smol `final_answer`; HTML summary in transcript; mock saw `### CURRENT QUERY:`; hello |
+| **E2** | Online research optional; if run: `look up …` | At most one `web_search` then `visit_webpage` then wrap-up (mock request log); hello. **Skip in CI** if you do not want live DDG (`--offline` only on Jenkins) |
+| **E3** | Doc has Welcome…; `add a comment` | ≥1 comment on doc; log `add_comment`; sidebar mentions comment; hello |
+| **E4** | **Empty** doc; `insert a comment` | `apply_document_content` then comment; doc nonempty; hello |
+| **E5** | `insert filler` | Doc longer; **next** mock capture of chat POST system/user includes new length (`refresh_document_context`); hello is extra |
+| **E6** | `two tools` / `in parallel` | Both `search_in_document` and `get_document_tree` executed (tool log or mock `tool` messages); one wrap-up; hello |
+| **E7** | `outline this` | `delegate_to_specialized_writer_toolset`; inner discovery **not** empty-path `delegate_read_document`; `specialized_workflow_finished` or inner `final_answer`; main transcript HTML outline; hello |
+| **E8a** | E7 + `--delay-ms 80 --sync-delay-ms 8000`; `press_stop()` during nested POST | Nested stops; `is_busy` false; hello. Log `resolve_stop_checker` / cancel, not only a panel flag |
+| **E8b** | Same with `press_stop_mouse()` | Same as E8a |
+| **E9** | HITL: phrase that opens web-search **approval** (mock `web_research` + host waits). Wait `approval_active()` | Send label Accept; Stop label Change or Reject (i18n `_()`); `is_busy` still true |
+| **E9a** | E9 then `press_accept()` | Approval clears; search/tools continue or finish; labels Send/Stop; hello |
+| **E9b** | E9 then `press_reject()` | Approval clears; search not applied (or aborted); idle; hello |
+| **E9c** | E9 then `press_change()` | Change dialog path **or** hook that applies edited query if dialog is too heavy; must **not** log ramble `STOP_CLICKED` as cancel-stream; hello or continued search |
+| **E9d** | E9 then `press_stop_mouse()` | **No** stream cancel; still `approval_active()` |
+| **E9e** | E9 then `press_stop()` ActionEvent | Change/Reject branch, not `StopSendEffect` |
+| **E10** | Tool error: mock tool-follow-up that returns 500 mid-loop | Error in transcript; not busy; hello |
+| **E11** | `insert filler` then `add a comment` as **two sends** | Both mutations present; context refresh between |
+| **E12** | Calc doc + `list sheets` | Tool ran if advertised; wrap-up HTML; hello (Calc deck). Skip if deck not in runner |
+| **E13** | Stop **during** `add_comment` round (delay tools via mock) | Partial or no comment; not busy; hello; no freeze |
+| **E14** | Delegate E7 completes; second `outline this` | Nested agent works twice (no stale inner session) |
+| **E15** | `insert filler` with Stop **after** tool result queued but before HTML wrap-up | Doc may have mutation; UI idle; hello; no double drain |
+
+---
+
+### v2 Packet F — HTTP / SSE errors
+
+Each case ends with **`next_hello_ok()`** unless noted. Prefer phrase triggers so default mock stays up; use `--fail` only for “all requests” cases (then restart mock or toggle fail off before hello).
+
+| ID | Drive | Pass (assert) |
+|----|--------|----------------|
+| **F1** | `crash the stream` | Visible API/error text; not hang; hello. Mock 500 body; current-query match only |
+| **F2** | `rate limit` / `error 429` | Distinct 429 string or generic error; **do not** HTML-rerender prior assistant over the error line; hello |
+| **F3a** | `hang the stream` or `--fail hang --fail-after-chunks 4`; wait timeout **or** `press_stop()` | Idle; error or Stopped; hello. Worker must not block: pump still runs during hang |
+| **F3b** | Hang then `press_stop_mouse()` | Same |
+| **F4** | `sse pings` / `--sse-comments` + `hello` | Completes; HTML or stream text present; no parse crash |
+| **F5** | `--fail http500` all requests; send hello | Error path; then **disable fail** (or new mock); hello succeeds |
+| **F6** | Ramble + hang (`--scenario ramble --fail hang`) | Stop or error; never wedged; hello after mock reset if needed |
+| **F7** | `error 401` / unauthorized (add phrase or mock status) | Auth-style message; hello after |
+| **F8** | `error 403` | Same family as F7 |
+| **F9** | Malformed SSE (`data: {not json}` then hang/done) | Error or skip chunk; idle; hello |
+| **F10** | Truncated JSON chunk then `[DONE]` | Error or partial; idle; hello |
+| **F11** | Two `[DONE]` lines | Single terminal `STREAM_DONE`/`FINAL_DONE`; hello |
+| **F12** | HTTP 200 empty body | Empty-model or error banner; hello |
+| **F13** | Connection reset on first byte | Error; hello |
+| **F14** | 429 then immediately hello (mock not failing) | Recovery; no sticky 429 state |
+| **F15** | F1 (500) then F2 (429) then hello | Both errors visible in history or last+hello; not busy |
+| **F16** | Timeout: mock `delay-ms` > client timeout if configurable | ERROR_OCCURRED; Send enabled; hello |
+| **F17** | Stop **during** F3 hang | Same as B1 vs hang; idle |
+| **F18** | SSE `event: ping` / unknown event types if mock can emit | Ignored; stream still completes |
+
+---
+
+### v2 Packet G — mocked audio (Record / Stop Rec / STT)
+
+**Priority:** after B/E/F. Same harness. **Do not** open a microphone. Stub the venv capture child (or write a tiny WAV and skip spawn). Mock LLM: `writeragent-mock` native `input_audio`; `writeragent-mock-whisper` for `/v1/audio/transcriptions`.
+
+Two machines must stay legal (`send_state.py`: never `is_busy and is_recording`):
+
+- **Send:** idle → Record (label Record) → recording (Stop Rec) → stop rec (often `is_busy` while sending audio) → idle Send.
+- **Recorder:** idle → initializing → recording → stopping → idle | error.
+
+| ID | Drive | Pass (assert) |
+|----|--------|----------------|
+| **G1** | `audio_supported`; empty query; `press_record()`; stub `ready`; `press_stop_rec()`; inject canned WAV; wait idle | Native chat POST has `input_audio` (not whisper URL unless fallback); transcript contains mock line (`Hello from the mock microphone.` or `--transcript`); `has_audio` cleared after send; hello |
+| **G2** | Type `hello` in query **then** Record → Stop Rec | Reply mentions typed **and** transcript |
+| **G3** | G1 then inspect last history row (SQLite/JSON) | No huge base64; placeholder like `[Audio Attached]` |
+| **G4** | Record; fire host **silence auto-stop** as `STOP_REC_CLICKED` on main thread (do not sleep for real silence) | Same native reply as G1; log auto-stop / `execute_on_main_thread` |
+| **G5** | `set_audio_supported` native **False**; chat model text-only; Record → Stop Rec | `POST /v1/audio/transcriptions` **or** chat “Transcribe this audio exactly…”; query becomes canned text; then normal completion |
+| **G6** | Mock `--transcript Custom line.` | G1 sidebar contains **Custom line.** |
+| **G7** | Ramble in flight; `press_record()` | Rejected (`is_busy`); still ramble; Stop still works; no second worker |
+| **G8** | `audio_supported=False`; empty box | Record not enabled; typed Send hello works |
+| **G9** | `press_record()` twice | Second no-op; still recording; one child stub |
+| **G10** | `press_stop_rec()` while **idle** | No crash; still Send |
+| **G11** | Record; `press_stop()` (send-cancel), **not** Stop Rec | Must not treat as Stop Rec **or** must stop both cleanly; not `is_busy and is_recording`; hello |
+| **G12** | Record; fail stub (`ErrorOccurredEvent` / child crash) | `audio_status` error then idle; Send works; no stuck Stop Rec |
+| **G13** | Record; Stop Rec; **fail** chat POST (500) | Error in transcript; `has_audio` not stuck forever (can Record again); hello |
+| **G14** | Stop Rec with **empty/missing WAV** | No send or explicit error; not busy; hello |
+| **G15** | `press_send()` while `is_recording` | FSM ignores Send; still recording; Stop Rec then send works |
+| **G16** | Record → Stop Rec → immediately Record again | Second take replaces audio; one in-flight capture |
+| **G17** | G1 on **Calc** deck if sidebar exists | Same native path; hello |
+| **G18** | HITL active; `press_record()` | No Record (approval owns buttons); E9 still valid |
+
+---
+
+### v2 suggested implementation order
+
+1. Harness: open sidebar, `set_query_text` + `press_send` + `wait_idle` + `next_hello_ok` (smoke).
+2. **B1a, B1b, B3, B7, B10** (Stop is the mountain).
+3. **F1, F2, F4, F14** (errors + recovery).
+4. **E3, E5, E6, E7** (tools without HITL).
+5. **E8a/b** (Stop mid-delegate).
+6. **E9a–E9e** (HITL overlay on the same buttons).
+7. F3/F6/F9+ only after cancel + hang are stable.
+8. **G1, G7, G11, G12, G15** (Record FSM vs Send busy) — stub capture, no mic. Rest of G after that.
+
+Pytest already covers `decide_completion` in `tests/scripts/test_mock_llm_server.py`. v2 does **not** duplicate that; it covers **drain + FSM + UNO**. Mock already lists `writeragent-mock-whisper` and canned transcripts.
 
 ### References
 

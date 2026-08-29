@@ -558,6 +558,14 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
         log.debug("_open_web_search_change_dialog: applying edited query len=%d", len(text))
         self._finish_inline_web_approval(True, query_override=text)
 
+    def apply_approval_query_override(self, text: str) -> None:
+        """Finish pending web-search approval with an edited query (no modal dialog).
+
+        Production Change still opens ``show_web_search_query_edit_dialog``. Headless
+        mock-LLM tests call this instead so Packet E9c does not block on a dialog.
+        """
+        self._finish_inline_web_approval(True, query_override=text)
+
     def _finish_inline_web_approval(self, approved, query_override=None):
         ev = getattr(self, "_approval_event", None)
         if ev is None:

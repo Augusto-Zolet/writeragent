@@ -8,6 +8,8 @@ from __future__ import annotations
 import ast
 import os
 
+import pytest
+
 from scripts.strip_code import (
     should_skip_print_strip,
     should_skip_strip,
@@ -405,3 +407,25 @@ def test_replace_thread_guard_implementation(tmp_path: Path) -> None:
     with ns["sync_host_dispatch"]():
         assert ns["in_sync_host_dispatch"]() is True
     assert ns["in_sync_host_dispatch"]() is False
+
+
+def test_replace_sidebar_test_hooks_implementation(tmp_path: Path) -> None:
+    """sidebar_test_hooks.py is overwritten so press_* raise in release bundles."""
+    from scripts.strip_code import replace_sidebar_test_hooks_implementation
+
+    dest = tmp_path / "plugin" / "chatbot"
+    dest.mkdir(parents=True)
+    target = dest / "sidebar_test_hooks.py"
+    target.write_text("def press_send(*, listener=None):\n    return 1\n", encoding="utf-8")
+
+    replace_sidebar_test_hooks_implementation(str(tmp_path), dry_run=False)
+
+    stubbed = target.read_text(encoding="utf-8")
+    assert "sidebar test hooks are not in release builds" in stubbed
+    hook_ns: dict = {}
+    exec(stubbed, hook_ns)
+    assert hook_ns["debug_hooks_available"]() is False
+    assert hook_ns["iter_live_chat_panels"]() == []
+    hook_ns["register_live_panel"](object())
+    with pytest.raises(RuntimeError, match="not in release builds"):
+        hook_ns["press_send"]()
