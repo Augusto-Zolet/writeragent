@@ -654,6 +654,9 @@ def _run_on_executor(executor: LocalPythonExecutor, code: str) -> dict[str, Any]
     # rebound it (identity change). On failure, restore the pre-cell value.
     prior_result = executor.state.get("result", _RESULT_MISSING)
     try:
+        from plugin.scripting.named_scripts import bind_named_scripts_executor
+
+        bind_named_scripts_executor(executor)
         code_output = executor(code)
         _sync_custom_tools(executor)
 

@@ -35,6 +35,9 @@ TOOL_RPC_DISABLED = ""
 # ``get_active_document_type()`` always needs this, even in a scoped domain.
 _ALWAYS_ALLOWED = frozenset({"list_open_documents"})
 
+# String fetch of user/document scripts — not document mutation; allowed during =PY().
+_NAMED_SCRIPT_TOOLS = frozenset({"get_named_python_script", "list_named_python_scripts"})
+
 
 def resolve_allowed_tools(python_tool_domain: str | None) -> frozenset[str] | None:
     """Return an allowlist, ``None`` (unrestricted minus blocked), or empty (disabled)."""
@@ -73,6 +76,11 @@ def execute_tool(
         raise RuntimeError(
             f"Tool {tool_name!r} cannot run from a venv script (it would re-enter the worker)."
         )
+    if tool_name in _NAMED_SCRIPT_TOOLS:
+        payload = args if isinstance(args, dict) else {}
+        from plugin.framework.queue_executor import execute_on_main_thread
+
+        return execute_on_main_thread(lambda: _execute_named_script_tool(tool_name, payload))
     if allowed_tools is not None and tool_name not in allowed_tools:
         if not allowed_tools:
             raise RuntimeError(
@@ -121,6 +129,38 @@ def execute_tool(
     from plugin.framework.queue_executor import execute_on_main_thread
 
     return execute_on_main_thread(_run)
+
+
+def _execute_named_script_tool(tool_name: str, payload: dict[str, Any]) -> Any:
+    from plugin.framework.uno_context import get_active_document, get_ctx
+    from plugin.scripting.document_scripts import get_document_scripts, get_user_scripts
+    from plugin.scripting.named_scripts import (
+        GET_NAMED_PYTHON_SCRIPT,
+        LIST_NAMED_PYTHON_SCRIPTS,
+        ORIGIN_USER,
+        host_get_named_python_script,
+        host_list_named_python_scripts,
+    )
+
+    user_scripts = get_user_scripts()
+    uno_ctx = get_ctx()
+    doc = get_active_document(uno_ctx) if uno_ctx is not None else None
+    document_scripts = get_document_scripts(doc) if doc is not None else {}
+    if tool_name == LIST_NAMED_PYTHON_SCRIPTS:
+        return host_list_named_python_scripts(user_scripts=user_scripts, document_scripts=document_scripts)
+    if tool_name == GET_NAMED_PYTHON_SCRIPT:
+        name = str(payload.get("name") or "")
+        origin = str(payload.get("origin") or ORIGIN_USER)
+        known = payload.get("known_hash")
+        known_hash = known if isinstance(known, str) else None
+        return host_get_named_python_script(
+            name=name,
+            origin=origin,
+            known_hash=known_hash,
+            user_scripts=user_scripts,
+            document_scripts=document_scripts,
+        )
+    raise RuntimeError(f"Unknown named-script tool {tool_name!r}")
 
 
 def handle_tool_call_frame(

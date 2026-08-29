@@ -422,7 +422,15 @@ def execute_and_insert_result(
             return rps_error_outcome(str(exc), t0=t0)
 
     try:
-        response = run_code_in_user_venv(ctx, exec_code, data=py_data, bindings=bindings)
+        from plugin.scripting.session_manager import rps_session_id
+
+        response = run_code_in_user_venv(
+            ctx,
+            exec_code,
+            data=py_data,
+            bindings=bindings,
+            session_id=rps_session_id(ctx, doc),
+        )
         elapsed = time.perf_counter() - t0
     except Exception as e:
         log.exception("execute_and_insert_result failed")

@@ -4,12 +4,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Document-attached named Python scripts and Calc workbook init scripts (UserDefinedProperties).
 
-Picker entries are independent source strings. There is no ``import`` / call
-into another My Scripts or This Document script from a running script today
-(``run_venv_python_script`` is blocked in the venv to avoid re-entering the
-warm worker). A future helper (e.g. ``wa.scripts.run("name")`` that fetches
-the stored body on the host and execs it in the same sandbox namespace)
-would let libraries live in shared or document scripts.
+Venv code can import library defs via ``wa.scripts.<Name>`` (My Scripts) and
+``wa.doc.<Name>`` (This Document). See ``plugin.scripting.named_scripts``.
+``run_venv_python_script`` stays blocked (would re-enter the warm worker).
 """
 
 # =========================================================================================

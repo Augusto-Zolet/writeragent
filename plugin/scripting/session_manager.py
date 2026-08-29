@@ -14,7 +14,7 @@ import threading
 import uuid
 from typing import Any
 
-from plugin.doc.doc_type import is_calc, is_writer
+from plugin.doc.doc_type import is_calc, is_draw, is_writer
 from plugin.doc.udprops import get_document_property, set_document_property
 from plugin.framework.config import get_config_str
 from plugin.framework.i18n import _
@@ -276,6 +276,20 @@ def workbook_session_id(ctx: Any, doc: Any | None = None) -> str | None:
     return calc_workbook_base_session_id(target)
 
 
+def rps_session_id(ctx: Any, doc: Any | None = None) -> str | None:
+    """Document-keyed shared kernel for Run Python Script (library cache + user globals).
+
+    Calc uses the same ``calc:…`` id as ``=PY()``. Writer/Draw use ``rps:…`` from
+    the same UDProp so two Writer files do not share a namespace. Isolated mode
+    returns ``None`` (in-run library cache only).
+    """
+    if python_session_mode(ctx) != "shared" or doc is None:
+        return None
+    if is_calc(doc):
+        return workbook_session_id(ctx, doc)
+    return f"rps:{_workbook_session_key(doc)}"
+
+
 def notebook_session_id(ctx: Any, doc: Any | None = None) -> str | None:
     """Return ``notebook:…`` for a Writer document (always shared when interactive notebook is used)."""
     target = doc if doc is not None else _writer_document(ctx)
@@ -394,20 +408,31 @@ def _reset_calc_python_sessions(ctx: Any, doc: Any | None = None) -> None:
         )
 
 
+def _reset_rps_python_session(ctx: Any, doc: Any, *, notify: bool = True) -> None:
+    """Drop the Run Python Script shared executor (``rps:`` / Writer-Draw library cache)."""
+    sid = f"rps:{_workbook_session_key(doc)}"
+    res = reset_python_session(ctx, sid)
+    if not notify:
+        return
+    if res.get("status") == "ok":
+        _msgbox(ctx, _("Python session reset for this document."))
+        return
+    msg = res.get("message") or _("Could not reset Python session.")
+    _msgbox(ctx, _("Error: {0}").format(msg))
+
+
 def reset_workbook_python_session(ctx: Any, doc: Any | None = None) -> None:
     """Menubar handler: reset notebook kernel (Writer) or shared Calc workbook session."""
     if doc is not None:
         if is_writer(doc):
             if _has_notebook_registry(doc):
                 reset_notebook_python_session(ctx, doc)
+                _reset_rps_python_session(ctx, doc, notify=False)
             else:
-                _msgbox(
-                    ctx,
-                    _(
-                        "This Writer document has no imported notebook registry. "
-                        "File → Open a Jupyter notebook (.ipynb) to enable notebook Python session reset."
-                    ),
-                )
+                _reset_rps_python_session(ctx, doc)
+            return
+        if is_draw(doc):
+            _reset_rps_python_session(ctx, doc)
             return
         _reset_calc_python_sessions(ctx, doc)
         return
@@ -422,14 +447,9 @@ def reset_workbook_python_session(ctx: Any, doc: Any | None = None) -> None:
     if writer_doc is not None:
         if _has_notebook_registry(writer_doc):
             reset_notebook_python_session(ctx, writer_doc)
+            _reset_rps_python_session(ctx, writer_doc, notify=False)
         else:
-            _msgbox(
-                ctx,
-                _(
-                    "This Writer document has no imported notebook registry. "
-                    "File → Open a Jupyter notebook (.ipynb) to enable notebook Python session reset."
-                ),
-            )
+            _reset_rps_python_session(ctx, writer_doc)
         return
 
     _reset_calc_python_sessions(ctx, None)

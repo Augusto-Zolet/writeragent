@@ -107,6 +107,8 @@ def test_reset_workbook_python_session_dispatches_to_notebook():
         patch("plugin.scripting.session_manager._writer_document", return_value=doc),
         patch("plugin.scripting.session_manager._has_notebook_registry", return_value=True),
         patch("plugin.scripting.session_manager.reset_notebook_python_session") as mock_nb_reset,
+        patch("plugin.scripting.session_manager._reset_rps_python_session") as mock_rps,
     ):
         reset_workbook_python_session(ctx)
     mock_nb_reset.assert_called_once_with(ctx, doc)
+    mock_rps.assert_called_once_with(ctx, doc, notify=False)

@@ -356,7 +356,7 @@ Settings → Python → `scripting.python_session_mode`:
 | Mode                   | Behavior                                                                                                                                                                                                                                |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Isolated** (default) | Each `=PY()` evaluation gets a **fresh** namespace. The **initialization script** still runs once per workbook and its imports/helpers are **seeded** into every cell — but variables assigned in one cell do **not** leak to the next. |
-| **Shared kernel**      | One **persistent global namespace** per workbook (`calc:…` session). Any cell can read or overwrite any name set by any other cell. **Reset Python Session** clears it.                                                                 |
+| **Shared kernel**      | One **persistent global namespace** per workbook (`calc:…` session). Any cell can read or overwrite any name set by any other cell. **Reset Python Session** clears it. Run Python Script uses the same Calc session, or `rps:…` on Writer/Draw, so `wa.scripts` / `wa.doc` library caches stay on that document. |
 
 
 Optional chat runs always use isolated execution (not workbook session mode) — see [Using the chat assistant](#using-the-chat-assistant-optional).
@@ -815,7 +815,9 @@ wa.writer.apply_document_content(
 )
 ```
 
-The shipped **Universal Sample** script (default in Run Python Script…) does the same: Writer HTML, Calc `insert_cell_html`, plus a shape — each call on one line, top-level (no `def run()`). The sandbox already sets `__name__ == "__main__"` (`LocalPythonExecutor`). `run_venv_python_script` cannot be called from a script (it would re-enter the warm worker). Named My Scripts / This Document entries are also not importable from each other today — a future `wa.scripts.run("name")` (host loads the stored body, exec in the same namespace) would make shared libraries possible. Domain-scoped allowlists (`python_tool_domain="writer"` / `"footnotes"`) are enforced on the host; they are not a new IPC type. Follow-on sugar (`sheet.range("A1:B2").values = matrix`) only after this RPC stays stable.
+The shipped **Universal Sample** script (default in Run Python Script…) does the same: Writer HTML, Calc `insert_cell_html`, plus a shape — each call on one line, top-level (no `def run()`). The sandbox already sets `__name__ == "__main__"` (`LocalPythonExecutor`). `run_venv_python_script` cannot be called from a script (it would re-enter the warm worker).
+
+**Named libraries:** `wa.scripts.Helpers.add(1, 2)` loads defs from a My Scripts title; `wa.doc.Cover.format(...)` from This Document. Titles are massaged to identifiers (`python_identifier_from_script_name`); use `wa.scripts["odd name"]` for the stored title. Only `def` / `class` / imports / constant assigns are imported — top-level `wa.writer…` in a demo is not re-run. The host sends the body once per library per Run/cell; later calls in that execute are local. The next Run or `=PY()` rechecks a content hash (no body if unchanged) so Shared kernel picks up edits without Reset. **Shared kernel** (`scripting.python_session_mode`) keeps compiled defs on a document-keyed session (`calc:…` or `rps:…`) so two Writer files do not share libraries. Isolated mode still caches for a single Run. Domain-scoped allowlists (`python_tool_domain="writer"` / `"footnotes"`) are enforced on the host; they are not a new IPC type. Follow-on sugar (`sheet.range("A1:B2").values = matrix`) only after this RPC stays stable.
 
 ### Calc UX backlog {#calc-ux-backlog}
 
