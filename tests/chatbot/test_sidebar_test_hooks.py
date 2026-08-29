@@ -21,6 +21,7 @@ from plugin.chatbot.sidebar_test_hooks import (
     chat_dialog_controls,
     control_enabled,
     debug_hooks_available,
+    fire_audio_auto_stop,
     inject_wav,
     iter_live_chat_panels,
     register_live_panel,
@@ -107,6 +108,17 @@ class _FakeListener:
             ),
             tool_loop=None,
             audio=AudioRecorderState(status="idle"),
+        )
+
+        self.audio_recorder = SimpleNamespace(
+            _test_skip_spawn=False,
+            _test_inject_wav=None,
+            _test_fail_start=None,
+            _test_missing_wav=False,
+            _stub_start_count=0,
+            temp_filename=None,
+            _write_injected_wav=lambda: None,
+            _notify_auto_stop=lambda path: setattr(self, "_auto_stop_path", path),
         )
 
     def dispatch(self, event) -> None:
@@ -274,11 +286,23 @@ def test_set_audio_supported_and_audio_status(fake_listener: _FakeListener) -> N
     assert status["has_audio"] is False
 
 
-def test_packet_g_stubs_raise() -> None:
-    with pytest.raises(NotImplementedError):
-        inject_wav(b"")
-    with pytest.raises(NotImplementedError):
-        stub_recorder_child()
+def test_packet_g_stub_and_inject(fake_listener: _FakeListener, tmp_path) -> None:
+    from plugin.chatbot.audio_recorder import clear_stub_recorder_control, read_stub_recorder_control
+
+    try:
+        stub_recorder_child(listener=fake_listener, fail_start="boom", missing_wav=True)
+        rec = fake_listener.audio_recorder
+        assert rec._test_skip_spawn is True
+        assert rec._test_fail_start == "boom"
+        assert rec._test_missing_wav is True
+        wav = str(tmp_path / "packet-g.wav")
+        inject_wav(wav, listener=fake_listener)
+        assert rec._test_inject_wav == wav
+        fire_audio_auto_stop(listener=fake_listener)
+        assert fake_listener._auto_stop_path is None
+        assert read_stub_recorder_control().get("skip") is True
+    finally:
+        clear_stub_recorder_control()
 
 
 def test_mock_config_mutates_flags() -> None:

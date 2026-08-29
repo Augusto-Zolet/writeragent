@@ -5,7 +5,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from plugin.chatbot.audio_recorder import AudioRecorder
+from plugin.chatbot.audio_recorder import (
+    AudioRecorder,
+    clear_stub_recorder_control,
+    write_stub_recorder_control,
+)
 
 
 @pytest.fixture
@@ -70,6 +74,47 @@ def test_audio_recorder_multiple_sessions(ctx, recording_mocks):
         assert first == paths[0]
         assert second == paths[1]
         assert first != second
+
+
+def test_audio_recorder_skip_spawn_from_control_file(ctx, tmp_path):
+    fixture = tmp_path / "inject.wav"
+    fixture.write_bytes(b"RIFF....WAVEfmt ")
+    write_stub_recorder_control(wav=str(fixture), skip=True)
+    recorder = AudioRecorder(ctx)
+    try:
+        recorder.start_recording()
+        assert recorder.state.status == "recording"
+        path = recorder.stop_recording()
+        assert path and os.path.isfile(path)
+    finally:
+        clear_stub_recorder_control()
+        if recorder.temp_filename and os.path.isfile(recorder.temp_filename):
+            os.remove(recorder.temp_filename)
+
+
+def test_audio_recorder_skip_spawn_injects_wav(ctx, tmp_path):
+    fixture = tmp_path / "inject.wav"
+    fixture.write_bytes(b"RIFF....WAVEfmt ")
+    recorder = AudioRecorder(ctx)
+    recorder._test_skip_spawn = True
+    recorder._test_inject_wav = str(fixture)
+    recorder.start_recording()
+    assert recorder.state.status == "recording"
+    assert recorder._stub_start_count == 1
+    path = recorder.stop_recording()
+    assert path and os.path.isfile(path)
+    with open(path, "rb") as handle:
+        assert handle.read() == fixture.read_bytes()
+    os.remove(path)
+
+
+def test_audio_recorder_skip_spawn_fail_start(ctx):
+    recorder = AudioRecorder(ctx)
+    recorder._test_skip_spawn = True
+    recorder._test_fail_start = "stub crash"
+    with pytest.raises(RuntimeError, match="stub crash"):
+        recorder.start_recording()
+    assert recorder.state.status == "error"
 
 
 def test_audio_recorder_missing_venv(ctx):

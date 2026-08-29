@@ -236,6 +236,7 @@ def summarize_chat_payload(payload: dict[str, Any], completion: Completion | Non
     tools = _tool_names(payload.get("tools"))
     user_text = _last_user_text(messages)
     query = current_query_text(user_text)
+    last_user = _last_user_message(messages)
     decided: list[str] = []
     if completion is not None:
         decided = [name for name, _args in completion_tool_calls(completion)]
@@ -255,6 +256,8 @@ def summarize_chat_payload(payload: dict[str, Any], completion: Completion | Non
         "called_tools": _called_tool_names(messages),
         "decided_tools": decided,
         "doc_content_len": document_content_len(messages),
+        "has_input_audio": bool(last_user is not None and _content_has_audio(last_user.get("content"))),
+        "path": "/v1/chat/completions",
     }
 
 
@@ -1246,6 +1249,7 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
             length = int(self.headers.get("Content-Length") or "0")
             raw = self.rfile.read(length) if length else b""
             if path in ("/v1/audio/transcriptions", "/audio/transcriptions"):
+                record_capture(config, {"path": path, "stt": True, "has_input_audio": False})
                 dummy = Completion()
                 if self._fail_or_hang_headers(dummy, stream=False):
                     return

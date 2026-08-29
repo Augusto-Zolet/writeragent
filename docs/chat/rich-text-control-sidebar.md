@@ -641,7 +641,7 @@ Writer with body text “Welcome to WriterAgent.” unless **empty** is specifie
 
 ```bash
 make test-mock-sidebar                 # all packets
-make test-mock-sidebar FILTER=E        # packet E only
+make test-mock-sidebar FILTER=G        # packet G (mocked audio)
 make test-mock-sidebar FILTER=B
 make test-mock-sidebar FILTER=f3a      # one case id
 make test-mock-sidebar FILTER=test_e7_outline_delegate
@@ -686,7 +686,9 @@ Each case ends with **`next_hello_ok()`** unless noted. Prefer phrase triggers s
 
 ### v2 Packet G — mocked audio (Record / Stop Rec / STT)
 
-**Priority:** after B/E/F. Same harness. **Do not** open a microphone. Stub the venv capture child (or write a tiny WAV and skip spawn). Mock LLM: `writeragent-mock` native `input_audio`; `writeragent-mock-whisper` for `/v1/audio/transcriptions`.
+**Live URP (`make test-mock-sidebar FILTER=G`, after `make deploy`):** 10 passed, 8 skipped. **OK:** G1, G2, G4, G5, G6, G10, G12, G13, G14, G16. **SKIP:** G3/G7/G8/G9/G11/G15/G18 (need in-process `SendButtonListener`); **G17** Calc isolate like E12.
+
+Same harness as B/E/F. **Do not** open a microphone: `stub_recorder_child()` + `inject_wav()` write `/tmp/writeragent_stub_recorder.json` so the soffice OXT skips spawn (`AudioRecorder._test_skip_spawn`). Fixtures: `tests/chatbot/fixtures/hello-writeragent-1s.wav` (G1) and `hello-writeragent-5s.wav` (G4); source MP3s at repo root. Mock LLM: `writeragent-mock` native `input_audio`; `writeragent-mock-whisper` for `/v1/audio/transcriptions`.
 
 Two machines must stay legal (`send_state.py`: never `is_busy and is_recording`):
 

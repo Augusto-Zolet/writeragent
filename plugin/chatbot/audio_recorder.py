@@ -18,8 +18,10 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import tempfile
 import threading
 from typing import TYPE_CHECKING, Any, Callable
 
@@ -54,6 +56,39 @@ from plugin.scripting.audio_silence_detector import SilenceDetector, load_silenc
 log = logging.getLogger(__name__)
 
 
+def stub_recorder_control_path() -> str:
+    """Cross-process Packet G control file (URP tests vs soffice OXT)."""
+    return os.path.join(tempfile.gettempdir(), "writeragent_stub_recorder.json")
+
+
+def read_stub_recorder_control() -> dict[str, Any]:
+    path = stub_recorder_control_path()
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def write_stub_recorder_control(**fields: Any) -> None:
+    path = stub_recorder_control_path()
+    data = read_stub_recorder_control()
+    data.update(fields)
+    data["skip"] = True
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+
+
+def clear_stub_recorder_control() -> None:
+    try:
+        os.remove(stub_recorder_control_path())
+    except OSError:
+        pass
+
+
 class AudioRecorder:
     fs = 16000
     channels = 1
@@ -71,6 +106,12 @@ class AudioRecorder:
         self._on_auto_stop: Callable[[], None] | None = None
         self._on_silence_progress: Callable[[int], None] | None = None
         self.state = AudioRecorderState(status="idle")
+        # Packet G native tests: skip venv/PortAudio spawn and use inject_wav.
+        self._test_skip_spawn = False
+        self._test_inject_wav: str | bytes | None = None
+        self._test_fail_start: str | None = None
+        self._test_missing_wav = False
+        self._stub_start_count = 0
 
     def set_auto_stop_callbacks(
         self,
@@ -143,11 +184,49 @@ class AudioRecorder:
                 log.debug("Failed to remove temp_filename during cleanup: %s", exc)
             self.temp_filename = None
 
+    def _write_injected_wav(self) -> None:
+        inject = self._test_inject_wav
+        dest = self.temp_filename
+        if not dest or inject is None:
+            return
+        if isinstance(inject, (bytes, bytearray)):
+            with open(dest, "wb") as handle:
+                handle.write(inject)
+            return
+        import shutil
+
+        shutil.copyfile(str(inject), dest)
+
     def _execute_effect(self, effect: object) -> None:
         import sys
         import wave
 
         if isinstance(effect, InitializeDeviceEffect):
+            ctrl = read_stub_recorder_control()
+            if ctrl.get("skip"):
+                self._test_skip_spawn = True
+                fail = ctrl.get("fail_start")
+                if fail:
+                    self._test_fail_start = str(fail)
+                if ctrl.get("missing_wav"):
+                    self._test_missing_wav = True
+                wav = ctrl.get("wav")
+                if wav:
+                    self._test_inject_wav = wav
+            if self._test_skip_spawn:
+                # Packet G: pretend the capture child said {"status":"ready"} without a mic.
+                self._stub_start_count += 1
+                self._auto_stopped_path = None
+                if self._test_fail_start:
+                    self._apply_event(ErrorOccurredEvent(self._test_fail_start))
+                    return
+                self.temp_filename = make_temp_wav_path()
+                self._proc = None
+                self._apply_event(DeviceReadyEvent())
+                if ctrl.get("auto_stop"):
+                    self._write_injected_wav()
+                    self._notify_auto_stop(self.temp_filename)
+                return
             silence_config = load_silence_detector_config()
             self._auto_stopped_path = None
             exe, _err = resolve_recording_python(self.ctx)
@@ -219,6 +298,21 @@ class AudioRecorder:
                     self._apply_event(ErrorOccurredEvent(f"Audio recording failed to start stream: {e}"))
 
         elif isinstance(effect, StopRecordingEffect):
+            if self._test_skip_spawn:
+                if self._test_missing_wav:
+                    if self.temp_filename:
+                        try:
+                            os.remove(self.temp_filename)
+                        except OSError:
+                            pass
+                    self.temp_filename = None
+                else:
+                    self._write_injected_wav()
+                self._proc = None
+                self.stream = None
+                self.wav_file = None
+                self._silence_detector = None
+                return
             if self.stream is not None:
                 try:
                     self.stream.stop()

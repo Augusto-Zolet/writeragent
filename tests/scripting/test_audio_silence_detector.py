@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import struct
+import wave
 from unittest.mock import patch
 
 from plugin.scripting.audio_silence_detector import (
@@ -143,6 +145,44 @@ def test_resolve_silence_stop_ms_zero_disables():
         return_value={"chatbot.audio_silence_stop_ms": 0},
     ):
         assert _resolve_silence_stop_ms() == 0
+
+
+def test_five_second_fixture_has_long_pause_then_auto_stop_after_speech():
+    """5s MP3 is leading silence + phrase (speech at the tail). Auto-stop needs
+    silence *after* MIN_SPEECH — feed the fixture then trailing zeros like a
+    real end-of-utterance, without a microphone."""
+    wav_path = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "chatbot",
+        "fixtures",
+        "hello-writeragent-5s.wav",
+    )
+    wav_path = os.path.abspath(wav_path)
+    if not os.path.isfile(wav_path):
+        return
+    detector = SilenceDetector(SilenceDetectorConfig(silence_stop_ms=3000), sample_rate=16000)
+    with wave.open(wav_path, "rb") as wf:
+        assert wf.getframerate() == 16000
+        nframes = wf.getnframes()
+        assert nframes / 16000.0 >= 5.0
+        frames = 1600
+        while True:
+            pcm = wf.readframes(frames)
+            if not pcm:
+                break
+            detector.process_chunk(pcm, frame_count=len(pcm) // 2)
+    stopped = False
+    heard = False
+    silence = _pcm_silence(1600)
+    for _idx in range(40):
+        result = detector.process_chunk(silence, frame_count=1600)
+        heard = heard or result.heard_speech
+        if result.should_stop:
+            stopped = True
+            break
+    assert heard
+    assert stopped, "trailing silence after 5s fixture should auto-stop"
 
 
 def test_resolve_silence_stop_ms_default_when_unset():

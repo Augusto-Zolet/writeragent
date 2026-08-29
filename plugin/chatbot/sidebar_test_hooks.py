@@ -591,14 +591,64 @@ def audio_status(*, listener: Any = None) -> dict[str, Any]:
     }
 
 
-def inject_wav(path_or_bytes: Any) -> None:
-    _require_debug()
-    raise NotImplementedError("inject_wav is reserved for Packet G (no mic)")
+def _live_audio_recorder(*, listener: Any = None) -> Any:
+    sl = listener if listener is not None else send_listener()
+    if sl is None:
+        return None
+    return getattr(sl, "audio_recorder", None)
 
 
-def stub_recorder_child() -> None:
+def inject_wav(path_or_bytes: Any, *, listener: Any = None) -> None:
+    """Point the stub capture child at a finished WAV (path or bytes). No mic."""
     _require_debug()
-    raise NotImplementedError("stub_recorder_child is reserved for Packet G (no mic)")
+    from plugin.chatbot.audio_recorder import write_stub_recorder_control
+
+    wav_path = path_or_bytes
+    if isinstance(path_or_bytes, (bytes, bytearray)):
+        dest = os.path.join(__import__("tempfile").gettempdir(), "writeragent_stub_inject.wav")
+        with open(dest, "wb") as handle:
+            handle.write(path_or_bytes)
+        wav_path = dest
+    write_stub_recorder_control(wav=wav_path, skip=True)
+    rec = _live_audio_recorder(listener=listener)
+    if rec is None:
+        return
+    rec._test_skip_spawn = True
+    rec._test_inject_wav = wav_path
+    if rec.temp_filename and wav_path is not None:
+        rec._write_injected_wav()
+
+
+def stub_recorder_child(
+    *,
+    listener: Any = None,
+    fail_start: str | None = None,
+    missing_wav: bool = False,
+) -> None:
+    """Skip venv/PortAudio spawn; InitializeDeviceEffect fakes a ready child."""
+    _require_debug()
+    from plugin.chatbot.audio_recorder import write_stub_recorder_control
+
+    write_stub_recorder_control(skip=True, fail_start=fail_start, missing_wav=bool(missing_wav))
+    rec = _live_audio_recorder(listener=listener)
+    if rec is None:
+        return
+    rec._test_skip_spawn = True
+    rec._test_fail_start = fail_start
+    rec._test_missing_wav = bool(missing_wav)
+    rec._stub_start_count = 0
+
+
+def fire_audio_auto_stop(*, listener: Any = None) -> None:
+    """Same host path as IPC auto_stopped (silence detector), no wall-clock wait."""
+    _require_debug()
+    from plugin.chatbot.audio_recorder import write_stub_recorder_control
+
+    write_stub_recorder_control(auto_stop=True, skip=True)
+    rec = _live_audio_recorder(listener=listener)
+    if rec is None:
+        return
+    rec._notify_auto_stop(rec.temp_filename)
 
 
 @dataclass(frozen=True)

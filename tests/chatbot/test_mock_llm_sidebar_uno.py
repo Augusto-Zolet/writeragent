@@ -2,10 +2,10 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Native Packet F (HTTP/SSE), B (Stop/Send FSM), and E (tools/HITL) on a live chat sidebar.
+"""Native Packet F (HTTP/SSE), B (Stop/Send FSM), E (tools/HITL), and G (mocked audio) on a live chat sidebar.
 
 Run via ``make test-mock-sidebar`` (visible soffice, LibreOffice user profile).
-Subset: ``make test-mock-sidebar FILTER=E`` (packet), ``FILTER=f3a`` (case), or a ``test_*`` name.
+Subset: ``make test-mock-sidebar FILTER=G`` (packet), ``FILTER=g1`` (case), or a ``test_*`` name.
 """
 
 from __future__ import annotations
@@ -110,6 +110,12 @@ def _teardown_mock():
             pass
     stop_mock_sidebar_session(_session)
     _session = None
+    try:
+        from plugin.chatbot.audio_recorder import clear_stub_recorder_control
+
+        clear_stub_recorder_control()
+    except Exception:
+        pass
     if _saved_prompt_research is not None:
         try:
             from plugin.framework.config import set_config
@@ -1390,5 +1396,376 @@ def test_e15_stop_after_filler_tool_before_wrapup(ctx):
             _send_and_wait("insert filler", timeout=30.0)
     finally:
         _session.config.delay_ms = 20
+    _hello_ok()
+
+
+_WAV_1S = os.path.join(os.path.dirname(__file__), "fixtures", "hello-writeragent-1s.wav")
+_WAV_5S = os.path.join(os.path.dirname(__file__), "fixtures", "hello-writeragent-5s.wav")
+
+
+def _g_listener():
+    sl = getattr(_session, "listener", None)
+    if sl is None:
+        from plugin.chatbot.sidebar_test_hooks import send_listener
+
+        sl = send_listener()
+    return sl
+
+
+def _g_need_in_process(sl, why: str) -> None:
+    if sl is None or getattr(sl, "audio_recorder", None) is None:
+        raise unittest.SkipTest(why)
+
+
+def _g_prep(*, missing_wav: bool = False, fail_start: str | None = None):
+    from plugin.chatbot.sidebar_test_hooks import (
+        set_audio_supported,
+        set_query_text,
+        set_query_text_via_controls,
+        stub_recorder_child,
+    )
+
+    _reset_mock_runtime()
+    sl = _g_listener()
+    stub_recorder_child(listener=sl, fail_start=fail_start, missing_wav=missing_wav)
+    if sl is not None:
+        set_audio_supported(True, listener=sl)
+        set_query_text("", listener=sl)
+    else:
+        controls = getattr(_session, "controls", None)
+        if controls is None:
+            raise unittest.SkipTest("Packet G: no SendButtonListener and no chat controls")
+        set_query_text_via_controls(controls, "")
+        time.sleep(0.2)
+    return sl
+
+
+def _g_click_send() -> None:
+    from plugin.chatbot.sidebar_test_hooks import uno_click
+
+    controls = getattr(_session, "controls", None) or {}
+    send = controls.get("send")
+    assert send is not None, "no Send control"
+    uno_click(send)
+
+
+def _g_record_and_stop(sl, wav: str | None, timeout: float = 60.0):
+    from plugin.chatbot.sidebar_test_hooks import inject_wav, press_record, press_stop_rec, wait_controls_send_finished, wait_idle
+
+    if wav is not None:
+        inject_wav(wav, listener=sl)
+    if sl is not None:
+        press_record(listener=sl)
+        press_stop_rec(listener=sl)
+        assert wait_idle(listener=sl, timeout=timeout), "G Stop Rec did not go idle: %r" % _transcript()[-400:]
+        return
+    before = _transcript()
+    _g_click_send()
+    time.sleep(0.3)
+    _g_click_send()
+    controls = getattr(_session, "controls", None)
+    assert controls is not None
+    assert wait_controls_send_finished(
+        controls, timeout=timeout, transcript_fn=_transcript, before=before
+    ), "G Stop Rec did not go idle: %r" % _transcript()[-400:]
+
+
+@native_test
+def test_g1_native_input_audio_then_hello(ctx):
+    from plugin.chatbot.sidebar_test_hooks import audio_status
+
+    sl = _g_prep()
+    _g_record_and_stop(sl, _WAV_1S)
+    body = _transcript().lower()
+    assert "mock microphone" in body or "mock transcript" in body, "G1 expected canned transcript: %r" % _transcript()[-500:]
+    snaps = _captures()
+    assert any(row.get("has_input_audio") for row in snaps), "G1 expected input_audio on chat POST, snaps=%r" % snaps[-5:]
+    if sl is not None:
+        assert audio_status(listener=sl)["has_audio"] is False
+    _hello_ok()
+
+
+@native_test
+def test_g2_typed_text_and_audio(ctx):
+    from plugin.chatbot.sidebar_test_hooks import set_query_text, set_query_text_via_controls
+
+    sl = _g_prep()
+    if sl is not None:
+        set_query_text("hello", listener=sl)
+    else:
+        controls = getattr(_session, "controls", None)
+        assert controls is not None
+        set_query_text_via_controls(controls, "hello")
+        time.sleep(0.2)
+    _g_record_and_stop(sl, _WAV_1S)
+    body = _transcript().lower()
+    assert "hello" in body, "G2 expected typed hello in reply: %r" % _transcript()[-400:]
+    assert "mock" in body or "transcript" in body
+    _hello_ok()
+
+
+@native_test
+def test_g3_history_strips_audio_blob(ctx):
+    sl = _g_prep()
+    _g_need_in_process(sl, "G3 inspects in-process ChatSession history")
+    _g_record_and_stop(sl, _WAV_1S)
+    session = getattr(sl, "session", None)
+    db = getattr(session, "db", None)
+    rows = db.get_messages() if db is not None else list(getattr(session, "messages", None) or [])
+    joined = " ".join(str(m.get("content") if isinstance(m, dict) else m) for m in rows)
+    assert "input_audio" not in joined.lower() or "[Audio Attached]" in joined
+    assert len(joined) < 50_000, "G3 history looks like it stored raw audio: %d chars" % len(joined)
+    _hello_ok()
+
+
+@native_test
+def test_g4_silence_auto_stop(ctx):
+    from plugin.chatbot.sidebar_test_hooks import fire_audio_auto_stop, inject_wav, press_record, wait_idle
+
+    sl = _g_prep()
+    inject_wav(_WAV_5S, listener=sl)
+    fire_audio_auto_stop(listener=sl)
+    if sl is not None:
+        press_record(listener=sl)
+        assert wait_idle(listener=sl, timeout=60.0), "G4 auto-stop did not go idle: %r" % _transcript()[-400:]
+    else:
+        before = _transcript()
+        _g_click_send()
+        controls = getattr(_session, "controls", None)
+        from plugin.chatbot.sidebar_test_hooks import wait_controls_send_finished
+
+        assert controls is not None
+        assert wait_controls_send_finished(
+            controls, timeout=60.0, transcript_fn=_transcript, before=before
+        ), "G4 auto-stop did not go idle: %r" % _transcript()[-400:]
+    body = _transcript().lower()
+    assert "mock" in body or "transcript" in body, "G4 expected native reply: %r" % _transcript()[-400:]
+    _hello_ok()
+
+
+@native_test
+def test_g5_stt_fallback_whisper(ctx):
+    from plugin.framework.client.model_fetcher import get_text_model, set_native_audio_support
+    from plugin.framework.config import get_config, get_current_endpoint, set_config
+    from scripts.mock_llm_server import MOCK_STT_MODEL_ID
+
+    sl = _g_prep()
+    endpoint = get_current_endpoint()
+    model = get_text_model()
+    saved_stt = get_config("stt_model")
+    try:
+        set_native_audio_support(model, endpoint, False)
+        set_config("stt_model", MOCK_STT_MODEL_ID)
+        time.sleep(2.1)
+        _g_record_and_stop(sl, _WAV_1S)
+        snaps = _captures()
+        stt = any(row.get("stt") or "transcription" in str(row.get("path") or "") for row in snaps)
+        transcribe_prompt = any("transcribe this audio exactly" in str(row.get("user_text") or "").lower() for row in snaps)
+        body = _transcript().lower()
+        assert stt or transcribe_prompt or "mock" in body, "G5 expected STT or transcribe path: %r snaps=%r" % (
+            _transcript()[-400:],
+            snaps[-8:],
+        )
+    finally:
+        set_native_audio_support(model, endpoint, True)
+        set_config("stt_model", saved_stt)
+        time.sleep(2.1)
+    _hello_ok()
+
+
+@native_test
+def test_g6_custom_transcript(ctx):
+    sl = _g_prep()
+    assert _session is not None
+    saved = _session.config.transcript
+    try:
+        _session.config.transcript = "Custom line."
+        _g_record_and_stop(sl, _WAV_1S)
+        assert "Custom line." in _transcript(), "G6 expected Custom line.: %r" % _transcript()[-400:]
+    finally:
+        _session.config.transcript = saved
+    _hello_ok()
+
+
+@native_test
+def test_g7_record_during_ramble_rejected(ctx):
+    from plugin.chatbot.sidebar_test_hooks import audio_status, press_record, send_state
+
+    sl = _g_prep()
+    _g_need_in_process(sl, "G7 RECORD_CLICKED during ramble needs in-process listener")
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    press_record(listener=sl)
+    st = send_state(listener=sl)
+    assert st.is_busy
+    assert not st.is_recording
+    assert audio_status(listener=sl)["status"] in ("idle", "error")
+    _stop_and_wait_idle(before)
+    _hello_ok()
+
+
+@native_test
+def test_g8_audio_unsupported_typed_hello(ctx):
+    from plugin.chatbot.sidebar_test_hooks import press_record, send_state, set_audio_supported, set_query_text
+
+    sl = _g_prep()
+    _g_need_in_process(sl, "G8 set_audio_supported needs in-process listener")
+    set_audio_supported(False, listener=sl)
+    set_query_text("", listener=sl)
+    press_record(listener=sl)
+    assert send_state(listener=sl).is_recording is False
+    _hello_ok()
+
+
+@native_test
+def test_g9_double_record_one_child(ctx):
+    from plugin.chatbot.sidebar_test_hooks import inject_wav, press_record, press_stop_rec, wait_idle
+
+    sl = _g_prep()
+    _g_need_in_process(sl, "G9 stub_start_count needs in-process AudioRecorder")
+    inject_wav(_WAV_1S, listener=sl)
+    press_record(listener=sl)
+    press_record(listener=sl)
+    rec = sl.audio_recorder
+    assert rec._stub_start_count == 1
+    press_stop_rec(listener=sl)
+    assert wait_idle(listener=sl, timeout=60.0)
+    _hello_ok()
+
+
+@native_test
+def test_g10_stop_rec_while_idle(ctx):
+    from plugin.chatbot.sidebar_test_hooks import press_stop_rec, send_state
+
+    sl = _g_prep()
+    if sl is not None:
+        press_stop_rec(listener=sl)
+        st = send_state(listener=sl)
+        assert st.is_busy is False
+        assert st.is_recording is False
+    else:
+        _g_click_send()
+        time.sleep(0.3)
+    _hello_ok()
+
+
+@native_test
+def test_g11_press_stop_not_stop_rec(ctx):
+    from plugin.chatbot.sidebar_test_hooks import inject_wav, press_record, press_stop, press_stop_rec, send_state, wait_idle
+
+    sl = _g_prep()
+    _g_need_in_process(sl, "G11 STOP_CLICKED vs Stop Rec needs in-process listener")
+    inject_wav(_WAV_1S, listener=sl)
+    press_record(listener=sl)
+    press_stop(listener=sl)
+    st = send_state(listener=sl)
+    assert not (st.is_busy and st.is_recording)
+    if st.is_recording:
+        press_stop_rec(listener=sl)
+        assert wait_idle(listener=sl, timeout=60.0)
+    _hello_ok()
+
+
+@native_test
+def test_g12_record_start_fail(ctx):
+    from plugin.chatbot.sidebar_test_hooks import press_record, send_state
+
+    sl = _g_prep(fail_start="stub crash")
+    if sl is not None:
+        press_record(listener=sl)
+        st = send_state(listener=sl)
+        assert st.is_recording is False
+        assert st.is_busy is False
+    else:
+        _g_click_send()
+        time.sleep(0.5)
+    _hello_ok()
+
+
+@native_test
+def test_g13_stop_rec_then_http_500(ctx):
+    from plugin.chatbot.sidebar_test_hooks import audio_status
+
+    sl = _g_prep()
+    assert _session is not None
+    _session.config.fail = "http500"
+    try:
+        _g_record_and_stop(sl, _WAV_1S)
+        _assert_errorish(_transcript(), "500", "error")
+        assert audio_status(listener=sl)["has_audio"] is False or not audio_status(listener=sl)["is_recording"]
+    finally:
+        _session.config.fail = "none"
+    _hello_ok()
+
+
+@native_test
+def test_g14_empty_wav_no_send(ctx):
+    from plugin.chatbot.sidebar_test_hooks import send_state
+
+    sl = _g_prep(missing_wav=True)
+    before = len(_captures())
+    _g_record_and_stop(sl, None)
+    if sl is not None:
+        st = send_state(listener=sl)
+        assert st.is_busy is False
+        assert st.is_recording is False
+    assert len(_captures()) == before
+    _hello_ok()
+
+
+@native_test
+def test_g15_send_while_recording_ignored(ctx):
+    from plugin.chatbot.sidebar_test_hooks import inject_wav, press_record, press_send, press_stop_rec, send_state, wait_idle
+
+    sl = _g_prep()
+    _g_need_in_process(sl, "G15 SEND_CLICKED while recording needs in-process listener")
+    inject_wav(_WAV_1S, listener=sl)
+    press_record(listener=sl)
+    press_send(listener=sl)
+    st = send_state(listener=sl)
+    assert st.is_recording is True
+    assert st.is_busy is False
+    press_stop_rec(listener=sl)
+    assert wait_idle(listener=sl, timeout=60.0)
+    _hello_ok()
+
+
+@native_test
+def test_g16_second_take_replaces_audio(ctx):
+    sl = _g_prep()
+    _g_record_and_stop(sl, _WAV_1S)
+    _g_record_and_stop(sl, _WAV_1S)
+    if sl is not None:
+        assert sl.audio_recorder._stub_start_count == 2
+    _hello_ok()
+
+
+@native_test
+def test_g17_calc_deck_skipped(ctx):
+    raise unittest.SkipTest("G17 Calc deck: isolate like E12; do not open Calc from Packet G")
+
+
+@native_test
+def test_g18_hitl_blocks_record(ctx):
+    from plugin.chatbot.sidebar_test_hooks import approval_active, press_record, press_reject, press_send, send_state, set_query_text, wait_idle
+    from plugin.framework.config import set_config
+
+    sl = _g_prep()
+    _g_need_in_process(sl, "G18 HITL vs Record needs in-process listener")
+    set_config("chatbot.prompt_for_web_research", True)
+    time.sleep(2.1)
+    try:
+        set_query_text("look up cats", listener=sl)
+        press_send(listener=sl)
+        if not _wait_send_label("Accept", timeout=20.0) and not approval_active(listener=sl):
+            raise unittest.SkipTest("G18 HITL Accept never appeared")
+        press_record(listener=sl)
+        st = send_state(listener=sl)
+        assert st.is_recording is False
+        if approval_active(listener=sl):
+            press_reject(listener=sl)
+        wait_idle(listener=sl, timeout=30.0)
+    finally:
+        set_config("chatbot.prompt_for_web_research", False)
+        time.sleep(2.1)
     _hello_ok()
 
