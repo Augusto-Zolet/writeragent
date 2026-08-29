@@ -152,7 +152,7 @@ endif
         dev-deploy dev-deploy-remove \
         lo-start lo-start-full lo-kill lo-restart \
         clean-cache nuke-cache nuke-cache-force unbundle \
-        log log-tail lo-log test pytest test-uno test-run test-durations slowtests vhs test-visible lo-test-threadguard lo-test-threadguard-visible typecheck typecheck-full check-ext check-setup deploy ensure-uno \
+        log log-tail lo-log test pytest test-uno test-mock-sidebar test-run test-durations slowtests vhs test-visible lo-test-threadguard lo-test-threadguard-visible typecheck typecheck-full check-ext check-setup deploy ensure-uno \
         verify crosshair-check crosshair-cover crosshair-check-all crosshair-check-all-deep \
         crosshair-cover-all crosshair-cover-all-deep \
         lo-start-log opengrep-lint opengrep-lint-advisory opengrep-rules-sync opengrep-rules-audit uno-thread-lint uno-thread-lint-advisory opengrep-install \
@@ -222,6 +222,7 @@ help:
 	@echo "  make pytest                 Unit pytest only (xdist -n -1; PYTEST_WORKERS=0 for serial)"
 	@echo "  make mock-llm               Fake OpenAI chat server on :18766 (sidebar soak: scroll, tools, Stop, errors)"
 	@echo "  make test-uno               UNO tests only via testing_runner (serial live soffice)"
+	@echo "  make test-mock-sidebar      Packet F mock-LLM sidebar (visible soffice, your user profile)"
 	@echo "  make excel-py-roundtrip     Excel↔DAG sample fidelity over PythonExcelSamples/"
 	@echo ""
 	@echo "Benchmarks (prompt optimization / eval):"
@@ -702,6 +703,10 @@ mock-llm:
 test-uno:
 	@$(MAKE) -C "$(PROJECT_ROOT)" lo-kill
 	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
+
+test-mock-sidebar:
+	@$(MAKE) -C "$(PROJECT_ROOT)" lo-kill
+	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --user-profile tests/chatbot/test_mock_llm_sidebar_uno.py; EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
 
 test-run:
 	@$(MAKE) pytest
