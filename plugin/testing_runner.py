@@ -78,7 +78,7 @@ def _module_matches_filters(full_path: str, filename: str, filters: Sequence[str
 
 # Flag to run UNO chart tests with visible window rather than hidden
 show_window: bool = False
-# Packet F+E mock-sidebar: visible soffice with the developer's real user profile.
+# Packet F+E+B mock-sidebar: visible soffice with the developer's real user profile.
 use_user_profile: bool = False
 
 # Only these modules run under ``--user-profile`` (and they are skipped otherwise).

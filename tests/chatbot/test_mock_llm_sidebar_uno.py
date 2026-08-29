@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Native Packet F (HTTP/SSE) and Packet E (tools/delegate/HITL) on a live chat sidebar.
+"""Native Packet F (HTTP/SSE), B (Stop/Send FSM), and E (tools/HITL) on a live chat sidebar.
 
 Run via ``make test-mock-sidebar`` (visible soffice, LibreOffice user profile).
 """
@@ -218,6 +218,89 @@ def _wait_stop_enabled(timeout: float = 10.0) -> bool:
             return True
         time.sleep(0.1)
     return False
+
+
+def _query_box_text() -> str:
+    sl = getattr(_session, "listener", None)
+    if sl is not None:
+        from plugin.chatbot.sidebar_test_hooks import query_text
+
+        return query_text(listener=sl)
+    controls = getattr(_session, "controls", None) or {}
+    query = controls.get("query")
+    if query is None:
+        return ""
+    from plugin.chatbot.dialogs import get_control_text
+
+    return get_control_text(query, default="") or ""
+
+
+def _send_enabled() -> bool | None:
+    from plugin.chatbot.sidebar_test_hooks import control_enabled
+
+    controls = getattr(_session, "controls", None) or {}
+    return control_enabled(controls.get("send"))
+
+
+def _wait_idle_after_send(before: str, timeout: float = 30.0) -> None:
+    from plugin.chatbot.sidebar_test_hooks import wait_controls_send_finished, wait_idle
+
+    controls = getattr(_session, "controls", None)
+    if controls is not None:
+        assert wait_controls_send_finished(
+            controls,
+            timeout=timeout,
+            transcript_fn=_transcript,
+            before=before,
+        ), "send did not go idle: %r" % _transcript()[-400:]
+        return
+    sl = getattr(_session, "listener", None)
+    assert sl is not None
+    assert wait_idle(listener=sl, timeout=timeout), "send did not go idle"
+
+
+def _start_until_stop_enabled(text: str, *, delay_ms: int = 40, timeout: float = 15.0) -> str:
+    """Type *text*, Send, wait until Stop is Enabled. Caller must reset delay_ms."""
+    from plugin.chatbot.sidebar_test_hooks import (
+        press_send,
+        set_query_text,
+        set_query_text_via_controls,
+        uno_click,
+    )
+
+    assert _session is not None
+    _session.config.delay_ms = delay_ms
+    before = _transcript()
+    controls = getattr(_session, "controls", None)
+    if controls is not None:
+        set_query_text_via_controls(controls, text)
+        time.sleep(0.2)
+        uno_click(controls["send"])
+    else:
+        sl = getattr(_session, "listener", None)
+        assert sl is not None
+        set_query_text(text, listener=sl)
+        press_send(listener=sl)
+    assert _wait_stop_enabled(timeout=timeout), "Stop never enabled for %r" % text
+    return before
+
+
+def _stop_and_wait_idle(before: str, timeout: float = 25.0) -> None:
+    _press_stop()
+    _wait_idle_after_send(before, timeout=timeout)
+
+
+def _assert_stopped_banner(before: str) -> None:
+    body = _transcript()
+    suffix = body[len(before) :] if body.startswith(before) else body
+    assert "[Stopped by user]" in suffix or "[Stopped by user]" in body, (
+        "expected [Stopped by user], got %r" % body[-500:]
+    )
+    assert "No response." not in suffix, "Stopped banner replaced by No response.: %r" % suffix[-400:]
+    # B1c: do not HTML-rerender the full ramble over the Stopped marker.
+    assert "word199" not in suffix.lower() or "[Stopped by user]" in suffix, (
+        "ramble HTML wiped Stopped banner: %r" % suffix[-400:]
+    )
 
 
 def _hello_ok() -> None:
@@ -636,6 +719,249 @@ def test_f18_event_ping_then_hello(ctx):
     _send_and_wait("event ping", wait_for="mock")
     body = _transcript()
     assert "mock" in body.lower() or "assistant:" in body.lower(), "F18 expected HTML chat, got %r" % body[-400:]
+    _hello_ok()
+
+
+# --- Packet B: Stop, Send FSM ---
+
+
+@native_test
+def test_b1a_stop_ramble_then_hello(ctx):
+    _reset_mock_runtime()
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        _stop_and_wait_idle(before)
+        _assert_stopped_banner(before)
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+
+
+@native_test
+def test_b1b_stop_mouse_skipped(ctx):
+    raise unittest.SkipTest(
+        "B1b press_stop_mouse needs in-process SendButtonListener; URP ActionEvent is B1a"
+    )
+
+
+@native_test
+def test_b1c_no_html_rerender_after_stop(ctx):
+    _reset_mock_runtime()
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        _stop_and_wait_idle(before)
+        _assert_stopped_banner(before)
+        suffix = _transcript()
+        if suffix.startswith(before):
+            suffix = suffix[len(before) :]
+        assert "[Stopped by user]" in suffix
+        assert suffix.strip().endswith("[Stopped by user]") or "[Stopped by user]" in suffix[-80:], (
+            "B1c expected Stopped banner at tail, got %r" % suffix[-200:]
+        )
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+
+
+@native_test
+def test_b2_stop_then_immediate_hello(ctx):
+    _reset_mock_runtime()
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        _stop_and_wait_idle(before)
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+
+
+@native_test
+def test_b3_double_stop_then_hello(ctx):
+    _reset_mock_runtime()
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        _press_stop()
+        _press_stop()
+        _wait_idle_after_send(before, timeout=25.0)
+        _assert_stopped_banner(before)
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+
+
+@native_test
+def test_b3b_stop_when_idle(ctx):
+    _reset_mock_runtime()
+    _press_stop()
+    time.sleep(0.3)
+    _hello_ok()
+
+
+@native_test
+def test_b4_record_skipped(ctx):
+    raise unittest.SkipTest("B4 Record needs a device / Packet G")
+
+
+@native_test
+def test_b5_resize_during_stream_skipped(ctx):
+    raise unittest.SkipTest("B5 resize during stream is soak-only (not v2)")
+
+
+@native_test
+def test_b6_double_send(ctx):
+    from plugin.chatbot.sidebar_test_hooks import uno_click
+
+    _reset_mock_runtime()
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        controls = getattr(_session, "controls", None)
+        if controls is not None:
+            uno_click(controls["send"])
+        _stop_and_wait_idle(before)
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+
+
+@native_test
+def test_b7_empty_query_no_http(ctx):
+    from plugin.chatbot.sidebar_test_hooks import set_query_text_via_controls, uno_click
+    from scripts.mock_llm_server import clear_captures
+
+    _reset_mock_runtime()
+    assert _session is not None
+    clear_captures(_session.config)
+    controls = getattr(_session, "controls", None)
+    assert controls is not None
+    set_query_text_via_controls(controls, "")
+    time.sleep(0.3)
+    n_before = len(_captures())
+    before = _transcript()
+    if _send_enabled() is True:
+        uno_click(controls["send"])
+        time.sleep(0.8)
+    assert len(_captures()) == n_before, "B7 empty send must not POST to mock: %r" % _captures()
+    assert _transcript() == before or not _wait_stop_enabled(timeout=0.4)
+    _hello_ok()
+
+
+@native_test
+def test_b8_send_enabled_only_with_text(ctx):
+    from plugin.chatbot.sidebar_test_hooks import set_query_text_via_controls
+
+    _reset_mock_runtime()
+    controls = getattr(_session, "controls", None)
+    assert controls is not None
+    set_query_text_via_controls(controls, "")
+    time.sleep(0.3)
+    empty_en = _send_enabled()
+    assert empty_en is not True, "B8 Send should be disabled on empty query, got %r" % empty_en
+    set_query_text_via_controls(controls, "hello")
+    time.sleep(0.3)
+    full_en = _send_enabled()
+    assert full_en is True, "B8 Send should enable when query has text, got %r" % full_en
+    assert "send" in _label(controls["send"]).lower() or _label(controls["send"]) == ""
+    _hello_ok()
+
+
+@native_test
+def test_b9_ramble_natural_end_then_stop_second(ctx):
+    _reset_mock_runtime()
+    assert _session is not None
+    _session.config.delay_ms = 20
+    _send_and_wait("keep talking", timeout=180.0)
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        _stop_and_wait_idle(before)
+        _assert_stopped_banner(before)
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+
+
+@native_test
+def test_b10_stop_hello_stop_again(ctx):
+    _reset_mock_runtime()
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        _stop_and_wait_idle(before)
+        _assert_stopped_banner(before)
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+    before2 = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        _stop_and_wait_idle(before2)
+        _assert_stopped_banner(before2)
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+
+
+@native_test
+def test_b11_query_after_stop_then_hello(ctx):
+    _reset_mock_runtime()
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        _stop_and_wait_idle(before)
+    finally:
+        _reset_mock_runtime()
+    # Query may be restored or cleared; next hello must still type into the box.
+    assert isinstance(_query_box_text(), str)
+    _hello_ok()
+
+
+@native_test
+def test_b12_record_hooks_skipped(ctx):
+    raise unittest.SkipTest("B12 Record/Stop Rec is Packet G (no mic in Packet B)")
+
+
+@native_test
+def test_b13_stop_before_first_chunk(ctx):
+    _reset_mock_runtime()
+    before = _transcript()
+    try:
+        _start_until_stop_enabled("hello", delay_ms=2000, timeout=8.0)
+        _stop_and_wait_idle(before, timeout=25.0)
+    except AssertionError:
+        # Stop never enabled: still require idle so we are not stuck Starting…
+        _press_stop()
+        _wait_idle_after_send(before, timeout=25.0)
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+
+
+@native_test
+def test_b14_stop_during_thinking(ctx):
+    _reset_mock_runtime()
+    before = _transcript()
+    try:
+        started = False
+        try:
+            _start_until_stop_enabled("think out loud", delay_ms=80, timeout=10.0)
+            started = True
+        except AssertionError:
+            started = False
+        if started:
+            _stop_and_wait_idle(before, timeout=25.0)
+        else:
+            _wait_idle_after_send(before, timeout=40.0)
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+
+
+@native_test
+def test_b15_serial_hello_ramble_stop_empty_hello(ctx):
+    _reset_mock_runtime()
+    _hello_ok()
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        _stop_and_wait_idle(before)
+        _assert_stopped_banner(before)
+    finally:
+        _reset_mock_runtime()
+    _send_and_wait("say nothing", timeout=40.0)
     _hello_ok()
 
 

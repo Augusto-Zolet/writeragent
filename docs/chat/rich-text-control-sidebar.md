@@ -516,6 +516,8 @@ Resize sidebar, H-scrollbar, “click into Writer during stream,” light/dark, 
 
 ### v2 Packet B — Stop, Send/Record FSM
 
+**Landed:** B1a, B1c, B2, B3, B3b, B6–B11, B13–B15 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar`). **Skipped:** B1b (`press_stop_mouse` / in-process listener, same as F3b), B4/B12 (Record — Packet G), B5 (resize soak).
+
 Mock: `--delay-ms 40` (and ramble phrases) unless noted.
 
 | ID | Drive | Pass (assert) |
