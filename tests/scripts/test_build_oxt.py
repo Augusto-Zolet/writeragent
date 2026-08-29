@@ -42,6 +42,13 @@ def test_provider_logo_pngs_ship_notice_excluded():
     assert remap_path("extension/assets/openrouter_48.png") == "assets/openrouter_48.png"
 
 
+def test_sidebar_test_hooks_excluded_from_release_oxt():
+    """Release ``--no-tests`` must not ship mock-LLM sidebar drivers."""
+    path = "plugin/chatbot/sidebar_test_hooks.py"
+    assert should_exclude(path, with_tests=False) is True
+    assert should_exclude(path, with_tests=True) is False
+
+
 def test_pyspector_cache_excluded_from_oxt():
     """Hot-deploy and OXT must not ship make pyspector AST cache under plugin/."""
     assert should_exclude("plugin/.pyspector_cache") is True

@@ -470,144 +470,26 @@ __all__ = [
             f.write(stubs)
 
 
-def replace_sidebar_test_hooks_implementation(bundle_path: str, dry_run: bool = False) -> None:
-    """Replace plugin/chatbot/sidebar_test_hooks.py so release OXTs cannot drive the sidebar."""
+def omit_sidebar_test_hooks(bundle_path: str, dry_run: bool = False) -> None:
+    """Delete plugin/chatbot/sidebar_test_hooks.py from release trees (no stub left behind)."""
     target_file = os.path.join(bundle_path, "plugin", "chatbot", "sidebar_test_hooks.py")
     if not os.path.exists(target_file):
         return
-    stubs = '''# Stub: mock-LLM sidebar hooks are omitted from release builds.
-from typing import Any, Callable
-
-_HOOKS_UNAVAILABLE = "sidebar test hooks are not in release builds"
-
-
-def debug_hooks_available() -> bool:
-    return False
-
-
-def _require_debug() -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def register_live_panel(element: Any) -> None:
-    return
-
-
-def unregister_live_panel(element: Any) -> None:
-    return
-
-
-def iter_live_chat_panels() -> list[Any]:
-    return []
-
-
-def sidebar_panel(frame: Any = None) -> Any:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def send_listener(frame: Any = None) -> Any:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def set_query_text(text: str, *, listener: Any = None) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def query_text(*, listener: Any = None) -> str:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def transcript_text(*, listener: Any = None) -> str:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def transcript_contains(needle: str, *, listener: Any = None) -> bool:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def press_send(*, listener: Any = None) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def press_stop(*, listener: Any = None) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def press_stop_mouse(*, listener: Any = None) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def press_accept(*, listener: Any = None) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def press_change(query_override: str | None = None, *, listener: Any = None) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def press_reject(*, listener: Any = None) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def approval_active(*, listener: Any = None) -> bool:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def press_record(*, listener: Any = None) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def press_stop_rec(*, listener: Any = None) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def set_audio_supported(supported: bool, *, listener: Any = None) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def audio_status(*, listener: Any = None) -> dict[str, Any]:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def inject_wav(path_or_bytes: Any) -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def stub_recorder_child() -> None:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def send_state(*, listener: Any = None) -> Any:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def pump_until(pred: Callable[[], bool], timeout: float = 30.0, *, ctx: Any = None) -> bool:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def wait_idle(*, listener: Any = None, timeout: float = 30.0) -> bool:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-
-
-def next_hello_ok(*, listener: Any = None, timeout: float = 60.0) -> bool:
-    raise RuntimeError(_HOOKS_UNAVAILABLE)
-'''
-    action = "Dry run: would replace" if dry_run else "Replacing"
-    print(f"  {action} {target_file} with release stub...")
+    action = "Dry run: would delete" if dry_run else "Deleting"
+    print(f"  {action} {target_file} (debug-only sidebar hooks)")
     if not dry_run:
-        with open(target_file, "w", encoding="utf-8") as f:
-            f.write(stubs)
+        os.remove(target_file)
 
 
 def strip_production_code(bundle_path: str, dry_run: bool = False) -> None:
-    """Release-bundle entry point: strip obs/debug/info/print/deal, ``main_thread_only``, stub ``thread_guard`` and sidebar test hooks."""
+    """Release-bundle entry point: strip obs/debug/info/print/deal, ``main_thread_only``, stub ``thread_guard``, omit sidebar test hooks."""
     strip_grammar_obs_calls(bundle_path, dry_run=dry_run)
     strip_log_debug_info_calls(bundle_path, dry_run=dry_run)
     strip_print_calls(bundle_path, dry_run=dry_run)
     strip_main_thread_only_decorators(bundle_path, dry_run=dry_run)
     strip_deal_decorators(bundle_path, dry_run=dry_run)
     replace_thread_guard_implementation(bundle_path, dry_run=dry_run)
-    replace_sidebar_test_hooks_implementation(bundle_path, dry_run=dry_run)
+    omit_sidebar_test_hooks(bundle_path, dry_run=dry_run)
 
 
 def main() -> int:

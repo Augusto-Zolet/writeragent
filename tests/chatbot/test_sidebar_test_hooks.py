@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import dataclasses
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -114,10 +115,6 @@ class _FakeListener:
     def on_action_performed(self, rEvent) -> None:
         self.events.append(("action", rEvent, self.send_control.getModel().Label))
 
-    def apply_approval_query_override(self, text: str) -> None:
-        self.approval_finished.append((True, text))
-        self._approval_event = None
-
     def _finish_inline_web_approval(self, approved, query_override=None) -> None:
         self.approval_finished.append((approved, query_override))
         self._approval_event = None
@@ -152,14 +149,28 @@ def test_registry_register_and_unregister() -> None:
     assert panel not in iter_live_chat_panels()
 
 
-def test_factory_register_is_noop_when_release_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_factory_notify_is_noop_when_hooks_unloaded() -> None:
     import plugin.chatbot.panel_factory as pf
 
-    monkeypatch.setattr(pf, "_DEBUG_LIVE_PANELS", False)
     panel = _Panel()
-    pf.register_live_chat_panel(panel)
-    assert panel not in iter_live_chat_panels()
-    pf.unregister_live_chat_panel(panel)
+    saved = sys.modules.pop("plugin.chatbot.sidebar_test_hooks", None)
+    try:
+        pf._notify_debug_sidebar_hooks(panel, "register_live_panel")
+        assert panel not in iter_live_chat_panels()
+    finally:
+        if saved is not None:
+            sys.modules["plugin.chatbot.sidebar_test_hooks"] = saved
+
+
+def test_factory_notify_registers_when_hooks_loaded() -> None:
+    import plugin.chatbot.panel_factory as pf
+
+    panel = _Panel()
+    pf._notify_debug_sidebar_hooks(panel, "register_live_panel")
+    try:
+        assert panel in iter_live_chat_panels()
+    finally:
+        pf._notify_debug_sidebar_hooks(panel, "unregister_live_panel")
 
 
 def test_set_query_text_dispatches_text_updated(fake_listener: _FakeListener) -> None:

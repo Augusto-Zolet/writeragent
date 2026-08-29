@@ -457,9 +457,9 @@ Run serial (`testing_runner`); do not xdist a live soffice + one mock port.
 
 Do **not** synthesize screen clicks. Drive the same listeners the widgets use.
 
-**Code:** [`plugin/chatbot/sidebar_test_hooks.py`](../../plugin/chatbot/sidebar_test_hooks.py). Live panels: debug-only `_LIVE_CHAT_PANELS` in that module (not allocated in release). `panel_factory` `register_live_chat_panel` is a cached no-op when `thread_guard` is the release stub. HITL Change without a dialog: `SendButtonListener.apply_approval_query_override`. In-process mock flags: [`tests/chatbot/mock_llm_harness.py`](../../tests/chatbot/mock_llm_harness.py) `mock_config`.
+**Code:** [`plugin/chatbot/sidebar_test_hooks.py`](../../plugin/chatbot/sidebar_test_hooks.py) (dev trees and ``make build`` / ``make deploy`` only). Live panels: `_LIVE_CHAT_PANELS` in that module. `panel_factory` never imports it; it only calls `register_live_panel` if tests already loaded the module (`sys.modules`). HITL Change in tests uses existing `_finish_inline_web_approval` (no extra production method). In-process mock flags: [`tests/chatbot/mock_llm_harness.py`](../../tests/chatbot/mock_llm_harness.py) `mock_config`.
 
-**Release:** `scripts/strip_code.py` replaces the hook module with a stub (no `WeakSet`; `register_live_panel` is a no-op; other exports raise `RuntimeError("sidebar test hooks are not in release builds")`). Runtime also refuses if `thread_guard` is the release stub. LibrePy does not ship this module. Unit tests: [`tests/chatbot/test_sidebar_test_hooks.py`](../../tests/chatbot/test_sidebar_test_hooks.py).
+**Release:** the hook file is **omitted** (`should_exclude` on ``--no-tests``, and `omit_sidebar_test_hooks` deletes it from stripped trees). There is no stub with `press_send`. LibrePy does not ship this module. Unit tests: [`tests/chatbot/test_sidebar_test_hooks.py`](../../tests/chatbot/test_sidebar_test_hooks.py).
 
 | Hook | Does | Used for |
 |------|------|----------|

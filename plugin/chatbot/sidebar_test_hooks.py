@@ -178,7 +178,7 @@ def press_change(query_override: str | None = None, *, listener: Any = None) -> 
         raise RuntimeError("no live SendButtonListener")
     if query_override is None:
         query_override = getattr(sl, "_approval_query_for_engine", None) or ""
-    sl.apply_approval_query_override(query_override)
+    sl._finish_inline_web_approval(True, query_override=query_override)
 
 
 def press_reject(*, listener: Any = None) -> None:

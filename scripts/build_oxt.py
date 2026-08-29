@@ -182,6 +182,9 @@ def should_exclude(path, with_tests=False):
         return not with_tests
     if path_norm.startswith("plugin/tests/") or path_norm == "plugin/tests":
         return not with_tests
+    # Mock-LLM sidebar drivers (press_send / set_query_text). Dev OXTs keep them.
+    if path_norm.endswith("plugin/chatbot/sidebar_test_hooks.py"):
+        return not with_tests
     # gettext source/template only; runtime loads .mo (see plugin/framework/i18n.py)
     if (
         path_norm.startswith("locales/")

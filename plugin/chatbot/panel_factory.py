@@ -25,7 +25,7 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 import hashlib
 import uuid
 import uno
@@ -64,39 +64,24 @@ from plugin.chatbot.dialogs import get_optional as get_optional_control, set_con
 from plugin.framework.uno_context import get_extension_url, get_extension_path
 from plugin.chatbot.panel_wiring import _wireControls as wire_chatpanel_controls
 
-# Cached once: False in release (thread_guard stub has no _designated_main_thread).
-_DEBUG_LIVE_PANELS: bool | None = None
+_SIDEBAR_TEST_HOOKS_MOD = "plugin.chatbot.sidebar_test_hooks"
 
 
-def _debug_live_panels() -> bool:
-    """Whether the debug panel registry is active. Release: False, no WeakSet."""
-    global _DEBUG_LIVE_PANELS
-    if _DEBUG_LIVE_PANELS is None:
-        try:
-            from plugin.framework import thread_guard as tg
+def _notify_debug_sidebar_hooks(element, op: str) -> None:
+    """Call a debug hook if tests already imported it. Never imports that module.
 
-            _DEBUG_LIVE_PANELS = hasattr(tg, "_designated_main_thread")
-        except Exception:
-            _DEBUG_LIVE_PANELS = False
-    return _DEBUG_LIVE_PANELS
-
-
-def register_live_chat_panel(element: Any) -> None:
-    """Debug-only. Release: cached False, no import of sidebar_test_hooks, no WeakSet."""
-    if element is None or not _debug_live_panels():
+    Release OXTs omit ``sidebar_test_hooks.py``, so ``sys.modules`` has no entry
+    and this is a no-op. Do not ``import`` the hooks from production code — that
+    would load send/stop drivers in any tree that still has the file on disk.
+    """
+    if element is None:
         return
-    from plugin.chatbot.sidebar_test_hooks import register_live_panel
-
-    register_live_panel(element)
-
-
-def unregister_live_chat_panel(element: Any) -> None:
-    """Debug-only. Release: no-op after the same cached False check."""
-    if element is None or not _debug_live_panels():
+    mod = sys.modules.get(_SIDEBAR_TEST_HOOKS_MOD)
+    if mod is None:
         return
-    from plugin.chatbot.sidebar_test_hooks import unregister_live_panel
-
-    unregister_live_panel(element)
+    fn = getattr(mod, op, None)
+    if fn is not None:
+        fn(element)
 
 if TYPE_CHECKING:
     from com.sun.star.uno import XInterface
@@ -385,7 +370,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         log.info("[RICH-LIFECYCLE] ChatPanelElement.disposing called Source=%s has_send_listener=%s",
                  id(Source) if Source else None,
                  hasattr(self, "send_listener") and bool(self.send_listener))
-        unregister_live_chat_panel(self)
+        _notify_debug_sidebar_hooks(self, "unregister_live_panel")
         try:
             if hasattr(self, "send_listener") and self.send_listener:
                 self.send_listener.disposing(None)
@@ -935,7 +920,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
 
             # Save it to the instance so panel_wiring can use it for QueryTextListener
             self.send_listener = send_listener
-            register_live_chat_panel(self)
+            _notify_debug_sidebar_hooks(self, "register_live_panel")
 
 
 
