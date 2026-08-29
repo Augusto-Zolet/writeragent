@@ -14,12 +14,11 @@ CHUNK_OVERLAP = 64
 MIN_CHUNK = 120
 DEFAULT_SENTENCE_LOCALE = "en@ss=standard"
 
-# cover-all 33180040863: _sentences_spans_ok ~15m / _split_passage_whitespace ~24m (regex).
-# 33211730747: embeddings_split ~35m — shrink spans/text further; cap passage under CH.
+# Regex splitter already off; floor spans/passage (33211730747 still ~35m at 4).
 _DEAL_SENT_LIST_LEN = 1 if UNDER_CROSSHAIR else DEAL_MAX_SHAPE_DIM
-_DEAL_SENT_SPAN = 2 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
-_DEAL_SENT_TEXT_LEN = 2 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
-_DEAL_PASSAGE_LEN = 4 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+_DEAL_SENT_SPAN = 1 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+_DEAL_SENT_TEXT_LEN = 1 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+_DEAL_PASSAGE_LEN = 1 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
 
 
 def _embeddings_pip_install_hint() -> str:

@@ -257,8 +257,8 @@ Sample filtered **`check`** output:
 
 **Module skip lists:** `CROSSHAIR_CHECK_ALL_SKIP` and `CROSSHAIR_COVER_ALL_SKIP` are **empty**. Fix engine-hostile surfaces in source, not via skip lists:
 
-1. **CrossHair shim** — `if UNDER_CROSSHAIR:` (`deal_shim`, import-time `WRITERAGENT_CROSSHAIR=1`) replace `json.loads` / `json.dumps` / UNO / `time.perf_counter` with a simple substitute so the function stays a cover/check entry point (`duckdb_sql._template_body`, `json_utils.repair_json`, helper_domain outcome helpers). Do not sniff `sys.modules["crosshair"]`.
-2. **`# crosshair: off`** — when the engine still crashes despite a shim, or the callable is pure host (Tool.execute, drain loops). Check honors this natively; cover-all drops those FQNs via `cover_fqns_for_module`.
+1. **CrossHair shim** — `if UNDER_CROSSHAIR:` (`deal_shim`, import-time `WRITERAGENT_CROSSHAIR=1`) replace `json.loads` / `json.dumps` / UNO / `time.perf_counter` with a simple substitute so the function stays a cover/check entry point (`duckdb_sql._template_body`, helper_domain outcome helpers). Do not sniff `sys.modules["crosshair"]`.
+2. **`# crosshair: off`** — when the engine still crashes despite a shim, or the callable is pure host (Tool.execute, drain loops), or identity-repair / UTF-8 walks still take tens of minutes after the domain is a handful of chars (`json_utils.repair_json`, `to_dag.ast_source_offset`). Check honors this natively; cover-all drops those FQNs via `cover_fqns_for_module`. Leftover `DEAL_MAX_*` inside an `UNDER_CROSSHAIR` file is a cover leak — floor with a local `_DEAL_*`.
 3. **Module-level `# crosshair: off`** — column-0 directive near the top of the file when **every** callable is hostile, or when **≥95%** already need offs (e.g. `config.py`, `web_research_cache.py`, `errors.py`). Prefer one module directive over spraying the body. Cover-all treats that as an empty FQN list (auto-skip success), same as check’s module `enabled=False`.
 4. **Refactor** — large host+algorithm mixes: extract a pure `@deal` core; off/shim the host.
 

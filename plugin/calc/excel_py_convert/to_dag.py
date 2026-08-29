@@ -82,10 +82,9 @@ def _deal_excel_src_ok_pytest(src: object) -> bool:
 
 
 def _deal_excel_src_ok_crosshair(src: object) -> bool:
-    # cover-all 33211730747: to_dag ~2.2h; keep alphabet but shrink len 16→8.
     return (
         isinstance(src, str)
-        and len(src) <= 8
+        and len(src) <= 2
         and all(c in _EXCEL_PLACEHOLDER_CHARS for c in src)
     )
 
@@ -101,14 +100,15 @@ _AST_OFFSET_MAX_COL = 2 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
 # Tiny alphabet: 33127995861 1.05M lines at SOURCE=16; 33180040863 still ~44m at len=4.
 _AST_OFFSET_CHARS = frozenset("AB \n")
 _DEAL_BINDING_A1_LEN = DEAL_MAX_CELL_REF if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
-_DEAL_RESOLVED_LEN = 2 if UNDER_CROSSHAIR else DEAL_MAX_CMD_ARGS
-# cover-all 33180040863: _normalize_bindings ~59m — kind/note were unbounded strings.
-# 33211730747: still multi-10m on note/convert at 4; shrink further.
-_DEAL_NOTE_LEN = 2 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+_DEAL_RESOLVED_LEN = 1 if UNDER_CROSSHAIR else DEAL_MAX_CMD_ARGS
+# Note/convert still multi-10m at len 4 (33211730747); floor to 1.
+_DEAL_NOTE_LEN = 1 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+# Pytest notes include Unicode (e.g. ``ANCHORARRAY(A6) → A6:B254``); CrossHair is ascii-only.
+_deal_note_ok = ascii_bounded if UNDER_CROSSHAIR else str_bounded
 _RESOLVED_KINDS = frozenset(("range", "unresolved", "table_snapshot", "anchor_snapshot"))
-_DEAL_CONVERT_LIST = 2 if UNDER_CROSSHAIR else DEAL_MAX_CMD_ARGS
-_DEAL_CONVERT_STR = 2 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
-_DEAL_REWRITE_SRC = 4 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+_DEAL_CONVERT_LIST = 1 if UNDER_CROSSHAIR else DEAL_MAX_CMD_ARGS
+_DEAL_CONVERT_STR = 1 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
+_DEAL_REWRITE_SRC = 1 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
 
 
 def _deal_ast_offset_src_ok_pytest(src: object) -> bool:
@@ -373,17 +373,17 @@ def ast_source_offset(src: str, lineno: int, col: int) -> int:
 @deal.pre(
     lambda code, num_deps, index_map=None, *_unused, **__: str_bounded(code or "", _DEAL_REWRITE_SRC)
     and type(num_deps) is int
-    and 0 <= num_deps <= DEAL_MAX_CMD_ARGS
+    and 0 <= num_deps <= _DEAL_CONVERT_LIST
     and (
         index_map is None
         or (
             isinstance(index_map, dict)
-            and len(index_map) <= DEAL_MAX_CMD_ARGS
+            and len(index_map) <= _DEAL_CONVERT_LIST
             and all(
                 type(k) is int
                 and type(v) is int
-                and 0 <= k <= DEAL_MAX_CMD_ARGS
-                and 0 <= v <= DEAL_MAX_CMD_ARGS
+                and 0 <= k <= _DEAL_CONVERT_LIST
+                and 0 <= v <= _DEAL_CONVERT_LIST
                 for k, v in index_map.items()
             )
         )
@@ -493,7 +493,7 @@ def _prefer_excel_dep_token(current: str, candidate: str) -> str:
     and all(
         isinstance(r, ResolvedDep)
         and r.kind in _RESOLVED_KINDS
-        and ascii_bounded(r.note or "", _DEAL_NOTE_LEN)
+        and _deal_note_ok(r.note or "", _DEAL_NOTE_LEN)
         and (r.a1 is None or ascii_bounded(r.a1, _DEAL_BINDING_A1_LEN))
         and (r.original is None or ascii_bounded(r.original, _DEAL_BINDING_A1_LEN))
         for r in resolved

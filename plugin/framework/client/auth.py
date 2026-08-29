@@ -101,15 +101,10 @@ PROVIDERS: Dict[str, ProviderConfig] = {
 }
 
 
-# Substring scan over host_matches: full URL alphabet at len=8 was ~53m / 230k lines.
-# CrossHair only needs chars that actually appear in PROVIDERS.host_matches.
-_URL_CHARS = (
-    frozenset("".join(frag for cfg in PROVIDERS.values() for frag in cfg.host_matches) + ":/")
-    if UNDER_CROSSHAIR
-    else frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._:/")
-)
-# cover-all 33127995861: 231k at URL=32; 33180040863 ~53m at 8; 33211730747 ~41m at 3.
-_DEAL_RESOLVE_URL_LEN = 2 if UNDER_CROSSHAIR else DEAL_MAX_URL
+# Substring scan over host_matches: len=3 still ~41m (33211730747). CrossHair
+# uses a finite endpoint enum (hit / miss / empty); pytest keeps charset+len.
+_URL_CHARS = frozenset("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._:/")
+_DEAL_RESOLVE_ENDPOINTS = frozenset(("", "api.openai.com", "localhost:11434", "openrouter.ai"))
 _PROVIDER_HINTS = frozenset(PROVIDERS)
 
 
@@ -118,16 +113,38 @@ def _deal_resolve_hint_ok_pytest(provider_hint: object) -> bool:
 
 
 def _deal_resolve_hint_ok_crosshair(provider_hint: object) -> bool:
-    # Finite hint set covers ``normalized in PROVIDERS`` without  TOKEN^4 strings.
     return provider_hint is None or provider_hint in _PROVIDER_HINTS
 
 
 _deal_resolve_hint_ok = _deal_resolve_hint_ok_crosshair if UNDER_CROSSHAIR else _deal_resolve_hint_ok_pytest
 
 
+def _deal_resolve_endpoint_ok_pytest(endpoint: object) -> bool:
+    return isinstance(endpoint, str) and ascii_bounded(endpoint, DEAL_MAX_URL) and all(c in _URL_CHARS for c in endpoint)
+
+
+def _deal_resolve_endpoint_ok_crosshair(endpoint: object) -> bool:
+    return endpoint in _DEAL_RESOLVE_ENDPOINTS
+
+
+_deal_resolve_endpoint_ok = (
+    _deal_resolve_endpoint_ok_crosshair if UNDER_CROSSHAIR else _deal_resolve_endpoint_ok_pytest
+)
+
+
+def _deal_provider_id_ok_pytest(provider_id: object) -> bool:
+    return provider_id is None or str_bounded(provider_id, DEAL_MAX_TOKEN)
+
+
+def _deal_provider_id_ok_crosshair(provider_id: object) -> bool:
+    return provider_id is None or provider_id in _PROVIDER_HINTS
+
+
+_deal_provider_id_ok = _deal_provider_id_ok_crosshair if UNDER_CROSSHAIR else _deal_provider_id_ok_pytest
+
+
 @deal.pre(
-    lambda endpoint, provider_hint=None: ascii_bounded(endpoint, _DEAL_RESOLVE_URL_LEN)
-    and all(c in _URL_CHARS for c in endpoint)
+    lambda endpoint, provider_hint=None: _deal_resolve_endpoint_ok(endpoint)
     and _deal_resolve_hint_ok(provider_hint)
 )
 def _resolve_provider_id(endpoint: str, provider_hint: Optional[str] = None) -> str:
@@ -150,7 +167,7 @@ def _resolve_provider_id(endpoint: str, provider_hint: Optional[str] = None) -> 
     return "custom"
 
 
-@deal.pre(lambda provider_id: provider_id is None or str_bounded(provider_id, DEAL_MAX_TOKEN))
+@deal.pre(lambda provider_id: _deal_provider_id_ok(provider_id))
 @deal.post(lambda result: isinstance(result, bool))
 def provider_requires_api_key(provider_id: str | None) -> bool:
     """True when a known provider expects an API key (Bearer / x-api-key), not local/anonymous."""
@@ -162,7 +179,7 @@ def provider_requires_api_key(provider_id: str | None) -> bool:
     return provider_cfg.header_style != "none"
 
 
-@deal.pre(lambda provider_id: provider_id is None or str_bounded(provider_id, DEAL_MAX_TOKEN))
+@deal.pre(lambda provider_id: _deal_provider_id_ok(provider_id))
 @deal.post(lambda result: isinstance(result, bool))
 def provider_requires_slug_model_id(provider_id: str | None) -> bool:
     """True when combobox / LRU entries must use org/model slugs (OpenRouter, Together)."""

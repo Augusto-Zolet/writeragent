@@ -21,10 +21,10 @@ from typing import Any
 from plugin.framework.deal_shim import DEAL_MAX_SHAPE_DIM, DEAL_MAX_TOKEN, UNDER_CROSSHAIR, ascii_bounded, str_bounded, deal
 from plugin.scripting.payload_codec import PAYLOAD_CALC_RANGE, is_calc_range_payload
 
-# cover-all 33211730747: calc_range alone ~2.3h (shape_dim=4, int±8, ascii4).
-_DEAL_GRID_DIM = 2 if UNDER_CROSSHAIR else DEAL_MAX_SHAPE_DIM
-_DEAL_CELL_INT_ABS = 2 if UNDER_CROSSHAIR else 8
-_DEAL_CELL_STR_LEN = 2 if UNDER_CROSSHAIR else 4
+# Cover: 1×1 grid, int 0, 1-char ascii. Dim 4 / ±8 still ~2.3h (33211730747).
+_DEAL_GRID_DIM = 1 if UNDER_CROSSHAIR else DEAL_MAX_SHAPE_DIM
+_DEAL_CELL_INT_ABS = 0 if UNDER_CROSSHAIR else 8
+_DEAL_CELL_STR_LEN = 1 if UNDER_CROSSHAIR else 4
 _DEAL_COL_NAME_LEN = _DEAL_CELL_STR_LEN if UNDER_CROSSHAIR else DEAL_MAX_TOKEN
 
 
@@ -53,7 +53,7 @@ def ensure_rectangular_2d(grid: Any) -> list[list[Any]]:
     return [list(grid)]
 
 
-@deal.pre(lambda values: isinstance(values, list) and len(values) <= DEAL_MAX_SHAPE_DIM)
+@deal.pre(lambda values: isinstance(values, list) and len(values) <= _DEAL_GRID_DIM)
 @deal.post(lambda result: isinstance(result, list) and all(isinstance(row, list) and len(row) == 1 for row in result))
 @deal.ensure(lambda values, result: len(result) == len(values))
 def column_vector_as_2d(values: list[Any]) -> list[list[Any]]:
@@ -90,8 +90,8 @@ def pack_calc_range_envelope(
 
 @deal.pre(
     lambda names: isinstance(names, list)
-    and len(names) <= DEAL_MAX_SHAPE_DIM
-    and all(str_bounded(x, DEAL_MAX_TOKEN) for x in names)
+    and len(names) <= _DEAL_GRID_DIM
+    and all(str_bounded(x, _DEAL_COL_NAME_LEN) for x in names)
 )
 @deal.post(lambda result: isinstance(result, list) and len(set(result)) == len(result))
 def _dedupe_column_names(names: list[str]) -> list[str]:
@@ -468,8 +468,7 @@ def _deal_inner_grid_cell_ok_pytest(c: object) -> bool:
 
 
 def _deal_inner_grid_cell_ok_crosshair(c: object) -> bool:
-    # cover-all 33127995861: unbounded str/int cells made _materialize 530k lines
-    # and compare dunders 90–172k each. 33211730747 still ~2.3h at ±8/ascii4/dim4.
+    # Unbounded cells exploded dunders; keep {None, 0, 1-char ascii}.
     if c is None:
         return True
     if isinstance(c, int):

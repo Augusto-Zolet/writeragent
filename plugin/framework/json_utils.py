@@ -176,8 +176,6 @@ def _deal_json_text_ok_pytest(text: object) -> bool:
 
 
 def _deal_json_text_ok_crosshair(text: object) -> bool:
-    # cover-all 33127995861: 103k at SOURCE=16; 33180040863 ~16m at len=4;
-    # 33211730747 still ~46m at len=2 — identity repair, so len=1 is enough.
     return isinstance(text, str) and len(text) <= 1 and all(
         c in _JSON_CHARS for c in text
     )
@@ -200,6 +198,7 @@ def repair_json(text: str) -> str:
     Returns:
         The repaired JSON string.
     """
+    # crosshair: off
     if not isinstance(text, str):
         return text
 
@@ -219,6 +218,7 @@ def repair_json(text: str) -> str:
 @deal.pre(lambda text, *_unused, **__: _deal_json_text_ok(text))
 def repair_json_object(text: str) -> Any:
     """Repair malformed JSON and return a parsed object (json-repair return_objects=True)."""
+    # crosshair: off
     if not isinstance(text, str):
         return text
     stripped = text.strip()
