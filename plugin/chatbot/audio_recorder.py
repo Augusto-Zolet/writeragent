@@ -205,11 +205,11 @@ class AudioRecorder:
             ctrl = read_stub_recorder_control()
             if ctrl.get("skip"):
                 self._test_skip_spawn = True
+                # Always apply JSON (including null/false) so G12 fail_start / G14
+                # missing_wav cannot stick on the live recorder for later cases.
                 fail = ctrl.get("fail_start")
-                if fail:
-                    self._test_fail_start = str(fail)
-                if ctrl.get("missing_wav"):
-                    self._test_missing_wav = True
+                self._test_fail_start = str(fail) if fail else None
+                self._test_missing_wav = bool(ctrl.get("missing_wav"))
                 wav = ctrl.get("wav")
                 if wav:
                     self._test_inject_wav = wav
@@ -226,6 +226,8 @@ class AudioRecorder:
                 if ctrl.get("auto_stop"):
                     self._write_injected_wav()
                     self._notify_auto_stop(self.temp_filename)
+                    # One-shot: G4 must not leave auto_stop for G5–G15.
+                    write_stub_recorder_control(auto_stop=False)
                 return
             silence_config = load_silence_detector_config()
             self._auto_stopped_path = None

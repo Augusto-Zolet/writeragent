@@ -117,6 +117,27 @@ def test_audio_recorder_skip_spawn_fail_start(ctx):
     assert recorder.state.status == "error"
 
 
+def test_audio_recorder_control_file_clears_fail_start(ctx, tmp_path):
+    """Same live recorder: JSON fail_start=null must not keep G12's crash flag."""
+    fixture = tmp_path / "inject.wav"
+    fixture.write_bytes(b"RIFF....WAVEfmt ")
+    recorder = AudioRecorder(ctx)
+    try:
+        write_stub_recorder_control(skip=True, fail_start="stub crash")
+        with pytest.raises(RuntimeError, match="stub crash"):
+            recorder.start_recording()
+        write_stub_recorder_control(skip=True, fail_start=None, missing_wav=False, wav=str(fixture))
+        recorder.start_recording()
+        assert recorder._test_fail_start is None
+        assert recorder.state.status == "recording"
+        path = recorder.stop_recording()
+        assert path and os.path.isfile(path)
+    finally:
+        clear_stub_recorder_control()
+        if recorder.temp_filename and os.path.isfile(recorder.temp_filename):
+            os.remove(recorder.temp_filename)
+
+
 def test_audio_recorder_missing_venv(ctx):
     with (
         patch(

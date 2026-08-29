@@ -686,7 +686,7 @@ Each case ends with **`next_hello_ok()`** unless noted. Prefer phrase triggers s
 
 ### v2 Packet G — mocked audio (Record / Stop Rec / STT)
 
-**Live URP (`make test-mock-sidebar FILTER=G`, after `make deploy`):** Record/Stop Rec use the Send widget when the label matches. Label-independent ops use `org.extension.writeragent:chatbot.debug_sidebar?OP` (Query string; LO drops dotted Path suffixes). Handler **posts** onto VCL (`set_force_marshal_mode`) — blocking `execute()` from URP deadlocks. **G17** skipped (Calc / E12). **G18** skips if HITL Accept never appears (same as E9).
+**Landed (`make test-mock-sidebar FILTER=G`, after `make deploy`):** G1–G16 pass. **SKIP:** G17 (Calc / E12), G18 if HITL Accept never appears (same as E9). Record/Stop Rec use the Send widget when the label matches; if Record click is a no-op, fall back to `org.extension.writeragent:chatbot.debug_sidebar?OP` (Query string; LO drops dotted Path suffixes). Handler **posts** onto VCL (`set_force_marshal_mode`) — blocking `execute()` from URP deadlocks. Stub JSON is replaced each `_g_prep` so G4 `auto_stop` / G12 `fail_start` cannot leak.
 
 Same harness as B/E/F. **Do not** open a microphone: `stub_recorder_child()` + `inject_wav()` write `/tmp/writeragent_stub_recorder.json` so the soffice OXT skips spawn (`AudioRecorder._test_skip_spawn`). Fixtures: `tests/chatbot/fixtures/hello-writeragent-1s.wav` (G1) and `hello-writeragent-5s.wav` (G4); source MP3s at repo root. Mock LLM: `writeragent-mock` native `input_audio`; `writeragent-mock-whisper` for `/v1/audio/transcriptions`.
 

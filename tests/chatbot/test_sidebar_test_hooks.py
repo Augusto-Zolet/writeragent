@@ -321,6 +321,21 @@ def test_packet_g_stub_and_inject(fake_listener: _FakeListener, tmp_path) -> Non
         clear_stub_recorder_control()
 
 
+def test_stub_recorder_child_replaces_control_file(fake_listener: _FakeListener) -> None:
+    from plugin.chatbot.audio_recorder import clear_stub_recorder_control, read_stub_recorder_control
+
+    try:
+        fire_audio_auto_stop(listener=fake_listener)
+        assert read_stub_recorder_control().get("auto_stop") is True
+        stub_recorder_child(listener=fake_listener)
+        data = read_stub_recorder_control()
+        assert data.get("auto_stop") is not True
+        assert data.get("fail_start") is None
+        assert data.get("missing_wav") is False
+    finally:
+        clear_stub_recorder_control()
+
+
 def test_mock_config_mutates_flags() -> None:
     cfg = SimpleNamespace(delay_ms=25, fail="none", offline=False)
     mock_config(cfg, delay_ms=40, fail="hang", offline=True)

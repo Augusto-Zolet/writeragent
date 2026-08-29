@@ -1423,8 +1423,9 @@ def _g_prep(*, missing_wav: bool = False, fail_start: str | None = None):
     _reset_mock_runtime()
     sl = _g_listener()
     stub_recorder_child(listener=sl, fail_start=fail_start, missing_wav=missing_wav)
+    # Restore Record even after G8 SET_AUDIO_0 (URP has no live listener).
+    set_audio_supported(True, listener=sl)
     if sl is not None:
-        set_audio_supported(True, listener=sl)
         set_query_text("", listener=sl)
     else:
         controls = getattr(_session, "controls", None)
@@ -1670,27 +1671,32 @@ def test_g14_empty_wav_no_send(ctx):
     _hello_ok()
 
 
+def _live_send_label(ctx) -> str:
+    from plugin.chatbot.sidebar_test_hooks import chat_dialog_controls, current_component
+
+    try:
+        ctrls = chat_dialog_controls(ctx, current_component(ctx)) or {}
+    except Exception:
+        ctrls = getattr(_session, "controls", None) or {}
+    return _label(ctrls.get("send")).lower()
+
+
 @native_test
 def test_g15_send_while_recording_ignored(ctx):
     from plugin.chatbot.sidebar_test_hooks import inject_wav, press_record, press_send_clicked, press_stop_rec, wait_idle
 
     sl = _g_prep()
     inject_wav(_WAV_1S, listener=sl)
-    controls = getattr(_session, "controls", None) or {}
-    send = controls.get("send")
-    lab = _label(send).lower()
-    if sl is None and ("record" not in lab or "stop rec" in lab):
-        raise unittest.SkipTest("G15 needs Record label (URP empty query often leaves Send after prior hello)")
     press_record(listener=sl)
-    deadline = time.monotonic() + 4.0
+    deadline = time.monotonic() + 8.0
     while time.monotonic() < deadline:
-        if "stop rec" in _label(send).lower():
+        if "stop rec" in _live_send_label(ctx):
             break
         time.sleep(0.1)
-    assert "stop rec" in _label(send).lower(), "G15 never reached Stop Rec after Record"
+    assert "stop rec" in _live_send_label(ctx), "G15 never reached Stop Rec after Record: %r" % _live_send_label(ctx)
     press_send_clicked(listener=sl)
     time.sleep(0.25)
-    assert "stop rec" in _label(send).lower(), "SEND_CLICKED while recording must not start send"
+    assert "stop rec" in _live_send_label(ctx), "SEND_CLICKED while recording must not start send"
     press_stop_rec(listener=sl)
     assert wait_idle(listener=sl, timeout=60.0)
     _hello_ok()

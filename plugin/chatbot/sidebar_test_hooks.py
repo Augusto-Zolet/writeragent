@@ -254,12 +254,25 @@ def _try_click_send_for_kind(kind: SendEventKind) -> bool:
     return False
 
 
+def _send_label_lower() -> str:
+    return _control_label(_urp_send_control()).lower()
+
+
 def _send_event_or_urp(kind: SendEventKind, *, listener: Any = None) -> None:
     sl = listener if listener is not None else send_listener()
     if sl is not None:
         sl.dispatch(SendEvent(kind))
         return
     if _try_click_send_for_kind(kind):
+        # G15: ActionEvent on Record can be a no-op while the label still says
+        # Record. Fall back to the debug protocol so Stop Rec actually appears.
+        if kind == SendEventKind.RECORD_CLICKED:
+            deadline = time.monotonic() + 1.5
+            while time.monotonic() < deadline:
+                if "stop rec" in _send_label_lower():
+                    return
+                time.sleep(0.1)
+            execute_debug_sidebar_op(kind.name)
         return
     execute_debug_sidebar_op(kind.name)
 
@@ -877,8 +890,10 @@ def stub_recorder_child(
 ) -> None:
     """Skip venv/PortAudio spawn; InitializeDeviceEffect fakes a ready child."""
     _require_debug()
-    from plugin.chatbot.audio_recorder import write_stub_recorder_control
+    from plugin.chatbot.audio_recorder import clear_stub_recorder_control, write_stub_recorder_control
 
+    # Replace the control file so G4 auto_stop / G12 fail_start cannot leak.
+    clear_stub_recorder_control()
     write_stub_recorder_control(skip=True, fail_start=fail_start, missing_wav=bool(missing_wav))
     rec = _live_audio_recorder(listener=listener)
     if rec is None:
