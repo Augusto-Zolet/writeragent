@@ -133,6 +133,21 @@ def test_py_formula_has_unquoted_code_ref():
     assert py_formula_has_unquoted_code_ref("=PY(A1+B1)") is False
 
 
+def test_parse_fully_qualified_addin_original_name():
+    """LibreOffice getFormula() stores service.method, not the short PY token."""
+    fq = "=ORG.EXTENSION.WRITERAGENT.PYTHONFUNCTION.PY($A$1; C1:C1)"
+    parts = parse_python_formula(fq)
+    assert parts is not None
+    assert parts.code == "$A$1"
+    assert py_code_arg_is_cell_ref(parts.code)
+    assert "C1:C1" in parts.data_suffix
+    assert py_formula_has_unquoted_code_ref(fq) is True
+    librepy = '=ORG.EXTENSION.LIBREPY.PYTHONFUNCTION.PYTHON("result = 2")'
+    lp = parse_python_formula(librepy)
+    assert lp is not None
+    assert lp.code == "result = 2"
+
+
 def test_parse_sheet_qualified_and_two_range_code_refs():
     quoted = parse_python_formula("=PY('My Sheet'.$B$2; C1:C10)")
     assert quoted is not None

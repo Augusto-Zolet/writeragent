@@ -488,7 +488,8 @@ def _prefer_excel_dep_token(current: str, candidate: str) -> str:
     and all(
         isinstance(r, ResolvedDep)
         and r.kind in _RESOLVED_KINDS
-        and ascii_bounded(r.note or "", _DEAL_NOTE_LEN)
+        # Notes are human-readable (e.g. "ANCHORARRAY(A6) → A6:B254"); A1 tokens stay ASCII.
+        and str_bounded(r.note or "", _DEAL_NOTE_LEN)
         and (r.a1 is None or ascii_bounded(r.a1, _DEAL_BINDING_A1_LEN))
         and (r.original is None or ascii_bounded(r.original, _DEAL_BINDING_A1_LEN))
         for r in resolved

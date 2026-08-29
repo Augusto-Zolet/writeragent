@@ -28,9 +28,18 @@ from plugin.framework.deal_shim import (
 # Preferred display name for newly built formulas; PYTHON remains a backward-compatible alias.
 CALC_PYTHON_FN = "PY"
 CALC_PYTHON_FN_ALIASES = ("PY", "PYTHON")
+# getFormula() stores add-ins as OriginalName (service.method), not the
+# Function Wizard token. Without these, follow-ref save cannot parse live cells.
 # Longest first so PYTHON is not parsed as PY + "THON".
-_CALC_PYTHON_FN_ALIASES_BY_LEN = ("PYTHON", "PY")
-_MAX_PYTHON_ALIAS_LEN = max(len(a) for a in CALC_PYTHON_FN_ALIASES)
+_CALC_PYTHON_FN_ALIASES_BY_LEN = (
+    "ORG.EXTENSION.WRITERAGENT.PYTHONFUNCTION.PYTHON",
+    "ORG.EXTENSION.LIBREPY.PYTHONFUNCTION.PYTHON",
+    "ORG.EXTENSION.WRITERAGENT.PYTHONFUNCTION.PY",
+    "ORG.EXTENSION.LIBREPY.PYTHONFUNCTION.PY",
+    "PYTHON",
+    "PY",
+)
+_MAX_PYTHON_ALIAS_LEN = max(len(a) for a in _CALC_PYTHON_FN_ALIASES_BY_LEN)
 # Curly/smart quotes Calc sometimes stores in localized formulas.
 _QUOTE_NORMALIZE = str.maketrans({"\u201c": '"', "\u201d": '"', "\u2018": "'", "\u2019": "'"})
 # Sheet/A1 range tokens. Space and ``"`` are product (``My Sheet.A1``, quoted sheets).
