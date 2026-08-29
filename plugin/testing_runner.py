@@ -12,6 +12,7 @@
 import logging
 import json
 import os
+import shutil
 import sys
 import traceback
 import unittest
@@ -77,19 +78,152 @@ def _module_matches_filters(full_path: str, filename: str, filters: Sequence[str
 
 # Flag to run UNO chart tests with visible window rather than hidden
 show_window: bool = False
+# Packet F mock-sidebar: visible soffice with the developer's real user profile.
+use_user_profile: bool = False
+
+# Only these modules run under ``--user-profile`` (and they are skipped otherwise).
+_USER_PROFILE_ONLY_UNO = frozenset({"test_mock_llm_sidebar_uno.py"})
+
+
+def _parse_cli_args(argv: Sequence[str]) -> list[str]:
+    """Split runner flags from suite filters. Sets ``show_window`` / ``use_user_profile``.
+
+    ``python -m plugin.testing_runner`` runs as ``__main__``, so tests that
+    ``import plugin.testing_runner`` would miss module-level flags. Mirror
+    ``--user-profile`` into ``WRITERAGENT_UNO_USER_PROFILE`` as well.
+    """
+    global show_window, use_user_profile
+    filters: list[str] = []
+    for arg in argv:
+        if arg in ("--visible", "--show-window"):
+            show_window = True
+        elif arg == "--user-profile":
+            use_user_profile = True
+            show_window = True
+            os.environ["WRITERAGENT_UNO_USER_PROFILE"] = "1"
+        else:
+            filters.append(str(arg))
+    if os.environ.get("WRITERAGENT_UNO_USER_PROFILE") == "1":
+        use_user_profile = True
+        show_window = True
+    return filters
 
 
 def _soffice_bootstrap_command(officehelper_module: Any) -> str | None:
-    """Return a soffice command for native tests that never opens recovery UI."""
+    """Return a soffice command for native tests.
+
+    Default: headless + throwaway ``UserInstallation`` (never recovery UI).
+    ``--user-profile``: visible, real user install. ``--norestore`` skips the
+    crash-recovery dialog; tests open WriterAgentDeck over UNO instead.
+    """
     try:
         program_dir = Path(officehelper_module.__file__).resolve().parent
         soffice = program_dir / ("soffice.exe" if __import__("sys").platform.startswith("win") else "soffice")
         if not soffice.exists():
             return None
+        quoted = '"%s"' % soffice
+        if use_user_profile:
+            # Keep the developer's UserInstallation (extension + writeragent.json).
+            # --norestore: crash recovery UI blocks bootstrap (sidebar is shown in tests).
+            return "%s --norestore --nofirststartwizard --nocrashreport" % quoted
         profile_url = Path(tempfile.mkdtemp(prefix="writeragent-lo-test-profile-")).as_uri()
-        return f'"{soffice}" --headless --norestore --nofirststartwizard --nocrashreport -env:UserInstallation={profile_url}'
+        return (
+            "%s --headless --norestore --nofirststartwizard --nocrashreport "
+            "-env:UserInstallation=%s" % (quoted, profile_url)
+        )
     except Exception:
         return None
+
+
+_SOFFICE_STRIP_ENV = ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV")
+
+
+def _child_env_without_runner_python() -> dict[str, str]:
+    env = dict(os.environ)
+    for key in _SOFFICE_STRIP_ENV:
+        env.pop(key, None)
+    return env
+
+
+def _resolve_soffice_bin(officehelper_module: Any) -> Path | None:
+    name = "soffice.exe" if sys.platform.startswith("win") else "soffice"
+    next_to_helper = Path(officehelper_module.__file__).resolve().parent / name
+    if next_to_helper.exists():
+        return next_to_helper
+    which = shutil.which(name)
+    if which:
+        return Path(which)
+    for candidate in (
+        Path("/usr/lib/libreoffice/program") / name,
+        Path("/snap/libreoffice/current/lib/libreoffice/program") / name,
+        Path("/Applications/LibreOffice.app/Contents/MacOS") / name,
+    ):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _bootstrap_user_profile_gui(officehelper_module: Any) -> Any:
+    """Visible soffice like ``make lo-start``: user profile, ``--norestore --writer``, UNO pipe.
+
+    ``officehelper.bootstrap`` always appends ``--nodefault --nologo --accept=pipe``.
+    That path opened a window and then crashed (URP disposed). This start matches
+    ``scripts/launch-lo-debug.sh`` plus an accept string so tests can attach.
+    """
+    import random
+    import subprocess
+    import time
+
+    import uno
+    from com.sun.star.connection import NoConnectException
+
+    soffice = _resolve_soffice_bin(officehelper_module)
+    if soffice is None:
+        raise RuntimeError("soffice not found (PATH, officehelper dir, or common install paths)")
+    pipe = "uno%s" % str(random.random())[2:]
+    accept = "pipe,name=%s;urp;" % pipe
+    cmd = [
+        str(soffice),
+        "--norestore",
+        "--nofirststartwizard",
+        "--nocrashreport",
+        "--writer",
+        "--accept=%s" % accept,
+    ]
+    subprocess.Popen(cmd, env=_child_env_without_runner_python(), start_new_session=True)
+    local = uno.getComponentContext()
+    resolver = local.ServiceManager.createInstanceWithContext(
+        "com.sun.star.bridge.UnoUrlResolver", local
+    )
+    url = "uno:%sStarOffice.ComponentContext" % accept
+    last_exc: BaseException | None = None
+    for delay in (1, 2, 3, 5, 8):
+        time.sleep(delay)
+        try:
+            return resolver.resolve(url)
+        except NoConnectException as exc:
+            last_exc = exc
+    raise RuntimeError("could not connect to user-profile soffice: %s" % last_exc)
+
+
+def _bootstrap_office(officehelper_module: Any) -> Any:
+    """Start soffice without leaking the test runner's Python env into the child.
+
+    Visible user-profile soffice loads the installed WriterAgent OXT. If it
+    inherits the checkout ``PYTHONPATH``, the extension imports mixed sources
+    and can crash on startup (URP then reports the bridge disposed).
+    """
+    if use_user_profile:
+        return _bootstrap_user_profile_gui(officehelper_module)
+    saved: dict[str, str] = {}
+    for key in _SOFFICE_STRIP_ENV:
+        val = os.environ.pop(key, None)
+        if val is not None:
+            saved[key] = val
+    try:
+        return officehelper_module.bootstrap(soffice=_soffice_bootstrap_command(officehelper_module))
+    finally:
+        os.environ.update(saved)
 
 
 
@@ -369,7 +503,10 @@ def run_all_tests(ctx: Any) -> str:
         # External Windows bootstraps can shut down LibreOffice when a suite
         # closes its only hidden document. Keep one document alive until all
         # native suites finish so the UNO bridge stays valid across modules.
-        keeper_doc = get_desktop(ctx).loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
+        # User-profile sidebar tests must not open a hidden Writer — that steals
+        # the restored deck / current component.
+        if not use_user_profile:
+            keeper_doc = get_desktop(ctx).loadComponentFromURL("private:factory/swriter", "_blank", 0, (hidden_prop,))
     except Exception as e:
         log.warning("run_all_tests: could not create keeper document: %s", e)
 
@@ -386,9 +523,12 @@ def run_all_tests(ctx: Any) -> str:
         from plugin.framework.config import init_config
 
         init_config(ctx)
-        from plugin.main import bootstrap
+        # User-profile soffice already ran extension OnStartApp. Re-bootstrap
+        # over URP has crashed the GUI; skip it for Packet F.
+        if not use_user_profile:
+            from plugin.main import bootstrap
 
-        bootstrap(ctx=ctx)
+            bootstrap(ctx=ctx)
     except Exception as e:
         log.warning("run_all_tests: bootstrap failed (in-LO tool tests may fail): %s", e)
 
@@ -401,16 +541,17 @@ def run_all_tests(ctx: Any) -> str:
         try:
             import officehelper
 
-            new_ctx = officehelper.bootstrap(soffice=_soffice_bootstrap_command(officehelper))
+            new_ctx = _bootstrap_office(officehelper)
             from plugin.framework.uno_context import set_fallback_ctx
 
             set_fallback_ctx(new_ctx)
             from plugin.framework.config import init_config
 
             init_config(new_ctx)
-            from plugin.main import bootstrap
+            if not use_user_profile:
+                from plugin.main import bootstrap
 
-            bootstrap(ctx=new_ctx)
+                bootstrap(ctx=new_ctx)
             return new_ctx
         except Exception as e:
             log.warning("run_all_tests: could not refresh disposed UNO context: %s", e)
@@ -432,13 +573,8 @@ def run_all_tests(ctx: Any) -> str:
         # Gather all candidates
         test_candidates = []
         import sys
-        filter_strs = []
-        for arg in sys.argv[1:]:
-            if arg in ("--visible", "--show-window"):
-                import plugin.testing_runner
-                plugin.testing_runner.show_window = True
-            else:
-                filter_strs.append(arg)
+
+        filter_strs = _parse_cli_args(sys.argv[1:])
         global _cli_filters
         _cli_filters = list(filter_strs)
 
@@ -454,6 +590,9 @@ def run_all_tests(ctx: Any) -> str:
                 # These are now identified by the _uno suffix or being in the legacy uno/ dir.
                 is_uno_test = "_uno.py" in filename or "uno" in root.split(os.sep)
                 if is_uno_test:
+                    user_only = filename in _USER_PROFILE_ONLY_UNO
+                    if user_only != use_user_profile:
+                        continue
                     full_path = os.path.join(root, filename)
                     if _module_matches_filters(full_path, filename, filter_strs):
                         test_candidates.append(full_path)
@@ -540,6 +679,8 @@ def main() -> int:
         print("ERROR: officehelper module is not available; run with LibreOffice's Python.", flush=True)
         return 1
 
+    _parse_cli_args(sys.argv[1:])
+
     # Suppress MCP server startup in the soffice child process; it inherits
     # this env var and McpModule.start_background() checks it.
     #
@@ -550,7 +691,7 @@ def main() -> int:
     os.environ["WRITERAGENT_TESTING"] = "1"
 
     try:
-        ctx = officehelper.bootstrap(soffice=_soffice_bootstrap_command(officehelper))
+        ctx = _bootstrap_office(officehelper)
     except Exception as e:
         # Typical in CI/headless shells: no soffice pipe (BootstrapException, NoConnectException, etc.)
         print(f"SKIP: LibreOffice UNO bootstrap failed; skipping in-LO tests.\n  ({type(e).__name__}: {e})", flush=True)

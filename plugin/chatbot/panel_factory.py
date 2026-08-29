@@ -25,7 +25,8 @@ from __future__ import annotations
 import logging
 import os
 import sys
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
+from weakref import WeakSet
 import hashlib
 import uuid
 import uno
@@ -64,24 +65,48 @@ from plugin.chatbot.dialogs import get_optional as get_optional_control, set_con
 from plugin.framework.uno_context import get_extension_url, get_extension_path
 from plugin.chatbot.panel_wiring import _wireControls as wire_chatpanel_controls
 
-_SIDEBAR_TEST_HOOKS_MOD = "plugin.chatbot.sidebar_test_hooks"
+# debug-only: omitted in release (thread_guard stub has no _designated_main_thread).
+_LIVE_CHAT_PANELS: WeakSet[Any] | None = None
 
 
-def _notify_debug_sidebar_hooks(element, op: str) -> None:
-    """Call a debug hook if tests already imported it. Never imports that module.
+def _debug_live_panels_on() -> bool:
+    try:
+        from plugin.framework import thread_guard as tg
 
-    Release OXTs omit ``sidebar_test_hooks.py``, so ``sys.modules`` has no entry
-    and this is a no-op. Do not ``import`` the hooks from production code — that
-    would load send/stop drivers in any tree that still has the file on disk.
-    """
-    if element is None:
-        return
-    mod = sys.modules.get(_SIDEBAR_TEST_HOOKS_MOD)
-    if mod is None:
-        return
-    fn = getattr(mod, op, None)
-    if fn is not None:
-        fn(element)
+        return hasattr(tg, "_designated_main_thread")
+    except Exception:
+        return False
+
+
+def _live_chat_panels() -> WeakSet[Any] | None:
+    global _LIVE_CHAT_PANELS
+    if not _debug_live_panels_on():
+        return None
+    if _LIVE_CHAT_PANELS is None:
+        _LIVE_CHAT_PANELS = WeakSet()
+    return _LIVE_CHAT_PANELS
+
+
+def register_debug_live_panel(element: Any) -> None:
+    """debug-only: omitted in release. Track a wired ChatPanelElement for mock-LLM tests."""
+    panels = _live_chat_panels()
+    if panels is not None and element is not None:
+        panels.add(element)
+
+
+def unregister_debug_live_panel(element: Any) -> None:
+    """debug-only: omitted in release."""
+    panels = _live_chat_panels()
+    if panels is not None and element is not None:
+        panels.discard(element)
+
+
+def iter_debug_live_chat_panels() -> list[Any]:
+    """debug-only: omitted in release."""
+    panels = _live_chat_panels()
+    if panels is None:
+        return []
+    return list(panels)
 
 if TYPE_CHECKING:
     from com.sun.star.uno import XInterface
@@ -370,7 +395,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         log.info("[RICH-LIFECYCLE] ChatPanelElement.disposing called Source=%s has_send_listener=%s",
                  id(Source) if Source else None,
                  hasattr(self, "send_listener") and bool(self.send_listener))
-        _notify_debug_sidebar_hooks(self, "unregister_live_panel")
+        unregister_debug_live_panel(self)
         try:
             if hasattr(self, "send_listener") and self.send_listener:
                 self.send_listener.disposing(None)
@@ -920,7 +945,7 @@ class ChatPanelElement(unohelper.Base, XUIElement):
 
             # Save it to the instance so panel_wiring can use it for QueryTextListener
             self.send_listener = send_listener
-            _notify_debug_sidebar_hooks(self, "register_live_panel")
+            register_debug_live_panel(self)
 
 
 

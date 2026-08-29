@@ -457,7 +457,7 @@ Run serial (`testing_runner`); do not xdist a live soffice + one mock port.
 
 Do **not** synthesize screen clicks. Drive the same listeners the widgets use.
 
-**Code:** [`plugin/chatbot/sidebar_test_hooks.py`](../../plugin/chatbot/sidebar_test_hooks.py) (dev trees and ``make build`` / ``make deploy`` only). Live panels: `_LIVE_CHAT_PANELS` in that module. `panel_factory` never imports it; it only calls `register_live_panel` if tests already loaded the module (`sys.modules`). HITL Change in tests uses existing `_finish_inline_web_approval` (no extra production method). In-process mock flags: [`tests/chatbot/mock_llm_harness.py`](../../tests/chatbot/mock_llm_harness.py) `mock_config`.
+**Code:** [`plugin/chatbot/sidebar_test_hooks.py`](../../plugin/chatbot/sidebar_test_hooks.py) (dev trees and ``make build`` / ``make deploy`` only). Live panels: debug-only `WeakSet` in [`panel_factory.py`](../../plugin/chatbot/panel_factory.py) (`register_debug_live_panel`, gated on full `thread_guard`) plus the hooks module set. HITL Change in tests uses existing `_finish_inline_web_approval`. In-process mock: [`tests/chatbot/mock_llm_harness.py`](../../tests/chatbot/mock_llm_harness.py).
 
 **Release:** the hook file is **omitted** (`should_exclude` on ``--no-tests``, and `omit_sidebar_test_hooks` deletes it from stripped trees). There is no stub with `press_send`. LibrePy does not ship this module. Unit tests: [`tests/chatbot/test_sidebar_test_hooks.py`](../../tests/chatbot/test_sidebar_test_hooks.py).
 
@@ -562,6 +562,8 @@ Writer with body text “Welcome to WriterAgent.” unless **empty** is specifie
 ---
 
 ### v2 Packet F — HTTP / SSE errors
+
+**Landed (thin):** F1, F2, F14 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py). Run **`make test-mock-sidebar`**: visible soffice with **your** LibreOffice user profile (`--norestore` so crash-recovery does not block; tests show `WriterAgentDeck` over UNO). Starts like ``make lo-start`` (``--norestore --writer``) plus a UNO pipe — not ``officehelper``'s ``--nodefault`` GUI, which opened then crashed. The child does not inherit the runner ``PYTHONPATH``. Other UNO tests stay `make test-uno` (headless + throwaway profile). Debug-only live panel list: `register_debug_live_panel` in `panel_factory` (gated; strip for release). Harness: [`tests/chatbot/mock_llm_harness.py`](../../tests/chatbot/mock_llm_harness.py).
 
 Each case ends with **`next_hello_ok()`** unless noted. Prefer phrase triggers so default mock stays up; use `--fail` only for “all requests” cases (then restart mock or toggle fail off before hello).
 

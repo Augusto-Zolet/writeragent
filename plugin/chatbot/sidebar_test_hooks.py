@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -28,6 +29,8 @@ _HOOKS_UNAVAILABLE = "sidebar test hooks are not in release builds"
 
 # Debug-only. This module is replaced by a stub in release OXTs (no WeakSet).
 _LIVE_CHAT_PANELS: WeakSet[Any] = WeakSet()
+# Listeners created by the installed OXT factory may not share this WeakSet.
+_LIVE_SEND_LISTENERS: list[Any] = []
 
 
 def register_live_panel(element: Any) -> None:
@@ -43,7 +46,17 @@ def unregister_live_panel(element: Any) -> None:
 
 def iter_live_chat_panels() -> list[Any]:
     _require_debug()
-    return list(_LIVE_CHAT_PANELS)
+    from plugin.chatbot.panel_factory import iter_debug_live_chat_panels
+
+    merged: list[Any] = []
+    seen: set[int] = set()
+    for panel in list(iter_debug_live_chat_panels()) + list(_LIVE_CHAT_PANELS):
+        ident = id(panel)
+        if ident in seen:
+            continue
+        seen.add(ident)
+        merged.append(panel)
+    return merged
 
 
 def debug_hooks_available() -> bool:
@@ -76,12 +89,188 @@ def sidebar_panel(frame: Any = None) -> Any:
     return panels[0]
 
 
+def desktop_from_ctx(ctx: Any) -> Any:
+    """Desktop from the remote ``ctx`` without ``get_ctx()`` (avoids disposed fallbacks)."""
+    _require_debug()
+    smgr = ctx.getServiceManager()
+    return smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
+
+
+def current_component(ctx: Any) -> Any:
+    _require_debug()
+    return desktop_from_ctx(ctx).getCurrentComponent()
+
+
+def uno_click(control: Any) -> None:
+    """Fire the control's default accessible action (button click) over URP."""
+    _require_debug()
+    acc = None
+    try:
+        acc = control.getAccessibleContext()
+    except Exception:
+        acc = None
+    if acc is not None and hasattr(acc, "doAccessibleAction"):
+        acc.doAccessibleAction(0)
+        return
+    raise RuntimeError("control has no accessible click")
+
+
+def sidebar_deck_names(ctx: Any, doc: Any) -> list[str]:
+    """Deck ids from XSidebarProvider, or empty if the API is unavailable."""
+    _require_debug()
+    if doc is None:
+        return []
+    try:
+        controller = doc.getCurrentController()
+        sidebar = controller.Sidebar
+        decks = sidebar.getDecks()
+        if hasattr(decks, "getElementNames"):
+            return [str(n) for n in decks.getElementNames()]
+    except Exception:
+        return []
+    return []
+
+
+def chat_dialog_controls(ctx: Any, doc: Any) -> dict[str, Any] | None:
+    """Controls on the live WriterAgent chat panel dialog (out-of-process URP)."""
+    _require_debug()
+    if doc is None:
+        return None
+    try:
+        controller = doc.getCurrentController()
+        try:
+            sidebar = controller.Sidebar
+        except Exception:
+            sidebar = None
+        if sidebar is None:
+            return None
+        decks = sidebar.getDecks()
+        deck = None
+        if hasattr(decks, "hasByName") and decks.hasByName("WriterAgentDeck"):
+            deck = decks.getByName("WriterAgentDeck")
+        if deck is None:
+            return None
+        panels = deck.getPanels()
+        panel = None
+        if hasattr(panels, "hasByName") and panels.hasByName("ChatPanel"):
+            panel = panels.getByName("ChatPanel")
+        elif hasattr(panels, "getByIndex"):
+            panel = panels.getByIndex(0)
+        if panel is None or not hasattr(panel, "getDialog"):
+            return None
+        dialog = panel.getDialog()
+        if dialog is None or not hasattr(dialog, "getControl"):
+            return None
+        names = ("query", "send", "stop", "response", "response_rich", "status")
+        out: dict[str, Any] = {}
+        for name in names:
+            try:
+                ctrl = dialog.getControl(name)
+            except Exception:
+                ctrl = None
+            if ctrl is not None:
+                out[name] = ctrl
+        if "query" in out and "send" in out:
+            return out
+    except Exception:
+        log.debug("chat_dialog_controls failed", exc_info=True)
+    return None
+
+
 def send_listener(frame: Any = None) -> Any:
     _require_debug()
     panel = sidebar_panel(frame)
-    if panel is None:
-        return None
-    return getattr(panel, "send_listener", None)
+    if panel is not None:
+        sl = getattr(panel, "send_listener", None)
+        if sl is not None:
+            return sl
+    if _LIVE_SEND_LISTENERS:
+        return _LIVE_SEND_LISTENERS[-1]
+    return None
+
+
+def adopt_runtime_send_listeners() -> int:
+    """Find ``SendButtonListener`` instances already wired by the installed factory.
+
+    UNO may load ``panel_factory`` from the OXT cache while tests import the
+    checkout copy, so the debug WeakSet can be empty even with a live sidebar.
+    """
+    _require_debug()
+    import gc
+
+    found = 0
+    for obj in gc.get_objects():
+        try:
+            if type(obj).__name__ != "SendButtonListener":
+                continue
+            if getattr(obj, "dispatch", None) is None:
+                continue
+            if getattr(obj, "query_control", None) is None:
+                continue
+        except Exception:
+            continue
+        if obj not in _LIVE_SEND_LISTENERS:
+            _LIVE_SEND_LISTENERS.append(obj)
+            found += 1
+    return found
+
+
+def show_writeragent_chat_deck(ctx: Any, doc: Any) -> None:
+    """Make the WriterAgent sidebar deck visible on *doc* (debug tests).
+
+    Used with ``--norestore`` so crash-recovery UI is not required to reopen the deck.
+    """
+    _require_debug()
+    if doc is None:
+        return
+    try:
+        controller = doc.getCurrentController()
+        frame = controller.getFrame()
+    except Exception:
+        return
+    try:
+        smgr = ctx.getServiceManager()
+        helper = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)
+        # Do not dispatch .uno:Sidebar — it *toggles* and can hide a deck that is already on.
+        try:
+            helper.executeDispatch(frame, ".uno:SidebarDeck.WriterAgentDeck", "", 0, ())
+        except Exception:
+            log.debug("show_writeragent_chat_deck dispatch WriterAgentDeck failed", exc_info=True)
+    except Exception:
+        log.debug("show_writeragent_chat_deck DispatchHelper failed", exc_info=True)
+    sidebar = None
+    try:
+        sidebar = controller.Sidebar
+    except Exception:
+        sidebar = None
+    if sidebar is None:
+        return
+    try:
+        if hasattr(sidebar, "isVisible") and not sidebar.isVisible():
+            sidebar.setVisible(True)
+        elif hasattr(sidebar, "setVisible"):
+            sidebar.setVisible(True)
+    except Exception:
+        pass
+    try:
+        sidebar.showDecks(True)
+    except Exception:
+        pass
+    try:
+        decks = sidebar.getDecks()
+        if decks is None:
+            return
+        name = "WriterAgentDeck"
+        if hasattr(decks, "hasByName") and decks.hasByName(name):
+            decks.getByName(name).activate(True)
+            return
+        names = list(decks.getElementNames()) if hasattr(decks, "getElementNames") else []
+        for deck_name in names:
+            if "WriterAgent" in str(deck_name):
+                decks.getByName(deck_name).activate(True)
+                return
+    except Exception:
+        log.debug("show_writeragent_chat_deck failed", exc_info=True)
 
 
 def _control_label(control: Any) -> str:
@@ -301,10 +490,11 @@ def pump_until(pred: Callable[[], bool], timeout: float = 30.0, *, ctx: Any = No
     while time.monotonic() <= deadline:
         if pred():
             return True
-        if uno_ctx is not None:
-            process_events_to_idle(uno_ctx, rounds=1, force=True)
+        # Visible user-profile soffice: processEventsToIdle over URP can hang the pipe.
+        if os.environ.get("WRITERAGENT_UNO_USER_PROFILE") == "1" or uno_ctx is None:
+            time.sleep(0.05)
         else:
-            time.sleep(0.01)
+            process_events_to_idle(uno_ctx, rounds=1, force=True)
     return pred()
 
 

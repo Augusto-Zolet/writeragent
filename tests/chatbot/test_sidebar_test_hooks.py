@@ -149,28 +149,32 @@ def test_registry_register_and_unregister() -> None:
     assert panel not in iter_live_chat_panels()
 
 
-def test_factory_notify_is_noop_when_hooks_unloaded() -> None:
+def test_factory_debug_registry_works_without_hooks_module() -> None:
     import plugin.chatbot.panel_factory as pf
 
     panel = _Panel()
     saved = sys.modules.pop("plugin.chatbot.sidebar_test_hooks", None)
     try:
-        pf._notify_debug_sidebar_hooks(panel, "register_live_panel")
-        assert panel not in iter_live_chat_panels()
+        pf.register_debug_live_panel(panel)
+        assert panel in pf.iter_debug_live_chat_panels()
     finally:
+        pf.unregister_debug_live_panel(panel)
         if saved is not None:
             sys.modules["plugin.chatbot.sidebar_test_hooks"] = saved
 
 
-def test_factory_notify_registers_when_hooks_loaded() -> None:
+def test_factory_debug_registry_visible_to_hooks() -> None:
     import plugin.chatbot.panel_factory as pf
 
     panel = _Panel()
-    pf._notify_debug_sidebar_hooks(panel, "register_live_panel")
+    pf.register_debug_live_panel(panel)
     try:
         assert panel in iter_live_chat_panels()
+        from plugin.chatbot.sidebar_test_hooks import send_listener as sl_fn
+
+        assert sl_fn(frame="frame-a") == "sl"
     finally:
-        pf._notify_debug_sidebar_hooks(panel, "unregister_live_panel")
+        pf.unregister_debug_live_panel(panel)
 
 
 def test_set_query_text_dispatches_text_updated(fake_listener: _FakeListener) -> None:
