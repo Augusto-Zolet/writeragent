@@ -30,6 +30,15 @@ def test_send_cancellation_cancel_is_idempotent():
     client.stop.assert_called_once()
 
 
+def test_send_cancellation_late_register_after_cancel_stops_immediately():
+    """B13: Stop before drain registers the client — register must still call stop()."""
+    scope = SendCancellation()
+    scope.cancel()
+    client = MagicMock()
+    scope.register_client(client)
+    client.stop.assert_called_once()
+
+
 def test_llm_client_registers_under_agent_session():
     config = {"endpoint": "http://127.0.0.1:5000", "model": "test"}
     with agent_session() as scope:

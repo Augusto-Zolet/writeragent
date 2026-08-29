@@ -109,10 +109,20 @@ class SendCancellation:
     def register_client(self, client: Any) -> None:
         # Resolve .stop() at registration time so cancel() only needs one list of
         # plain callables — no duck-type dispatch needed there.
+        # B13: Stop can fire before the drain creates/registers the client. If the
+        # scope is already cancelled, call stop() immediately so the worker cannot
+        # open a socket under llm_request_lane.
         stop = getattr(client, "stop", None)
-        if callable(stop):
-            with self._lock:
-                self._hooks.append(cast("Callable[[], None]", stop))
+        if not callable(stop):
+            return
+        with self._lock:
+            self._hooks.append(cast("Callable[[], None]", stop))
+            already = self._cancelled.is_set()
+        if already:
+            try:
+                stop()
+            except Exception:
+                log.exception("SendCancellation: error stopping late-registered client")
 
     def register_on_cancel(self, hook: Callable[[], None]) -> None:
         with self._lock:

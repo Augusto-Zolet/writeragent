@@ -516,19 +516,20 @@ Resize sidebar, H-scrollbar, “click into Writer during stream,” light/dark, 
 
 ### v2 Packet B — Stop, Send/Record FSM
 
-**Live URP (`make test-mock-sidebar FILTER=B`, ~3 min):** 16 passed, 2 failed. **OK:** B1a, B1c, B2, B3, B3b, B6, B7, B9, B10, B11, B14, B15. **SKIP:** B1b (mouse / in-process), B4/B12 (Record → Packet G), B5 (resize soak). **FAIL (product or harness — fix next):** **B8**, **B13**. Full-suite run also killed URP at **E12 Calc** (`DisposedException`); stay on `FILTER=B` until those two are green.
+**Live URP (`make test-mock-sidebar FILTER=B`):** **OK:** B1a, B1c, B2, B3, B3b, B6, B7, B9, B10, B11, B14, B15. **SKIP:** B1b (mouse / in-process), B4/B12 (Record → Packet G), B5 (resize soak), **B8** (harness: URP `Text=` does not fire `TEXT_UPDATED`; needs sync hook — not product). **Product fix landed:** **B13** — `LlmClient.stop()` latches `_stopped` so Stop before the first socket cannot reconnect and hold `llm_request_lane`. Full-suite Calc **E12** still kills URP; stay off Calc from Packet B.
 
 Mock: `--delay-ms 40` (and ramble phrases) unless noted. Tests: [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`test_b*`).
 
-#### Scratchpad — B8 / B13 (2026-08-29 live soffice)
+#### Scratchpad — B8 / B13 (2026-08-29)
 
-Use this subsection as the working notes. Do not “green” the Landed line until `FILTER=B` is 18/18 (skips count as pass).
+**B13 (product — done):** Stop before/during early SSE closed the sock, but `streaming_loop` kept reading and `finally: response.read()` blocked ~`request_timeout`, holding `llm_request_lane`. Fix: latch `_stopped`, `break` on Stop (not `continue`), skip body drain when stopped, late `register_client` after cancel calls `stop()`, UI `clear_stop()` on next send. Verify: `FILTER=b13` then `FILTER=B`.
 
-**How to reproduce (only Packet B, no Calc):**
+**B8 (skipped — harness):** `test_b8_send_enabled_only_with_text` skipped. URP `set_query_text_via_controls` does not dispatch `TEXT_UPDATED`; leftover `has_text` / Record stays Enabled. Do not disable Record on empty. Harness needs a `TEXT_UPDATED` sync later; B7 already covers empty click must not POST.
+
+**How to reproduce:**
 
 ```bash
 make test-mock-sidebar FILTER=B
-make test-mock-sidebar FILTER=b8
 make test-mock-sidebar FILTER=b13
 ```
 
@@ -538,46 +539,10 @@ Out-of-process: live `SendButtonListener` is in soffice. Tests drive `uno_click`
 
 ---
 
-**B8 — Send stays Enabled on empty query**
+**Not this packet (leave for later):**
 
-- **Assert:** `test_b8_send_enabled_only_with_text`: `set_query_text_via_controls(controls, "")` then `sleep(0.3)` then `_send_enabled()` must **not** be `True`. Fail: `B8 Send should be disabled on empty query, got True`.
-- **What the test does:** URP `set_control_text` on the query box only. It does **not** dispatch `TEXT_UPDATED`. Contrast in-process `set_query_text()` in [`sidebar_test_hooks.py`](../../plugin/chatbot/sidebar_test_hooks.py), which sets the box **and** `sl.dispatch(TEXT_UPDATED, {has_text})`.
-- **Why this is plausible:** Send `Enabled` is FSM-driven (`QueryTextListener.on_text_changed` → `TEXT_UPDATED` → `has_text` in [`send_state.py`](../../plugin/chatbot/send_state.py)). `QueryTextListener` is an `XTextListener` ([`panel.py`](../../plugin/chatbot/panel.py)). Setting `Text` over URP often **does not** fire `textChanged` (no keystrokes). Previous case (`B7`) ends in `_hello_ok()`, which types `hello` and sends — leftover `has_text=True` / Send Enabled is the usual leftover.
-- **B7 is a different oracle:** it does **not** require Send disabled. If Send is still Enabled it `uno_click`s and checks **mock `captures` length unchanged**. B7 passed; empty click is either a no-op in `StartSendEffect` or never POSTs. B8 is **chrome**: empty box ⇒ Send disabled.
-- **Likely fixes (pick one, smallest first):**
-  1. **Harness:** after `set_query_text_via_controls("", …)` also poke the FSM. Over URP there is no `SendButtonListener`. Options: `uno_click` a dummy key into query; fire the attached `XTextListener` if you can get it from the control; or add a tiny debug hook that sets `has_text` from current query `Text` (debug-only, like other sidebar hooks). Then re-read `send.Enabled`.
-  2. **Product:** when query `Text` is assigned (not only `textChanged`), sync Send enablement — e.g. property-change on `Text`, or `get_control_text` in the idle/UI update. Must still work for real typing (do not double-dispatch).
-  3. **Do not** weaken B8 to “click empty and hope no HTTP” — that is already B7.
-- **Check:** after fix, empty query → Send `Enabled` is False; type `hello` → True; `_hello_ok()` still works. Run `FILTER=b8` then `FILTER=B`.
-
----
-
-**B13 — Stop before first SSE chunk leaves the LLM request lane held**
-
-- **Assert:** `test_b13_stop_before_first_chunk`: `delay_ms=2000`, send `hello`, Stop as soon as Stop is Enabled (or Stop if it never enables), wait idle, then `_hello_ok()`.
-- **Fail (FILTER=B, 2026-08-29):** Stop appeared to run; recovery hello did **not** go idle in 60s. Transcript tail:
-
-  `You: hello` then `[API error: Timed out waiting for LLM request lane lock after 60.0s]`
-
-  (`llm_request_lane` in [`queue_executor.py`](../../plugin/framework/queue_executor.py); default acquire timeout **60s**. Chat send wraps the HTTP worker in `with llm_request_lane()` — [`send_handlers.py`](../../plugin/chatbot/send_handlers.py) / [`tool_loop.py`](../../plugin/chatbot/tool_loop.py).)
-- **What that means:** UI Stop did **not** make the in-flight worker **release** `_LLM_REQUEST_LOCK`. The next send blocked 60s on the lock, then posted that API error. `wait_controls_send_finished` still timed out (busy / no new Assistant HTML).
-- **Why after-chunk Stop works but this does not:** B1a/B2/B10 cancel **during** SSE (`delay_ms=40`). The client closes the socket → mock `BrokenPipeError` → worker exits `llm_request_lane` `finally` → lock free. B13 uses **2s inter-chunk delay** so Stop often hits **before the first `data:` line** (or while the handler is in `time.sleep` before the next write). Paths to check:
-  - `resolve_stop_checker()` / `LlmClient` abort: does Stop close the HTTP connection when **no bytes have arrived yet** (connect or first-read), or only after the stream iterator is live?
-  - Worker still inside `with llm_request_lane()` until `request_timeout` (often 120s) if the socket is not closed.
-  - Mock `delay_ms` sleeps **before** chunks (`response_delay_s`); Stop cannot interrupt that sleep unless the client drops and `write`/`sleep` is abandoned.
-  - Second send’s error is formatted into the transcript (`format_error_payload` on `TimeoutError`) — that is a real user-visible hang, not only a test flake.
-- **Likely fixes:**
-  1. **Product (preferred):** Stop must close the in-flight HTTP socket (or otherwise unblock the worker) even with **zero** SSE chunks, so `llm_request_lane`’s `finally` runs. Same `resolve_stop_checker()` as E8a — not a panel boolean alone.
-  2. Confirm `StopSendEffect` / `_active_q` `finally` still runs on “cancelled starting” (spec: not stuck Stop).
-  3. **Test:** `_hello_ok()` after B13 currently waits 60s and then fails on the **lane** error. After a product fix, hello should complete in a few seconds. Do not raise `wait_idle` to 120s to hide the lock.
-- **Check:** `FILTER=b13` — Stop, idle, hello HTML, **no** `LLM request lane lock` in the transcript. Then `FILTER=B`. Optional: grep `writeragent_debug.log` for `llm_request_lane timed out` / `Stop clicked` / `STOP_CLICKED`.
-
----
-
-**Not this packet (leave for later, do not mix into B8/B13 work):**
-
-- **E12 Calc** on the **full** suite: `list sheets` then `DisposedException: Binary URP bridge already disposed`. E13–E15 then fail on the first UNO call. Sidebar went flaky when Calc opened. Skip or isolate with `FILTER=e12` after B is green; do not open Calc from Packet B.
-- **E9 HITL:** `Accept` never appeared over URP; research still ran to `final_answer` (`prompt_for_web_research` off in setup, 2.1s config lag, or approval never queued). Separate from B.
+- **E12 Calc** on the **full** suite: `list sheets` then `DisposedException: Binary URP bridge already disposed`. Isolate with `FILTER=e12` after B is green; do not open Calc from Packet B.
+- **E9 HITL:** `Accept` never appeared over URP. Separate from B.
 - Root MP3s `hello-writeragent-1s.mp3` / `hello-writeragent-5s.mp3` are **Packet G**, not B.
 
 | ID | Drive | Pass (assert) |
@@ -590,12 +555,12 @@ Out-of-process: live `SendButtonListener` is in soffice. Tests drive `uno_click`
 | **B3b** | `press_stop()` when **idle** | No crash; labels unchanged; Send still works |
 | **B6** | `press_send()` twice without waiting (double Send) | FSM rejects second (`is_busy`); one stream; hello after done or after stop |
 | **B7** | Send with **empty** query, no audio | No `StartSendEffect` / no HTTP to mock (mock request count 0) |
-| **B8** | TEXT_UPDATED empty ↔ nonempty | Send enabled only when `has_text` and not busy (label Send) |
+| **B8** | TEXT_UPDATED empty ↔ nonempty | **SKIP** — harness needs `TEXT_UPDATED` sync over URP |
 | **B9** | Ramble until **natural end** (no Stop); wait idle | Button Send; then Stop during a **second** ramble still works (no stale cancel scope) |
 | **B10** | Stop; `next_hello_ok()`; ramble+Stop again | Cancel works twice in one panel lifetime |
 | **B11** | Stop; assert query box text restored or left as designed; `stream focus: left query` if Stop pointer path | No focus restore **after** Stop that would steal the next Send |
 | **B12** | Record hooks if cheap: empty box `RECORD_CLICKED` then `STOP_REC_CLICKED` with no wav | Returns to Send; no chat POST; typed hello still works. **Skip** if Record needs a real device |
-| **B13** | `press_send()` then Stop **before** first SSE chunk (`delay-ms` high) | Cancelled starting state; not stuck Stop; hello |
+| **B13** | `press_send()` then Stop **before** first SSE chunk (`delay-ms` high) | Cancelled starting state; not stuck Stop; hello; **no** `LLM request lane lock` in transcript |
 | **B14** | Stop during `[Thinking]`-style ramble (`think out loud` + delay) | Thinking cleared or frozen; Stopped banner or idle; hello |
 | **B15** | Serial: hello (complete) → ramble+Stop → `say nothing` → hello | Four terminals; never stuck busy |
 

@@ -171,6 +171,9 @@ class LlmClient:
         self.ctx = ctx
         self._transport = LlmHttpTransport(self._endpoint, self._timeout)
         self._shims: dict[str, BaseProviderShim] = {}
+        # Stop before the first byte: close() alone is a no-op when sock is None;
+        # the worker must not open a new connection (B13 / llm_request_lane).
+        self._stopped = False
         scope = cancellation_scope
         if scope is None:
             try:
@@ -202,15 +205,26 @@ class LlmClient:
 
     def _get_connection(self):
         """Compatibility wrapper for tests and internal diagnostics."""
+        if self._stopped:
+            raise NetworkError("LLM request aborted by Stop", code="STOPPED")
         return self._transport.get_connection()
 
     def _close_connection(self):
         self._transport.close()
 
     def stop(self):
-        """Immediately stop any active request by closing the connection."""
+        """Abort the in-flight request: latch + close socket (even if not open yet).
+
+        Packet B13: Stop can fire before ``get_connection``. Without ``_stopped``,
+        the worker opens a fresh socket and holds ``llm_request_lane`` until timeout.
+        """
         log.debug("LlmClient.stop(, level=logging.DEBUG) called")
+        self._stopped = True
         self._close_connection()
+
+    def clear_stop(self) -> None:
+        """Allow a reused client to send again (call on the UI thread at send start)."""
+        self._stopped = False
 
     def _endpoint(self):
         raw = self.config.get("endpoint", "http://localhost:11434")
@@ -269,6 +283,8 @@ class LlmClient:
 
     def _send_request(self, method, path, body, headers):
         """Send through the transport while honoring tests/debuggers that override ``_get_connection`` on the instance."""
+        if self._stopped:
+            raise NetworkError("LLM request aborted by Stop", code="STOPPED")
         connection_getter = self.__dict__.get("_get_connection")
         if connection_getter is not None:
             return self._transport.send(method, path, body, headers, connection_getter=connection_getter)
@@ -511,12 +527,25 @@ class LlmClient:
         log.debug("=== Starting streaming loop (persistent, level=logging.INFO) ===")
         log.debug("Request Path: %s" % path)
 
+        # Do not clear ``_stopped`` here — that races with stop() on another thread
+        # (B13). UI clears via ``clear_stop()`` at the start of a new send.
+        if self._stopped or (stop_checker and stop_checker()):
+            log.debug("streaming_loop: Stop already requested before connect")
+            self._stopped = True
+            self._close_connection()
+            return "stop"
+
         retry_available = _retry
         emitted_any = False
         while True:
             last_finish_reason = None
 
             try:
+                if self._stopped or (stop_checker and stop_checker()):
+                    log.debug("streaming_loop: Stop before send")
+                    self._stopped = True
+                    self._close_connection()
+                    return "stop"
                 response = self._send_request(method, path, body, headers)
 
                 if response.status != 200:
@@ -591,10 +620,12 @@ class LlmClient:
                             log.debug("streaming_loop: Stop requested.")
                             last_finish_reason = "stop"
                             content_finished = True
-                            # On user stop, we usually want to kill the connection
-                            # because the model might keep streaming for a long time.
+                            self._stopped = True
+                            # Kill the socket; do not keep reading (continue used to
+                            # fall into finally:response.read() and block ~request_timeout —
+                            # B13 held llm_request_lane for 60s after Stop).
                             self._close_connection()
-                            continue
+                            break
 
                         # Grok/xAI sends a final chunk with empty choices + usage
                         choices = chunk.get("choices", [])
@@ -678,17 +709,25 @@ class LlmClient:
                         elif not is_think and on_content:
                             on_content(text_piece)
                 finally:
-                    # Ensure the entire response body is read so the connection is reusable.
-                    try:
-                        remaining = response.read()
-                        if remaining:
-                            log.debug("Consumed extra %d bytes after loop" % len(remaining))
-                    except Exception:
-                        pass
-                    # Honor Connection: close so we don't try to reuse when the server closed.
-                    conn_hdr = (response.getheader("Connection") or "").strip().lower()
-                    if conn_hdr == "close":
-                        self._close_connection()
+                    # Drain leftover body only when we still own a live connection.
+                    # After Stop we closed the sock — response.read() would block until
+                    # request_timeout and hold llm_request_lane (B13).
+                    if not self._stopped:
+                        try:
+                            remaining = response.read()
+                            if remaining:
+                                log.debug("Consumed extra %d bytes after loop" % len(remaining))
+                        except Exception:
+                            pass
+                        # Honor Connection: close so we don't try to reuse when the server closed.
+                        conn_hdr = (response.getheader("Connection") or "").strip().lower()
+                        if conn_hdr == "close":
+                            self._close_connection()
+                    else:
+                        try:
+                            self._close_connection()
+                        except Exception:
+                            pass
 
             except CONNECTION_ERRORS as e:
                 # A retry after tokens already reached the UI would duplicate text.
@@ -843,11 +882,36 @@ class LlmClient:
                 streaming_meta=thinking_meta,
             )
         else:
-            # Sync path
+            # Sync path (nested smol / specialized). Same Stop-before-connect latch as stream.
+            if self._stopped or (stop_checker and stop_checker()):
+                log.debug("request_with_tools sync: Stop already requested before connect")
+                self._stopped = True
+                self._close_connection()
+                return {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": None,
+                    "finish_reason": "stop",
+                    "images": [],
+                    "usage": {},
+                    "model": requested_model,
+                }
             result = None
             retry_available = True
             while True:
                 try:
+                    if self._stopped or (stop_checker and stop_checker()):
+                        self._stopped = True
+                        self._close_connection()
+                        return {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": None,
+                            "finish_reason": "stop",
+                            "images": [],
+                            "usage": {},
+                            "model": requested_model,
+                        }
                     response = self._send_request(method, path, body, headers)
                     if response.status != 200:
                         err_body = response.read().decode("utf-8", errors="replace")

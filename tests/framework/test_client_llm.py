@@ -776,6 +776,7 @@ def test_stream_request_with_tools_paces_consecutive_requests(client):
 
 
 def test_stream_request_with_tools_stop_checker_suppresses_connection_retry(client):
+    """Stop already true before connect: do not open a socket (B13)."""
     with patch("http.client.HTTPSConnection") as mock_https:
         mock_conn = MagicMock()
         mock_https.return_value = mock_conn
@@ -788,7 +789,51 @@ def test_stream_request_with_tools_stop_checker_suppresses_connection_retry(clie
         )
 
     assert result["finish_reason"] == "stop"
+    assert mock_https.call_count == 0
+
+
+def test_stop_before_connect_does_not_send(client):
+    """stop() with no socket yet must latch so the worker cannot reconnect."""
+    with patch("http.client.HTTPSConnection") as mock_https:
+        mock_https.return_value = MagicMock()
+        client.stop()
+        result = client.stream_request_with_tools(
+            messages=[{"role": "user", "content": "Hi"}],
+            max_tokens=100,
+            stop_checker=lambda: True,
+        )
+    assert result["finish_reason"] == "stop"
+    assert mock_https.call_count == 0
+    assert client._stopped is True
+
+
+def test_reused_client_sends_after_stop_when_checker_clear(client):
+    """Panel reuses LlmClient; UI clears the latch at the start of the next send."""
+    mock_responses = [
+        b'data: {"choices": [{"delta": {"role": "assistant", "content": "ok"}}]}\n\n',
+        b'data: {"choices": [{"finish_reason": "stop", "delta": {}}]}\n\n',
+        b"data: [DONE]\n\n",
+    ]
+    with patch("http.client.HTTPSConnection") as mock_https:
+        mock_conn = MagicMock()
+        mock_https.return_value = mock_conn
+        mock_resp = MagicMock()
+        mock_resp.status = 200
+        mock_resp.__iter__.return_value = iter(mock_responses)
+        mock_conn.getresponse.return_value = mock_resp
+
+        client.stop()
+        assert client._stopped is True
+        client.clear_stop()
+
+        result = client.stream_request_with_tools(
+            messages=[{"role": "user", "content": "Hi"}],
+            max_tokens=100,
+            stop_checker=lambda: False,
+        )
+    assert result["finish_reason"] == "stop"
     assert mock_https.call_count == 1
+    assert client._stopped is False
 
 
 def test_make_chat_request_coalesces_system_messages(client):

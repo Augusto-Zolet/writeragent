@@ -263,18 +263,26 @@ class ToolCallingMixin:
         # contextvars (SendCancellation) do not propagate to worker threads — LlmClient
         # picks up resolve_stop_checker() via get_current_send_cancellation when created on
         # the UI thread; spawned workers pass stop_checker= explicitly (_spawn_llm_worker).
+        from plugin.framework.queue_executor import get_current_send_cancellation
+
         if not self.client:
             self.client = LlmClient(api_config, self.ctx)
         else:
             self.client.config = api_config
+            # New send: clear Stop latch from a prior turn (UI thread only).
+            self.client.clear_stop()
             # Reused clients registered on the previous send's scope; Stop on
             # this send must close HTTP via the current SendCancellation.
-            from plugin.framework.queue_executor import get_current_send_cancellation
-
             reuse_scope = get_current_send_cancellation()
             if reuse_scope is not None:
                 reuse_scope.register_client(self.client)
         assert self.client is not None
+        # Fresh client also: if Stop already fired before register, abort now.
+        scope = get_current_send_cancellation()
+        if scope is not None and not self.client._stopped:
+            # New clients register in __init__; ensure late Stop before spawn still latches.
+            if scope.is_cancelled():
+                self.client.stop()
         client = self.client
 
         self._set_status("Reading document...")
@@ -405,12 +413,19 @@ class ToolCallingMixin:
 
         def run():
             try:
+                # B13: Stop before first SSE — do not acquire llm_request_lane.
+                stop_checker = self.resolve_stop_checker()
+                if stop_checker and stop_checker():
+                    if batched:
+                        batched.flush()
+                    real_q.put((StreamQueueKind.STOPPED,))
+                    return
                 with llm_request_lane():
                     response = client.stream_request_with_tools(
                         self.session.messages, max_tokens, tools=tools,
                         append_callback=(batched.content_cb() if batched else lambda t: real_q.put((StreamQueueKind.CHUNK, t))),
                         append_thinking_callback=(batched.thinking_cb() if batched else lambda t: real_q.put((StreamQueueKind.THINKING, t))),
-                        stop_checker=self.resolve_stop_checker(),
+                        stop_checker=stop_checker,
                     )
                 if self.stop_requested:
                     if batched: batched.flush()
@@ -449,8 +464,14 @@ class ToolCallingMixin:
                 def append_t(t: str):
                     (batched.thinking_cb() if batched else lambda t: real_q.put((StreamQueueKind.THINKING, t)))(t)
 
+                stop_checker = self.resolve_stop_checker()
+                if stop_checker and stop_checker():
+                    if batched:
+                        batched.flush()
+                    real_q.put((StreamQueueKind.STOPPED,))
+                    return
                 with llm_request_lane():
-                    client.stream_chat_response(self.session.messages, max_tokens, append_c, append_t, stop_checker=self.resolve_stop_checker())
+                    client.stream_chat_response(self.session.messages, max_tokens, append_c, append_t, stop_checker=stop_checker)
                 if self.stop_requested:
                     if batched: batched.flush()
                     real_q.put((StreamQueueKind.STOPPED,))
