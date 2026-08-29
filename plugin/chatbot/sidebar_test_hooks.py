@@ -228,10 +228,38 @@ def execute_debug_sidebar_op(op: str, *, ctx: Any = None) -> dict[str, Any]:
     return _read_debug_snapshot()
 
 
+def _urp_send_control() -> Any:
+    ctx = _HOOK_CTX
+    if ctx is None:
+        return None
+    try:
+        controls = chat_dialog_controls(ctx, current_component(ctx)) or {}
+    except Exception:
+        return None
+    return controls.get("send")
+
+
+def _try_click_send_for_kind(kind: SendEventKind) -> bool:
+    """G1 path: Record / Stop Rec are the same widget. Click when the label matches."""
+    send = _urp_send_control()
+    if send is None:
+        return False
+    label = _control_label(send).lower()
+    if kind == SendEventKind.RECORD_CLICKED and "record" in label and "stop rec" not in label:
+        uno_click(send)
+        return True
+    if kind == SendEventKind.STOP_REC_CLICKED and "stop rec" in label:
+        uno_click(send)
+        return True
+    return False
+
+
 def _send_event_or_urp(kind: SendEventKind, *, listener: Any = None) -> None:
     sl = listener if listener is not None else send_listener()
     if sl is not None:
         sl.dispatch(SendEvent(kind))
+        return
+    if _try_click_send_for_kind(kind):
         return
     execute_debug_sidebar_op(kind.name)
 
@@ -446,12 +474,47 @@ def adopt_runtime_send_listeners() -> int:
     return found
 
 
+def _writeragent_deck(provider: Any) -> Any:
+    """Return the WriterAgent XDeck from *provider*, or None."""
+    if provider is None:
+        return None
+    try:
+        decks = provider.getDecks()
+        if decks is None:
+            return None
+        name = "WriterAgentDeck"
+        if hasattr(decks, "hasByName") and decks.hasByName(name):
+            return decks.getByName(name)
+        names = list(decks.getElementNames()) if hasattr(decks, "getElementNames") else []
+        for deck_name in names:
+            if "WriterAgent" in str(deck_name):
+                return decks.getByName(deck_name)
+    except Exception:
+        return None
+    return None
+
+
+def _activate_writeragent_deck(provider: Any) -> None:
+    """Switch to WriterAgent via XDeck.activate (no toggle)."""
+    deck = _writeragent_deck(provider)
+    if deck is None:
+        return
+    try:
+        deck.activate(True)
+    except Exception:
+        log.debug("activate WriterAgentDeck failed", exc_info=True)
+
+
 def show_writeragent_chat_deck(ctx: Any, doc: Any) -> None:
     """Make the WriterAgent sidebar deck visible on *doc* (debug tests).
 
-    ``.uno:SidebarDeck.WriterAgentDeck`` shows the sidebar if View → Sidebar is
-    off. Do not dispatch ``.uno:Sidebar`` — that *toggles*. ``--norestore``
-    skips crash-recovery so this dispatch is what reopens the deck.
+    ``.uno:SidebarDeck.WriterAgentDeck`` is LibreOffice OpenThenToggleDeck
+    (tdf#67627): if WriterAgent is already the visible deck, a second summon
+    *hides* the sidebar. Skip that dispatch when ``XSidebarProvider.isVisible()``
+    is already true; use ``showDecks`` / ``XDeck.activate`` instead. When the
+    sidebar is off, dispatch once to open it. Do not dispatch ``.uno:Sidebar`` —
+    that also toggles. ``--norestore`` skips crash-recovery so this path is what
+    reopens the deck for mock-sidebar tests.
     """
     _require_debug()
     if doc is None:
@@ -461,6 +524,33 @@ def show_writeragent_chat_deck(ctx: Any, doc: Any) -> None:
         frame = controller.getFrame()
     except Exception:
         return
+    provider = sidebar_provider(controller)
+    already_visible = False
+    if provider is not None and hasattr(provider, "isVisible"):
+        try:
+            already_visible = bool(provider.isVisible())
+        except Exception:
+            already_visible = False
+
+    # OpenThenToggleDeck: same-deck second time closes the sidebar — skip when on.
+    if already_visible and provider is not None:
+        try:
+            provider.showDecks(True)
+        except Exception:
+            pass
+        deck = _writeragent_deck(provider)
+        if deck is not None:
+            try:
+                if hasattr(deck, "isActive") and deck.isActive():
+                    return
+            except Exception:
+                pass
+            try:
+                deck.activate(True)
+            except Exception:
+                log.debug("show_writeragent_chat_deck activate while visible failed", exc_info=True)
+        return
+
     try:
         smgr = ctx.getServiceManager()
         helper = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", ctx)
@@ -470,13 +560,10 @@ def show_writeragent_chat_deck(ctx: Any, doc: Any) -> None:
             log.debug("show_writeragent_chat_deck dispatch WriterAgentDeck failed", exc_info=True)
     except Exception:
         log.debug("show_writeragent_chat_deck DispatchHelper failed", exc_info=True)
-    provider = sidebar_provider(controller)
     if provider is None:
         return
     try:
-        if hasattr(provider, "isVisible") and not provider.isVisible():
-            provider.setVisible(True)
-        elif hasattr(provider, "setVisible"):
+        if hasattr(provider, "setVisible"):
             provider.setVisible(True)
     except Exception:
         pass
@@ -484,21 +571,7 @@ def show_writeragent_chat_deck(ctx: Any, doc: Any) -> None:
         provider.showDecks(True)
     except Exception:
         pass
-    try:
-        decks = provider.getDecks()
-        if decks is None:
-            return
-        name = "WriterAgentDeck"
-        if hasattr(decks, "hasByName") and decks.hasByName(name):
-            decks.getByName(name).activate(True)
-            return
-        names = list(decks.getElementNames()) if hasattr(decks, "getElementNames") else []
-        for deck_name in names:
-            if "WriterAgent" in str(deck_name):
-                decks.getByName(deck_name).activate(True)
-                return
-    except Exception:
-        log.debug("show_writeragent_chat_deck failed", exc_info=True)
+    _activate_writeragent_deck(provider)
 
 
 def wait_for_chat_dialog_controls(ctx: Any, timeout: float = 20.0) -> dict[str, Any] | None:
@@ -893,6 +966,11 @@ def pump_until(pred: Callable[[], bool], timeout: float = 30.0, *, ctx: Any = No
 
 def wait_idle(*, listener: Any = None, timeout: float = 30.0) -> bool:
     _require_debug()
+    sl0 = listener if listener is not None else send_listener()
+    if sl0 is None:
+        # Let Stop Rec / Send enable Stop before the first idle poll (else we
+        # return immediately and Packet G never waits for the mock reply).
+        time.sleep(0.35)
 
     def _idle() -> bool:
         sl = listener if listener is not None else send_listener()

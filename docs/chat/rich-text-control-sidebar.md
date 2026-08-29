@@ -652,7 +652,7 @@ Shared `@setup` (mock + sidebar) still runs once; only non-matching `@native_tes
 
 - **Bootstrap:** Popen ``--norestore --writer --accept=socket,host=127.0.0.1,port=<ephemeral>;urp;`` like ``make lo-start`` (TCP, not a named pipe). Do **not** use ``officehelper.bootstrap`` (it appends ``--nodefault`` and the GUI crashed / URP disposed). Child env strips ``PYTHONPATH`` so the OXT is not mixed with the checkout. A leftover ``.lock`` with ``IPCServer=false`` is removed when no ``soffice.bin`` is running so ``--accept`` binds (OSL pipes under ``tempfile.gettempdir()``, not a hardcoded ``/tmp``).
 - **Crash recovery:** ``--norestore`` skips the recovery dialog that otherwise blocks the UNO pipe.
-- **View → Sidebar off:** tests dispatch ``.uno:SidebarDeck.WriterAgentDeck`` (shows the sidebar; ``.uno:Sidebar`` *toggles*). Decks come from ``controller.Sidebar`` (``XSidebarProvider.getDecks`` on SwXTextView). The soffice child sets ``WRITERAGENT_UNO_THREAD_GUARD=0`` so URP deck dispatch can create ChatPanel (otherwise ``getRealInterface`` aborts on Dummy-N).
+- **View → Sidebar off:** tests dispatch ``.uno:SidebarDeck.WriterAgentDeck`` (shows the sidebar; ``.uno:Sidebar`` *toggles*). Do **not** dispatch ``SidebarDeck.WriterAgentDeck`` when ``XSidebarProvider.isVisible()`` is already true — that command is OpenThenToggleDeck and would hide the sidebar; use ``showDecks`` / ``XDeck.activate`` instead. Decks come from ``controller.Sidebar`` (``XSidebarProvider.getDecks`` on SwXTextView). The soffice child sets ``WRITERAGENT_UNO_THREAD_GUARD=0`` so URP deck dispatch can create ChatPanel (otherwise ``getRealInterface`` aborts on Dummy-N).
 - **Out-of-process UNO:** the live ``SendButtonListener`` lives in soffice. Drive query/send/stop over URP (``uno_click``); poll Stop ``Enabled`` and transcript text. Do not ``processEventsToIdle`` on the pipe.
 - **F3b skipped:** ``press_stop_mouse()`` needs an in-process listener; URP only has ActionEvent (covered by **F17** Stop during hang).
 
@@ -686,7 +686,7 @@ Each case ends with **`next_hello_ok()`** unless noted. Prefer phrase triggers s
 
 ### v2 Packet G — mocked audio (Record / Stop Rec / STT)
 
-**Live URP (`make test-mock-sidebar FILTER=G`, after `make deploy`):** FSM ops that cannot be a Send click go through debug protocol `org.extension.writeragent:chatbot.debug_sidebar.<OP>` (soffice `DispatchHandler` → `handle_debug_sidebar_command`). **G17** still skipped (Calc / E12). **G18** skips if HITL Accept never appears (same as E9).
+**Live URP (`make test-mock-sidebar FILTER=G`, after `make deploy`):** Record/Stop Rec use the Send widget when the label matches. Label-independent ops use `org.extension.writeragent:chatbot.debug_sidebar?OP` (Query string; LO drops dotted Path suffixes). Handler **posts** onto VCL (`set_force_marshal_mode`) — blocking `execute()` from URP deadlocks. **G17** skipped (Calc / E12). **G18** skips if HITL Accept never appears (same as E9).
 
 Same harness as B/E/F. **Do not** open a microphone: `stub_recorder_child()` + `inject_wav()` write `/tmp/writeragent_stub_recorder.json` so the soffice OXT skips spawn (`AudioRecorder._test_skip_spawn`). Fixtures: `tests/chatbot/fixtures/hello-writeragent-1s.wav` (G1) and `hello-writeragent-5s.wav` (G4); source MP3s at repo root. Mock LLM: `writeragent-mock` native `input_audio`; `writeragent-mock-whisper` for `/v1/audio/transcriptions`.
 

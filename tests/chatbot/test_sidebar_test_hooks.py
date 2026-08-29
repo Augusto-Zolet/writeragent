@@ -344,6 +344,9 @@ class _FakeDeck:
     def activate(self, on: bool) -> None:
         self.activated = bool(on)
 
+    def isActive(self) -> bool:
+        return self.activated
+
     def getPanels(self):
         return self._panels
 
@@ -381,8 +384,9 @@ class _FakeDecks:
 class _SidebarProvider:
     """Matches SwXTextView.Sidebar (XSidebarProvider), not the controller."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, visible: bool = False) -> None:
         self._decks = _FakeDecks()
+        self._visible = visible
         self.visible_sets: list[bool] = []
         self.decks_shown = False
 
@@ -390,9 +394,10 @@ class _SidebarProvider:
         return self._decks
 
     def isVisible(self) -> bool:
-        return False
+        return self._visible
 
     def setVisible(self, value: bool) -> None:
+        self._visible = bool(value)
         self.visible_sets.append(bool(value))
 
     def showDecks(self, value: bool) -> None:
@@ -400,14 +405,30 @@ class _SidebarProvider:
 
 
 class _ProviderController:
-    def __init__(self) -> None:
-        self.Sidebar = _SidebarProvider()
+    def __init__(self, *, sidebar_visible: bool = False) -> None:
+        self.Sidebar = _SidebarProvider(visible=sidebar_visible)
 
     def getCurrentController(self):
         return self
 
     def getFrame(self):
         return SimpleNamespace()
+
+
+class _DispatchHelper:
+    def __init__(self) -> None:
+        self.dispatches: list[str] = []
+
+    def executeDispatch(self, frame, url, *args):
+        self.dispatches.append(str(url))
+
+
+def _ctx_with_helper(helper: _DispatchHelper) -> SimpleNamespace:
+    return SimpleNamespace(
+        getServiceManager=lambda: SimpleNamespace(
+            createInstanceWithContext=lambda *a: helper
+        )
+    )
 
 
 def test_sidebar_provider_uses_sidebar_property_not_controller_get_decks() -> None:
@@ -432,18 +453,36 @@ def test_chat_dialog_controls_reads_xdl_from_provider_decks() -> None:
 
 
 def test_show_writeragent_chat_deck_activates_writeragent_deck() -> None:
-    class _Helper:
-        def executeDispatch(self, *args):
-            return None
-
-    ctx = SimpleNamespace(
-        getServiceManager=lambda: SimpleNamespace(
-            createInstanceWithContext=lambda *a: _Helper()
-        )
-    )
-    doc = _ProviderController()
-    show_writeragent_chat_deck(ctx, doc)
+    """Hidden sidebar: dispatch once, setVisible, activate WriterAgent."""
+    helper = _DispatchHelper()
+    doc = _ProviderController(sidebar_visible=False)
+    show_writeragent_chat_deck(_ctx_with_helper(helper), doc)
+    assert helper.dispatches == [".uno:SidebarDeck.WriterAgentDeck"]
     assert doc.Sidebar.visible_sets == [True]
+    assert doc.Sidebar.decks_shown is True
+    assert doc.Sidebar._decks.writer.activated is True
+
+
+def test_show_writeragent_chat_deck_skips_dispatch_when_already_visible_active() -> None:
+    """Already-visible WriterAgent: no OpenThenToggleDeck (would hide the sidebar)."""
+    helper = _DispatchHelper()
+    doc = _ProviderController(sidebar_visible=True)
+    doc.Sidebar._decks.writer.activated = True
+    show_writeragent_chat_deck(_ctx_with_helper(helper), doc)
+    assert helper.dispatches == []
+    assert doc.Sidebar.visible_sets == []
+    assert doc.Sidebar.decks_shown is True
+    assert doc.Sidebar._decks.writer.activated is True
+
+
+def test_show_writeragent_chat_deck_activates_when_visible_on_other_deck() -> None:
+    """Sidebar on but another deck active: switch via activate, no dispatch."""
+    helper = _DispatchHelper()
+    doc = _ProviderController(sidebar_visible=True)
+    assert doc.Sidebar._decks.writer.isActive() is False
+    show_writeragent_chat_deck(_ctx_with_helper(helper), doc)
+    assert helper.dispatches == []
+    assert doc.Sidebar.visible_sets == []
     assert doc.Sidebar.decks_shown is True
     assert doc.Sidebar._decks.writer.activated is True
 
