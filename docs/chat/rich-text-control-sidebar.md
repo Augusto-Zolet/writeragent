@@ -564,6 +564,21 @@ Out-of-process: live `SendButtonListener` is in soffice. Tests drive `uno_click`
 | **B14** | Stop during `[Thinking]`-style ramble (`think out loud` + delay) | Thinking cleared or frozen; Stopped banner or idle; hello |
 | **B15** | Serial: hello (complete) → ramble+Stop → `say nothing` → hello | Four terminals; never stuck busy |
 
+#### Next-level cases (not landed — assume harness + mock extensions exist)
+
+Stop is the mountain; these push the Send/Stop FSM into the rarer races the landed set does not reach. New mock/harness needs are flagged inline.
+
+| ID | Drive | Pass (assert) |
+|----|--------|----------------|
+| **B16** | Mock returns **tool_calls only** (no content chunk), then Stop before the tool worker spawns | No orphan `SpawnToolWorkerEffect` after Stop; `is_busy` false; the tool never runs; hello |
+| **B17** | `STREAM_DONE` and `STOP_CLICKED` race — delay so the terminal chunk lands in the same window as the click | Exactly one terminal (`on_stream_done` runs once); never stuck busy; no double `[Stopped by user]` + `No response.`; hello |
+| **B18** | N-cycle stress: send → Stop ×5 (ramble each, no restart) | No cancel-scope accumulation; `_active_q` not dual-owned after the final cycle; hello |
+| **B19** | Stop at `NEXT_TOOL` between rounds (mock `two tools` + `--delay-ms`) | Loop exits cleanly; the second tool never spawns; idle; hello |
+| **B20** | Stop during post-tool `UpdateDocumentContext` (refresh between rounds) | No mutation race; doc consistent; idle; hello |
+| **B21** | **Clear** transcript (Clear button) while a stream is mid-flight | Stream cancelled or cleanly orphaned; no zombie appends land after Clear; transcript empty then hello |
+| **B22** | Stop, then immediately Clear, then hello | Cancel and Clear order does not leave a half-drained queue or stuck busy; hello |
+| **B23** | Stop during the post-`STREAM_DONE` hidden-Writer rerender (long HTML) | Rerender does not block Stop/next send; terminal state already latched; hello |
+
 ---
 
 ### v2 Packet E — tools, delegate, HITL
@@ -595,6 +610,22 @@ Writer with body text “Welcome to WriterAgent.” unless **empty** is specifie
 | **E13** | Stop **during** `add_comment` round (delay tools via mock) | Partial or no comment; not busy; hello; no freeze |
 | **E14** | Delegate E7 completes; second `outline this` | Nested agent works twice (no stale inner session) |
 | **E15** | `insert filler` with Stop **after** tool result queued but before HTML wrap-up | Doc may have mutation; UI idle; hello; no double drain |
+
+#### Next-level cases (not landed — assume harness + mock extensions exist)
+
+Delegate / HITL / mutation-refresh failure modes beyond the landed set. Mock needs a couple of new scripted inner-agent replies (flagged inline).
+
+| ID | Drive | Pass (assert) |
+|----|--------|----------------|
+| **E16** | `delegate_to_specialized_*_toolset` to an **unknown/empty domain** | Graceful error or no-op tool result; no crash; hello |
+| **E17** | Nested `final_answer` returns **empty / `None` content** | Main wrap-up still lands (or clean empty banner); no garbage HTML; hello |
+| **E18** | HITL `web_search` returns **zero results** (mock empty search) | Approval still resolves; "no results" surface, not a hang; hello |
+| **E19** | Tool called with **schema-invalid args** (missing required field; mock emits a tool call the schema rejects) | Clean tool error in transcript, not an unhandled exception; hello |
+| **E20** | Close the Writer doc **mid-tool** (tool raises `DisposedException`) | Re-raised as `DocumentDisposedError` (not swallowed into a freeze); reopen doc + hello |
+| **E21** | Parallel tools (`two tools`) where **one succeeds, one errors** | Partial-success wrap-up; the error is surfaced, not the whole round dropped; hello |
+| **E22** | Nested agent **exhausts `max_steps`** (mock inner loop never emits `final_answer`) | Clean budget-exhausted error, not an infinite loop; main UI idle; hello |
+| **E23** | Tool that **deletes** content, then next send | `refresh_document_context` reflects a **shorter** doc (not just grow); next prompt has new length; hello |
+| **E24** | HITL `press_change()` with an **edited query** | The edited query propagates to the search (mock capture shows edited text, not the original); not treated as `STOP_CLICKED` |
 
 ---
 
@@ -647,6 +678,27 @@ Each case ends with **`next_hello_ok()`** unless noted. Prefer phrase triggers s
 | **F17** | Stop **during** F3 hang | Same as B1 vs hang; idle |
 | **F18** | SSE `event: ping` / unknown event types if mock can emit | Ignored; stream still completes |
 
+#### Next-level cases (not landed — assume harness + mock extensions exist)
+
+Transport-level and SSE-framing edge cases the landed set skips. Each needs a small mock addition (flag/phrase/status) — flagged inline. Single LO instance.
+
+| ID | Drive | Pass (assert) |
+|----|--------|----------------|
+| **F19** | Mock adds HTTP **3xx redirect** | Not silently followed into a loop; clean error or handled; hello |
+| **F20** | HTTP **204** no content | Empty-model or error banner; not a hang; hello |
+| **F21** | **Content-Length mismatch** (body shorter/longer than header) | Error or truncated gracefully; no read-block; hello |
+| **F22** | SSE `data:` line **split across TCP reads** (fragmented JSON) | Partial JSON reassembled or skipped; stream completes; hello |
+| **F23** | Leading **BOM / blank lines** before the first `data:` | Parser skips and completes; hello |
+| **F24** | JSON chunk with **`finish_reason` missing** | Content still rendered; no hang; hello |
+| **F25** | **Wrong content-type / charset** (mock sends `text/html` or `utf-16`) | Error or treated as SSE; no decode crash; hello |
+| **F26** | **Single very large chunk** (one huge delta, `--scenario huge`) | Rendered without stutter/crash; no buffer blowup; hello |
+| **F27** | 429 with **`Retry-After`** header | Surfaced (and/or respected); recovery hello; no sticky 429 |
+| **F28** | `[DONE]` missing + **`Connection: close`** header | Treated as clean end; idle; hello |
+| **F29** | **Non-UTF8 bytes** mid-stream | Decoded/ignored without crash; hello |
+| **F30** | HTTP **503** (not 429) | Distinct clean error; hello |
+| **F31** | **Drip feed**: a chunk every few seconds, never `[DONE]` | Per-request timeout (not infinite); Stop works; hello |
+| **F32** | **Stale keep-alive**: reuse the connection after the server closed it between requests | One fresh-connection retry; second request succeeds; hello |
+
 ---
 
 ### v2 Packet G — mocked audio (Record / Stop Rec / STT)
@@ -680,6 +732,25 @@ Two machines must stay legal (`send_state.py`: never `is_busy and is_recording`)
 | **G16** | Record → Stop Rec → immediately Record again | Second take replaces audio; one in-flight capture |
 | **G17** | G1 on **Calc** deck if sidebar exists | Same native path; hello |
 | **G18** | HITL active; `press_record()` | No Record (approval owns buttons); E9 still valid |
+
+#### Next-level cases (not landed — assume harness + mock extensions exist)
+
+Recorder-child IPC and VAD edge cases beyond the landed set. Child-fixture / stub additions are flagged inline. Single LO instance.
+
+| ID | Drive | Pass (assert) |
+|----|--------|----------------|
+| **G19** | Child emits `silence_progress` then **`auto_stopped`** (real VAD path, not host-fired) | Auto-stop works via the child message; same native reply as G1; hello |
+| **G20** | Child emits an **unknown/garbage JSON line** mid-recording | Ignored without crash; recording continues; Stop Rec still works |
+| **G21** | Child **never emits `ready`** (spawn hang) | Host init timeout; `audio_status` error; not stuck initializing; Send still works |
+| **G22** | Child **exits with no `ready` and no error** | Clean error state; not stuck Stop Rec; hello |
+| **G23** | `inject_wav` with **0-byte** file | No send or explicit error; not busy; hello |
+| **G24** | `inject_wav` with **corrupt non-WAV bytes** | Native/STT fails gracefully; error surfaced; `has_audio` cleared; hello |
+| **G25** | Stop Rec then the WAV **appears late** (race on file write vs read) | No stuck busy; error or retry; hello |
+| **G26** | **Auto-stop and manual Stop Rec race** (both fire near-simultaneously) | Idempotent; one terminal; `is_recording` false; hello |
+| **G27** | STT returns **empty text** | Query stays empty; no send; clean idle; hello |
+| **G28** | STT returns **error JSON** | Error surfaced; `has_audio` cleared; hello |
+| **G29** | Native `input_audio` rejected (**400** from chat model) | Fallback to STT or clean error; not a silent dropped audio; hello |
+| **G30** | A **stale WAV from a prior take** is on disk at record start | New take does not read the stale file; transcript matches the new WAV |
 
 ---
 
