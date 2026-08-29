@@ -5,6 +5,7 @@
 """Native Packet F (HTTP/SSE), B (Stop/Send FSM), and E (tools/HITL) on a live chat sidebar.
 
 Run via ``make test-mock-sidebar`` (visible soffice, LibreOffice user profile).
+Subset: ``make test-mock-sidebar FILTER=E`` (packet), ``FILTER=f3a`` (case), or a ``test_*`` name.
 """
 
 from __future__ import annotations

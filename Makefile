@@ -222,7 +222,9 @@ help:
 	@echo "  make pytest                 Unit pytest only (xdist -n -1; PYTEST_WORKERS=0 for serial)"
 	@echo "  make mock-llm               Fake OpenAI chat server on :18766 (sidebar soak: scroll, tools, Stop, errors)"
 	@echo "  make test-uno               UNO tests only via testing_runner (serial live soffice)"
+	@echo "  make test-uno FILTER=…      Same; FILTER=path or test_* name (native runner)"
 	@echo "  make test-mock-sidebar      Packet F+E+B mock-LLM sidebar (visible soffice, your user profile)"
+	@echo "  make test-mock-sidebar FILTER=E   Packet letter (B/E/F), case id (f3a), or test_* name"
 	@echo "  make excel-py-roundtrip     Excel↔DAG sample fidelity over PythonExcelSamples/"
 	@echo ""
 	@echo "Benchmarks (prompt optimization / eval):"
@@ -700,13 +702,16 @@ pytest:
 mock-llm:
 	$(PYTHON) scripts/mock_llm_server.py
 
+# Optional native-runner selectors: packet letter (B/E/F), case id (f3a), or test_* name.
+FILTER ?=
+
 test-uno:
 	@$(MAKE) -C "$(PROJECT_ROOT)" lo-kill
-	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner; EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
+	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner $(FILTER); EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
 
 test-mock-sidebar:
 	@$(MAKE) -C "$(PROJECT_ROOT)" lo-kill
-	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --user-profile tests/chatbot/test_mock_llm_sidebar_uno.py; EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
+	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --user-profile tests/chatbot/test_mock_llm_sidebar_uno.py $(FILTER); EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
 
 test-run:
 	@$(MAKE) pytest

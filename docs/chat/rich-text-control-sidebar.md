@@ -577,6 +577,19 @@ Writer with body text “Welcome to WriterAgent.” unless **empty** is specifie
 
 **Landed:** F1–F18 (F3b skipped over URP) in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py). Run **`make test-mock-sidebar`** (not `make test-uno`). Visible soffice with **your** LibreOffice user profile:
 
+**Filter (skip long packets while debugging):** definition order is F → B → E. Pass `FILTER=` to the Make target (forwarded to `testing_runner`):
+
+```bash
+make test-mock-sidebar                 # all packets
+make test-mock-sidebar FILTER=E        # packet E only
+make test-mock-sidebar FILTER=B
+make test-mock-sidebar FILTER=f3a      # one case id
+make test-mock-sidebar FILTER=test_e7_outline_delegate
+make test-mock-sidebar FILTER="B E"    # two packets
+```
+
+Shared `@setup` (mock + sidebar) still runs once; only non-matching `@native_test` functions are skipped. A filter that matches nothing fails the suite (exit non-zero).
+
 - **Bootstrap:** Popen ``--norestore --writer --accept=socket,host=127.0.0.1,port=<ephemeral>;urp;`` like ``make lo-start`` (TCP, not a named pipe). Do **not** use ``officehelper.bootstrap`` (it appends ``--nodefault`` and the GUI crashed / URP disposed). Child env strips ``PYTHONPATH`` so the OXT is not mixed with the checkout. A leftover ``.lock`` with ``IPCServer=false`` is removed when no ``soffice.bin`` is running so ``--accept`` binds (OSL pipes under ``tempfile.gettempdir()``, not a hardcoded ``/tmp``).
 - **Crash recovery:** ``--norestore`` skips the recovery dialog that otherwise blocks the UNO pipe.
 - **View → Sidebar off:** tests dispatch ``.uno:SidebarDeck.WriterAgentDeck`` (shows the sidebar; ``.uno:Sidebar`` *toggles*). Decks come from ``controller.Sidebar`` (``XSidebarProvider.getDecks`` on SwXTextView). The soffice child sets ``WRITERAGENT_UNO_THREAD_GUARD=0`` so URP deck dispatch can create ChatPanel (otherwise ``getRealInterface`` aborts on Dummy-N).

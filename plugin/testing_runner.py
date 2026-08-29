@@ -48,8 +48,26 @@ def _soffice_pids() -> str:
         return "-"
 
 
+def _is_case_id(token: str) -> bool:
+    """True for packet case ids like ``f3a``, ``b1a``, ``e9`` (not a lone packet letter)."""
+    if len(token) < 2 or not token[0].isalpha():
+        return False
+    i = 1
+    if not token[1].isdigit():
+        return False
+    while i < len(token) and token[i].isdigit():
+        i += 1
+    if i == len(token):
+        return True
+    return i == len(token) - 1 and token[i].isalpha()
+
+
 def _test_function_filters(filters: Sequence[str]) -> list[str]:
-    """Return CLI tokens that name a test function rather than a module path."""
+    """Return CLI tokens that select tests (packet letter, case id, or ``test_*``).
+
+    Skips path / ``*_uno`` module tokens. Packet letters are single A–Z;
+    case ids are ``f3a`` / ``e9``-style; full names start with ``test_``.
+    """
     names: list[str] = []
     for token in filters:
         if "/" in token or "\\" in token or token.endswith(".py"):
@@ -58,11 +76,44 @@ def _test_function_filters(filters: Sequence[str]) -> list[str]:
             continue
         if token.startswith("test_"):
             names.append(token)
+        elif len(token) == 1 and token.isalpha():
+            names.append(token)
+        elif _is_case_id(token.lower()):
+            names.append(token)
     return names
 
 
+def _function_name_matches(name: str, filters: Sequence[str]) -> bool:
+    """True if ``name`` matches any packet letter, case id, or ``test_*`` filter.
+
+    Packet ``F`` matches ``test_f18_…`` / ``test_f3a_…`` but not ``test_foo``.
+    Case ``f1`` matches ``test_f1_…`` but not ``test_f10_…``.
+    Full ``test_*`` tokens match exact name or a prefix ending at ``_``.
+    """
+    for token in filters:
+        t = token.strip()
+        if not t:
+            continue
+        if len(t) == 1 and t.isalpha():
+            prefix = f"test_{t.lower()}"
+            if name.startswith(prefix) and len(name) > len(prefix) and name[len(prefix)].isdigit():
+                return True
+            continue
+        if t.startswith("test_"):
+            if name == t:
+                return True
+            if name.startswith(t) and len(name) > len(t) and name[len(t)] == "_":
+                return True
+            continue
+        low = t.lower()
+        if _is_case_id(low):
+            if name == f"test_{low}" or name.startswith(f"test_{low}_"):
+                return True
+    return False
+
+
 def _module_matches_filters(full_path: str, filename: str, filters: Sequence[str]) -> bool:
-    """True if this UNO file should load given CLI filters (path or ``def test_``)."""
+    """True if this UNO file should load given CLI filters (path or test selector)."""
     if not filters:
         return True
     if any(token in full_path or token in filename for token in filters):
@@ -74,7 +125,19 @@ def _module_matches_filters(full_path: str, filename: str, filters: Sequence[str
         source = Path(full_path).read_text(encoding="utf-8")
     except OSError:
         return False
-    return any(f"def {name}" in source for name in func_filters)
+    for line in source.splitlines():
+        stripped = line.lstrip()
+        if not stripped.startswith("def test_"):
+            continue
+        # ``def test_foo(ctx):`` → ``test_foo``
+        rest = stripped[4:]
+        end = 0
+        while end < len(rest) and (rest[end].isalnum() or rest[end] == "_"):
+            end += 1
+        def_name = rest[:end]
+        if def_name and _function_name_matches(def_name, func_filters):
+            return True
+    return False
 
 # Flag to run UNO chart tests with visible window rather than hidden
 show_window: bool = False
@@ -402,6 +465,19 @@ def run_module_suite(ctx, module, name, doc_model=None):
                 return 0, 1, [f"EXCEPTION in {fallback_func_name}: {e}", traceback.format_exc()]
 
     _progress(f"SUITE start {name} python_pid={os.getpid()} soffice.bin={_soffice_pids()}")
+    name_filters = _test_function_filters(_cli_filters)
+    if name_filters:
+        selected = [tf for tf in test_funcs if _function_name_matches(tf.__name__, name_filters)]
+    else:
+        selected = list(test_funcs)
+    if name_filters and not selected:
+        msg = f"No tests matched filters {name_filters!r} in {name}"
+        _progress(f"SUITE filter miss {name}: {name_filters}")
+        _progress(f"SUITE end {name} passed=0 failed=1")
+        return 0, 1, [msg]
+    if name_filters:
+        _progress(f"SUITE selected {name}: {', '.join(tf.__name__ for tf in selected)}")
+
     try:
         if setup_func:
             import inspect
@@ -416,10 +492,7 @@ def run_module_suite(ctx, module, name, doc_model=None):
             else:
                 setup_func()
 
-        name_filters = _test_function_filters(_cli_filters)
-        for test_func in test_funcs:
-            if name_filters and not any(token in test_func.__name__ for token in name_filters):
-                continue
+        for test_func in selected:
             test_line = f"Running test: {test_func.__name__}"
             _progress(f"TEST start {name}.{test_func.__name__}")
             try:
@@ -758,9 +831,14 @@ def run_all_tests(ctx: Any) -> str:
 def main() -> int:
     """Command-line entrypoint: bootstrap LO and run tests.
 
-    This lets you run tests from a normal shell without clicking menus:
+    This lets you run tests from a normal shell without clicking menus::
 
         python -m plugin.testing_runner
+        python -m plugin.testing_runner tests/chatbot/test_mock_llm_sidebar_uno.py E
+        python -m plugin.testing_runner --user-profile …/test_mock_llm_sidebar_uno.py f3a
+
+    Extra tokens select tests: packet letter (``B``/``E``/``F``), case id
+    (``f3a``), or full ``test_*`` name. Prefer ``make test-mock-sidebar FILTER=E``.
 
     The import of officehelper/uno is done lazily so that this module
     can still be imported inside LibreOffice without pulling them in.
