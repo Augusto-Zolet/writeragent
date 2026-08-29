@@ -986,6 +986,85 @@ def test_current_query_ignores_librarian_history_look_up():
     assert out.content is not None
 
 
+def test_summarize_chat_payload_doc_len_and_current_query():
+    from scripts.mock_llm_server import document_content_len, summarize_chat_payload
+
+    payload = {
+        "stream": True,
+        "tools": _tools("web_research", "add_comment"),
+        "messages": [
+            {
+                "role": "system",
+                "content": "intro\n[DOCUMENT CONTENT]\nWelcome to WriterAgent.\n[END DOCUMENT]\n",
+            },
+            {
+                "role": "user",
+                "content": "### CONVERSATION HISTORY:\nlook up cats\n### CURRENT QUERY:\nlook up latest Python",
+            },
+        ],
+    }
+    assert document_content_len(payload["messages"]) == len("Welcome to WriterAgent.")
+    rec = summarize_chat_payload(payload, Completion(tool_name="web_research", tool_args={"query": "q"}))
+    assert rec["has_current_query_mark"] is True
+    assert rec["current_query"] == "look up latest Python"
+    assert rec["doc_content_len"] == len("Welcome to WriterAgent.")
+    assert rec["decided_tools"] == ["web_research"]
+    assert "add_comment" in rec["advertised_tools"]
+
+
+def test_fail_tool_followup_http500():
+    cfg = MockLLMConfig(delay_ms=0, fail_tool_followup=True)
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler_class(cfg))
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    host, port = httpd.server_address[:2]
+    url = "http://%s:%s/v1/chat/completions" % (host, port)
+
+    def post(body: dict[str, Any]) -> None:
+        req = Request(
+            url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        urlopen(req, timeout=5)
+
+    try:
+        user_turn = {
+            "messages": [{"role": "user", "content": "add a comment"}],
+            "tools": _tools("add_comment"),
+            "stream": False,
+        }
+        post(user_turn)
+        follow = {
+            "messages": [
+                {"role": "user", "content": "add a comment"},
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "id": "c1",
+                            "type": "function",
+                            "function": {"name": "add_comment", "arguments": "{}"},
+                        }
+                    ],
+                },
+                {"role": "tool", "content": '{"status": "ok"}'},
+            ],
+            "tools": _tools("add_comment"),
+            "stream": False,
+        }
+        with pytest.raises(HTTPError) as err:
+            post(follow)
+        assert err.value.code == 500
+        snaps = [row for row in cfg.captures if row.get("last_role") == "tool"]
+        assert snaps
+    finally:
+        httpd.shutdown()
+        thread.join(timeout=2)
+
+
+
 def test_forced_scenario_overrides_phrase():
     out = decide_completion(
         {"messages": [{"role": "user", "content": "look up cats"}], "tools": _tools("web_research")},

@@ -168,6 +168,11 @@ class MockLLMConfig:
     fail_after_chunks: int = DEFAULT_FAIL_AFTER_CHUNKS
     sse_comments: bool = False
     transcript: str = DEFAULT_TRANSCRIPT
+    # Packet E10: HTTP 500 on chat POSTs whose last message is role=tool (mid-loop).
+    fail_tool_followup: bool = False
+    # Packet E oracles (E1 CURRENT QUERY, E5 doc length, E6/E7 tool names).
+    captures: list[dict[str, Any]] = field(default_factory=list)
+    _capture_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 
 
 def response_delay_s(config: MockLLMConfig, *, stream: bool) -> float:
@@ -207,6 +212,65 @@ def completion_tool_calls(completion: Completion) -> list[tuple[str, dict[str, A
 
 
 _CURRENT_QUERY_MARK = "### CURRENT QUERY:"
+
+
+def document_content_len(messages: list[Any]) -> int:
+    """Characters between ``[DOCUMENT CONTENT]`` and ``[END DOCUMENT]`` (0 if absent)."""
+    for msg in messages:
+        if not isinstance(msg, dict) or msg.get("role") != "system":
+            continue
+        text = _as_text(msg.get("content"))
+        start = text.find("[DOCUMENT CONTENT]")
+        if start < 0:
+            continue
+        start += len("[DOCUMENT CONTENT]")
+        end = text.find("[END DOCUMENT]", start)
+        blob = text[start:end] if end >= 0 else text[start:]
+        return len(blob.strip())
+    return 0
+
+
+def summarize_chat_payload(payload: dict[str, Any], completion: Completion | None = None) -> dict[str, Any]:
+    """Compact request snapshot for Packet E tests (thread-safe append via record_capture)."""
+    messages = payload.get("messages") if isinstance(payload.get("messages"), list) else []
+    tools = _tool_names(payload.get("tools"))
+    user_text = _last_user_text(messages)
+    query = current_query_text(user_text)
+    decided: list[str] = []
+    if completion is not None:
+        decided = [name for name, _args in completion_tool_calls(completion)]
+    return {
+        "stream": bool(payload.get("stream")),
+        "last_role": _last_role(messages),
+        "user_text": user_text,
+        "current_query": query,
+        "has_current_query_mark": _CURRENT_QUERY_MARK in user_text
+        or any(
+            isinstance(m, dict)
+            and m.get("role") != "system"
+            and _CURRENT_QUERY_MARK in _as_text(m.get("content"))
+            for m in messages
+        ),
+        "advertised_tools": sorted(tools),
+        "called_tools": _called_tool_names(messages),
+        "decided_tools": decided,
+        "doc_content_len": document_content_len(messages),
+    }
+
+
+def record_capture(config: MockLLMConfig, rec: dict[str, Any]) -> None:
+    with config._capture_lock:
+        config.captures.append(rec)
+
+
+def snapshot_captures(config: MockLLMConfig) -> list[dict[str, Any]]:
+    with config._capture_lock:
+        return list(config.captures)
+
+
+def clear_captures(config: MockLLMConfig) -> None:
+    with config._capture_lock:
+        config.captures.clear()
 
 
 def current_query_text(user_text: str) -> str:
@@ -1217,7 +1281,12 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
                 return
             model = str(payload.get("model") or MOCK_MODEL_ID)
             completion = decide_completion(payload, config, state)
+            record_capture(config, summarize_chat_payload(payload, completion))
             stream = bool(payload.get("stream"))
+            messages = payload.get("messages") if isinstance(payload.get("messages"), list) else []
+            if config.fail_tool_followup and _last_role(messages) == "tool":
+                self._send_json(500, openai_error_body("mock LLM tool-follow-up failure", "server_error"))
+                return
             if self._apply_sse_quirk_preamble(completion.sse_quirk):
                 return
             if self._fail_or_hang_headers(completion, stream=stream):

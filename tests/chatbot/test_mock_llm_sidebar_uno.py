@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Native Packet F: HTTP / SSE errors then hello on a live chat sidebar.
+"""Native Packet F (HTTP/SSE) and Packet E (tools/delegate/HITL) on a live chat sidebar.
 
 Run via ``make test-mock-sidebar`` (visible soffice, LibreOffice user profile).
 """
@@ -22,6 +22,8 @@ from tests.chatbot.mock_llm_harness import (
 )
 
 _session = None
+_saved_prompt_research: bool | None = None
+WELCOME_BODY = "Welcome to WriterAgent."
 
 
 def _ensure_writer_doc(ctx) -> None:
@@ -43,7 +45,13 @@ def _setup_mock(ctx):
     if os.environ.get("WRITERAGENT_UNO_USER_PROFILE") != "1":
         raise unittest.SkipTest("use make test-mock-sidebar (LibreOffice user profile)")
 
+    global _saved_prompt_research
     init_config(ctx)
+    from plugin.framework.config import get_config_bool, set_config
+
+    # Packet E1–E8 must not block on HITL Accept. E9 turns this on locally.
+    _saved_prompt_research = get_config_bool("chatbot.prompt_for_web_research")
+    set_config("chatbot.prompt_for_web_research", False)
     # Import hooks before later panel creates; factory WeakSet also sees panels
     # that were wired before this module loaded (debug-only).
     import plugin.chatbot.sidebar_test_hooks  # noqa: F401
@@ -77,11 +85,12 @@ def _setup_mock(ctx):
     ensure_sidebar_chat_mode(controls)
     _session.controls = controls
     _session.listener = sl
+    _set_writer_body(ctx, WELCOME_BODY)
 
 
 @teardown
 def _teardown_mock():
-    global _session
+    global _session, _saved_prompt_research
     from plugin.chatbot.sidebar_test_hooks import press_stop, send_listener, send_state
 
     sl = send_listener()
@@ -100,6 +109,13 @@ def _teardown_mock():
             pass
     stop_mock_sidebar_session(_session)
     _session = None
+    if _saved_prompt_research is not None:
+        try:
+            from plugin.framework.config import set_config
+
+            set_config("chatbot.prompt_for_web_research", _saved_prompt_research)
+        except Exception:
+            pass
 
 
 def _control_text(ctrl) -> str:
@@ -224,14 +240,102 @@ def _hello_ok() -> None:
     ), ("hello reply missing: %r" % body[-400:])
 
 
+def _set_writer_body(ctx, text: str) -> None:
+    from plugin.chatbot.sidebar_test_hooks import current_component
+
+    doc = current_component(ctx)
+    assert doc is not None, "no current document"
+    cursor = doc.getText().createTextCursor()
+    cursor.gotoStart(False)
+    cursor.gotoEnd(True)
+    cursor.setString(text)
+
+
+def _writer_body(ctx) -> str:
+    from plugin.chatbot.sidebar_test_hooks import current_component
+
+    doc = current_component(ctx)
+    if doc is None:
+        return ""
+    try:
+        return str(doc.getText().getString() or "")
+    except Exception:
+        return ""
+
+
+def _annotation_count(ctx) -> int:
+    from plugin.chatbot.sidebar_test_hooks import current_component
+
+    doc = current_component(ctx)
+    if doc is None:
+        return 0
+    n = 0
+    try:
+        enum = doc.getTextFields().createEnumeration()
+    except Exception:
+        return 0
+    while True:
+        try:
+            if not enum.hasMoreElements():
+                break
+            field = enum.nextElement()
+        except Exception:
+            break
+        try:
+            if field.supportsService("com.sun.star.text.textfield.Annotation"):
+                n += 1
+        except Exception:
+            continue
+    return n
+
+
+def _label(ctrl) -> str:
+    try:
+        model = ctrl.getModel() if ctrl is not None else None
+        if model is not None:
+            return str(getattr(model, "Label", "") or "")
+    except Exception:
+        return ""
+    return ""
+
+
+def _wait_send_label(needle: str, timeout: float = 45.0) -> bool:
+    controls = getattr(_session, "controls", None) or {}
+    send = controls.get("send")
+    deadline = time.monotonic() + timeout
+    while time.monotonic() <= deadline:
+        if send is not None and needle.lower() in _label(send).lower():
+            return True
+        sl = getattr(_session, "listener", None)
+        if sl is not None:
+            from plugin.chatbot.sidebar_test_hooks import approval_active, send_state
+
+            if approval_active(listener=sl) or needle.lower() in send_state(listener=sl).send_label.lower():
+                return True
+        time.sleep(0.15)
+    return False
+
+
+def _captures() -> list[dict[str, Any]]:
+    from scripts.mock_llm_server import snapshot_captures
+
+    assert _session is not None
+    return snapshot_captures(_session.config)
+
+
 def _reset_mock_runtime() -> None:
     """Clear fail/delay so a prior F5/F6/F16 cannot poison later cases."""
     if _session is None:
         return
     _session.config.fail = "none"
     _session.config.delay_ms = 20
+    _session.config.sync_delay_ms = None
     _session.config.fail_after_chunks = 4
     _session.config.sse_comments = False
+    _session.config.fail_tool_followup = False
+    from scripts.mock_llm_server import clear_captures
+
+    clear_captures(_session.config)
     try:
         if _wait_stop_enabled(timeout=0.3):
             _press_stop()
@@ -533,3 +637,431 @@ def test_f18_event_ping_then_hello(ctx):
     body = _transcript()
     assert "mock" in body.lower() or "assistant:" in body.lower(), "F18 expected HTML chat, got %r" % body[-400:]
     _hello_ok()
+
+
+# --- Packet E: tools, delegate, HITL ---
+
+
+@native_test
+def test_e1_offline_look_up_then_hello(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    _send_and_wait("look up latest Python", timeout=90.0)
+    body = _transcript().lower()
+    assert "assistant:" in body or "python" in body or "research" in body or "look" in body, (
+        "E1 expected research wrap-up, got %r" % _transcript()[-500:]
+    )
+    snaps = _captures()
+    assert any(row.get("has_current_query_mark") or row.get("decided_tools") == ["web_research"] for row in snaps), (
+        "E1 expected CURRENT QUERY or web_research in mock captures, got %r" % snaps[-5:]
+    )
+    _hello_ok()
+
+
+@native_test
+def test_e2_online_research_skipped(ctx):
+    raise unittest.SkipTest("E2 live DuckDuckGo is not for CI (--offline only)")
+
+
+@native_test
+def test_e3_add_comment_then_hello(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    before = _annotation_count(ctx)
+    _send_and_wait("add a comment", timeout=60.0, wait_for="comment")
+    assert _annotation_count(ctx) > before, "E3 expected a Writer comment"
+    _hello_ok()
+
+
+@native_test
+def test_e4_empty_doc_insert_comment(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, "")
+    _send_and_wait("insert a comment", timeout=90.0)
+    body = _writer_body(ctx)
+    assert body.strip(), "E4 expected nonempty doc after apply_document_content"
+    assert _annotation_count(ctx) >= 1, "E4 expected a comment after insert"
+    _set_writer_body(ctx, WELCOME_BODY)
+    _hello_ok()
+
+
+@native_test
+def test_e5_insert_filler_refreshes_context(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    before_len = len(_writer_body(ctx))
+    _send_and_wait("insert filler", timeout=60.0)
+    after_len = len(_writer_body(ctx))
+    assert after_len > before_len, "E5 expected longer document, %s -> %s" % (before_len, after_len)
+    snaps = _captures()
+    max_doc = max((int(row.get("doc_content_len") or 0) for row in snaps), default=0)
+    assert max_doc > before_len or max_doc >= after_len // 2, (
+        "E5 expected refresh_document_context in a later POST, captures=%r" % snaps[-6:]
+    )
+    _hello_ok()
+
+
+@native_test
+def test_e6_two_tools_parallel(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    _send_and_wait("two tools", timeout=60.0)
+    snaps = _captures()
+    decided = []
+    for row in snaps:
+        decided.extend(row.get("decided_tools") or [])
+        decided.extend(row.get("called_tools") or [])
+    names = set(decided)
+    assert "search_in_document" in names and "get_document_tree" in names, (
+        "E6 expected both tools, got %r snaps=%r" % (names, snaps[-8:])
+    )
+    _hello_ok()
+
+
+@native_test
+def test_e7_outline_delegate(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    _send_and_wait("outline this", timeout=120.0)
+    snaps = _captures()
+    decided = []
+    called = []
+    for row in snaps:
+        decided.extend(row.get("decided_tools") or [])
+        called.extend(row.get("called_tools") or [])
+    assert "delegate_to_specialized_writer_toolset" in set(decided + called), (
+        "E7 expected delegate, snaps=%r" % snaps[-8:]
+    )
+    for row in snaps:
+        for name in row.get("decided_tools") or []:
+            if name == "delegate_read_document":
+                raise AssertionError("E7 inner must not call empty-path delegate_read_document: %r" % row)
+    body = _transcript().lower()
+    assert "outline" in body or "assistant:" in body, "E7 expected outline wrap-up, got %r" % _transcript()[-400:]
+    _hello_ok()
+
+
+@native_test
+def test_e8a_stop_during_nested_delegate(ctx):
+    from plugin.chatbot.sidebar_test_hooks import (
+        set_query_text_via_controls,
+        uno_click,
+        wait_controls_send_finished,
+    )
+
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    assert _session is not None
+    _session.config.delay_ms = 80
+    _session.config.sync_delay_ms = 8000
+    controls = getattr(_session, "controls", None)
+    before = _transcript()
+    try:
+        if controls is not None:
+            set_query_text_via_controls(controls, "outline this")
+            time.sleep(0.2)
+            uno_click(controls["send"])
+            assert _wait_stop_enabled(timeout=15.0), "E8a Stop never enabled during nested work"
+            _press_stop()
+            assert wait_controls_send_finished(
+                controls,
+                timeout=40.0,
+                transcript_fn=_transcript,
+                before=before,
+            ), "E8a did not go idle: %r" % _transcript()[-400:]
+        else:
+            sl = getattr(_session, "listener", None)
+            assert sl is not None
+            from plugin.chatbot.sidebar_test_hooks import press_send, set_query_text, wait_idle
+
+            set_query_text("outline this", listener=sl)
+            press_send(listener=sl)
+            assert _wait_stop_enabled(timeout=15.0)
+            _press_stop()
+            assert wait_idle(listener=sl, timeout=40.0)
+    finally:
+        _session.config.delay_ms = 20
+        _session.config.sync_delay_ms = None
+    _hello_ok()
+
+
+@native_test
+def test_e8b_stop_mouse_skipped(ctx):
+    raise unittest.SkipTest(
+        "E8b press_stop_mouse needs in-process SendButtonListener; URP ActionEvent is E8a"
+    )
+
+
+@native_test
+def test_e9a_hitl_accept(ctx):
+    from plugin.framework.config import set_config
+
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    set_config("chatbot.prompt_for_web_research", True)
+    time.sleep(2.1)
+    controls = getattr(_session, "controls", None)
+    try:
+        from plugin.chatbot.sidebar_test_hooks import set_query_text_via_controls, uno_click, wait_controls_send_finished
+
+        assert controls is not None
+        set_query_text_via_controls(controls, "look up cats")
+        time.sleep(0.2)
+        uno_click(controls["send"])
+        if not _wait_send_label("Accept", timeout=45.0):
+            raise unittest.SkipTest("E9 HITL Accept label never appeared over URP")
+        uno_click(controls["send"])
+        assert wait_controls_send_finished(controls, timeout=90.0, transcript_fn=_transcript), (
+            "E9a did not finish after Accept: %r" % _transcript()[-400:]
+        )
+    finally:
+        set_config("chatbot.prompt_for_web_research", False)
+        time.sleep(2.1)
+    _hello_ok()
+
+
+@native_test
+def test_e9b_hitl_reject(ctx):
+    from plugin.framework.config import set_config
+
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    set_config("chatbot.prompt_for_web_research", True)
+    time.sleep(2.1)
+    controls = getattr(_session, "controls", None)
+    try:
+        from plugin.chatbot.sidebar_test_hooks import set_query_text_via_controls, uno_click, wait_controls_send_finished
+
+        assert controls is not None
+        set_query_text_via_controls(controls, "look up cats")
+        time.sleep(0.2)
+        uno_click(controls["send"])
+        if not _wait_send_label("Accept", timeout=45.0):
+            raise unittest.SkipTest("E9 HITL Accept label never appeared over URP")
+        clear = controls.get("clear")
+        if clear is not None and "reject" in _label(clear).lower():
+            uno_click(clear)
+        else:
+            uno_click(controls["stop"])
+        assert wait_controls_send_finished(controls, timeout=40.0, transcript_fn=_transcript), (
+            "E9b did not go idle after Reject: %r" % _transcript()[-400:]
+        )
+    finally:
+        set_config("chatbot.prompt_for_web_research", False)
+        time.sleep(2.1)
+    _hello_ok()
+
+
+@native_test
+def test_e9c_hitl_change(ctx):
+    from plugin.framework.config import set_config
+
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    sl = getattr(_session, "listener", None)
+    if sl is None:
+        raise unittest.SkipTest("E9c Change hook needs in-process SendButtonListener")
+    set_config("chatbot.prompt_for_web_research", True)
+    time.sleep(2.1)
+    try:
+        from plugin.chatbot.sidebar_test_hooks import press_change, press_send, set_query_text, wait_idle
+
+        set_query_text("look up cats", listener=sl)
+        press_send(listener=sl)
+        if not _wait_send_label("Accept", timeout=45.0):
+            raise unittest.SkipTest("E9 HITL Accept never appeared")
+        press_change("cats", listener=sl)
+        assert wait_idle(listener=sl, timeout=90.0)
+        assert "[Stopped by user]" not in _transcript(), "E9c must not cancel the stream as Stop"
+    finally:
+        set_config("chatbot.prompt_for_web_research", False)
+        time.sleep(2.1)
+    _hello_ok()
+
+
+@native_test
+def test_e9d_stop_mouse_during_approval_skipped(ctx):
+    raise unittest.SkipTest("E9d press_stop_mouse needs in-process listener (see F3b)")
+
+
+@native_test
+def test_e9e_stop_action_during_approval(ctx):
+    from plugin.framework.config import set_config
+
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    set_config("chatbot.prompt_for_web_research", True)
+    time.sleep(2.1)
+    controls = getattr(_session, "controls", None)
+    try:
+        from plugin.chatbot.sidebar_test_hooks import set_query_text_via_controls, uno_click, wait_controls_send_finished
+
+        assert controls is not None
+        set_query_text_via_controls(controls, "look up cats")
+        time.sleep(0.2)
+        uno_click(controls["send"])
+        if not _wait_send_label("Accept", timeout=45.0):
+            raise unittest.SkipTest("E9 HITL Accept label never appeared over URP")
+        before = _transcript()
+        uno_click(controls["stop"])
+        assert wait_controls_send_finished(controls, timeout=40.0, transcript_fn=_transcript), (
+            "E9e did not finish after Stop/Change: %r" % _transcript()[-400:]
+        )
+        suffix = _transcript()
+        if suffix.startswith(before):
+            suffix = suffix[len(before) :]
+        assert "[Stopped by user]" not in suffix, "E9e Stop during approval must not be StopSendEffect"
+    finally:
+        set_config("chatbot.prompt_for_web_research", False)
+        time.sleep(2.1)
+    _hello_ok()
+
+
+@native_test
+def test_e10_tool_followup_500(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    assert _session is not None
+    _session.config.fail_tool_followup = True
+    try:
+        _send_and_wait("add a comment", timeout=60.0)
+        body = _transcript()
+        _assert_errorish(body, "500", "API error")
+    finally:
+        _session.config.fail_tool_followup = False
+    _hello_ok()
+
+
+@native_test
+def test_e11_filler_then_comment_two_sends(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    _send_and_wait("insert filler", timeout=60.0)
+    assert len(_writer_body(ctx)) > len(WELCOME_BODY)
+    before_c = _annotation_count(ctx)
+    _send_and_wait("add a comment", timeout=60.0, wait_for="comment")
+    assert _annotation_count(ctx) > before_c
+    _hello_ok()
+
+
+@native_test
+def test_e12_calc_list_sheets(ctx):
+    from plugin.chatbot.sidebar_test_hooks import (
+        current_component,
+        desktop_from_ctx,
+        wait_for_chat_dialog_controls,
+    )
+    from plugin.doc.doc_type import is_calc, is_writer
+
+    _reset_mock_runtime()
+    desktop = desktop_from_ctx(ctx)
+    calc = desktop.loadComponentFromURL("private:factory/scalc", "_default", 0, ())
+    time.sleep(1.5)
+    controls = wait_for_chat_dialog_controls(ctx, timeout=15.0)
+    if controls is None:
+        if calc is not None:
+            try:
+                calc.close(True)
+            except Exception:
+                pass
+        _ensure_writer_doc(ctx)
+        raise unittest.SkipTest("E12 Calc WriterAgent deck not available in this runner")
+    _session.controls = controls
+    try:
+        _send_and_wait("list sheets", timeout=60.0)
+        body = _transcript().lower()
+        assert "sheet" in body or "assistant:" in body, "E12 expected list_sheets wrap-up, got %r" % _transcript()[-400:]
+        _hello_ok()
+    finally:
+        try:
+            if calc is not None:
+                calc.close(True)
+        except Exception:
+            pass
+        _ensure_writer_doc(ctx)
+        time.sleep(1.0)
+        restored = wait_for_chat_dialog_controls(ctx, timeout=15.0)
+        if restored is not None:
+            _session.controls = restored
+        doc = current_component(ctx)
+        if doc is not None and is_writer(doc) and not is_calc(doc):
+            _set_writer_body(ctx, WELCOME_BODY)
+
+
+@native_test
+def test_e13_stop_during_add_comment(ctx):
+    from plugin.chatbot.sidebar_test_hooks import (
+        set_query_text_via_controls,
+        uno_click,
+        wait_controls_send_finished,
+    )
+
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    assert _session is not None
+    _session.config.delay_ms = 80
+    controls = getattr(_session, "controls", None)
+    before = _transcript()
+    try:
+        if controls is not None:
+            set_query_text_via_controls(controls, "add a comment")
+            time.sleep(0.2)
+            uno_click(controls["send"])
+            if _wait_stop_enabled(timeout=8.0):
+                _press_stop()
+            assert wait_controls_send_finished(
+                controls, timeout=30.0, transcript_fn=_transcript, before=before
+            ), "E13 did not go idle: %r" % _transcript()[-400:]
+        else:
+            _send_and_wait("add a comment", timeout=30.0)
+    finally:
+        _session.config.delay_ms = 20
+    _hello_ok()
+
+
+@native_test
+def test_e14_outline_twice(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    _send_and_wait("outline this", timeout=120.0)
+    _send_and_wait("outline this", timeout=120.0)
+    snaps = _captures()
+    n_delegate = sum(
+        1
+        for row in snaps
+        if "delegate_to_specialized_writer_toolset" in (row.get("decided_tools") or [])
+    )
+    assert n_delegate >= 2, "E14 expected two delegate sends, got %s snaps=%r" % (n_delegate, snaps[-10:])
+    _hello_ok()
+
+
+@native_test
+def test_e15_stop_after_filler_tool_before_wrapup(ctx):
+    from plugin.chatbot.sidebar_test_hooks import (
+        set_query_text_via_controls,
+        uno_click,
+        wait_controls_send_finished,
+    )
+
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    assert _session is not None
+    _session.config.delay_ms = 40
+    controls = getattr(_session, "controls", None)
+    before = _transcript()
+    try:
+        if controls is not None:
+            set_query_text_via_controls(controls, "insert filler")
+            time.sleep(0.2)
+            uno_click(controls["send"])
+            if _wait_stop_enabled(timeout=8.0):
+                _press_stop()
+            assert wait_controls_send_finished(
+                controls, timeout=30.0, transcript_fn=_transcript, before=before
+            ), "E15 did not go idle: %r" % _transcript()[-400:]
+        else:
+            _send_and_wait("insert filler", timeout=30.0)
+    finally:
+        _session.config.delay_ms = 20
+    _hello_ok()
+

@@ -541,7 +541,9 @@ Mock: `--delay-ms 40` (and ramble phrases) unless noted.
 
 ### v2 Packet E — tools, delegate, HITL
 
-Writer with body text “Welcome to WriterAgent.” unless **empty** is specified. Mock `--offline` for research unless E2.
+**Landed:** E1, E3–E8a, E9a–c/e, E10–E15 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar`). **Skipped:** E2 (live DDG), E8b/E9d (`press_stop_mouse` / in-process listener, same as F3b), E12 if the Calc deck is missing, E9c unless the live listener is in-process.
+
+Writer with body text “Welcome to WriterAgent.” unless **empty** is specified. Mock `--offline` for research unless E2. Setup turns `chatbot.prompt_for_web_research` **off** except E9. Mock request captures live on `MockLLMConfig.captures`.
 
 | ID | Drive | Pass (assert) |
 |----|--------|----------------|

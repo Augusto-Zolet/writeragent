@@ -192,6 +192,7 @@ _CHAT_CONTROL_NAMES = (
     "query",
     "send",
     "stop",
+    "clear",
     "response",
     "response_rich",
     "status",

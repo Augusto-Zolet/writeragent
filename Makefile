@@ -222,7 +222,7 @@ help:
 	@echo "  make pytest                 Unit pytest only (xdist -n -1; PYTEST_WORKERS=0 for serial)"
 	@echo "  make mock-llm               Fake OpenAI chat server on :18766 (sidebar soak: scroll, tools, Stop, errors)"
 	@echo "  make test-uno               UNO tests only via testing_runner (serial live soffice)"
-	@echo "  make test-mock-sidebar      Packet F mock-LLM sidebar (visible soffice, your user profile)"
+	@echo "  make test-mock-sidebar      Packet F+E mock-LLM sidebar (visible soffice, your user profile)"
 	@echo "  make excel-py-roundtrip     Excel↔DAG sample fidelity over PythonExcelSamples/"
 	@echo ""
 	@echo "Benchmarks (prompt optimization / eval):"
