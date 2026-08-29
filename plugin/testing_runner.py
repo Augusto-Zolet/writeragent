@@ -124,8 +124,8 @@ def _soffice_bootstrap_command(officehelper_module: Any) -> str | None:
         quoted = '"%s"' % soffice
         if use_user_profile:
             # Keep the developer's UserInstallation (extension + writeragent.json).
-            # --norestore: crash recovery UI blocks bootstrap (sidebar is shown in tests).
-            return "%s --norestore --nofirststartwizard --nocrashreport" % quoted
+            # Actual GUI start is ``_user_profile_soffice_argv`` (adds --writer, no --nodefault).
+            return "%s --norestore --nofirststartwizard --nocrashreport --writer" % quoted
         profile_url = Path(tempfile.mkdtemp(prefix="writeragent-lo-test-profile-")).as_uri()
         return (
             "%s --headless --norestore --nofirststartwizard --nocrashreport "
@@ -138,11 +138,92 @@ def _soffice_bootstrap_command(officehelper_module: Any) -> str | None:
 _SOFFICE_STRIP_ENV = ("PYTHONPATH", "PYTHONHOME", "VIRTUAL_ENV")
 
 
-def _child_env_without_runner_python() -> dict[str, str]:
+def _child_env_without_runner_python(*, uno_thread_guard: bool | None = None) -> dict[str, str]:
     env = dict(os.environ)
     for key in _SOFFICE_STRIP_ENV:
         env.pop(key, None)
+    # URP dispatch of WriterAgentDeck runs getRealInterface off the VCL thread.
+    # Dev thread_guard would abort ChatPanel create (Dummy-N). Official opt-out.
+    if uno_thread_guard is False:
+        env["WRITERAGENT_UNO_THREAD_GUARD"] = "0"
     return env
+
+
+def _user_profile_soffice_argv(soffice: Path, accept: str) -> list[str]:
+    """Visible Writer on the real user profile. No ``--nodefault`` (officehelper crash).
+
+    ``--norestore`` skips the crash-recovery dialog that otherwise blocks the UNO pipe.
+    Tests then show ``WriterAgentDeck`` over UNO (View → Sidebar may be off).
+    """
+    return [
+        str(soffice),
+        "--norestore",
+        "--nofirststartwizard",
+        "--nocrashreport",
+        "--nologo",
+        "--writer",
+        "--accept=%s" % accept,
+    ]
+
+
+def _libreoffice_user_lock_path() -> Path:
+    if sys.platform.startswith("win"):
+        base = Path(os.environ.get("APPDATA", "")) / "LibreOffice" / "4"
+    elif sys.platform == "darwin":
+        base = Path.home() / "Library" / "Application Support" / "LibreOffice" / "4"
+    else:
+        base = Path.home() / ".config" / "libreoffice" / "4"
+    return base / ".lock"
+
+
+def _soffice_bin_running() -> bool:
+    try:
+        import subprocess
+
+        return (
+            subprocess.call(
+                ["pgrep", "-x", "soffice.bin"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            == 0
+        )
+    except Exception:
+        return False
+
+
+def _clear_stale_user_profile_ipc() -> None:
+    """Drop leftover SingleOfficeIPC pipes and ``.lock`` when soffice is not running.
+
+    A stale UserInstallation ``.lock`` with ``IPCServer=false`` makes the next
+    soffice skip ``--accept``, so Packet F cannot connect.
+    """
+    if _soffice_bin_running():
+        return
+    lock = _libreoffice_user_lock_path()
+    try:
+        if lock.is_file():
+            lock.unlink()
+    except OSError:
+        pass
+    if not hasattr(os, "getuid"):
+        return
+    import glob
+
+    tmp = tempfile.gettempdir()
+    for path in glob.glob(os.path.join(tmp, "OSL_PIPE_%s_*" % os.getuid())):
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+def _unused_tcp_port() -> int:
+    import socket
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
 
 
 def _resolve_soffice_bin(officehelper_module: Any) -> Path | None:
@@ -170,35 +251,46 @@ def _bootstrap_user_profile_gui(officehelper_module: Any) -> Any:
     That path opened a window and then crashed (URP disposed). This start matches
     ``scripts/launch-lo-debug.sh`` plus an accept string so tests can attach.
     """
-    import random
     import subprocess
     import time
 
     import uno
     from com.sun.star.connection import NoConnectException
 
+    if sys.platform.startswith("linux") and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        raise RuntimeError("user-profile sidebar tests need DISPLAY (visible Writer)")
     soffice = _resolve_soffice_bin(officehelper_module)
     if soffice is None:
         raise RuntimeError("soffice not found (PATH, officehelper dir, or common install paths)")
-    pipe = "uno%s" % str(random.random())[2:]
-    accept = "pipe,name=%s;urp;" % pipe
-    cmd = [
-        str(soffice),
-        "--norestore",
-        "--nofirststartwizard",
-        "--nocrashreport",
-        "--writer",
-        "--accept=%s" % accept,
-    ]
-    subprocess.Popen(cmd, env=_child_env_without_runner_python(), start_new_session=True)
+    _clear_stale_user_profile_ipc()
+    port = _unused_tcp_port()
+    accept = "socket,host=127.0.0.1,port=%s;urp;" % port
+    cmd = _user_profile_soffice_argv(soffice, accept)
+    proc = subprocess.Popen(
+        cmd,
+        env=_child_env_without_runner_python(uno_thread_guard=False),
+        start_new_session=True,
+    )
     local = uno.getComponentContext()
-    resolver = local.ServiceManager.createInstanceWithContext(
+    smgr = getattr(local, "getServiceManager", lambda: None)()
+    if smgr is None:
+        smgr = getattr(local, "ServiceManager", None)
+    if smgr is None:
+        raise RuntimeError("no ServiceManager on local UNO context")
+    resolver = smgr.createInstanceWithContext(
         "com.sun.star.bridge.UnoUrlResolver", local
     )
     url = "uno:%sStarOffice.ComponentContext" % accept
     last_exc: BaseException | None = None
-    for delay in (1, 2, 3, 5, 8):
+    # GUI + extension OnStartApp is slower than headless officehelper.
+    for delay in (0.5, 1, 1, 2, 2, 3, 5, 8, 8):
         time.sleep(delay)
+        code = proc.poll()
+        if code is not None:
+            raise RuntimeError(
+                "user-profile soffice exited %s before UNO connect (crash recovery or mixed PYTHONPATH?)"
+                % code
+            )
         try:
             return resolver.resolve(url)
         except NoConnectException as exc:
