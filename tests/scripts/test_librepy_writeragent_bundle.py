@@ -15,6 +15,8 @@ from scripts.librepy_bundle_paths import collect_librepy_plugin_paths  # noqa: E
 def test_librepy_bundle_includes_writeragent_namespace():
     paths = collect_librepy_plugin_paths(str(_REPO_ROOT))
     assert "plugin/scripting/writeragent_namespace.py" in paths
+    assert "plugin/scripting/named_scripts.py" in paths
+    assert "plugin/scripting/host_rpc.py" in paths
 
 
 def test_librepy_bundle_excludes_writeragent_api():

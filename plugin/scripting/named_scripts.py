@@ -252,8 +252,19 @@ class ScriptLibrary:
 
 
 def attach_named_script_libraries(executor: Any | None = None) -> None:
-    """Bind ``writeragent.scripts`` / ``writeragent.doc`` on the alias module."""
+    """Bind ``writeragent.scripts`` / ``writeragent.doc`` on the alias module.
+
+    LibrePy omits ``writeragent_api``; ``import writeragent`` is
+    ``writeragent_namespace``. Attach there first so Run Python Script still
+    sees ``wa.scripts`` / ``wa.doc``.
+    """
     mods: list[Any] = []
+    try:
+        from plugin.scripting import writeragent_namespace
+
+        mods.append(writeragent_namespace)
+    except ImportError:
+        log.debug("named_scripts: writeragent_namespace missing", exc_info=True)
     try:
         from plugin.scripting import writeragent_api
 

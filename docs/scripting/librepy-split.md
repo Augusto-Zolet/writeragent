@@ -43,7 +43,7 @@ Aligned with [../enabling_numpy_in_libreoffice.md](../enabling_numpy_in_libreoff
 | In core extension | WriterAgent extension only |
 |-------------------|---------------------------|
 | `=PYTHON()` / `=PY()` Calc add-in + warm venv worker | `=PROMPT()`, chat sidebar, MCP, grammar |
-| **Run Python Script…**, document scripts, init script, **Reset Python Session** | Chat tools (`run_venv_python_script`, `analyze_data`, `extract_text_from_image`, …) |
+| **Run Python Script…**, document scripts, init script, **Reset Python Session**, `wa.scripts` / `wa.doc` named libraries (`named_scripts.py`; host fetch via `host_rpc`, not `writeragent_api`) | Chat tools (`run_venv_python_script`, `analyze_data`, `extract_text_from_image`, …) |
 | **Monaco** (Edit Python in Cell…, Run Python Script editor) | Analysis Sub-Agent, tool loop, LLM client |
 | **LibrePy Python sidebar** (Calc deck: cells + diagnostics; also in WriterAgent.oxt) | WriterAgent chat deck (`WriterAgentDeck`) |
 | **NumPy domain trusted helpers** (Analysis, Viz, Symbolic, Units, Forecast, Optimize, Quant, Text Analytics menu) | Embeddings (`plugin/embeddings/`, folder FTS, hybrid search) |

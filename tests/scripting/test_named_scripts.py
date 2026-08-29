@@ -265,6 +265,51 @@ def test_script_library_uses_bound_executor_not_contextvar():
         _current_executor.reset(token)
 
 
+def test_attach_binds_librepy_namespace_stub():
+    from plugin.scripting import writeragent_namespace as ns
+    from plugin.scripting.named_scripts import ScriptLibrary, attach_named_script_libraries
+    from plugin.scripting.venv.venv_sandbox import _new_executor
+
+    exe = _new_executor(10)
+    attach_named_script_libraries(exe)
+    assert isinstance(ns.scripts, ScriptLibrary)
+    assert isinstance(ns.doc, ScriptLibrary)
+    assert ns.doc._executor is exe
+
+
+def test_sandbox_import_writeragent_without_api_has_doc():
+    """LibrePy: import writeragent is the namespace stub; libraries must still bind."""
+    import importlib.util
+    import sys
+
+    from plugin.framework.uno_bootstrap import _WRITERAGENT_API, register_alias_importer
+    from plugin.scripting.venv.venv_sandbox import run_sandboxed_code
+
+    orig_find = importlib.util.find_spec
+
+    def find_spec_no_api(name: str, package=None):
+        if name == _WRITERAGENT_API:
+            return None
+        return orig_find(name, package)
+
+    for key in list(sys.modules):
+        if key == "writeragent" or key.startswith("writeragent."):
+            del sys.modules[key]
+    try:
+        register_alias_importer()
+        with patch("importlib.util.find_spec", side_effect=find_spec_no_api):
+            res = run_sandboxed_code(
+                "import writeragent as wa\n"
+                "result = bool(getattr(wa, 'doc', None) and getattr(wa, 'scripts', None))\n"
+            )
+        assert res.get("status") == "ok", res
+        assert res.get("result") is True
+    finally:
+        for key in list(sys.modules):
+            if key == "writeragent" or key.startswith("writeragent."):
+                del sys.modules[key]
+
+
 def test_rps_session_id_writer_is_document_keyed():
     from plugin.scripting import session_manager as sm
 

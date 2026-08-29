@@ -6,5 +6,6 @@
 
 LibrePy omits the generated tool-proxy module; ``AliasImporter`` loads this module
 instead so ``from writeragent.scripting.* import ...`` can resolve child packages
-via the existing writeragent→plugin alias.
+via the existing writeragent→plugin alias. ``wa.scripts`` / ``wa.doc`` are attached
+at execute time (``named_scripts.attach_named_script_libraries``).
 """
