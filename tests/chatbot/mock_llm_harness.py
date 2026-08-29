@@ -26,11 +26,20 @@ def mock_config(config: Any, **flags: Any) -> Any:
 class MockSidebarSession:
     """Running mock LLM + saved WriterAgent endpoint/model to restore on close."""
 
-    def __init__(self, httpd: ThreadingHTTPServer, thread: threading.Thread, base_url: str, saved: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        httpd: ThreadingHTTPServer,
+        thread: threading.Thread,
+        base_url: str,
+        saved: dict[str, Any],
+        config: MockLLMConfig,
+    ) -> None:
         self.httpd = httpd
         self.thread = thread
         self.base_url = base_url
         self.saved = saved
+        # Mutate in place for F5/F6/F16 (fail / delay) without restarting soffice.
+        self.config = config
 
 
 def start_mock_sidebar_session(*, delay_ms: int = 20, offline: bool = True, **flags: Any) -> MockSidebarSession:
@@ -63,7 +72,7 @@ def start_mock_sidebar_session(*, delay_ms: int = 20, offline: bool = True, **fl
     # Live sidebar is the OXT process. get_config caches mtime checks for 2s.
     if os.environ.get("WRITERAGENT_UNO_USER_PROFILE") == "1":
         time.sleep(2.1)
-    return MockSidebarSession(httpd, thread, base_url, saved)
+    return MockSidebarSession(httpd, thread, base_url, saved, config)
 
 
 def stop_mock_sidebar_session(session: MockSidebarSession | None) -> None:

@@ -289,8 +289,16 @@ Plain “hello” streams two HTML paragraphs (rotating lists/tables/code). Phra
 | `list sheets` / `list pages` | Calc/Draw list tools when advertised |
 | `crash the stream` / `error 500` | HTTP 500 JSON error |
 | `rate limit` / `error 429` | HTTP 429 |
+| `error 401` / `unauthorized` | HTTP 401 |
+| `error 403` / `forbidden` | HTTP 403 |
 | `hang the stream` | a few SSE chunks, then the socket drops (no `[DONE]`) |
 | `sse pings` | `: ping` comments between events (`--sse-comments` does this for every stream) |
+| `event ping` | `event: ping` named SSE events between `data:` lines |
+| `malformed sse` | `data: {not json}` then a valid stream + `[DONE]` |
+| `truncated json` | incomplete `data: {` then valid stream + `[DONE]` |
+| `two dones` | normal stream then two `data: [DONE]` lines |
+| `empty body` | HTTP 200 with Content-Length 0 |
+| `connection reset` | close socket before any status line |
 
 Specialized inner HTTP (any request advertising `specialized_workflow_finished`, or `get_document_tree` plus `final_answer`) is scripted as document_research-shaped soak: one discovery tool (`get_document_tree` if advertised, else `list_nearby_files` / `search_nearby_files` / `grep_nearby_files`), then `specialized_workflow_finished` / `final_answer` with a canned outline. Never `delegate_read_document` with an empty path. Phrase “outline this” on that inner request must not fall through to the main-chat delegate scenario (which would emit HTML as the specialized `answer`).
 
@@ -563,12 +571,13 @@ Writer with body text “Welcome to WriterAgent.” unless **empty** is specifie
 
 ### v2 Packet F — HTTP / SSE errors
 
-**Landed (thin):** F1, F2, F14 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py). Run **`make test-mock-sidebar`** (not `make test-uno`). Visible soffice with **your** LibreOffice user profile:
+**Landed:** F1–F18 (F3b skipped over URP) in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py). Run **`make test-mock-sidebar`** (not `make test-uno`). Visible soffice with **your** LibreOffice user profile:
 
 - **Bootstrap:** Popen ``--norestore --writer --accept=socket,host=127.0.0.1,port=<ephemeral>;urp;`` like ``make lo-start`` (TCP, not a named pipe). Do **not** use ``officehelper.bootstrap`` (it appends ``--nodefault`` and the GUI crashed / URP disposed). Child env strips ``PYTHONPATH`` so the OXT is not mixed with the checkout. A leftover ``.lock`` with ``IPCServer=false`` is removed when no ``soffice.bin`` is running so ``--accept`` binds (OSL pipes under ``tempfile.gettempdir()``, not a hardcoded ``/tmp``).
 - **Crash recovery:** ``--norestore`` skips the recovery dialog that otherwise blocks the UNO pipe.
 - **View → Sidebar off:** tests dispatch ``.uno:SidebarDeck.WriterAgentDeck`` (shows the sidebar; ``.uno:Sidebar`` *toggles*). Decks come from ``controller.Sidebar`` (``XSidebarProvider.getDecks`` on SwXTextView). The soffice child sets ``WRITERAGENT_UNO_THREAD_GUARD=0`` so URP deck dispatch can create ChatPanel (otherwise ``getRealInterface`` aborts on Dummy-N).
-- **Out-of-process UNO:** the live ``SendButtonListener`` lives in soffice. Drive query/send over URP (``uno_click``); poll Stop ``Enabled`` and transcript text. Do not ``processEventsToIdle`` on the pipe.
+- **Out-of-process UNO:** the live ``SendButtonListener`` lives in soffice. Drive query/send/stop over URP (``uno_click``); poll Stop ``Enabled`` and transcript text. Do not ``processEventsToIdle`` on the pipe.
+- **F3b skipped:** ``press_stop_mouse()`` needs an in-process listener; URP only has ActionEvent (covered by **F17** Stop during hang).
 
 Harness: [`tests/chatbot/mock_llm_harness.py`](../../tests/chatbot/mock_llm_harness.py). Hooks: [`plugin/chatbot/sidebar_test_hooks.py`](../../plugin/chatbot/sidebar_test_hooks.py). Other UNO tests stay `make test-uno` (headless + throwaway profile).
 

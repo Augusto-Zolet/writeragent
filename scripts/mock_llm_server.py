@@ -82,6 +82,14 @@ _SCENARIO_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("hang", re.compile(r"\bhang the stream\b", re.IGNORECASE)),
     ("fail_http", re.compile(r"\b(crash the stream|error\s*500)\b", re.IGNORECASE)),
     ("rate_limit", re.compile(r"\b(rate limit|error\s*429)\b", re.IGNORECASE)),
+    ("auth_401", re.compile(r"\b(error\s*401|unauthorized)\b", re.IGNORECASE)),
+    ("auth_403", re.compile(r"\b(error\s*403|forbidden)\b", re.IGNORECASE)),
+    ("connection_reset", re.compile(r"\bconnection reset\b", re.IGNORECASE)),
+    ("empty_body", re.compile(r"\bempty body\b", re.IGNORECASE)),
+    ("malformed_sse", re.compile(r"\bmalformed sse\b", re.IGNORECASE)),
+    ("truncated_json", re.compile(r"\btruncated json\b", re.IGNORECASE)),
+    ("two_dones", re.compile(r"\btwo dones\b", re.IGNORECASE)),
+    ("event_ping", re.compile(r"\bevent ping\b", re.IGNORECASE)),
     ("ramble", re.compile(r"\b(keep talking|ramble|stop me)\b", re.IGNORECASE)),
     ("empty", re.compile(r"\b(say nothing|empty reply)\b", re.IGNORECASE)),
     ("think_details", re.compile(r"\breasoning details\b", re.IGNORECASE)),
@@ -94,6 +102,23 @@ _SCENARIO_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("ping", re.compile(r"\bsse pings\b", re.IGNORECASE)),
     ("list_sheets", re.compile(r"\blist sheets\b", re.IGNORECASE)),
     ("list_pages", re.compile(r"\blist pages\b", re.IGNORECASE)),
+)
+
+# Packet F HTTP/SSE faults that apply on the user turn (not tool follow-ups).
+_FAULT_SCENARIOS = frozenset(
+    {
+        "fail_http",
+        "rate_limit",
+        "hang",
+        "auth_401",
+        "auth_403",
+        "connection_reset",
+        "empty_body",
+        "malformed_sse",
+        "truncated_json",
+        "two_dones",
+        "event_ping",
+    }
 )
 
 SCENARIO_IDS = frozenset(
@@ -112,6 +137,14 @@ SCENARIO_IDS = frozenset(
         "fail_http",
         "rate_limit",
         "hang",
+        "auth_401",
+        "auth_403",
+        "connection_reset",
+        "empty_body",
+        "malformed_sse",
+        "truncated_json",
+        "two_dones",
+        "event_ping",
         "ping",
         "list_sheets",
         "list_pages",
@@ -160,6 +193,9 @@ class Completion:
     http_error: int | None = None
     hang: bool = False
     sse_comments: bool = False
+    # Packet F stream quirks (not HTTP status): handled in do_POST.
+    # event_ping | two_dones | malformed | truncated | empty_body | connection_reset
+    sse_quirk: str | None = None
 
 
 def completion_tool_calls(completion: Completion) -> list[tuple[str, dict[str, Any]]]:
@@ -650,6 +686,42 @@ def _scenario_user_turn(
         return Completion(http_error=500, finish_reason="stop")
     if scenario == "rate_limit":
         return Completion(http_error=429, finish_reason="stop")
+    if scenario == "auth_401":
+        return Completion(http_error=401, finish_reason="stop")
+    if scenario == "auth_403":
+        return Completion(http_error=403, finish_reason="stop")
+    if scenario == "connection_reset":
+        return Completion(sse_quirk="connection_reset", finish_reason="stop")
+    if scenario == "empty_body":
+        return Completion(sse_quirk="empty_body", finish_reason="stop")
+    if scenario == "malformed_sse":
+        return Completion(
+            content=_html_chat(user_text, turn),
+            reasoning=reasoning,
+            sse_quirk="malformed",
+            finish_reason="stop",
+        )
+    if scenario == "truncated_json":
+        return Completion(
+            content=_html_chat(user_text, turn),
+            reasoning=reasoning,
+            sse_quirk="truncated",
+            finish_reason="stop",
+        )
+    if scenario == "two_dones":
+        return Completion(
+            content=_html_chat(user_text, turn),
+            reasoning=reasoning,
+            sse_quirk="two_dones",
+            finish_reason="stop",
+        )
+    if scenario == "event_ping":
+        return Completion(
+            content=_html_chat(user_text, turn),
+            reasoning=reasoning,
+            sse_quirk="event_ping",
+            finish_reason="stop",
+        )
     if scenario == "hang":
         return Completion(content=_ramble_text(), hang=True, ramble_parts=RAMBLE_PARTS, finish_reason="stop")
     if scenario == "ramble":
@@ -747,7 +819,7 @@ def decide_completion(payload: dict[str, Any], config: MockLLMConfig, turns: _Tu
 
     # Soak HTTP/stream faults apply on the user turn (and any later POST that still
     # matches the last user phrase / --scenario).
-    if scenario in {"fail_http", "rate_limit", "hang"} and last_role != "tool":
+    if scenario in _FAULT_SCENARIOS and last_role != "tool":
         forced = _scenario_user_turn(scenario, tool_names, user_text, messages, turn, config)
         if forced is not None:
             return forced
@@ -1051,10 +1123,15 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
             self.send_error(404)
 
         def _fail_or_hang_headers(self, dummy: Completion, *, stream: bool) -> bool:
-            """Apply --fail. Returns True if the request is fully handled."""
+            """Apply --fail / phrase http_error. Returns True if the request is fully handled."""
             status, hang = _effective_fail(config, dummy)
             if status is not None:
-                err_type = "rate_limit_error" if status == 429 else "server_error"
+                if status == 429:
+                    err_type = "rate_limit_error"
+                elif status in (401, 403):
+                    err_type = "authentication_error"
+                else:
+                    err_type = "server_error"
                 self._send_json(status, openai_error_body("mock LLM soak failure", err_type))
                 return True
             if hang and not stream:
@@ -1077,6 +1154,28 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
                 self.connection.shutdown(socket.SHUT_WR)
             except OSError:
                 pass
+
+        def _apply_sse_quirk_preamble(self, quirk: str | None) -> bool:
+            """Handle Packet F quirks that finish the response without a normal body.
+
+            Returns True when the request is fully handled.
+            """
+            if quirk == "connection_reset":
+                # RST / close before any status line (F13).
+                self.close_connection = True
+                try:
+                    self.connection.close()
+                except OSError:
+                    pass
+                return True
+            if quirk == "empty_body":
+                # HTTP 200 with zero-length body (F12).
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return True
+            return False
 
         def do_POST(self) -> None:  # noqa: N802
             path = urlparse(self.path).path
@@ -1119,6 +1218,8 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
             model = str(payload.get("model") or MOCK_MODEL_ID)
             completion = decide_completion(payload, config, state)
             stream = bool(payload.get("stream"))
+            if self._apply_sse_quirk_preamble(completion.sse_quirk):
+                return
             if self._fail_or_hang_headers(completion, stream=stream):
                 return
             unused_status, hang = _effective_fail(config, completion)
@@ -1138,12 +1239,25 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
             self.send_header("Content-Type", "text/event-stream")
             self.send_header("Cache-Control", "no-cache")
             self.end_headers()
+            quirk = completion.sse_quirk
+            # F9 / F10: bad line first; then a normal stream so the client can recover.
+            if quirk == "malformed":
+                self.wfile.write(b"data: {not json}\n\n")
+                self.wfile.flush()
+            elif quirk == "truncated":
+                self.wfile.write(b"data: {\n\n")
+                self.wfile.flush()
             comments = bool(config.sse_comments or completion.sse_comments)
+            event_ping = quirk == "event_ping"
             max_chunks = int(config.fail_after_chunks) if hang else None
             written = 0
             for obj in iter_sse_payloads(completion, model, chunk_chars=config.chunk_chars):
                 if comments:
                     self.wfile.write(b": ping\n\n")
+                    self.wfile.flush()
+                if event_ping:
+                    # F18: named SSE events are ignored by iterate_sse (data: only).
+                    self.wfile.write(b"event: ping\ndata: ignored\n\n")
                     self.wfile.flush()
                 line = "data: " + json.dumps(obj, ensure_ascii=False) + "\n\n"
                 self.wfile.write(line.encode("utf-8"))
@@ -1156,6 +1270,10 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
                     time.sleep(delay)
             self.wfile.write(b"data: [DONE]\n\n")
             self.wfile.flush()
+            if quirk == "two_dones":
+                # F11: second [DONE] must not start another drain terminal.
+                self.wfile.write(b"data: [DONE]\n\n")
+                self.wfile.flush()
 
     return MockLLMHandler
 

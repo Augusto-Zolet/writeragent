@@ -843,6 +843,108 @@ def test_fail_and_hang_completions():
     assert hung.hang is True
 
 
+def test_packet_f_auth_and_sse_quirk_completions():
+    cfg = MockLLMConfig(delay_ms=0)
+    tools = _tools("web_research")
+
+    def one(text: str):
+        return decide_completion({"messages": [{"role": "user", "content": text}], "tools": tools}, cfg)
+
+    assert one("error 401").http_error == 401
+    assert one("unauthorized").http_error == 401
+    assert one("error 403").http_error == 403
+    assert one("forbidden").http_error == 403
+    assert one("connection reset").sse_quirk == "connection_reset"
+    assert one("empty body").sse_quirk == "empty_body"
+    assert one("malformed sse").sse_quirk == "malformed"
+    assert one("truncated json").sse_quirk == "truncated"
+    assert one("two dones").sse_quirk == "two_dones"
+    assert one("event ping").sse_quirk == "event_ping"
+    ping = one("sse pings")
+    assert ping.sse_comments is True
+    assert ping.content and "<p>" in ping.content
+
+
+def test_packet_f_sse_quirk_http_roundtrips():
+    """One live HTTP POST per Packet F stream quirk (not drain/UI)."""
+    from http.server import ThreadingHTTPServer
+    import json as json_mod
+    import threading
+    from urllib.error import HTTPError, URLError
+    from urllib.request import Request, urlopen
+    import http.client
+    import socket as socket_mod
+
+    config = MockLLMConfig(delay_ms=0)
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler_class(config))
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    host, port = httpd.server_address[:2]
+    base = "http://%s:%s" % (host, port)
+
+    def post(text: str, *, stream: bool = True) -> str:
+        req = Request(
+            base + "/v1/chat/completions",
+            data=json_mod.dumps(
+                {
+                    "model": MOCK_MODEL_ID,
+                    "stream": stream,
+                    "messages": [{"role": "user", "content": text}],
+                }
+            ).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urlopen(req, timeout=3) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except HTTPError:
+            raise
+        except (http.client.IncompleteRead, URLError, ConnectionResetError, socket_mod.timeout, BrokenPipeError) as err:
+            for obj in (err, getattr(err, "reason", None)):
+                partial = getattr(obj, "partial", None)
+                if isinstance(partial, bytes) and partial:
+                    return partial.decode("utf-8", errors="replace")
+            return ""
+
+    try:
+        with pytest.raises(HTTPError) as err401:
+            post("error 401", stream=False)
+        assert err401.value.code == 401
+
+        with pytest.raises(HTTPError) as err403:
+            post("error 403", stream=False)
+        assert err403.value.code == 403
+
+        raw_mal = post("malformed sse")
+        assert "data: {not json}" in raw_mal
+        assert "[DONE]" in raw_mal
+
+        raw_trunc = post("truncated json")
+        assert "data: {" in raw_trunc
+        assert "[DONE]" in raw_trunc
+
+        raw_two = post("two dones")
+        assert raw_two.count("[DONE]") >= 2
+
+        raw_event = post("event ping")
+        assert "event: ping" in raw_event
+        assert "[DONE]" in raw_event
+
+        raw_empty = post("empty body")
+        assert "choices" not in raw_empty
+
+        # F13: socket closed before headers — raise or empty body.
+        try:
+            raw_reset = post("connection reset")
+        except (URLError, ConnectionResetError, OSError, HTTPError):
+            raw_reset = None
+        assert raw_reset is None or "choices" not in raw_reset
+    finally:
+        httpd.shutdown()
+        thread.join(timeout=2)
+
+
 def test_current_query_ignores_librarian_history_phrases():
     """Packet F recovery: hello after crash must not keep matching crash the stream."""
     wrapped = (
