@@ -532,6 +532,7 @@ def _run_python_monaco(
             from plugin.scripting.document_scripts import (
                 get_document_scripts,
                 get_user_scripts,
+                parse_document_script_display_name,
                 save_document_script,
                 save_user_script,
             )
@@ -540,8 +541,9 @@ def _run_python_monaco(
                 save_user_script(last_name, code)
             else:
                 doc_scripts = get_document_scripts(doc)
-                if last_name in doc_scripts:
-                    save_document_script(doc, last_name, code)
+                real_doc_name = parse_document_script_display_name(last_name) or last_name
+                if real_doc_name in doc_scripts:
+                    save_document_script(doc, real_doc_name, code)
         if action == "save":
             return {"type": "saved", "ok": True, "status_ok_text": save_ok_text}
         outcome = execute_and_insert_result(ctx, doc, code, data_range=data_binding)

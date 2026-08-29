@@ -169,10 +169,11 @@ def test_resolve_run_script_selection_falls_back_to_first_name():
     with patch("plugin.framework.config.get_config_str", return_value="Missing"), patch(
         "plugin.scripting.python_runner.resolve_run_script_name_config_key",
         return_value="last_python_script_name_writer",
-    ):
+    ), patch("plugin.framework.config.set_config") as mock_set:
         name, code, merged = resolve_run_script_selection(ctx, doc, saved)
     assert name == "Alpha"
     assert code == "a = 1"
+    mock_set.assert_called_once_with("last_python_script_name_writer", "Alpha")
 
 
 def test_resolve_script_picker_entry():
@@ -408,6 +409,7 @@ def test_handle_editor_script_message_save_user_and_empty_name():
             send=sent.append,
         )
         mock_set.assert_any_call("saved_python_scripts", {"Mine": "a = 1", "New": "x = 1"})
+        mock_set.assert_any_call("last_python_script_name_writer", "New")
         assert sent[-1]["type"] == "scripts_list"
         assert "Saved script" in sent[-1]["status_ok_text"]
 
@@ -423,11 +425,56 @@ def test_handle_editor_script_message_save_user_and_empty_name():
         assert sent[-1]["status_error_text"]
 
 
+def test_handle_editor_script_message_save_document_script_updates_config():
+    ctx = MagicMock()
+    props = _UserDefinedProperties()
+    doc = _DocWithUserDefinedProperties(props)
+    sent: list = []
+    with patch("plugin.framework.config.get_config", return_value={}), patch(
+        "plugin.framework.config.set_config"
+    ) as mock_set, patch("plugin.framework.config.get_config_str", return_value=""), patch(
+        "plugin.scripting.python_runner.resolve_run_script_name_config_key",
+        return_value="last_python_script_name_writer",
+    ):
+        assert handle_editor_script_message(
+            "save_script",
+            {"name": "DocReport", "code": "y = 2", "origin": "document"},
+            ctx=ctx,
+            session_doc=doc,
+            session_doc_url=None,
+            send=sent.append,
+        )
+        mock_set.assert_called_with("last_python_script_name_writer", "[Doc] DocReport")
+        assert sent[-1]["type"] == "scripts_list"
+        assert "Saved script 'DocReport' to this document" in sent[-1]["status_ok_text"]
+
+
+def test_handle_editor_script_message_copy_updates_config_when_allowed():
+    ctx = MagicMock()
+    sent: list = []
+    with patch("plugin.framework.config.get_config", return_value={}), patch(
+        "plugin.framework.config.get_config_str", return_value=""
+    ), patch(
+        "plugin.scripting.python_runner.resolve_run_script_name_config_key",
+        return_value="last_python_script_name_writer",
+    ), patch("plugin.framework.config.set_config") as mock_set:
+        assert handle_editor_script_message(
+            "copy_script_to_user",
+            {"name": "CopiedScript", "code": "print(1)", "overwrite": False},
+            ctx=ctx,
+            session_doc=None,
+            session_doc_url=None,
+            send=sent.append,
+        )
+        mock_set.assert_any_call("saved_python_scripts", {"CopiedScript": "print(1)"})
+        mock_set.assert_any_call("last_python_script_name_writer", "CopiedScript")
+
+
 def test_handle_editor_script_message_copy_refuses_overwrite():
     ctx = MagicMock()
     sent: list = []
     with patch("plugin.framework.config.get_config", return_value={"Mine": "a = 1"}), patch(
-        "plugin.framework.config.get_config_str", return_value=""
+        "plugin.framework.config.get_config_str", return_value="Mine"
     ), patch(
         "plugin.scripting.python_runner.resolve_run_script_name_config_key",
         return_value="last_python_script_name_writer",

@@ -45,7 +45,7 @@ def test_run_python_dialog_uses_monaco_when_available():
                                         pr.run_python_dialog()
 
     mock_monaco.assert_called_once()
-    assert mock_monaco.call_args.kwargs["initial_code"].startswith("# Calculate primes")
+    assert "import writeragent as wa" in mock_monaco.call_args.kwargs["initial_code"]
     mock_native.assert_not_called()
 
 
@@ -311,6 +311,36 @@ def test_run_python_monaco_on_save_does_not_upsert_unknown_user_name():
 
     mock_save.assert_not_called()
     mock_doc_save.assert_called_once_with(doc, "Regional", "new")
+
+
+def test_run_python_monaco_on_save_persists_doc_script_with_prefix():
+    """Document scripts prefixed with [Doc] in config must be stripped and saved to document."""
+    ctx = MagicMock()
+    doc = MagicMock()
+    captured: dict = {}
+
+    def fake_launch(_ctx, *, exe, load_message, on_save, on_closed=None):
+        captured["on_save"] = on_save
+        return True
+
+    with patch.object(pr, "launch_monaco_editor", side_effect=fake_launch):
+        with patch("plugin.scripting.document_scripts.save_user_script") as mock_save:
+            with patch("plugin.scripting.document_scripts.save_document_script") as mock_doc_save:
+                with patch.object(pr, "execute_and_insert_result", return_value={"ok": True}):
+                    with patch.object(pr, "get_config_str", return_value="[Doc] Regional"):
+                        with patch("plugin.scripting.document_scripts.get_user_scripts", return_value={}):
+                            with patch("plugin.scripting.document_scripts.get_document_scripts", return_value={"Regional": "old"}):
+                                pr._run_python_monaco(
+                                    ctx,
+                                    doc,
+                                    initial_code="old",
+                                    selected_script_name="[Doc] Regional",
+                                    exe="/venv/bin/python",
+                                )
+                                captured["on_save"]("new_code", False, None, "save")
+
+    mock_save.assert_not_called()
+    mock_doc_save.assert_called_once_with(doc, "Regional", "new_code")
 
 
 def test_execute_and_insert_result_returns_error_on_failure():

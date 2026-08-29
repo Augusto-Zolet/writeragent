@@ -426,7 +426,7 @@ def resolve_run_script_selection(
     saved_scripts: dict[str, str],
 ) -> tuple[str, str, dict[str, str]]:
     """Return (selected_name, selected_code, merged_scripts) for Run Python Script."""
-    from plugin.framework.config import get_config_str
+    from plugin.framework.config import get_config_str, set_config
     from plugin.scripting.python_runner import resolve_run_script_name_config_key
 
     name_config_key = resolve_run_script_name_config_key(doc)
@@ -437,6 +437,8 @@ def resolve_run_script_selection(
             last_name = names[0]
         else:
             last_name = ""
+        if last_name:
+            set_config(name_config_key, last_name)
     selected_code = merged_scripts.get(last_name, "")
     return last_name, selected_code, merged_scripts
 
@@ -593,6 +595,10 @@ def handle_editor_script_message(
         if not name:
             _send_list(status_error_text=_("Script name cannot be empty."))
             return True
+        from plugin.framework.config import set_config
+        from plugin.scripting.python_runner import resolve_run_script_name_config_key
+
+        name_config_key = resolve_run_script_name_config_key(session_doc)
         if origin == SCRIPT_ORIGIN_DOCUMENT:
             if session_doc is None:
                 _send_list(status_error_text=_("No document is open to save scripts."))
@@ -600,14 +606,18 @@ def handle_editor_script_message(
             err = save_document_script(session_doc, name, script_code)
             if err:
                 save_user_script(name, script_code)
+                set_config(name_config_key, name)
                 _send_list(
                     status_ok_text=_("Saved script '{0}' to My Scripts.").format(name),
                     status_error_text=err,
                 )
                 return True
+            display_name = document_script_display_name(name)
+            set_config(name_config_key, display_name)
             _send_list(status_ok_text=_("Saved script '{0}' to this document.").format(name))
             return True
         save_user_script(name, script_code)
+        set_config(name_config_key, name)
         log.info("scripts picker: save_script '%s' (user)", name)
         _send_list(status_ok_text=_("Saved script '{0}'.").format(name))
         return True
@@ -640,6 +650,11 @@ def handle_editor_script_message(
             )
             return True
         save_user_script(name, script_code)
+        from plugin.framework.config import set_config
+        from plugin.scripting.python_runner import resolve_run_script_name_config_key
+
+        name_config_key = resolve_run_script_name_config_key(session_doc)
+        set_config(name_config_key, name)
         _send_list(status_ok_text=_("Copied script '{0}' to My Scripts.").format(name))
         return True
 

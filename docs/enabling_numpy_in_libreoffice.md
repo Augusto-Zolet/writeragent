@@ -815,7 +815,7 @@ wa.writer.apply_document_content(
 )
 ```
 
-The shipped **Universal Sample** script in Settings → Python does the same (Writer HTML, Calc `insert_cell_html`, plus a shape). `run_venv_python_script` cannot be called from a script (it would re-enter the warm worker). Domain-scoped allowlists (`python_tool_domain="writer"` / `"footnotes"`) are enforced on the host; they are not a new IPC type. Follow-on sugar (`sheet.range("A1:B2").values = matrix`) only after this RPC stays stable.
+The shipped **Universal Sample** script (default in Run Python Script…) does the same: Writer HTML, Calc `insert_cell_html`, plus a shape — each call on one line, top-level (no `def run()`). The sandbox already sets `__name__ == "__main__"` (`LocalPythonExecutor`). `run_venv_python_script` cannot be called from a script (it would re-enter the warm worker). Named My Scripts / This Document entries are also not importable from each other today — a future `wa.scripts.run("name")` (host loads the stored body, exec in the same namespace) would make shared libraries possible. Domain-scoped allowlists (`python_tool_domain="writer"` / `"footnotes"`) are enforced on the host; they are not a new IPC type. Follow-on sugar (`sheet.range("A1:B2").values = matrix`) only after this RPC stays stable.
 
 ### Calc UX backlog {#calc-ux-backlog}
 
