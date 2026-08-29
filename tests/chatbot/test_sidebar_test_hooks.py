@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import dataclasses
+import os
 import sys
 from types import SimpleNamespace
 
@@ -18,6 +19,7 @@ from plugin.chatbot.sidebar_state import SidebarCompositeState
 from plugin.chatbot.sidebar_test_hooks import (
     approval_active,
     audio_status,
+    handle_debug_sidebar_command,
     chat_dialog_controls,
     control_enabled,
     debug_hooks_available,
@@ -268,6 +270,20 @@ def test_send_state_labels(fake_listener: _FakeListener) -> None:
     assert view.is_busy is False
     assert view.send_label == "Send"
     assert view.stop_label == "Stop"
+
+
+def test_handle_debug_sidebar_record_and_snapshot(fake_listener: _FakeListener, monkeypatch) -> None:
+    from plugin.chatbot.sidebar_test_hooks import debug_sidebar_snapshot_path
+
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks.adopt_runtime_send_listeners", lambda: 0)
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks.send_listener", lambda frame=None: fake_listener)
+    handle_debug_sidebar_command("chatbot.debug_sidebar.RECORD_CLICKED")
+    kinds = [e.kind for e in fake_listener.events if hasattr(e, "kind")]
+    assert SendEventKind.RECORD_CLICKED in kinds
+    handle_debug_sidebar_command("chatbot.debug_sidebar.SNAPSHOT")
+    path = debug_sidebar_snapshot_path()
+    assert os.path.isfile(path)
+    os.remove(path)
 
 
 def test_press_record_and_stop_rec_dispatch(fake_listener: _FakeListener) -> None:

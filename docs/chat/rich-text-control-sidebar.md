@@ -482,7 +482,7 @@ Do **not** synthesize screen clicks. Drive the same listeners the widgets use.
 | `wait_idle()` | `is_busy is False` and not recording | Between cases |
 | `next_hello_ok()` | set `hello`, send, wait idle, assistant HTML or plain “hello” path | **Required closer on almost every case** |
 | `mock_config(**flags)` | ramble delay, `sync_delay_ms`, `--offline`, `--fail hang` | B/E8/F |
-| `press_record()` | `dispatch(RECORD_CLICKED)` | G — start capture |
+| `press_record()` | `dispatch(RECORD_CLICKED)` or URP `chatbot.debug_sidebar.RECORD_CLICKED` | G — start capture (label-independent) |
 | `press_stop_rec()` | `dispatch(STOP_REC_CLICKED)` | G — stop capture (not `STOP_CLICKED`) |
 | `inject_wav(path or bytes)` | Skip venv/PortAudio; host sees a finished temp WAV as if the child wrote it | G native + STT |
 | `stub_recorder_child()` | Fake IPC: `{"status":"ready"}` then stop/exit without a device | G initializing vs recording |
@@ -686,7 +686,7 @@ Each case ends with **`next_hello_ok()`** unless noted. Prefer phrase triggers s
 
 ### v2 Packet G — mocked audio (Record / Stop Rec / STT)
 
-**Live URP (`make test-mock-sidebar FILTER=G`, after `make deploy`):** 10 passed, 8 skipped. **OK:** G1, G2, G4, G5, G6, G10, G12, G13, G14, G16. **SKIP:** G3/G7/G8/G9/G11/G15/G18 (need in-process `SendButtonListener`); **G17** Calc isolate like E12.
+**Live URP (`make test-mock-sidebar FILTER=G`, after `make deploy`):** FSM ops that cannot be a Send click go through debug protocol `org.extension.writeragent:chatbot.debug_sidebar.<OP>` (soffice `DispatchHandler` → `handle_debug_sidebar_command`). **G17** still skipped (Calc / E12). **G18** skips if HITL Accept never appears (same as E9).
 
 Same harness as B/E/F. **Do not** open a microphone: `stub_recorder_child()` + `inject_wav()` write `/tmp/writeragent_stub_recorder.json` so the soffice OXT skips spawn (`AudioRecorder._test_skip_spawn`). Fixtures: `tests/chatbot/fixtures/hello-writeragent-1s.wav` (G1) and `hello-writeragent-5s.wav` (G4); source MP3s at repo root. Mock LLM: `writeragent-mock` native `input_audio`; `writeragent-mock-whisper` for `/v1/audio/transcriptions`.
 

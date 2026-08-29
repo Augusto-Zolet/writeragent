@@ -13,8 +13,10 @@ See docs/chat/rich-text-control-sidebar.md (Hooks).
 from __future__ import annotations
 
 import dataclasses
+import json
 import logging
 import os
+import tempfile
 import time
 from dataclasses import dataclass
 from typing import Any, Callable
@@ -22,15 +24,20 @@ from weakref import WeakSet
 
 from plugin.chatbot.panel import StopButtonListener, notify_stop_mouse_pressed
 from plugin.chatbot.send_state import SendEvent, SendEventKind
+from plugin.framework.constants import EXTENSION_ID_WRITERAGENT
 
 log = logging.getLogger("writeragent.sidebar_test_hooks")
 
 _HOOKS_UNAVAILABLE = "sidebar test hooks are not in release builds"
+_DEBUG_SIDEBAR_PREFIX = "chatbot.debug_sidebar"
+_DEBUG_SNAPSHOT_NAME = "writeragent_debug_sidebar.json"
 
 # Debug-only. This module is replaced by a stub in release OXTs (no WeakSet).
 _LIVE_CHAT_PANELS: WeakSet[Any] = WeakSet()
 # Listeners created by the installed OXT factory may not share this WeakSet.
 _LIVE_SEND_LISTENERS: list[Any] = []
+# Last native-test ctx so URP fallbacks can executeDispatch without get_ctx().
+_HOOK_CTX: Any = None
 
 
 def register_live_panel(element: Any) -> None:
@@ -60,18 +67,173 @@ def iter_live_chat_panels() -> list[Any]:
 
 
 def debug_hooks_available() -> bool:
-    """False when ``thread_guard`` is the release stub (no ``_designated_main_thread``)."""
+    """False in release OXTs (this file is omitted). True in dev trees.
+
+    ``make test-mock-sidebar`` sets ``WRITERAGENT_UNO_THREAD_GUARD=0`` on soffice,
+    so the thread_guard stub has no ``_designated_main_thread``. Still allow
+    Packet G protocol dispatch in that process (``WRITERAGENT_TESTING=1``).
+    """
     try:
         from plugin.framework import thread_guard as tg
 
-        return hasattr(tg, "_designated_main_thread")
+        if hasattr(tg, "_designated_main_thread"):
+            return True
     except Exception:
-        return False
+        pass
+    return os.environ.get("WRITERAGENT_TESTING") == "1"
 
 
 def _require_debug() -> None:
     if not debug_hooks_available():
         raise RuntimeError(_HOOKS_UNAVAILABLE)
+
+
+def debug_sidebar_snapshot_path() -> str:
+    return os.path.join(tempfile.gettempdir(), _DEBUG_SNAPSHOT_NAME)
+
+
+def _history_user_tail(sl: Any) -> str:
+    session = getattr(sl, "session", None)
+    if session is None:
+        return ""
+    db = getattr(session, "db", None)
+    rows = db.get_messages() if db is not None else list(getattr(session, "messages", None) or [])
+    from plugin.chatbot.history_db import message_to_dict
+
+    for msg in reversed(list(rows)):
+        if not isinstance(msg, dict) or msg.get("role") != "user":
+            continue
+        content = msg.get("content")
+        if isinstance(content, list):
+            return str(message_to_dict("user", content).get("content") or "")
+        return str(content or "")
+    return ""
+
+
+def _write_debug_snapshot(sl: Any) -> dict[str, Any]:
+    send = sl.sidebar_state.send if sl is not None else None
+    audio = sl.sidebar_state.audio if sl is not None else None
+    rec = getattr(sl, "audio_recorder", None) if sl is not None else None
+    data: dict[str, Any] = {
+        "is_busy": bool(getattr(send, "is_busy", False)),
+        "is_recording": bool(getattr(send, "is_recording", False)),
+        "has_text": bool(getattr(send, "has_text", False)),
+        "has_audio": bool(getattr(send, "has_audio", False)),
+        "audio_supported": bool(getattr(send, "audio_supported", False)),
+        "send_label": _control_label(getattr(sl, "send_control", None)) if sl is not None else "",
+        "stop_label": _control_label(getattr(sl, "stop_control", None)) if sl is not None else "",
+        "status": getattr(audio, "status", "idle") if audio is not None else "idle",
+        "error_message": getattr(audio, "error_message", None) if audio is not None else None,
+        "stub_start_count": int(getattr(rec, "_stub_start_count", 0) or 0),
+        "history_user_tail": _history_user_tail(sl) if sl is not None else "",
+        "approval_active": bool(getattr(sl, "_approval_event", None)) if sl is not None else False,
+    }
+    with open(debug_sidebar_snapshot_path(), "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+    return data
+
+
+def _read_debug_snapshot() -> dict[str, Any]:
+    path = debug_sidebar_snapshot_path()
+    if not os.path.isfile(path):
+        return {}
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except Exception:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def handle_debug_sidebar_command(command: str) -> None:
+    """Run inside soffice (protocol handler). Packet G URP FSM ops.
+
+    ``DispatchHandler`` runs on the URP thread. ``WRITERAGENT_TESTING=1`` makes
+    ``QueueExecutor.post`` inline, so Stop Rec used to start ``_do_send`` off
+    the VCL thread and freeze on ``Getting document...``. Marshal FSM work onto
+    the listener's executor (VCL) before StartSendEffect posts the drain.
+    """
+    _require_debug()
+    adopt_runtime_send_listeners()
+    rest = command[len(_DEBUG_SIDEBAR_PREFIX) :].lstrip(".")
+    op = (rest or "SNAPSHOT").upper().replace("-", "_")
+    sl = send_listener()
+    if op == "SNAPSHOT":
+        _write_debug_snapshot(sl)
+        return
+    if sl is None:
+        log.warning("debug_sidebar %s: no SendButtonListener", op)
+        _write_debug_snapshot(None)
+        return
+
+    def _apply() -> None:
+        if op == "RECORD_CLICKED":
+            sl.dispatch(SendEvent(SendEventKind.RECORD_CLICKED))
+        elif op == "STOP_REC_CLICKED":
+            sl.dispatch(SendEvent(SendEventKind.STOP_REC_CLICKED))
+        elif op == "SEND_CLICKED":
+            sl.dispatch(SendEvent(SendEventKind.SEND_CLICKED))
+        elif op == "STOP_CLICKED":
+            sl.dispatch(SendEvent(SendEventKind.STOP_CLICKED))
+        elif op == "SET_AUDIO_0":
+            set_audio_supported(False, listener=sl)
+        elif op == "SET_AUDIO_1":
+            set_audio_supported(True, listener=sl)
+        elif op == "AUTO_STOP":
+            fire_audio_auto_stop(listener=sl)
+        else:
+            log.warning("debug_sidebar unknown op %s", op)
+        _write_debug_snapshot(sl)
+
+    qe = getattr(sl, "queue_executor", None)
+    if qe is None:
+        _apply()
+        return
+    from plugin.framework.queue_executor import set_force_marshal_mode
+
+    # Post, do not execute(): URP executeDispatch + blocking VCL wait deadlocks
+    # (office sits idle, tests wait forever). AsyncCallback runs _apply on VCL.
+    set_force_marshal_mode(True)
+    try:
+        qe.post(_apply)
+    finally:
+        set_force_marshal_mode(False)
+
+
+def execute_debug_sidebar_op(op: str, *, ctx: Any = None) -> dict[str, Any]:
+    """URP client: dispatch ``org.extension.writeragent:chatbot.debug_sidebar.<OP>`` in soffice."""
+    _require_debug()
+    uno_ctx = ctx if ctx is not None else _HOOK_CTX
+    if uno_ctx is None:
+        from plugin.framework.uno_context import get_ctx
+
+        uno_ctx = get_ctx()
+    doc = current_component(uno_ctx)
+    frame = None
+    try:
+        if doc is not None:
+            frame = doc.getCurrentController().getFrame()
+    except Exception:
+        frame = None
+    if frame is None:
+        raise RuntimeError("debug_sidebar: no frame for executeDispatch")
+    url = "%s:%s?%s" % (EXTENSION_ID_WRITERAGENT, _DEBUG_SIDEBAR_PREFIX, op)
+    smgr = uno_ctx.getServiceManager()
+    helper = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", uno_ctx)
+    helper.executeDispatch(frame, url, "", 0, ())
+    if op.upper() != "SNAPSHOT":
+        time.sleep(0.25)
+        snap_url = "%s:%s?SNAPSHOT" % (EXTENSION_ID_WRITERAGENT, _DEBUG_SIDEBAR_PREFIX)
+        helper.executeDispatch(frame, snap_url, "", 0, ())
+    return _read_debug_snapshot()
+
+
+def _send_event_or_urp(kind: SendEventKind, *, listener: Any = None) -> None:
+    sl = listener if listener is not None else send_listener()
+    if sl is not None:
+        sl.dispatch(SendEvent(kind))
+        return
+    execute_debug_sidebar_op(kind.name)
 
 
 def sidebar_panel(frame: Any = None) -> Any:
@@ -341,6 +503,8 @@ def show_writeragent_chat_deck(ctx: Any, doc: Any) -> None:
 
 def wait_for_chat_dialog_controls(ctx: Any, timeout: float = 20.0) -> dict[str, Any] | None:
     """Show WriterAgentDeck until query+send exist. Does not pump VCL over URP."""
+    global _HOOK_CTX
+    _HOOK_CTX = ctx
     _require_debug()
     deadline = time.monotonic() + max(0.0, timeout)
     last: dict[str, Any] | None = None
@@ -497,7 +661,8 @@ def press_stop(*, listener: Any = None) -> None:
     _require_debug()
     sl = listener if listener is not None else send_listener()
     if sl is None:
-        raise RuntimeError("no live SendButtonListener")
+        _send_event_or_urp(SendEventKind.STOP_CLICKED, listener=None)
+        return
     StopButtonListener(sl).on_action_performed(None)
 
 
@@ -546,25 +711,26 @@ def approval_active(*, listener: Any = None) -> bool:
 
 def press_record(*, listener: Any = None) -> None:
     _require_debug()
-    sl = listener if listener is not None else send_listener()
-    if sl is None:
-        raise RuntimeError("no live SendButtonListener")
-    sl.dispatch(SendEvent(SendEventKind.RECORD_CLICKED))
+    _send_event_or_urp(SendEventKind.RECORD_CLICKED, listener=listener)
 
 
 def press_stop_rec(*, listener: Any = None) -> None:
     _require_debug()
-    sl = listener if listener is not None else send_listener()
-    if sl is None:
-        raise RuntimeError("no live SendButtonListener")
-    sl.dispatch(SendEvent(SendEventKind.STOP_REC_CLICKED))
+    _send_event_or_urp(SendEventKind.STOP_REC_CLICKED, listener=listener)
+
+
+def press_send_clicked(*, listener: Any = None) -> None:
+    """Always ``SEND_CLICKED`` (ignore Record / Stop Rec / Accept labels). Packet G15."""
+    _require_debug()
+    _send_event_or_urp(SendEventKind.SEND_CLICKED, listener=listener)
 
 
 def set_audio_supported(supported: bool, *, listener: Any = None) -> None:
     _require_debug()
     sl = listener if listener is not None else send_listener()
     if sl is None:
-        raise RuntimeError("no live SendButtonListener")
+        execute_debug_sidebar_op("SET_AUDIO_1" if supported else "SET_AUDIO_0")
+        return
     ss = sl.sidebar_state
     send = dataclasses.replace(ss.send, audio_supported=bool(supported))
     sl.sidebar_state = dataclasses.replace(ss, send=send)
@@ -580,14 +746,25 @@ def audio_status(*, listener: Any = None) -> dict[str, Any]:
     _require_debug()
     sl = listener if listener is not None else send_listener()
     if sl is None:
-        return {"status": "idle", "has_audio": False}
+        data = execute_debug_sidebar_op("SNAPSHOT")
+        return {
+            "status": data.get("status", "idle"),
+            "has_audio": bool(data.get("has_audio")),
+            "is_recording": bool(data.get("is_recording")),
+            "error_message": data.get("error_message"),
+            "stub_start_count": int(data.get("stub_start_count") or 0),
+            "history_user_tail": str(data.get("history_user_tail") or ""),
+        }
     send = sl.sidebar_state.send
     audio = sl.sidebar_state.audio
+    rec = getattr(sl, "audio_recorder", None)
     return {
         "status": getattr(audio, "status", "idle"),
         "has_audio": bool(send.has_audio),
         "is_recording": bool(send.is_recording),
         "error_message": getattr(audio, "error_message", None),
+        "stub_start_count": int(getattr(rec, "_stub_start_count", 0) or 0),
+        "history_user_tail": _history_user_tail(sl),
     }
 
 
@@ -666,7 +843,16 @@ def send_state(*, listener: Any = None) -> SidebarHookSendView:
     _require_debug()
     sl = listener if listener is not None else send_listener()
     if sl is None:
-        raise RuntimeError("no live SendButtonListener")
+        data = execute_debug_sidebar_op("SNAPSHOT")
+        return SidebarHookSendView(
+            is_busy=bool(data.get("is_busy")),
+            is_recording=bool(data.get("is_recording")),
+            has_text=bool(data.get("has_text")),
+            has_audio=bool(data.get("has_audio")),
+            audio_supported=bool(data.get("audio_supported")),
+            send_label=str(data.get("send_label") or ""),
+            stop_label=str(data.get("stop_label") or ""),
+        )
     send = sl.sidebar_state.send
     return SidebarHookSendView(
         is_busy=bool(send.is_busy),
@@ -711,7 +897,16 @@ def wait_idle(*, listener: Any = None, timeout: float = 30.0) -> bool:
     def _idle() -> bool:
         sl = listener if listener is not None else send_listener()
         if sl is None:
-            return False
+            # Do not executeDispatch SNAPSHOT in a loop — that hangs the URP pipe.
+            ctx = _HOOK_CTX
+            if ctx is None:
+                return False
+            try:
+                controls = chat_dialog_controls(ctx, current_component(ctx)) or {}
+            except Exception:
+                return False
+            stop = controls.get("stop")
+            return control_enabled(stop) is not True
         send = sl.sidebar_state.send
         return (not send.is_busy) and (not send.is_recording)
 

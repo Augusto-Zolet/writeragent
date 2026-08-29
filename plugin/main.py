@@ -440,6 +440,17 @@ _NOTEBOOK_RUN_CELL_PREFIX = "notebook.run_cell."
 def _dispatch_command(command):
     """Dispatch command using handler registry, falling back to module actions."""
     bootstrap()
+    if command.startswith("chatbot.debug_sidebar"):
+        # Dev/debug only. sidebar_test_hooks is omitted from release OXTs.
+        try:
+            from plugin.chatbot.sidebar_test_hooks import handle_debug_sidebar_command
+
+            handle_debug_sidebar_command(command)
+        except ImportError:
+            logging.getLogger("writeragent.main").debug("debug_sidebar omitted (release)")
+        except Exception:
+            logging.getLogger("writeragent.main").exception("chatbot.debug_sidebar failed")
+        return
     if command.startswith(_NOTEBOOK_RUN_CELL_PREFIX):
         from plugin.framework.uno_context import get_ctx
         from plugin.notebook.notebook_runner import run_cell_by_hex
@@ -901,6 +912,11 @@ class DispatchHandler(unohelper.Base, XDispatch, XDispatchProvider, XInitializat
     def dispatch(self, URL, Arguments):
         url = URL
         command = url.Path
+        # Packet G: ``org.extension.writeragent:chatbot.debug_sidebar?RECORD_CLICKED``.
+        # LO drops the suffix after the last path dot; Query carries the op.
+        query = getattr(url, "Query", None) or ""
+        if query:
+            command = "%s.%s" % (command, query)
         from plugin.framework.logging import init_logging, log_exception
 
         try:
