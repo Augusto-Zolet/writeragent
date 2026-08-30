@@ -502,6 +502,10 @@ def _reset_mock_runtime() -> None:
     _session.config.nested_never_finish = False
     _session.config.empty_nested_answer = False
     _session.config.fail_native_audio = False
+    _session.config.fail_stt = False
+    from scripts.mock_llm_server import DEFAULT_TRANSCRIPT
+
+    _session.config.transcript = DEFAULT_TRANSCRIPT
     _session.config.scenario = "none"
     from scripts.mock_llm_server import clear_captures
 
@@ -883,11 +887,6 @@ def test_b3b_stop_when_idle(ctx):
 @native_test
 def test_b4_record_skipped(ctx):
     raise unittest.SkipTest("B4 Record needs a device / Packet G")
-
-
-@native_test
-def test_b5_resize_during_stream_skipped(ctx):
-    raise unittest.SkipTest("B5 resize during stream is soak-only (not v2)")
 
 
 @native_test
@@ -1772,7 +1771,7 @@ def _g_listener():
     return sl
 
 
-def _g_prep(*, missing_wav: bool = False, fail_start: str | None = None):
+def _g_prep(*, missing_wav: bool = False, fail_start: str | None = None, hang_ready: bool = False):
     from plugin.chatbot.sidebar_test_hooks import (
         set_audio_supported,
         set_query_text,
@@ -1782,7 +1781,9 @@ def _g_prep(*, missing_wav: bool = False, fail_start: str | None = None):
 
     _reset_mock_runtime()
     sl = _g_listener()
-    stub_recorder_child(listener=sl, fail_start=fail_start, missing_wav=missing_wav)
+    stub_recorder_child(
+        listener=sl, fail_start=fail_start, missing_wav=missing_wav, hang_ready=hang_ready
+    )
     # Restore Record even after G8 SET_AUDIO_0 (URP has no live listener).
     set_audio_supported(True, listener=sl)
     if sl is not None:
@@ -2118,6 +2119,113 @@ def test_g18_hitl_blocks_record(ctx):
 
 
 @native_test
+def test_g21_hang_ready_init_timeout(ctx):
+    from plugin.chatbot.sidebar_test_hooks import audio_status, press_record, send_state
+
+    sl = _g_prep(hang_ready=True)
+    press_record(listener=sl)
+    time.sleep(0.4)
+    st = send_state(listener=sl)
+    assert st.is_recording is False
+    assert st.is_busy is False
+    body = _transcript().lower()
+    snap = audio_status(listener=sl)
+    err = str(snap.get("error_message") or "").lower()
+    timed_out = "timed out" in body or "audio error" in body or "timed out" in err
+    started = int(snap.get("stub_start_count") or 0) >= 1 or snap.get("status") == "error"
+    assert timed_out or started, "G21 expected hang_ready timeout: snap=%r transcript=%r" % (
+        snap,
+        _transcript()[-400:],
+    )
+    _hello_ok()
+
+
+@native_test
+def test_g27_stt_empty_no_chat_send(ctx):
+    from plugin.chatbot.sidebar_test_hooks import audio_status, send_state
+    from plugin.framework.client.model_fetcher import get_text_model, set_native_audio_support
+    from plugin.framework.config import get_config, get_current_endpoint, set_config
+    from scripts.mock_llm_server import MOCK_STT_MODEL_ID
+
+    sl = _g_prep()
+    assert _session is not None
+    endpoint = get_current_endpoint()
+    model = get_text_model()
+    saved_stt = get_config("stt_model")
+    saved_transcript = _session.config.transcript
+    try:
+        set_native_audio_support(model, endpoint, False)
+        set_config("stt_model", MOCK_STT_MODEL_ID)
+        _session.config.transcript = ""
+        # If the audio_support_map poll misses, native POST 400s and STT still returns "".
+        _session.config.fail_native_audio = True
+        time.sleep(2.1)
+        _g_record_and_stop(sl, _WAV_1S, timeout=90.0)
+        after = _captures()
+        successful_native = [
+            row
+            for row in after
+            if row.get("has_input_audio") and row.get("path", "").endswith("chat/completions") and row.get("finish_reason") == "stop" and not row.get("empty_content")
+        ]
+        assert not successful_native, "G27 must not complete a native audio chat turn: snaps=%r" % after[-8:]
+        stt = any(row.get("stt") or "transcription" in str(row.get("path") or "") for row in after)
+        body = _transcript().lower()
+        assert stt or "no speech" in body, "G27 expected STT empty path: %r snaps=%r" % (_transcript()[-400:], after[-8:])
+        st = send_state(listener=sl)
+        assert st.is_busy is False
+        assert st.is_recording is False
+        assert audio_status(listener=sl)["has_audio"] is False
+        assert "no speech" in body or "empty" in body, "G27 expected empty-STT banner: %r" % _transcript()[-400:]
+    finally:
+        _session.config.transcript = saved_transcript
+        _session.config.fail_native_audio = False
+        set_native_audio_support(model, endpoint, True)
+        set_config("stt_model", saved_stt)
+        time.sleep(2.1)
+    _hello_ok()
+
+
+@native_test
+def test_g28_stt_error_json(ctx):
+    from plugin.chatbot.sidebar_test_hooks import audio_status, send_state
+    from plugin.framework.client.model_fetcher import get_text_model, set_native_audio_support
+    from plugin.framework.config import get_config, get_current_endpoint, set_config
+    from scripts.mock_llm_server import MOCK_STT_MODEL_ID
+
+    sl = _g_prep()
+    assert _session is not None
+    endpoint = get_current_endpoint()
+    model = get_text_model()
+    saved_stt = get_config("stt_model")
+    _session.config.fail_stt = True
+    # Native chat must not swallow this case: fail native audio so STT runs even
+    # if audio_support_map still says the mock model is multimodal.
+    _session.config.fail_native_audio = True
+    try:
+        set_native_audio_support(model, endpoint, False)
+        set_config("stt_model", MOCK_STT_MODEL_ID)
+        time.sleep(2.1)
+        before = _transcript()
+        _g_record_and_stop(sl, _WAV_1S)
+        body = _transcript()
+        suffix = body[len(before) :] if body.startswith(before) else body
+        lower = suffix.lower()
+        assert "transcription error" in lower or "mock stt" in lower or "500" in lower, (
+            "G28 expected STT error banner: %r" % suffix[-500:]
+        )
+        st = send_state(listener=sl)
+        assert st.is_busy is False
+        assert audio_status(listener=sl)["has_audio"] is False
+    finally:
+        _session.config.fail_stt = False
+        _session.config.fail_native_audio = False
+        set_native_audio_support(model, endpoint, True)
+        set_config("stt_model", saved_stt)
+        time.sleep(2.1)
+    _hello_ok()
+
+
+@native_test
 def test_g29_native_400_then_stt_same_drain(ctx):
     from plugin.chatbot.sidebar_test_hooks import audio_status
     from plugin.framework.client.model_fetcher import get_text_model, set_native_audio_support
@@ -2129,8 +2237,10 @@ def test_g29_native_400_then_stt_same_drain(ctx):
     endpoint = get_current_endpoint()
     model = get_text_model()
     saved_stt = get_config("stt_model")
+    _session.config.fail_stt = False
     _session.config.fail_native_audio = True
     try:
+        set_native_audio_support(model, endpoint, True)
         set_config("stt_model", MOCK_STT_MODEL_ID)
         time.sleep(2.1)
         _g_record_and_stop(sl, _WAV_1S, timeout=90.0)

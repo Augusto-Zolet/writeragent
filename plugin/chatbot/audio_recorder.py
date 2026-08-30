@@ -23,6 +23,7 @@ import logging
 import os
 import tempfile
 import threading
+import time
 from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
@@ -111,6 +112,7 @@ class AudioRecorder:
         self._test_inject_wav: str | bytes | None = None
         self._test_fail_start: str | None = None
         self._test_missing_wav = False
+        self._test_hang_ready = False
         self._stub_start_count = 0
 
     def set_auto_stop_callbacks(
@@ -210,6 +212,7 @@ class AudioRecorder:
                 fail = ctrl.get("fail_start")
                 self._test_fail_start = str(fail) if fail else None
                 self._test_missing_wav = bool(ctrl.get("missing_wav"))
+                self._test_hang_ready = bool(ctrl.get("hang_ready"))
                 wav = ctrl.get("wav")
                 if wav:
                     self._test_inject_wav = wav
@@ -219,6 +222,21 @@ class AudioRecorder:
                 self._auto_stopped_path = None
                 if self._test_fail_start:
                     self._apply_event(ErrorOccurredEvent(self._test_fail_start))
+                    return
+                if self._test_hang_ready:
+                    # G21: child never emits ready. Do not wait the real 30s spawn timeout.
+                    timeout = ctrl.get("ready_timeout_sec")
+                    try:
+                        timeout_s = float(timeout) if timeout is not None else 0.0
+                    except (TypeError, ValueError):
+                        timeout_s = 0.0
+                    if timeout_s > 0:
+                        time.sleep(timeout_s)
+                    # Same wording as wait_for_recording_ready TimeoutExpired.
+                    shown = timeout_s if timeout_s > 0 else 30
+                    self._apply_event(
+                        ErrorOccurredEvent(f"Recording subprocess timed out after {shown:g} seconds.")
+                    )
                     return
                 self.temp_filename = make_temp_wav_path()
                 self._proc = None

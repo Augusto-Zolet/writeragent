@@ -332,6 +332,19 @@ def test_stub_recorder_child_replaces_control_file(fake_listener: _FakeListener)
         assert data.get("auto_stop") is not True
         assert data.get("fail_start") is None
         assert data.get("missing_wav") is False
+        assert data.get("hang_ready") is False
+    finally:
+        clear_stub_recorder_control()
+
+
+def test_stub_recorder_child_hang_ready(fake_listener: _FakeListener) -> None:
+    from plugin.chatbot.audio_recorder import clear_stub_recorder_control, read_stub_recorder_control
+
+    try:
+        stub_recorder_child(listener=fake_listener, hang_ready=True)
+        rec = fake_listener.audio_recorder
+        assert rec._test_hang_ready is True
+        assert read_stub_recorder_control().get("hang_ready") is True
     finally:
         clear_stub_recorder_control()
 

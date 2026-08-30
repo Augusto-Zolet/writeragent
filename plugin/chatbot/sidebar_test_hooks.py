@@ -894,20 +894,27 @@ def stub_recorder_child(
     listener: Any = None,
     fail_start: str | None = None,
     missing_wav: bool = False,
+    hang_ready: bool = False,
 ) -> None:
     """Skip venv/PortAudio spawn; InitializeDeviceEffect fakes a ready child."""
     _require_debug()
     from plugin.chatbot.audio_recorder import clear_stub_recorder_control, write_stub_recorder_control
 
-    # Replace the control file so G4 auto_stop / G12 fail_start cannot leak.
+    # Replace the control file so G4 auto_stop / G12 fail_start / G21 hang_ready cannot leak.
     clear_stub_recorder_control()
-    write_stub_recorder_control(skip=True, fail_start=fail_start, missing_wav=bool(missing_wav))
+    write_stub_recorder_control(
+        skip=True,
+        fail_start=fail_start,
+        missing_wav=bool(missing_wav),
+        hang_ready=bool(hang_ready),
+    )
     rec = _live_audio_recorder(listener=listener)
     if rec is None:
         return
     rec._test_skip_spawn = True
     rec._test_fail_start = fail_start
     rec._test_missing_wav = bool(missing_wav)
+    rec._test_hang_ready = bool(hang_ready)
     rec._stub_start_count = 0
 
 

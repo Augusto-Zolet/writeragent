@@ -737,6 +737,67 @@ def test_nested_never_finish_keeps_discovery():
     assert second.tool_name != "specialized_workflow_finished"
 
 
+def test_empty_transcript_stt_returns_empty_text():
+    from scripts.mock_llm_server import canned_transcript
+
+    cfg = MockLLMConfig(delay_ms=0, transcript="")
+    assert canned_transcript(cfg) == ""
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler_class(cfg))
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    host, port = httpd.server_address[:2]
+    stt = "http://%s:%s/v1/audio/transcriptions" % (host, port)
+    try:
+        stt_req = Request(
+            stt,
+            data=json.dumps({"model": MOCK_STT_MODEL_ID, "input_audio": {"data": "QQ==", "format": "wav"}}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(stt_req, timeout=5) as resp:
+            assert resp.status == 200
+            body = json.loads(resp.read().decode("utf-8"))
+        assert body.get("text") == ""
+    finally:
+        httpd.shutdown()
+        thread.join(timeout=2)
+
+
+def test_fail_stt_500_then_hello_chat_ok():
+    cfg = MockLLMConfig(delay_ms=0, fail_stt=True)
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler_class(cfg))
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    host, port = httpd.server_address[:2]
+    chat = "http://%s:%s/v1/chat/completions" % (host, port)
+    stt = "http://%s:%s/v1/audio/transcriptions" % (host, port)
+    try:
+        stt_req = Request(
+            stt,
+            data=json.dumps({"model": MOCK_STT_MODEL_ID, "input_audio": {"data": "QQ==", "format": "wav"}}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with pytest.raises(HTTPError) as err:
+            urlopen(stt_req, timeout=5)
+        assert err.value.code == 500
+        hello = Request(
+            chat,
+            data=json.dumps(
+                {"model": MOCK_MODEL_ID, "messages": [{"role": "user", "content": "hello"}], "stream": False}
+            ).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(hello, timeout=5) as resp:
+            assert resp.status == 200
+        snaps = cfg.captures
+        assert any(row.get("stt") for row in snaps)
+    finally:
+        httpd.shutdown()
+        thread.join(timeout=2)
+
+
 def test_fail_native_audio_400_then_stt_ok():
     cfg = MockLLMConfig(delay_ms=0, fail_native_audio=True)
     httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler_class(cfg))

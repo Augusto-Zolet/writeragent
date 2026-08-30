@@ -1,23 +1,27 @@
 # Mock LLM Sidebar Test Plan & Reference
 
-This document is the comprehensive reference for testing the **Rich Text Control Sidebar** using the local mock LLM server. It brings together manual soak testing checklists, automated CI test specifications (`make test-mock-sidebar`), server configuration, trigger phrase dictionaries, and harness hooks.
+This document is the comprehensive reference for **automated** Rich Text Control Sidebar tests against the local mock LLM server (`make test-mock-sidebar`): server configuration, trigger phrases, harness hooks, and CI packets B–G.
+
+Visual rendering, scroll pin, theme, resize, and “watch the sidebar” cases are **not** part of this harness. Use the product with `make mock-llm` if you care about those.
 
 ---
 
 ## 1. Executive Status Dashboard
 
-The test suites are organized into **Packets A through H**. Automated suites run via `testing_runner` without human intervention, while soak suites cover visual rendering and window-level cross-cuts.
+Packets **B through G** run via `testing_runner`. There is no Packet A or H.
 
-| Packet | Focus Area | Mode | Status Overview |
-|:------:|------------|:----:|-----------------|
-| **[Packet A](#packet-a--stream-html-paste-scroll)** | Stream, HTML paste, scroll, VisArea | Manual Soak | **6 Soak Cases** (A1–A6) |
-| **[Packet B](#packet-b--stop-drain-loop-sendrecord-fsm)** | Stop button, drain loop, Send/Record FSM | Automated (CI) | **15 Landed**, 1 Skipped (B8 harness sync), 1 Soak (B5) |
-| **[Packet C](#packet-c--empty--truncated-model)** | Empty / truncated model responses & banners | Automated (CI) | **4 Landed** (C1, C3, C4, C5; C2 folded into C1) |
-| **[Packet D](#packet-d--reasoning-vs-content)** | Reasoning deltas (`[Thinking]`) vs HTML content | Automated (CI) | **4 Landed** (D1–D4) |
-| **[Packet E](#packet-e--tools-delegate-hitl-context-refresh)** | Tool loop, nested delegate, HITL, context refresh | Automated (CI) | **16 Landed**, 5 Skipped (E2 live DDG, E8b/E9d mouse, E9c dialog, E12 Calc) |
-| **[Packet F](#packet-f--http--sse-errors-and-hangs)** | HTTP 4xx/5xx errors, socket hangs, SSE quirks | Automated (CI) | **16 Landed**, 2 Skipped (F11 two DONE, F18 event ping) |
-| **[Packet G](#packet-g--mocked-audio-and-stt)** | Mocked Record / Stop Rec, `input_audio`, STT | Automated (CI) | **17 Landed**, 2 Skipped (G17 Calc, G18 HITL), 3 Next-Level (G21, G27, G28) |
-| **[Packet H](#packet-h--decks-session-recovery-cross-cuts)** | Calc/Draw decks, document switch, dispose recovery | Manual Soak | **7 Soak Cases** (H1–H7) |
+This plan is **finished** except one optional follow-up: **Calc deck URP hang** (E12 / G17). Mouse Stop, HITL Change dialog, live DuckDuckGo, and F11/F18 wait mismatches are dropped — not a backlog.
+
+| Packet | Focus Area | Mode | Status |
+|:------:|------------|:----:|--------|
+| **[Packet B](#packet-b--stop-drain-loop-sendrecord-fsm)** | Stop button, drain loop, Send/Record FSM | Automated (CI) | **Done.** 16 Landed (incl. B13). |
+| **[Packet C](#packet-c--empty--truncated-model)** | Empty / truncated model responses & banners | Automated (CI) | **Done.** 4 Landed. |
+| **[Packet D](#packet-d--reasoning-vs-content)** | Reasoning deltas (`[Thinking]`) vs HTML content | Automated (CI) | **Done.** 4 Landed. |
+| **[Packet E](#packet-e--tools-delegate-hitl-context-refresh)** | Tool loop, nested delegate, HITL, context refresh | Automated (CI) | **Done.** 17 Landed. Optional: E12 Calc hang. |
+| **[Packet F](#packet-f--http--sse-errors-and-hangs)** | HTTP 4xx/5xx errors, socket hangs, SSE quirks | Automated (CI) | **Done.** 15 Landed. |
+| **[Packet G](#packet-g--mocked-audio-and-stt)** | Mocked Record / Stop Rec, `input_audio`, STT | Automated (CI) | **Done.** 20 Landed. Optional: G17 same Calc hang as E12. |
+
+
 
 ---
 
@@ -121,7 +125,7 @@ Debug test hooks live in [`plugin/chatbot/sidebar_test_hooks.py`](../../plugin/c
 | `press_record()` | Dispatches `RECORD_CLICKED` | Starting audio recording |
 | `press_stop_rec()` | Dispatches `STOP_REC_CLICKED` | Stopping audio recording |
 | `inject_wav(path or bytes)` | Injects mock WAV file to simulate child audio capture | Audio testing without microphone |
-| `stub_recorder_child()` | Fakes IPC: `{"status":"ready"}` without opening hardware device | Audio init vs recording state |
+| `stub_recorder_child()` | Fakes IPC: `{"status":"ready"}` without opening hardware device. `hang_ready=True` never emits ready (G21 timeout) | Audio init vs recording state |
 | `set_audio_supported(bool)` | Overrides `SendButtonState.audio_supported` | Audio support gating (G8, STT) |
 | `audio_status()` | Returns `AudioRecorderState.status` and `has_audio` | Audio state assertions |
 | `press_accept()` | Fires Send action when label is `Accept` | HITL approval |
@@ -142,45 +146,26 @@ Every test must satisfy:
 
 ---
 
-### Packet A — Stream, HTML Paste, Scroll
-
-- **Focus:** Visual rendering, hidden-Writer HTML bridge after `STREAM_DONE`, VisArea scroll alignment, caret tracking without stealing focus from the query box.
-- **Mode:** Manual Soak in live LibreOffice instance.
-- **Status:** **6 Soak Cases** (A1–A6).
-
-| ID | Mode | Mock / Trigger | Steps / Actions | Expected Pass Behavior | Diagnostics & Notes |
-|:--:|:----:|----------------|-----------------|------------------------|---------------------|
-| **A1** | Soak | Default mock, send `hello` | Send `hello`, observe streaming and completion | Plain stream during generation; on finish, renders bold/lists via hidden Writer; query box keeps focus | Check `_copy_formatted_from_hidden_doc_to_control: ok`; no `phase=reveal_caret` on user insert. |
-| **A2** | Soak | Send 5–8 `hello`s | Fill transcript over multiple turns | Newest text remains visible in viewport; no jump to top on each send | `phase=user_append_done`; after `copy_done`, expect trailing-break then Hidden scroll. |
-| **A3** | Soak | `fill the sidebar` | Send huge message, then **resize** sidebar panel | Viewport remains pinned to newest text; no horizontal scrollbar gutter | `phase=sync_bounds` then Hidden `SelectAll`. |
-| **A4** | Soak | Rotating templates | Send until list, ordered list, table, and `<pre>` appear | Table renders as tab-separated rows (row 1 bold+underline); monospace preserved in `<pre>` | No fallback `WARNING` lines in log. |
-| **A5** | Soak | Default mock | Click into **Writer document** during stream, type text | Keystrokes remain in document; not stolen by sidebar history control | No `setFocus` calls during stream append. |
-| **A6** | Soak | Toggle rich setting | Disable rich setting in Settings, restart, send; re-enable, restart | Plain path vs rich path work correctly; history reloads scrolled to bottom | Check `config rich_text_control_sidebar=`. |
-
----
-
 ### Packet B — Stop, Drain Loop, Send/Record FSM
 
 - **Focus:** Cancelling streams while worker holds SSE socket, drain exit on main thread, `SendButtonState` transitions, latching stop state.
 - **Mode:** Automated (`make test-mock-sidebar FILTER=B`).
 - **Status Summary:**
   - **Landed / OK:** B1a, B1c, B2, B3, B3b, B6, B7, B9, B10, B11, B13, B14, B15, B16, B19, B21.
-  - **Skipped:** B1b (mouse/in-process), B4/B12 (Record -> Packet G), B5 (resize soak), B8 (URP `TEXT_UPDATED` sync).
-  - **Explicitly Dropped:** B17, B18, B20, B22, B23.
+  - **Dropped (not backlog):** B1b (mouse), B8 (`TEXT_UPDATED` over URP), B5 (resize), B17, B18, B20, B22, B23. B4/B12 live in Packet G.
 
 | ID | Mode | Mock / Trigger | Steps / Actions | Expected Pass Behavior | Status / Notes |
 |:--:|:----:|----------------|-----------------|------------------------|:--------------:|
 | **B1a** | CI | `--delay-ms 40`, `keep talking` | Pump ≥1 chunk, call `press_stop()` | Transcript has `[Stopped by user]` (not replaced by `No response.`); `is_busy` becomes False; `next_hello_ok()` succeeds | **OK / Landed** |
-| **B1b** | Soak | Same as B1a | Cancel using `press_stop_mouse()` | Same as B1a via GTK mouse listener path (`STOP_CLICKED (mousePressed)`) | **SKIP** (In-process mouse hook) |
+| **B1b** | CI | Same as B1a | Cancel using `press_stop_mouse()` | Same as B1a via GTK mouse listener path (`STOP_CLICKED (mousePressed)`) | **Dropped** (mouse hook) |
 | **B1c** | CI | B1a scenario | Assert state after Stop | Rich tail is NOT re-pasted as full HTML of the ramble; no `_copy_formatted…` after stop | **OK / Landed** |
 | **B2** | CI | Ramble | Call `press_stop()`, then immediately `press_send()` | Single in-flight send; no stuck "Starting…"; `_active_q` not dual-owned; `next_hello_ok()` | **OK / Landed** |
 | **B3** | CI | Ramble | Call `press_stop()` twice quickly | Second click is a no-op; no exceptions; `next_hello_ok()` | **OK / Landed** |
 | **B3b** | CI | Idle state | Call `press_stop()` while idle | No crash; button labels unchanged; Send still functional | **OK / Landed** |
-| **B4** | Soak | Empty query, venv configured | Record → Stop Rec without speaking | Button transitions Record ↔ Stop Rec ↔ Send; no send if empty | Handled in **Packet G** |
-| **B5** | Soak | Ramble | Resize sidebar during stream | UI repaints smoothly; Stop still functions | Manual soak |
+| **B4** | CI | Empty query, venv configured | Record → Stop Rec without speaking | Button transitions Record ↔ Stop Rec ↔ Send; no send if empty | **Dropped** (Packet G) |
 | **B6** | CI | Default | Call `press_send()` twice rapidly | FSM rejects second send (`is_busy`); exactly one stream; `next_hello_ok()` | **OK / Landed** |
 | **B7** | CI | Empty query | Send with empty query and no audio | No `StartSendEffect`; zero HTTP requests sent to mock | **OK / Landed** |
-| **B8** | CI | Empty ↔ text | `TEXT_UPDATED` empty ↔ nonempty transitions | Send enabled only when text is present | **SKIP** (Harness needs URP `TEXT_UPDATED` sync) |
+| **B8** | CI | Empty ↔ text | `TEXT_UPDATED` empty ↔ nonempty transitions | Send enabled only when text is present | **Dropped** (URP `TEXT_UPDATED`) |
 | **B9** | CI | Ramble | Allow stream to finish naturally (no Stop), wait idle | Button returns to Send; subsequent Stop on a second ramble works | **OK / Landed** |
 | **B10** | CI | Ramble | Stop stream; `next_hello_ok()`; ramble + Stop again | Stop functions multiple times across a single panel lifetime | **OK / Landed** |
 | **B11** | CI | Ramble | Stop stream; assert query box state | Query text restored as designed; no focus steal after stop | **OK / Landed** |
@@ -193,6 +178,9 @@ Every test must satisfy:
 | **B21** | CI | Ramble | Click `controls["clear"]` during stream | Greeting visible; Stop still enabled; press Stop → idle; `next_hello_ok()` | **OK / Landed** |
 
 #### Dropped Cases (Packet B)
+- **B1b (GTK mouse Stop):** Same FSM as B1a (`press_stop()`). Not worth an in-process mouse hook.
+- **B8 (Send enabled iff query nonempty):** Needs URP `TEXT_UPDATED` sync; covered enough by B7 (empty send) in practice.
+- **B5 (Resize during stream):** Visual-only; no URP assertion. Use the product if you care about repaint.
 - **B17 (Stop vs STREAM_DONE race):** Non-deterministic over URP; covered by B1a (mid-stream) and B9 (natural end).
 - **B18 (Stop × 5 soak):** Redundant with B10 (cancelling twice in one panel lifetime).
 - **B20 (Stop during UpdateDocumentContext):** Not observable over URP; covered by E5.
@@ -242,29 +230,29 @@ Every test must satisfy:
 - **Mode:** Automated (`make test-mock-sidebar FILTER=E`).
 - **Status Summary:**
   - **Landed:** E1, E3, E4, E5, E6, E7, E8a, E9, E9a, E9b, E9e, E10, E11, E13, E14, E15, E17, E21, E22.
-  - **Skipped:** E2 (live DDG search in CI), E8b/E9d (mouse hooks), E9c (dialog), E12 (Calc URP hang).
-  - **Explicitly Dropped:** E16, E18, E19, E20, E23, E24.
+  - **Optional later:** E12 (Calc URP hang — same as G17).
+  - **Dropped:** E2 (live net), E8b/E9d (mouse), E9c (Change dialog), E16, E18, E19, E20, E23, E24.
 
 | ID | Mode | Mock / Trigger | Steps / Actions | Expected Pass Behavior | Status / Notes |
 |:--:|:----:|----------------|-----------------|------------------------|:--------------:|
 | **E1** | CI | `--offline`, `look up latest Python` | Send query | Smol research steps execute; HTML summary in transcript; mock sees `### CURRENT QUERY:`; `next_hello_ok()` | **OK / Landed** |
-| **E2** | CI | `look up …` (online) | Send query with live DuckDuckGo | Single `web_search` → `visit_webpage` → HTML wrap-up (no infinite loop) | **SKIP in CI** (Live network) |
+| **E2** | CI | `look up …` (online) | Send query with live DuckDuckGo | Single `web_search` → `visit_webpage` → HTML wrap-up (no infinite loop) | **Dropped** (live network; E1 offline covers the loop) |
 | **E3** | CI | Document with text "Welcome…", `add a comment` | Send query | Comment anchored on first word; log shows `add_comment`; sidebar mentions comment; `next_hello_ok()` | **OK / Landed** |
 | **E4** | CI | **Empty** doc, `insert a comment` | Send query | Two-round loop: `apply_document_content` then `add_comment`; doc nonempty; `next_hello_ok()` | **OK / Landed** |
 | **E5** | CI | `insert filler` | Send query | Paragraph appended; next turn's system prompt includes updated length (`refresh_document_context`); `next_hello_ok()` | **OK / Landed** |
 | **E6** | CI | `two tools` / `in parallel` | Send query | Both `search_in_document` and `get_document_tree` execute in one turn; single HTML summary; `next_hello_ok()` | **OK / Landed** |
 | **E7** | CI | `outline this` | Send query | Calls `delegate_to_specialized_writer_toolset`; inner discovery executes; returns canned outline; `next_hello_ok()` | **OK / Landed** |
 | **E8a** | CI | `outline this`, `delay_ms=80`, `sync_delay_ms=8000` | Call `press_stop()` during nested POST | Nested agent stops; `is_busy` becomes False; log shows `resolve_stop_checker`; `next_hello_ok()` | **OK / Landed** |
-| **E8b** | Soak | Same as E8a | Cancel with `press_stop_mouse()` | Same cancellation behavior via mouse listener | **SKIP** (Mouse hook) |
+| **E8b** | CI | Same as E8a | Cancel with `press_stop_mouse()` | Same cancellation behavior via mouse listener | **Dropped** (mouse; E8a covers Stop) |
 | **E9** | CI | Prompt for web research on | Send query triggering HITL approval | Send button label becomes `Accept`; Stop label becomes `Change` / `Reject`; `is_busy` remains True | **OK / Landed** |
 | **E9a** | CI | E9 state | Call `press_accept()` | Approval clears; tool execution completes; button labels revert to Send/Stop; `next_hello_ok()` | **OK / Landed** |
 | **E9b** | CI | E9 state | Call `press_reject()` | Approval clears; tool aborted; returns to idle; `next_hello_ok()` | **OK / Landed** |
-| **E9c** | CI | E9 state | Call `press_change()` | Triggers change dialog or applies modified query; must not log stream cancel | **SKIP** (Dialog hook) |
-| **E9d** | CI | E9 state | Call `press_stop_mouse()` | No stream cancellation; remains in `approval_active()` | **SKIP** (Mouse hook) |
+| **E9c** | CI | E9 state | Call `press_change()` | Triggers change dialog or applies modified query; must not log stream cancel | **Dropped** (dialog hook) |
+| **E9d** | CI | E9 state | Call `press_stop_mouse()` | No stream cancellation; remains in `approval_active()` | **Dropped** (mouse; E9e covers ActionEvent Stop) |
 | **E9e** | CI | E9 state | Call `press_stop()` ActionEvent | Dispatches Change/Reject branch, NOT `StopSendEffect` | **OK / Landed** |
 | **E10** | CI | Tool follow-up returning 500 | Send tool query | Tool error displayed in transcript; returns to idle; `next_hello_ok()` | **OK / Landed** |
 | **E11** | CI | `insert filler` then `add a comment` | Send as two sequential turns | Both mutations applied; context refreshed between turns; `next_hello_ok()` | **OK / Landed** |
-| **E12** | CI | Calc doc, `list sheets` | Send in Calc sidebar | `list_sheets` executes; HTML wrap-up | **SKIP** (URP hang after scalc; isolate `FILTER=e12`) |
+| **E12** | CI | Calc doc, `list sheets` | Send in Calc sidebar | `list_sheets` executes; HTML wrap-up | **Optional** (URP hang after scalc; isolate `FILTER=e12`) |
 | **E13** | CI | `add_comment` with mock tool delay | Call `press_stop()` during tool execution | Partial/no mutation; not stuck busy; no UI freeze; `next_hello_ok()` | **OK / Landed** |
 | **E14** | CI | `outline this` | Run delegate twice in succession | Nested agent functions repeatedly without stale session leaks; `next_hello_ok()` | **OK / Landed** |
 | **E15** | CI | `insert filler` | Stop after tool result queued, before HTML | Mutation applied; UI returns to idle; no double drain; `next_hello_ok()` | **OK / Landed** |
@@ -273,12 +261,15 @@ Every test must satisfy:
 | **E22** | CI | `endless nested outline` | Specialized delegate never finishes | Triggers max tool budget error; main UI returns to idle; `next_hello_ok()` | **OK / Landed** |
 
 #### Dropped Cases (Packet E)
+- **E2 (Live DuckDuckGo):** CI must stay offline; E1 covers the research loop.
+- **E8b / E9d (Mouse Stop / HITL):** Same as B1b; ActionEvent paths landed (E8a, E9e).
+- **E9c (HITL Change dialog):** No URP dialog hook; Accept/Reject landed.
 - **E16 (Unknown domain):** Covered by unit tests and E10.
 - **E18 (Zero search hits):** Tool content variation, not a drain hang.
 - **E19 (Tool validation error):** Covered by unit tests (`test_tool.py`).
-- **E20 (Close doc mid-tool):** Kills shared soffice; covered by H4 soak.
+- **E20 (Close doc mid-tool):** Kills shared soffice; out of harness (same as former H4).
 - **E23 (Shorter-doc context refresh):** Same code path as E5.
-- **E24 (In-process listener gap):** Same as skipped E9c.
+- **E24 (In-process listener gap):** Same as dropped E9c.
 
 ---
 
@@ -288,15 +279,14 @@ Every test must satisfy:
 - **Mode:** Automated (`make test-mock-sidebar FILTER=F`).
 - **Status Summary:**
   - **Landed:** F1, F2, F3a, F4, F5, F6, F7, F8, F9, F10, F12, F13, F14, F15, F16, F17.
-  - **Skipped:** F3b (mouse hook), F11 (two DONE lines), F18 (event ping).
-  - **Explicitly Dropped:** F19–F32 (protocol edge cases covered by unit tests).
+  - **Dropped:** F3b (mouse), F11 (two DONE wait), F18 (event ping), F19–F32 (unit-tested envelopes).
 
 | ID | Mode | Mock / Trigger | Steps / Actions | Expected Pass Behavior | Status / Notes |
 |:--:|:----:|----------------|-----------------|------------------------|:--------------:|
 | **F1** | CI | `crash the stream` | Send query, then `hello` | Error surfaced in UI (not a hang); `next_hello_ok()` succeeds | **OK / Landed** |
 | **F2** | CI | `rate limit` / `error 429` | Send query | Distinct 429 error displayed; prior assistant text not overwritten; `next_hello_ok()` | **OK / Landed** |
 | **F3a** | CI | `hang the stream` or `--fail hang --fail-after-chunks 4` | Send query, wait timeout or call `press_stop()` | UI does not freeze; returns to idle or Stopped; `next_hello_ok()` succeeds | **OK / Landed** |
-| **F3b** | Soak | Hang scenario | Cancel with `press_stop_mouse()` | Same cancellation behavior via GTK mouse hook | **SKIP** (Mouse hook) |
+| **F3b** | CI | Hang scenario | Cancel with `press_stop_mouse()` | Same cancellation behavior via GTK mouse hook | **Dropped** (mouse; F3a/F17 cover Stop) |
 | **F4** | CI | `sse pings` / `--sse-comments` | Send `hello` | Stream parses cleanly; comment lines ignored; HTML renders | **OK / Landed** |
 | **F5** | CI | `--fail http500` (all requests) | Send query, then disable fail, send `hello` | Consistent error display; Settings remain accessible; recovery `hello` succeeds | **OK / Landed** |
 | **F6** | CI | Ramble + hang (`--scenario ramble --fail hang`) | Send query, call `press_stop()` | Stops or surfaces error; soffice never wedges; `next_hello_ok()` | **OK / Landed** |
@@ -304,16 +294,18 @@ Every test must satisfy:
 | **F8** | CI | `error 403` / forbidden | Send query | Forbidden error message surfaced; `next_hello_ok()` succeeds | **OK / Landed** |
 | **F9** | CI | `malformed sse` (`data: {not json}`) | Send query | Skips invalid chunk or surfaces error; returns to idle; `next_hello_ok()` | **OK / Landed** |
 | **F10** | CI | `truncated json` (`data: {`) | Send query | Handles incomplete JSON chunk; completes or surfaces error; `next_hello_ok()` | **OK / Landed** |
-| **F11** | CI | `two dones` | Send query | Handles double `[DONE]` lines cleanly | **SKIP** (Transcript wait mismatch; isolate `FILTER=f11`) |
+| **F11** | CI | `two dones` | Send query | Handles double `[DONE]` lines cleanly | **Dropped** (transcript wait; parser covered in unit tests) |
 | **F12** | CI | `empty body` (HTTP 200, 0 bytes) | Send query | Surfaces empty model or error banner; `next_hello_ok()` succeeds | **OK / Landed** |
 | **F13** | CI | `connection reset` (closed socket) | Send query | Surfaces network error; returns to idle; `next_hello_ok()` | **OK / Landed** |
 | **F14** | CI | 429 followed by `hello` | Send 429 query, immediately send `hello` | Rapid recovery; no sticky rate-limit state; `hello` succeeds | **OK / Landed** |
 | **F15** | CI | F1 (500) → F2 (429) → `hello` | Send sequential failing queries | Both errors visible in history; FSM stays healthy; `hello` succeeds | **OK / Landed** |
 | **F16** | CI | Mock delay > client timeout | Send query | `ERROR_OCCURRED` event fired; Send button re-enabled; `next_hello_ok()` | **OK / Landed** |
 | **F17** | CI | Hang scenario | Call `press_stop()` during F3 hang | Stream cancelled cleanly; returns to idle; `next_hello_ok()` | **OK / Landed** |
-| **F18** | CI | `event ping` | Send query with named SSE events | Named events ignored or parsed without crashing | **SKIP** (Transcript wait mismatch; isolate `FILTER=f18`) |
+| **F18** | CI | `event ping` | Send query with named SSE events | Named events ignored or parsed without crashing | **Dropped** (transcript wait; F4 covers SSE comments) |
 
 #### Dropped Cases (Packet F)
+- **F3b (Mouse Stop during hang):** F3a / F17 cover Stop.
+- **F11 / F18:** URP transcript wait mismatch; SSE envelopes covered by unit tests and F4 (`: ping` comments).
 - **F19–F32:** Redundant HTTP/SSE envelope cases (redirects, 204, Content-Length header edge cases, BOM, charset encoding, `Retry-After`). These are fully verified in unit tests ([`tests/framework/test_client_llm.py`](../../tests/framework/test_client_llm.py)) and do not require full UNO sidebar execution.
 
 ---
@@ -323,10 +315,9 @@ Every test must satisfy:
 - **Focus:** Dual state machines (`SendButtonState` vs `AudioRecorderState`), mock audio child process via IPC stub (`/tmp/writeragent_stub_recorder.json`), native `input_audio` chat completions, fallback to `/v1/audio/transcriptions` STT.
 - **Mode:** Automated (`make test-mock-sidebar FILTER=G`).
 - **Status Summary:**
-  - **Landed:** G1–G16, G29.
-  - **Skipped:** G17 (Calc Scalcs hang), G18 (HITL active).
-  - **Next-Level (Planned):** G21, G27, G28.
-  - **Explicitly Dropped:** G19, G20, G22, G23, G24, G25, G26, G30.
+  - **Landed:** G1–G16, G21, G27, G28, G29.
+  - **Optional later:** G17 (same Calc URP hang as E12).
+  - **Dropped:** G18 (HITL Record), G19–G26, G30.
 
 | ID | Mode | Mock / Trigger | Steps / Actions | Expected Pass Behavior | Status / Notes |
 |:--:|:----:|----------------|-----------------|------------------------|:--------------:|
@@ -346,14 +337,15 @@ Every test must satisfy:
 | **G14** | CI | Missing / 0-byte WAV | Record → Stop Rec with missing WAV | Send aborted or error surfaced; returns to idle; `next_hello_ok()` | **OK / Landed** |
 | **G15** | CI | Active recording | Call `press_send()` while recording | FSM ignores Send; recording continues; Stop Rec then send succeeds | **OK / Landed** |
 | **G16** | CI | Rapid retake | Record → Stop Rec → immediately Record again | Second recording replaces previous audio; single in-flight capture | **OK / Landed** |
-| **G17** | CI | Calc deck | G1 flow in Calc sidebar | Native audio path functions on Calc deck | **SKIP** (Calc URP hang) |
-| **G18** | CI | HITL active | Call `press_record()` during HITL approval | Record ignored (approval owns button states); E9 flow remains valid | **SKIP** (HITL hook) |
-| **G21** | CI | Stub hang (`hang_ready`) | Record with child that never reports `ready` | Init timeout fires; `audio_status` error; returns to idle Send; `next_hello_ok()` | **Next-Level** |
-| **G27** | CI | STT empty text | STT returns empty string from valid WAV | Query stays empty; no chat send; returns to idle; `next_hello_ok()` | **Next-Level** |
-| **G28** | CI | STT error JSON | STT endpoint returns error payload | Error surfaced in UI; `has_audio` cleared; `next_hello_ok()` | **Next-Level** |
+| **G17** | CI | Calc deck | G1 flow in Calc sidebar | Native audio path functions on Calc deck | **Optional** (same Calc URP hang as E12) |
+| **G18** | CI | HITL active | Call `press_record()` during HITL approval | Record ignored (approval owns button states); E9 flow remains valid | **Dropped** (HITL; E9 covers approval buttons) |
+| **G21** | CI | Stub hang (`hang_ready`) | Record with child that never reports `ready` | Init timeout fires; `audio_status` error; returns to idle Send; `next_hello_ok()` | **OK / Landed** |
+| **G27** | CI | STT empty text | STT returns empty string from valid WAV | Query stays empty; no chat send; returns to idle; `next_hello_ok()` | **OK / Landed** |
+| **G28** | CI | STT error JSON | STT endpoint returns error payload | Error surfaced in UI; `has_audio` cleared; `next_hello_ok()` | **OK / Landed** |
 | **G29** | CI | Native audio returns 400 | Chat POST with `input_audio` fails 400 (`fail_native_audio`) | Falls back to STT on same drain; surfaces `[Model does not support audio. Falling back to STT...]`; `next_hello_ok()` | **OK / Landed** |
 
 #### Dropped Cases (Packet G)
+- **G18 (Record during HITL):** E9 already owns the buttons; not worth a second HITL hook.
 - **G19 (Child auto-stop JSON):** Covered by unit tests ([`test_audio_silence_detector.py`](../../tests/scripting/test_audio_silence_detector.py)) and G4.
 - **G20 (Corrupted IPC line):** Covered by unit tests.
 - **G22 (Silent child exit):** Variant of G12.
@@ -363,27 +355,11 @@ Every test must satisfy:
 
 ---
 
-### Packet H — Decks, Session, Recovery Cross-Cuts
-
-- **Focus:** Sidebar integration across document types (Writer, Calc, Draw), document switching during stream, transcript clearing, theme switching, application exit.
-- **Mode:** Manual Soak in live LibreOffice instance.
-- **Status:** **7 Soak Cases** (H1–H7).
-
-| ID | Mode | Mock / Trigger | Steps / Actions | Expected Pass Behavior | Diagnostics & Notes |
-|:--:|:----:|----------------|-----------------|------------------------|---------------------|
-| **H1** | Soak | Calc doc, `list sheets` | Open Calc sidebar, send query | Tool executes if advertised; HTML wrap-up displayed; resizing functions | Check `list_sheets` in log. |
-| **H2** | Soak | Draw/Impress, `list pages` | Open Draw sidebar, send query | Tool executes if advertised; HTML wrap-up displayed | Check `list_pages` in log. |
-| **H3** | Soak | Calc & Draw decks | Send `hello` and `fill the sidebar` in Calc/Draw | Rich control renders formatted HTML; scroll and resize function correctly | Check `on_rich_control_ready`. |
-| **H4** | Soak | Mid-ramble document switch | Switch active document or close document during stream | Clean abort or error; no `DisposedException` swallowed into a freeze | Check `is_disposed_exception` / `DocumentDisposedError`. |
-| **H5** | Soak | Clear transcript / New Chat | Clear session history, send `hello` | History batch paste resets; scroll pinned to bottom; `hello` renders | Check `append_rich_messages_via_clipboard`. |
-| **H6** | Soak | Theme switch | Toggle LibreOffice light/dark theme with long transcript | Text and role prefixes remain readable; no inverse selection artifacts | Check theme colors in `rich_text.py`. |
-| **H7** | Soak | Exit application | Exit LibreOffice while ramble stream is in flight | Clean teardown without Signal 11 crash (no nested hidden Writer leak) | Safe disposal of hidden docs. |
-
----
-
 ## 4. Out-of-Scope Items & Boundary Invariants
 
 The following areas are intentionally excluded from the mock LLM sidebar test suite:
+- **Visual watching:** Scroll, HTML look, resize, theme, focus steal. Use `make mock-llm` in the product.
+- **Killing the shared soffice:** Close/switch document mid-stream, exit while ramble.
 - **Speech Recognition Accuracy:** Testing real microphone audio quality or ASR word-error rate (covered by external benchmarks).
 - **Non-Chat Sidebar Workflows:** Librarian full-corpus indexing, brainstorm mode, presentation slide deck generation, and image generation.
 - **Calc Formula Add-Ins:** `=PROMPT()` and `=PYTHON()` formula execution (tested separately in `tests/calc/`).

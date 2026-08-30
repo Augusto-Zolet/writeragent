@@ -192,6 +192,8 @@ class MockLLMConfig:
     empty_nested_answer: bool = False
     # Packet G29: HTTP 400 on chat completions that include input_audio (STT path stays 200).
     fail_native_audio: bool = False
+    # Packet G28: HTTP 500 on /v1/audio/transcriptions only (chat completions stay healthy).
+    fail_stt: bool = False
     # Packet E oracles (E1 CURRENT QUERY, E5 doc length, E6/E7 tool names).
     captures: list[dict[str, Any]] = field(default_factory=list)
     _capture_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
@@ -352,8 +354,10 @@ def _as_text(content: Any) -> str:
 
 
 def canned_transcript(config: MockLLMConfig) -> str:
-    text = (config.transcript or DEFAULT_TRANSCRIPT).strip()
-    return text or DEFAULT_TRANSCRIPT
+    # Explicit "" is Packet G27 (empty STT). Do not substitute the default line.
+    if config.transcript is None:
+        return DEFAULT_TRANSCRIPT
+    return str(config.transcript).strip()
 
 
 def _looks_like_stt_prompt(text: str) -> bool:
@@ -1369,6 +1373,9 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
                 record_capture(config, {"path": path, "stt": True, "has_input_audio": False})
                 dummy = Completion()
                 if self._fail_or_hang_headers(dummy, stream=False):
+                    return
+                if config.fail_stt:
+                    self._send_json(500, openai_error_body("mock STT failure", "server_error"))
                     return
                 ctype = str(self.headers.get("Content-Type") or "")
                 transcript = canned_transcript(config)

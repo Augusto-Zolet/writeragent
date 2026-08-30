@@ -1038,6 +1038,12 @@ class SendButtonListener(SendHandlersMixin, ToolCallingMixin, BaseActionListener
                             log.exception("Error during STT fallback")
                         self._terminal_status = "Error"
                         return
+                    # WAV is deleted in _transcribe_audio finally. Empty STT must not
+                    # fall through into a chat POST with a blank user message (G27).
+                    if not query_text.strip():
+                        self._append_response("\n" + _("[No speech detected.]") + "\n")
+                        self._terminal_status = ""
+                        return
                 else:
                     err_msg = _("[Model {0} does not support native audio. Please select an STT Model in Settings.]").format(current_model)
                     self._append_response("\n%s\n" % err_msg)

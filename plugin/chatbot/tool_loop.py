@@ -579,28 +579,32 @@ class ToolCallingMixin:
                 self._append_response("\n[Model does not support audio. Falling back to STT...]\n")
                 try:
                     transcript = self._transcribe_audio(self.audio_wav_path, stt_model)
-                    if transcript:
-                        combined = (self._active_query_text + "\n" + transcript).strip() if self._active_query_text else transcript
-                        if self.session.messages and self.session.messages[-1].get("role") == "user":
-                            self.session.messages.pop()
-                        self.session.add_user_message(combined)
-                        self._active_query_text = combined
-                        wav_path = self.audio_wav_path
-                        self.audio_wav_path = None
-                        if wav_path:
-                            try:
-                                os.remove(wav_path)
-                            except OSError as rem_err:
-                                log.debug("Failed to remove audio_wav_path after STT fallback: %s", rem_err)
-                        self._spawn_llm_worker(
-                            retry_q,
-                            self._active_client,
-                            self._active_max_tokens,
-                            self._active_tools or [],
-                            self._sm_state.round_num,
-                            query_text=combined,
-                        )
+                    wav_path = self.audio_wav_path
+                    self.audio_wav_path = None
+                    if wav_path:
+                        try:
+                            os.remove(wav_path)
+                        except OSError as rem_err:
+                            log.debug("Failed to remove audio_wav_path after STT fallback: %s", rem_err)
+                    if not (transcript or "").strip():
+                        # G27: empty STT must not spawn a blank chat POST.
+                        self._append_response("\n" + _("[No speech detected.]") + "\n")
+                        self._terminal_status = ""
                         return True
+                    combined = (self._active_query_text + "\n" + transcript).strip() if self._active_query_text else transcript
+                    if self.session.messages and self.session.messages[-1].get("role") == "user":
+                        self.session.messages.pop()
+                    self.session.add_user_message(combined)
+                    self._active_query_text = combined
+                    self._spawn_llm_worker(
+                        retry_q,
+                        self._active_client,
+                        self._active_max_tokens,
+                        self._active_tools or [],
+                        self._sm_state.round_num,
+                        query_text=combined,
+                    )
+                    return True
                 except Exception:
                     log.exception("STT fallback after native-audio error failed")
                 return None

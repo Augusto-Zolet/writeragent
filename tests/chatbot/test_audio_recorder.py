@@ -108,6 +108,39 @@ def test_audio_recorder_skip_spawn_injects_wav(ctx, tmp_path):
     os.remove(path)
 
 
+def test_audio_recorder_skip_spawn_hang_ready(ctx):
+    recorder = AudioRecorder(ctx)
+    recorder._test_skip_spawn = True
+    write_stub_recorder_control(skip=True, hang_ready=True)
+    try:
+        with pytest.raises(RuntimeError, match="timed out"):
+            recorder.start_recording()
+        assert recorder.state.status == "error"
+    finally:
+        clear_stub_recorder_control()
+
+
+def test_audio_recorder_control_file_clears_hang_ready(ctx, tmp_path):
+    """G21 hang_ready must not stick on the live recorder for later Packet G cases."""
+    fixture = tmp_path / "inject.wav"
+    fixture.write_bytes(b"RIFF....WAVEfmt ")
+    recorder = AudioRecorder(ctx)
+    try:
+        write_stub_recorder_control(skip=True, hang_ready=True)
+        with pytest.raises(RuntimeError, match="timed out"):
+            recorder.start_recording()
+        write_stub_recorder_control(skip=True, hang_ready=False, fail_start=None, wav=str(fixture))
+        recorder.start_recording()
+        assert recorder._test_hang_ready is False
+        assert recorder.state.status == "recording"
+        path = recorder.stop_recording()
+        assert path and os.path.isfile(path)
+    finally:
+        clear_stub_recorder_control()
+        if recorder.temp_filename and os.path.isfile(recorder.temp_filename):
+            os.remove(recorder.temp_filename)
+
+
 def test_audio_recorder_skip_spawn_fail_start(ctx):
     recorder = AudioRecorder(ctx)
     recorder._test_skip_spawn = True
