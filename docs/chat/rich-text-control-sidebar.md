@@ -280,6 +280,7 @@ Plain “hello” streams two HTML paragraphs (rotating lists/tables/code). Phra
 | `keep talking` / `ramble` / `stop me` | ~200 content chunks — hit **Stop**, then send again |
 | `say nothing` / `empty reply` | no content, `finish_reason=length` → `[Response truncated -- the model ran out of tokens...]` (session stores that banner so a later empty turn is not HTML-rerendered as the previous reply) |
 | `empty finish stop` / `blank stop reason` | no content, `finish_reason=stop` → `[No text from model…]` plus `[Debug: round=…, finish_reason='stop'…]` |
+| `content filter` / `filtered reply` | no content, `finish_reason=content_filter` → `[Content filter: response was truncated.]` |
 | `think out loud` | several `delta.reasoning` chunks, then HTML |
 | `think tags` | XML think markers inside `content` |
 | `reasoning details` | `reasoning_content` + `reasoning_details` then HTML |
@@ -518,7 +519,7 @@ Resize sidebar, H-scrollbar, “click into Writer during stream,” light/dark, 
 
 ### v2 Packet B — Stop, Send/Record FSM
 
-**Live URP (`make test-mock-sidebar FILTER=B`):** **OK:** B1a, B1c, B2, B3, B3b, B6, B7, B9, B10, B11, B14, B15. **SKIP:** B1b (mouse / in-process), B4/B12 (Record → Packet G), B5 (resize soak), **B8** (harness: URP `Text=` does not fire `TEXT_UPDATED`; needs sync hook — not product). **Product fix landed:** **B13** — `LlmClient.stop()` latches `_stopped` so Stop before the first socket cannot reconnect and hold `llm_request_lane`. Full-suite Calc **E12** still kills URP; stay off Calc from Packet B.
+**Live URP (`make test-mock-sidebar FILTER=B`):** **OK:** B1a, B1c, B2, B3, B3b, B6, B7, B9, B10, B11, B14, B15, **B16, B19, B21**. **SKIP:** B1b (mouse / in-process), B4/B12 (Record → Packet G), B5 (resize soak), **B8** (harness: URP `Text=` does not fire `TEXT_UPDATED`; needs sync hook — not product). **Product fix landed:** **B13** — `LlmClient.stop()` latches `_stopped` so Stop before the first socket cannot reconnect and hold `llm_request_lane`. Full-suite Calc **E12** still kills URP; stay off Calc from Packet B.
 
 Mock: `--delay-ms 40` (and ramble phrases) unless noted. Tests: [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`test_b*`).
 
@@ -565,18 +566,11 @@ Out-of-process: live `SendButtonListener` is in soffice. Tests drive `uno_click`
 | **B13** | `press_send()` then Stop **before** first SSE chunk (`delay-ms` high) | Cancelled starting state; not stuck Stop; hello; **no** `LLM request lane lock` in transcript |
 | **B14** | Stop during `[Thinking]`-style ramble (`think out loud` + delay) | Thinking cleared or frozen; Stopped banner or idle; hello |
 | **B15** | Serial: hello (complete) → ramble+Stop → `say nothing` → hello | Four terminals; never stuck busy |
+| **B16** | `add_comment` **tool_calls only** (no content), `delay_ms` high; Stop **before** the tool runs | Comment never appears; `is_busy` false; hello |
+| **B19** | Two **sequential** tool rounds (not E6 parallel); Stop after first tool result (`insert a comment` on empty doc) | Second tool never runs; idle; hello |
+| **B21** | Clear during ramble (`uno_click` on `controls["clear"]`) | Greeting visible; Stop still enabled; press Stop; idle; hello |
 
-#### Next-level (not landed)
-
-Native leftovers only: drain + FSM + UNO that pytest cannot paint. Do **not** add parser races, soak ×N, or pass conditions the product does not implement. `NEXT_TOOL` + `is_stopped` is already a pytest property in [`test_tool_loop_state.py`](../../tests/chatbot/test_tool_loop_state.py); native is “the tool never mutates the doc.”
-
-| ID | Drive | Pass (assert) |
-|----|--------|----------------|
-| **B16** | `add_comment` **tool_calls only** (no content), `delay_ms` high; Stop **before** the tool runs | Comment never appears; `is_busy` false; hello. Pytest already forbids `SpawnToolWorkerEffect` when stopped |
-| **B19** | Two **sequential** tool rounds (not E6 parallel); Stop at `NEXT_TOOL` after the first tool result | Second tool never runs; idle; hello. Do not drive with `two tools` in one round (that is E6 / E15) |
-| **B21** | Clear during ramble (`uno_click` on existing `controls["clear"]`; no new hook architecture) | **Clear does not Stop** (`ClearButtonListener` only `session.clear()` + wipes the control). Greeting visible; Stop still enabled; press Stop; idle; hello; no freeze / nested drain. Do not assert “stream cancelled” |
-
-**Dropped (do not re-add):**
+#### Dropped (do not re-add)
 
 - **B17** — `STREAM_DONE` vs click in the same window is not deterministic over URP. B1a (mid-stream) and B9 (natural end) already bracket it
 - **B18** — Stop ×5 is soak. B10 already cancels twice in one panel lifetime
@@ -588,7 +582,7 @@ Native leftovers only: drain + FSM + UNO that pytest cannot paint. Do **not** ad
 
 ### v2 Packet C — empty / truncated model
 
-**Landed:** C1, C3, C4 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar FILTER=C`). **C2** is C1’s `_hello_ok()` (not a separate function). **C5** (`content_filter` banner) is not landed. B15 still sends `say nothing` without asserting the banner.
+**Landed:** C1, C3, C4, **C5** in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar FILTER=C`). **C2** is C1’s `_hello_ok()` (not a separate function). B15 still sends `say nothing` without asserting the banner.
 
 Empty / truncated STREAM_DONE must **AddMessageEffect** the banner ([`tool_loop_state.py`](../../plugin/chatbot/tool_loop_state.py)) so finalize does not paste the previous HTML assistant over the new turn (C3 after hello used to show leftover Mock notes).
 
@@ -597,7 +591,7 @@ Empty / truncated STREAM_DONE must **AddMessageEffect** the banner ([`tool_loop_
 | **C1** | `say nothing` | Suffix has `[Response truncated -- the model ran out of tokens...]`; **not** `[No text from model]`; `_hello_ok()` |
 | **C3** | `_session.config.scenario = "empty"`; send `round one` / `round two` / `round three`; restore `scenario=none` | Truncated banner each round; no rotating hello HTML (`<ul>`, `print('mock-llm')`); hello after restore |
 | **C4** | `empty finish stop` | `[No text from model; any tool changes were still applied.]` plus `[Debug:` with `finish_reason='stop'`; hello |
-| **C5** | *(not landed)* mock phrase → `finish_reason=content_filter` | `[Content filter: response was truncated.]`; **not** the length or Debug banners; hello. FSM branch is unit-tested; C1/C4 never paint this on the live drain |
+| **C5** | `content filter` / `filtered reply` → `finish_reason=content_filter` | `[Content filter: response was truncated.]`; **not** the length or Debug banners; hello |
 
 ---
 
@@ -792,7 +786,7 @@ IPC JSON parse and VAD child lines are pytest ([`test_audio_silence_detector.py`
 7. **E9a–E9e** (HITL overlay on the same buttons).
 8. F3/F6/F9+ only after cancel + hang are stable.
 9. **G1, G7, G11, G12, G15** (Record FSM vs Send busy) — stub capture, no mic. Rest of G after that.
-10. Next-level keep only (not the dropped F19–F32 dump): **C5**, then **B16 / B19 / B21**, **E17 / E21 / E22**, **G29** (native 400 → STT on the same drain), then **G21 / G27 / G28**.
+10. Next-level keep only (not the dropped F19–F32 dump): **C5** and **B16 / B19 / B21** are landed (`FILTER=C` / `FILTER=B`). Remaining: **E17 / E21 / E22**, **G29** (native 400 → STT on the same drain), then **G21 / G27 / G28**.
 
 Pytest already covers `decide_completion` in `tests/scripts/test_mock_llm_server.py`. v2 does **not** duplicate that; it covers **drain + FSM + UNO**. Mock already lists `writeragent-mock-whisper` and canned transcripts.
 

@@ -505,6 +505,8 @@ def test_detect_scenario_phrases_and_force():
     assert detect_scenario("say nothing now") == "empty"
     assert detect_scenario("empty finish stop") == "empty_stop"
     assert detect_scenario("blank stop reason") == "empty_stop"
+    assert detect_scenario("please content filter this") == "content_filter"
+    assert detect_scenario("filtered reply please") == "content_filter"
     assert detect_scenario("hello", forced="flood") == "flood"
     assert detect_scenario("hello") == ""
 
@@ -531,6 +533,13 @@ def test_ramble_and_empty_and_flood():
     assert empty_stop.content is None
     assert empty_stop.finish_reason == "stop"
     assert not completion_tool_calls(empty_stop)
+    filtered = decide_completion(
+        {"messages": [{"role": "user", "content": "content filter"}], "tools": _tools("web_research")},
+        cfg,
+    )
+    assert filtered.content is None
+    assert filtered.finish_reason == "content_filter"
+    assert not completion_tool_calls(filtered)
     flood = decide_completion(
         {"messages": [{"role": "user", "content": "fill the sidebar"}], "tools": _tools("web_research")},
         cfg,

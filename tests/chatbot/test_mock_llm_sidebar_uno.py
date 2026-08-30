@@ -387,6 +387,17 @@ def _assert_empty_debug_banner(before: str) -> None:
     )
 
 
+def _assert_content_filter_banner(before: str) -> None:
+    suffix = _suffix(before)
+    low = suffix.lower()
+    assert "content filter" in low and "truncated" in low, (
+        "C5 expected content-filter banner, got %r" % suffix[-400:]
+    )
+    assert "ran out of tokens" not in low, "C5 must not paint the length banner: %r" % suffix[-400:]
+    assert "[no text from model" not in low, "C5 must not paint the empty Debug banner: %r" % suffix[-400:]
+    assert "[debug:" not in low, "C5 must not paint Debug: %r" % suffix[-400:]
+
+
 def _assert_assistant_html(before: str) -> None:
     suffix = _suffix(before)
     low = suffix.lower()
@@ -1028,6 +1039,81 @@ def test_b15_serial_hello_ramble_stop_empty_hello(ctx):
     _hello_ok()
 
 
+@native_test
+def test_b16_stop_before_add_comment(ctx):
+    """Stop before add_comment runs; comment must not appear (unlike E13)."""
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    before_n = _annotation_count(ctx)
+    before = _transcript()
+    try:
+        _start_until_stop_enabled("add a comment", delay_ms=2000, timeout=8.0)
+        _stop_and_wait_idle(before, timeout=25.0)
+    except AssertionError:
+        _press_stop()
+        _wait_idle_after_send(before, timeout=25.0)
+    finally:
+        _reset_mock_runtime()
+    assert _annotation_count(ctx) == before_n, (
+        "B16 expected no comment after Stop before tool, count %s -> %s"
+        % (before_n, _annotation_count(ctx))
+    )
+    _hello_ok()
+
+
+@native_test
+def test_b19_stop_after_first_sequential_tool(ctx):
+    """Empty-doc insert-comment: apply_document_content then add_comment. Stop after first."""
+    _reset_mock_runtime()
+    _set_writer_body(ctx, "")
+    before = _transcript()
+    try:
+        _start_until_stop_enabled("insert a comment", delay_ms=400, timeout=15.0)
+        deadline = time.monotonic() + 20.0
+        while time.monotonic() <= deadline:
+            if _writer_body(ctx).strip():
+                break
+            if not _is_busy():
+                break
+            time.sleep(0.1)
+        assert _writer_body(ctx).strip(), "B19 expected first tool (apply_document_content) to run"
+        if _is_busy():
+            _press_stop()
+        _wait_idle_after_send(before, timeout=30.0)
+        assert _annotation_count(ctx) == 0, (
+            "B19 second tool add_comment must not run, got %s comments" % _annotation_count(ctx)
+        )
+    finally:
+        _reset_mock_runtime()
+        _set_writer_body(ctx, WELCOME_BODY)
+    _hello_ok()
+
+
+@native_test
+def test_b21_clear_during_ramble_then_stop(ctx):
+    """Clear wipes transcript; it does not Stop. Then Stop; idle; hello."""
+    from plugin.chatbot.sidebar_test_hooks import uno_click
+
+    _reset_mock_runtime()
+    before = _start_until_stop_enabled("keep talking", delay_ms=40)
+    try:
+        controls = getattr(_session, "controls", None) or {}
+        clear = controls.get("clear")
+        if clear is None:
+            raise unittest.SkipTest("B21 needs controls['clear'] over URP")
+        uno_click(clear)
+        time.sleep(0.4)
+        body = _transcript()
+        assert "i can edit or translate" in body.lower() or "try me" in body.lower(), (
+            "B21 expected greeting after Clear, got %r" % body[-400:]
+        )
+        assert _is_busy(), "B21 Clear must not Stop the stream (Stop still enabled)"
+        _stop_and_wait_idle(before, timeout=25.0)
+    finally:
+        _reset_mock_runtime()
+    _hello_ok()
+
+
 # --- Packet C: empty / truncated model ---
 
 
@@ -1073,6 +1159,15 @@ def test_c4_empty_finish_stop_debug_banner(ctx):
     before = _transcript()
     _send_and_wait("empty finish stop", timeout=40.0, wait_for="No text from model")
     _assert_empty_debug_banner(before)
+    _hello_ok()
+
+
+@native_test
+def test_c5_content_filter_banner_then_hello(ctx):
+    _reset_mock_runtime()
+    before = _transcript()
+    _send_and_wait("content filter", timeout=40.0, wait_for="Content filter")
+    _assert_content_filter_banner(before)
     _hello_ok()
 
 

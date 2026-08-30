@@ -141,6 +141,22 @@ class TestEndpointImageProvider(unittest.TestCase):
         self.assertEqual(paths, [])
         self.assertEqual(err, "")
 
+    def test_fallback_logic_non_string_content(self):
+        """When provider response content is non-string (e.g. dict or list), fallback should handle it gracefully."""
+        self.mock_client.config.get.side_effect = lambda k, d=None: True if k == "is_openrouter" else d
+        self.mock_client.make_chat_request.return_value = ("POST", "/chat", "{}", {})
+
+        # Content is a list or dict instead of str
+        mock_resp = {
+            "content": [{"type": "text", "text": "no image here"}],
+            "images": []
+        }
+        self.mock_client.request_with_tools.return_value = mock_resp
+
+        paths, err = self.provider.generate("test prompt")
+        self.assertEqual(paths, [])
+        self.assertEqual(err, "")
+
     def test_generate_multi_image(self):
         """If provider returns multiple images, ensure paths preserves ordering and all paths are created/cleaned."""
         self.mock_client.config.get.return_value = False # Not OpenRouter

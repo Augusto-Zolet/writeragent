@@ -91,6 +91,9 @@ _SCENARIO_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("two_dones", re.compile(r"\btwo dones\b", re.IGNORECASE)),
     ("event_ping", re.compile(r"\bevent ping\b", re.IGNORECASE)),
     ("ramble", re.compile(r"\b(keep talking|ramble|stop me)\b", re.IGNORECASE)),
+    # Packet C5: empty content + finish_reason=content_filter. Before empty/empty_stop
+    # so "content filter" is not length or Debug.
+    ("content_filter", re.compile(r"\b(content filter|filtered reply)\b", re.IGNORECASE)),
     # Packet C4: empty content + finish_reason=stop (Debug banner). Must win
     # before ``empty`` so "empty finish stop" is not ``say nothing`` / length.
     ("empty_stop", re.compile(r"\b(empty finish stop|blank stop reason)\b", re.IGNORECASE)),
@@ -822,6 +825,9 @@ def _scenario_user_turn(
         return Completion(content=_ramble_text(), hang=True, ramble_parts=RAMBLE_PARTS, finish_reason="stop")
     if scenario == "ramble":
         return Completion(content=_ramble_text(), ramble_parts=RAMBLE_PARTS, reasoning=reasoning, finish_reason="stop")
+    if scenario == "content_filter":
+        # Packet C5: empty content with finish_reason=content_filter (not length/Debug).
+        return Completion(content=None, finish_reason="content_filter")
     if scenario == "empty_stop":
         # Packet C4: empty content with finish_reason=stop paints the Debug banner.
         # ``empty`` / say nothing is finish_reason=length (truncated banner instead).

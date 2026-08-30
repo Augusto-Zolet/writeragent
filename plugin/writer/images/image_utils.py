@@ -106,7 +106,8 @@ class EndpointImageProvider(ImageProvider):
                 body_dict["max_tokens"] = kwargs["max_tokens"]
 
             chat_resp = self.client.request_with_tools(messages, body_override=json.dumps(body_dict), model=model)
-            fallback_content = chat_resp.get("content") or ""
+            raw_content = chat_resp.get("content")
+            fallback_content = raw_content if isinstance(raw_content, str) else ""
 
             # Parse response: OpenRouter etc. may put image in message.images[].image_url.url
             paths = []
@@ -146,12 +147,14 @@ class EndpointImageProvider(ImageProvider):
                 return [], str(e)
 
         # Fallback: image in content string (some endpoints)
-        if "data:image" in fallback_content:
-            match = re.search(r"base64,([A-Za-z0-9+/=]+)", fallback_content)
-            if match:
-                return self._save_b64(match.group(1)), ""
-        if fallback_content.strip().startswith("http"):
-            return self._save_url(fallback_content.strip()), ""
+        if isinstance(fallback_content, str) and fallback_content:
+            if "data:image" in fallback_content:
+                match = re.search(r"base64,([A-Za-z0-9+/=]+)", fallback_content)
+                if match:
+                    return self._save_b64(match.group(1)), ""
+            stripped = fallback_content.strip()
+            if stripped.startswith("http"):
+                return self._save_url(stripped), ""
 
         return [], ""
 
