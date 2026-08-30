@@ -499,6 +499,9 @@ def _reset_mock_runtime() -> None:
     _session.config.fail_after_chunks = 4
     _session.config.sse_comments = False
     _session.config.fail_tool_followup = False
+    _session.config.nested_never_finish = False
+    _session.config.empty_nested_answer = False
+    _session.config.fail_native_audio = False
     _session.config.scenario = "none"
     from scripts.mock_llm_server import clear_captures
 
@@ -1670,6 +1673,92 @@ def test_e15_stop_after_filler_tool_before_wrapup(ctx):
     _hello_ok()
 
 
+@native_test
+def test_e17_empty_nested_final_answer(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    assert _session is not None
+    _session.config.empty_nested_answer = True
+    _send_and_wait("hello", timeout=40.0)
+    before = _transcript()
+    try:
+        _send_and_wait("empty nested answer", timeout=120.0)
+        suffix = _suffix(before)
+        assert "print('mock-llm')" not in suffix.lower()
+        assert "<ul>" not in suffix.lower()
+        snaps = _captures()
+        decided = []
+        for row in snaps:
+            decided.extend(row.get("decided_tools") or [])
+        assert "delegate_to_specialized_writer_toolset" in set(decided), (
+            "E17 expected delegate, snaps=%r" % snaps[-8:]
+        )
+        body = _transcript().lower()
+        assert "assistant:" in body or "empty" in body or "specialized" in body or "no text" in body, (
+            "E17 expected wrap-up or empty banner, got %r" % _transcript()[-400:]
+        )
+    finally:
+        _session.config.empty_nested_answer = False
+    _hello_ok()
+
+
+@native_test
+def test_e21_mixed_parallel_tools(ctx):
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    before_len = len(_writer_body(ctx))
+    _send_and_wait("mixed tools", timeout=60.0)
+    after_len = len(_writer_body(ctx))
+    assert after_len > before_len, "E21 expected filler mutation kept, %s -> %s" % (before_len, after_len)
+    body = _transcript().lower()
+    assert "provide search" in body or "error" in body or "fail" in body, (
+        "E21 expected the failing tool in the transcript, got %r" % _transcript()[-500:]
+    )
+    snaps = _captures()
+    names = set()
+    for row in snaps:
+        names.update(row.get("decided_tools") or [])
+        names.update(row.get("called_tools") or [])
+    assert "apply_document_content" in names and "add_comment" in names, (
+        "E21 expected both tools, got %r snaps=%r" % (names, snaps[-8:])
+    )
+    _hello_ok()
+
+
+@native_test
+def test_e22_nested_max_steps(ctx):
+    from plugin.framework.config import get_config_int, set_config
+
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    assert _session is not None
+    saved_rounds = get_config_int("chatbot.max_tool_rounds")
+    _session.config.nested_never_finish = True
+    try:
+        set_config("chatbot.max_tool_rounds", 3)
+        time.sleep(2.1)
+        _send_and_wait("endless nested outline", timeout=120.0)
+        body = _transcript().lower()
+        assert any(
+            needle in body
+            for needle in ("max step", "exhausted", "budget", "error", "limit")
+        ) or "assistant:" in body, "E22 expected budget/error wrap-up, got %r" % _transcript()[-500:]
+        snaps = _captures()
+        decided = []
+        for row in snaps:
+            decided.extend(row.get("decided_tools") or [])
+        assert "delegate_to_specialized_writer_toolset" in set(decided), (
+            "E22 expected delegate, snaps=%r" % snaps[-8:]
+        )
+        finish_names = {"final_answer", "specialized_workflow_finished"}
+        assert not (set(decided) & finish_names), "E22 inner must not finish: %r" % decided
+    finally:
+        _session.config.nested_never_finish = False
+        set_config("chatbot.max_tool_rounds", saved_rounds)
+        time.sleep(2.1)
+    _hello_ok()
+
+
 _WAV_1S = os.path.join(os.path.dirname(__file__), "fixtures", "hello-writeragent-1s.wav")
 _WAV_5S = os.path.join(os.path.dirname(__file__), "fixtures", "hello-writeragent-5s.wav")
 
@@ -2024,6 +2113,46 @@ def test_g18_hitl_blocks_record(ctx):
         wait_idle(listener=sl, timeout=30.0)
     finally:
         set_config("chatbot.prompt_for_web_research", False)
+        time.sleep(2.1)
+    _hello_ok()
+
+
+@native_test
+def test_g29_native_400_then_stt_same_drain(ctx):
+    from plugin.chatbot.sidebar_test_hooks import audio_status
+    from plugin.framework.client.model_fetcher import get_text_model, set_native_audio_support
+    from plugin.framework.config import get_config, get_current_endpoint, set_config
+    from scripts.mock_llm_server import MOCK_STT_MODEL_ID
+
+    sl = _g_prep()
+    assert _session is not None
+    endpoint = get_current_endpoint()
+    model = get_text_model()
+    saved_stt = get_config("stt_model")
+    _session.config.fail_native_audio = True
+    try:
+        set_config("stt_model", MOCK_STT_MODEL_ID)
+        time.sleep(2.1)
+        _g_record_and_stop(sl, _WAV_1S, timeout=90.0)
+        body = _transcript()
+        assert "Falling back to STT" in body or "does not support audio" in body.lower(), (
+            "G29 expected STT fallback banner: %r" % body[-500:]
+        )
+        snaps = _captures()
+        has_audio_post = any(row.get("has_input_audio") for row in snaps)
+        stt = any(row.get("stt") or "transcription" in str(row.get("path") or "") for row in snaps)
+        transcribe_prompt = any(
+            "transcribe this audio exactly" in str(row.get("user_text") or "").lower() for row in snaps
+        )
+        assert has_audio_post, "G29 expected native input_audio POST, snaps=%r" % snaps[-8:]
+        assert stt or transcribe_prompt or "mock" in body.lower(), (
+            "G29 expected STT or transcribe after 400: %r snaps=%r" % (body[-400:], snaps[-8:])
+        )
+        assert audio_status(listener=sl)["has_audio"] is False
+    finally:
+        _session.config.fail_native_audio = False
+        set_native_audio_support(model, endpoint, True)
+        set_config("stt_model", saved_stt)
         time.sleep(2.1)
     _hello_ok()
 

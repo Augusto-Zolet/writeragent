@@ -286,6 +286,9 @@ Plain “hello” streams two HTML paragraphs (rotating lists/tables/code). Phra
 | `reasoning details` | `reasoning_content` + `reasoning_details` then HTML |
 | `fill the sidebar` / `very long` | 40 paragraphs + table + nested lists |
 | `outline this` / `use the writer toolset` | `delegate_to_specialized_writer_toolset` (`document_research`) |
+| `empty nested answer` | Same delegate; inner `final_answer` / `specialized_workflow_finished` with empty `answer` (E17) |
+| `endless nested outline` | Same delegate; inner never finishes until `max_tool_rounds` (E22) |
+| `mixed tools` / `one tool fails` | `add_comment` (empty search → error) + `apply_document_content` filler (E21) |
 | `two tools` / `in parallel` | `search_in_document` + `get_document_tree` in one round |
 | `insert filler` / `append a paragraph` | `apply_document_content` at end |
 | `list sheets` / `list pages` | Calc/Draw list tools when advertised |
@@ -610,7 +613,7 @@ Empty / truncated STREAM_DONE must **AddMessageEffect** the banner ([`tool_loop_
 
 ### v2 Packet E — tools, delegate, HITL
 
-**Landed:** E1, E3–E8a, E9a–c/e, E10–E11, E13–E15 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar`). **Skipped:** E2 (live DDG), E8b/E9d (`press_stop_mouse` / in-process listener, same as F3b), **E12** (full-suite Calc hangs URP — isolate `FILTER=e12`), E9c unless the live listener is in-process.
+**Landed:** E1, E3–E8a, E9a–c/e, E10–E11, E13–E15, **E17, E21, E22** in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar`). **Skipped:** E2 (live DDG), E8b/E9d (`press_stop_mouse` / in-process listener, same as F3b), **E12** (full-suite Calc hangs URP — isolate `FILTER=e12`), E9c unless the live listener is in-process.
 
 Writer with body text “Welcome to WriterAgent.” unless **empty** is specified. Mock `--offline` for research unless E2. Setup turns `chatbot.prompt_for_web_research` **off** except E9. Mock request captures live on `MockLLMConfig.captures`.
 
@@ -637,16 +640,13 @@ Writer with body text “Welcome to WriterAgent.” unless **empty** is specifie
 | **E13** | Stop **during** `add_comment` round (delay tools via mock) | Partial or no comment; not busy; hello; no freeze |
 | **E14** | Delegate E7 completes; second `outline this` | Nested agent works twice (no stale inner session) |
 | **E15** | `insert filler` with Stop **after** tool result queued but before HTML wrap-up | Doc may have mutation; UI idle; hello; no double drain |
+| **E17** | Nested `final_answer` empty / `None` (`empty nested answer`) | Main wrap-up or clean empty banner; **no** leftover previous HTML (C3 analog for delegate); hello |
+| **E21** | `mixed tools` / `one tool fails` — apply filler succeeds, `add_comment` empty search errors | Partial wrap-up; error surfaced, successful mutation kept; not the whole round dropped; hello. Distinct from E6 (both ok) and E10 (follow-up HTTP 500) |
+| **E22** | Nested agent never emits `final_answer` (`endless nested outline` + `nested_never_finish`) | Budget-exhausted error, not an infinite loop; main UI idle; hello. Nested analog of F3 |
 
 #### Next-level (not landed)
 
 Same filter as Packet B. Unknown-domain / `VALIDATION_ERROR` / shrink-refresh are pytest ([`test_tool.py`](../../tests/framework/test_tool.py), [`test_tool_loop_state.py`](../../tests/chatbot/test_tool_loop_state.py), E5). Do not close the Writer doc under this suite.
-
-| ID | Drive | Pass (assert) |
-|----|--------|----------------|
-| **E17** | Nested `final_answer` empty / `None` (new mock inner reply) | Main wrap-up or clean empty banner; **no** leftover previous HTML (C3 analog for delegate); hello |
-| **E21** | `two tools` where **one succeeds, one errors** (mock mixed tool results) | Partial wrap-up; error surfaced, successful mutation kept; not the whole round dropped; hello. Distinct from E6 (both ok) and E10 (follow-up HTTP 500) |
-| **E22** | Nested agent never emits `final_answer` (hits `max_steps`) | Budget-exhausted error, not an infinite loop; main UI idle; hello. Nested analog of F3 |
 
 **Dropped (do not re-add):**
 
@@ -723,7 +723,7 @@ F20 ≈ F12; F28/F31 ≈ F3; F30 ≈ F1; F26 is Packet A (`fill the sidebar`). T
 
 ### v2 Packet G — mocked audio (Record / Stop Rec / STT)
 
-**Landed (`make test-mock-sidebar FILTER=G`, after `make deploy`):** G1–G16 pass. **SKIP:** G17 (Calc / E12), G18 if HITL Accept never appears (same as E9). Record/Stop Rec use the Send widget when the label matches; if Record click is a no-op, fall back to `org.extension.writeragent:chatbot.debug_sidebar?OP` (Query string; LO drops dotted Path suffixes). Handler **posts** onto VCL (`set_force_marshal_mode`) — blocking `execute()` from URP deadlocks. Stub JSON is replaced each `_g_prep` so G4 `auto_stop` / G12 `fail_start` cannot leak.
+**Landed (`make test-mock-sidebar FILTER=G`, after `make deploy`):** G1–G16, **G29** pass. **SKIP:** G17 (Calc / E12), G18 if HITL Accept never appears (same as E9). Record/Stop Rec use the Send widget when the label matches; if Record click is a no-op, fall back to `org.extension.writeragent:chatbot.debug_sidebar?OP` (Query string; LO drops dotted Path suffixes). Handler **posts** onto VCL (`set_force_marshal_mode`) — blocking `execute()` from URP deadlocks. Stub JSON is replaced each `_g_prep` so G4 `auto_stop` / G12 `fail_start` cannot leak.
 
 Same harness as B/E/F. **Do not** open a microphone: `stub_recorder_child()` + `inject_wav()` write `/tmp/writeragent_stub_recorder.json` so the soffice OXT skips spawn (`AudioRecorder._test_skip_spawn`). Fixtures: `tests/chatbot/fixtures/hello-writeragent-1s.wav` (G1) and `hello-writeragent-5s.wav` (G4); source MP3s at repo root. Mock LLM: `writeragent-mock` native `input_audio`; `writeragent-mock-whisper` for `/v1/audio/transcriptions`.
 
@@ -752,6 +752,7 @@ Two machines must stay legal (`send_state.py`: never `is_busy and is_recording`)
 | **G16** | Record → Stop Rec → immediately Record again | Second take replaces audio; one in-flight capture |
 | **G17** | G1 on **Calc** deck if sidebar exists | Same native path; hello |
 | **G18** | HITL active; `press_record()` | No Record (approval owns buttons); E9 still valid |
+| **G29** | Native chat POST with `input_audio` returns **400** (`fail_native_audio`); STT then succeeds **on the same drain** | Transcript shows `[Model does not support audio. Falling back to STT...]`; no nested drain (`_handle_stream_error` must not re-enter `_do_send`); hello. Distinct from G5 (which pre-sets `audio_supported=False`) |
 
 #### Next-level (not landed)
 
@@ -762,7 +763,6 @@ IPC JSON parse and VAD child lines are pytest ([`test_audio_silence_detector.py`
 | **G21** | Stub **never `ready`** (`hang_ready`; existing `wait_for_recording_ready` timeout). Distinct from G12 `fail_start` | Init timeout; `audio_status` error; not stuck initializing; Send still works. No mic |
 | **G27** | STT returns **empty text** (WAV exists; not G14 missing file) | Query stays empty; no send; idle; hello |
 | **G28** | STT returns **error JSON** (G5’s error cousin) | Error surfaced; `has_audio` cleared; hello |
-| **G29** | Native chat POST with `input_audio` returns **400**; STT then succeeds **on the same drain** | Transcript shows `[Model does not support audio. Falling back to STT...]`; no nested drain (`_handle_stream_error` must not re-enter `_do_send`); hello. Distinct from G5 (which pre-sets `audio_supported=False`) |
 
 **Dropped (do not re-add):**
 
@@ -787,7 +787,7 @@ IPC JSON parse and VAD child lines are pytest ([`test_audio_silence_detector.py`
 7. **E9a–E9e** (HITL overlay on the same buttons).
 8. F3/F6/F9+ only after cancel + hang are stable.
 9. **G1, G7, G11, G12, G15** (Record FSM vs Send busy) — stub capture, no mic. Rest of G after that.
-10. Next-level keep only (not the dropped F19–F32 dump): **C5** and **B16 / B19 / B21** are landed (`FILTER=C` / `FILTER=B`). Remaining: **E17 / E21 / E22**, **G29** (native 400 → STT on the same drain), then **G21 / G27 / G28**.
+10. Next-level keep only (not the dropped F19–F32 dump): **C5**, **B16 / B19 / B21**, **E17 / E21 / E22**, and **G29** are landed. Remaining: **G21 / G27 / G28**.
 
 Pytest already covers `decide_completion` in `tests/scripts/test_mock_llm_server.py`. v2 does **not** duplicate that; it covers **drain + FSM + UNO**. Mock already lists `writeragent-mock-whisper` and canned transcripts.
 

@@ -15,7 +15,8 @@ Usage (repo root):
 Point WriterAgent Settings at http://127.0.0.1:18766 and model writeragent-mock.
 
 Phrase-triggered journeys (see docs/chat/rich-text-control-sidebar.md) soak Stop,
-empty replies, reasoning fields, delegate, parallel tools, HTTP errors, and scroll.
+empty replies, reasoning fields, delegate, mixed/empty/endless nested, parallel
+tools, HTTP errors, and scroll.
 
 Native audio: chat completions with ``input_audio`` (sidebar Record). STT soak:
 POST /v1/audio/transcriptions and model id writeragent-mock-whisper.
@@ -103,6 +104,10 @@ _SCENARIO_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("think", re.compile(r"\b(think out loud|show thinking)\b", re.IGNORECASE)),
     ("flood", re.compile(r"\b(fill the sidebar|very long)\b", re.IGNORECASE)),
     ("table", re.compile(r"\b(show a table|send a table|table please)\b", re.IGNORECASE)),
+    # Packet E17/E21/E22: more specific than outline this / two tools.
+    ("empty_nested", re.compile(r"\bempty nested answer\b", re.IGNORECASE)),
+    ("nested_never_finish", re.compile(r"\bendless nested outline\b", re.IGNORECASE)),
+    ("mixed_tools", re.compile(r"\b(mixed tools|one tool fails)\b", re.IGNORECASE)),
     ("delegate", re.compile(r"\b(outline this|use the writer toolset)\b", re.IGNORECASE)),
     ("parallel", re.compile(r"\b(two tools|in parallel)\b", re.IGNORECASE)),
     ("mutate", re.compile(r"\b(insert filler|append a paragraph)\b", re.IGNORECASE)),
@@ -139,6 +144,9 @@ SCENARIO_IDS = frozenset(
         "think_details",
         "flood",
         "delegate",
+        "empty_nested",
+        "nested_never_finish",
+        "mixed_tools",
         "tree",
         "parallel",
         "mutate",
@@ -178,6 +186,12 @@ class MockLLMConfig:
     transcript: str = DEFAULT_TRANSCRIPT
     # Packet E10: HTTP 500 on chat POSTs whose last message is role=tool (mid-loop).
     fail_tool_followup: bool = False
+    # Packet E22: inner specialized HTTP never emits final_answer / specialized_workflow_finished.
+    nested_never_finish: bool = False
+    # Packet E17: inner finish tool with empty answer (phrase may be missing on inner POSTs).
+    empty_nested_answer: bool = False
+    # Packet G29: HTTP 400 on chat completions that include input_audio (STT path stays 200).
+    fail_native_audio: bool = False
     # Packet E oracles (E1 CURRENT QUERY, E5 doc length, E6/E7 tool names).
     captures: list[dict[str, Any]] = field(default_factory=list)
     _capture_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
@@ -761,17 +775,7 @@ def _specialized_inner_args(name: str) -> dict[str, Any]:
     return {}
 
 
-def _specialized_inner_completion(messages: list[Any], tool_names: set[str]) -> Completion:
-    called = _called_tool_names(messages)
-    finish_name = "final_answer" if "final_answer" in tool_names else "specialized_workflow_finished"
-    # One discovery step, then finish. Calling every advertised tool (especially
-    # delegate_read_document with path="") loops the inner agent (Packet E7 soak).
-    if any(name in called for name in _SPECIALIZED_INNER_PRE_FINISH):
-        return Completion(
-            tool_name=finish_name,
-            tool_args={"answer": "Mock outline complete. Nested document_research tools finished."},
-            finish_reason="tool_calls",
-        )
+def _specialized_inner_discovery(tool_names: set[str]) -> Completion | None:
     for name in _SPECIALIZED_INNER_PRE_FINISH:
         if name in tool_names:
             return Completion(
@@ -779,11 +783,50 @@ def _specialized_inner_completion(messages: list[Any], tool_names: set[str]) -> 
                 tool_args=_specialized_inner_args(name),
                 finish_reason="tool_calls",
             )
-    return Completion(
-        tool_name=finish_name,
-        tool_args={"answer": "Mock outline complete. Nested document_research tools finished."},
-        finish_reason="tool_calls",
-    )
+    return None
+
+
+def _specialized_inner_completion(
+    messages: list[Any],
+    tool_names: set[str],
+    config: MockLLMConfig | None = None,
+) -> Completion:
+    called = _called_tool_names(messages)
+    finish_name = "final_answer" if "final_answer" in tool_names else "specialized_workflow_finished"
+    user_text = _last_user_text(messages)
+    forced = config.scenario if config is not None else "none"
+    scenario = detect_scenario(_current_query(messages, user_text), forced)
+    never = bool(config and config.nested_never_finish) or scenario == "nested_never_finish"
+    empty = bool(config and config.empty_nested_answer) or scenario == "empty_nested"
+
+    def _finish(answer: str) -> Completion:
+        return Completion(
+            tool_name=finish_name,
+            tool_args={"answer": answer},
+            finish_reason="tool_calls",
+        )
+
+    if never:
+        # Keep calling discovery so smol/specialized hits max_steps (Packet E22).
+        disc = _specialized_inner_discovery(tool_names)
+        if disc is not None:
+            return disc
+        name = _SPECIALIZED_INNER_PRE_FINISH[0]
+        return Completion(
+            tool_name=name,
+            tool_args=_specialized_inner_args(name),
+            finish_reason="tool_calls",
+        )
+    if empty:
+        return _finish("")
+    # One discovery step, then finish. Calling every advertised tool (especially
+    # delegate_read_document with path="") loops the inner agent (Packet E7 soak).
+    if any(name in called for name in _SPECIALIZED_INNER_PRE_FINISH):
+        return _finish("Mock outline complete. Nested document_research tools finished.")
+    disc = _specialized_inner_discovery(tool_names)
+    if disc is not None:
+        return disc
+    return _finish("Mock outline complete. Nested document_research tools finished.")
 
 
 def _scenario_user_turn(
@@ -880,7 +923,7 @@ def _scenario_user_turn(
             sse_comments=True,
             finish_reason="stop",
         )
-    if scenario == "delegate":
+    if scenario in {"delegate", "empty_nested", "nested_never_finish"}:
         return _tool_or_html(
             tool_names,
             _DELEGATE_WRITER,
@@ -888,6 +931,25 @@ def _scenario_user_turn(
             user_text,
             turn,
         )
+    if scenario == "mixed_tools":
+        have_apply = "apply_document_content" in tool_names
+        have_comment = "add_comment" in tool_names
+        if have_apply and have_comment:
+            # add_comment with empty search → _tool_error("Provide search.");
+            # apply last so wrap-up is not the "Comment inserted" path.
+            return Completion(
+                reasoning=reasoning,
+                tool_name="add_comment",
+                tool_args={"search": "", "content": "mock mixed-tools fail"},
+                extra_tool_calls=[
+                    (
+                        "apply_document_content",
+                        {"target": "end", "content": ["<p>Mock filler paragraph from soak server.</p>"]},
+                    )
+                ],
+                finish_reason="tool_calls",
+            )
+        return Completion(content=_html_chat(user_text, turn), reasoning=reasoning, finish_reason="stop")
     if scenario == "parallel":
         have_search = "search_in_document" in tool_names
         have_tree = "get_document_tree" in tool_names
@@ -915,7 +977,7 @@ def _scenario_user_turn(
     if scenario == "list_pages":
         return _tool_or_html(tool_names, "list_pages", {}, user_text, turn)
     if scenario == "tree":
-        return _specialized_inner_completion(messages, tool_names) if _is_specialized_inner(tool_names) else Completion(
+        return _specialized_inner_completion(messages, tool_names, config) if _is_specialized_inner(tool_names) else Completion(
             content=_html_chat(user_text, turn), reasoning=reasoning
         )
     return None
@@ -934,7 +996,7 @@ def decide_completion(payload: dict[str, Any], config: MockLLMConfig, turns: _Tu
         return _smol_research_completion(messages, tool_names, config, user_text)
 
     if _is_specialized_inner(tool_names):
-        return _specialized_inner_completion(messages, tool_names)
+        return _specialized_inner_completion(messages, tool_names, config)
 
     turn = turns.next_turn() if turns is not None else 1
     reasoning = "Mock thinking: pick HTML chat or call tool."
@@ -1339,6 +1401,19 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
                 self.send_error(400, "expected object")
                 return
             model = str(payload.get("model") or MOCK_MODEL_ID)
+            if config.fail_native_audio:
+                audio_messages = payload.get("messages") if isinstance(payload.get("messages"), list) else []
+                last_user = _last_user_message(audio_messages)
+                if last_user is not None and _content_has_audio(last_user.get("content")):
+                    record_capture(config, summarize_chat_payload(payload, None, config))
+                    self._send_json(
+                        400,
+                        openai_error_body(
+                            "HTTP 400 input validation: unsupported modality for input audio",
+                            "invalid_request_error",
+                        ),
+                    )
+                    return
             completion = decide_completion(payload, config, state)
             record_capture(config, summarize_chat_payload(payload, completion, config))
             stream = bool(payload.get("stream"))

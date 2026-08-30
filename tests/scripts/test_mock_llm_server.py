@@ -688,6 +688,105 @@ def test_specialized_inner_does_not_walk_delegate_read_document():
     assert second.content is None
 
 
+def test_empty_nested_answer_delegates_then_empty_finish():
+    main = _tools("delegate_to_specialized_writer_toolset", "web_research", "apply_document_content")
+    out = decide_completion(
+        {"messages": [{"role": "user", "content": "empty nested answer"}], "tools": main},
+        MockLLMConfig(delay_ms=0),
+    )
+    assert out.tool_name == "delegate_to_specialized_writer_toolset"
+    inner = _tools("list_nearby_files", "specialized_workflow_finished")
+    finish = decide_completion(
+        {"messages": [{"role": "user", "content": "empty nested answer"}], "tools": inner},
+        MockLLMConfig(delay_ms=0),
+    )
+    assert finish.tool_name == "specialized_workflow_finished"
+    assert (finish.tool_args or {}).get("answer") == ""
+
+
+def test_mixed_tools_apply_and_failing_comment():
+    tools = _tools("apply_document_content", "add_comment", "web_research")
+    out = decide_completion(
+        {"messages": [{"role": "user", "content": "mixed tools"}], "tools": tools},
+        MockLLMConfig(delay_ms=0),
+    )
+    names = [n for n, _a in completion_tool_calls(out)]
+    assert names == ["add_comment", "apply_document_content"]
+    assert (out.tool_args or {}).get("search") == ""
+
+
+def test_nested_never_finish_keeps_discovery():
+    tools = _tools("list_nearby_files", "specialized_workflow_finished")
+    cfg = MockLLMConfig(delay_ms=0, nested_never_finish=True)
+    first = decide_completion({"messages": [{"role": "user", "content": "endless nested outline"}], "tools": tools}, cfg)
+    assert first.tool_name == "list_nearby_files"
+    second = decide_completion(
+        {
+            "messages": [
+                {"role": "user", "content": "endless nested outline"},
+                {
+                    "role": "user",
+                    "content": 'Action:\n{"name": "list_nearby_files", "arguments": {}}\nObservation:\n[]',
+                },
+            ],
+            "tools": tools,
+        },
+        cfg,
+    )
+    assert second.tool_name == "list_nearby_files"
+    assert second.tool_name != "specialized_workflow_finished"
+
+
+def test_fail_native_audio_400_then_stt_ok():
+    cfg = MockLLMConfig(delay_ms=0, fail_native_audio=True)
+    httpd = ThreadingHTTPServer(("127.0.0.1", 0), make_handler_class(cfg))
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    host, port = httpd.server_address[:2]
+    chat = "http://%s:%s/v1/chat/completions" % (host, port)
+    stt = "http://%s:%s/v1/audio/transcriptions" % (host, port)
+    audio_user = {
+        "role": "user",
+        "content": [{"type": "input_audio", "input_audio": {"data": "QQ==", "format": "wav"}}],
+    }
+    try:
+        req = Request(
+            chat,
+            data=json.dumps({"model": MOCK_MODEL_ID, "messages": [audio_user], "stream": False}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with pytest.raises(HTTPError) as err:
+            urlopen(req, timeout=5)
+        assert err.value.code == 400
+        body = err.value.read().decode("utf-8")
+        assert "input validation" in body.lower() or "unsupported modality" in body.lower()
+        stt_req = Request(
+            stt,
+            data=json.dumps({"model": MOCK_STT_MODEL_ID, "input_audio": {"data": "QQ==", "format": "wav"}}).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(stt_req, timeout=5) as resp:
+            assert resp.status == 200
+        hello = Request(
+            chat,
+            data=json.dumps(
+                {"model": MOCK_MODEL_ID, "messages": [{"role": "user", "content": "hello"}], "stream": False}
+            ).encode(),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(hello, timeout=5) as resp:
+            assert resp.status == 200
+        snaps = cfg.captures
+        assert any(row.get("has_input_audio") for row in snaps)
+        assert any(row.get("stt") for row in snaps)
+    finally:
+        httpd.shutdown()
+        thread.join(timeout=2)
+
+
 def test_mutate_wrapup_is_not_research_wording():
     out = decide_completion(
         {
