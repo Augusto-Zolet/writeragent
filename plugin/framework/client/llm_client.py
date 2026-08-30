@@ -350,10 +350,15 @@ class LlmClient:
                 return True
             return bool(stop_checker and stop_checker())
         connection_getter = self.__dict__.get("_get_connection")
-        extra = {"stop_checker": _stopped, "status_callback": status_callback}
-        if connection_getter is not None:
-            return self._transport.send(method, path, body, headers, connection_getter=connection_getter, **extra)
-        return self._transport.send(method, path, body, headers, **extra)
+        return self._transport.send(
+            method,
+            path,
+            body,
+            headers,
+            connection_getter=connection_getter,
+            stop_checker=_stopped,
+            status_callback=status_callback,
+        )
 
     def make_api_request(self, prompt, system_prompt="", max_tokens=70):
         """Build a streaming chat completions request (legacy/simple wrapper)."""
