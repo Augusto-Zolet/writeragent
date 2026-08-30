@@ -303,6 +303,17 @@ def _get_or_create_client(harper_bin: str, user_config_dir: str, bcp47: str, *, 
     return client
 
 
+def normalize_spaces_1to1(text: str) -> str:
+    """Normalize non-standard Unicode spaces (NBSP, CJK spaces, etc.) to ASCII ' '.
+
+    Preserves exact 1:1 character length and offsets for LSP coordinate mapping.
+    Leaves newlines ('\\n', '\\r') untouched.
+    """
+    if not text:
+        return ""
+    return "".join(" " if ch.isspace() and ch not in "\r\n" else ch for ch in text)
+
+
 def run_harper_lint(text: str, user_config_dir: str, bcp47: str = "en-US", *, heartbeat_fn: Callable[[dict[str, str]], None] | None = None) -> dict:
     """Run harper-ls on a text segment and return parsed errors (no LibreOffice UI)."""
     try:
@@ -311,14 +322,15 @@ def run_harper_lint(text: str, user_config_dir: str, bcp47: str = "en-US", *, he
         log.exception("[harper] Failed to resolve harper-ls binary")
         raise RuntimeError(str(e)) from e
 
+    lint_text = normalize_spaces_1to1(text)
     client = _get_or_create_client(harper_bin, user_config_dir, bcp47, heartbeat_fn=heartbeat_fn)
     try:
-        results = client.lint(text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
+        results = client.lint(lint_text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
     except Exception:
         log.exception("[harper] Linting error or connection lost, restarting client")
         client.close()
         _HARPER_CLIENT_CACHE[harper_bin] = HarperLSClient(harper_bin, user_config_dir=user_config_dir, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
-        results = _HARPER_CLIENT_CACHE[harper_bin].lint(text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
+        results = _HARPER_CLIENT_CACHE[harper_bin].lint(lint_text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
 
     errors = []
     for item in results:

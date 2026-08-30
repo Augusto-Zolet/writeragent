@@ -979,3 +979,45 @@ def test_run_harper_check_heartbeat_skips_empty_message() -> None:
     mock_emit.assert_called_once_with("Hi.", "Starting Harper…")
     # Start pump once; empty heartbeat must not emit or pump again
     assert mock_pump.call_count == 1
+
+
+def test_normalize_spaces_1to1() -> None:
+    from plugin.writer.locale.harper import normalize_spaces_1to1
+
+    assert normalize_spaces_1to1("") == ""
+    assert normalize_spaces_1to1("Hello world") == "Hello world"
+    # NBSP, CJK ideographic space, typography thin space
+    text_with_spaces = "Hello\xa0world\u3000test\u2009sentence\nNew\r\nline"
+    normalized = normalize_spaces_1to1(text_with_spaces)
+    assert normalized == "Hello world test sentence\nNew\r\nline"
+    assert len(normalized) == len(text_with_spaces)
+
+
+def test_run_harper_lint_normalizes_unicode_whitespace() -> None:
+    """Ensure run_harper_lint passes 1:1 normalized text to client.lint but slices original text."""
+    with (
+        patch("plugin.writer.locale.harper._get_harper_binary", return_value="/bin/harper-ls"),
+        patch("plugin.writer.locale.harper._get_or_create_client") as mock_get_client,
+    ):
+        mock_client = MagicMock()
+        mock_client.lint.return_value = [
+            {
+                "diagnostic": {
+                    "message": "Incorrect article",
+                    "code": "AnA",
+                    "range": {"start": {"line": 0, "character": 10}, "end": {"line": 0, "character": 12}},
+                },
+                "suggestions": ["a"],
+            }
+        ]
+        mock_get_client.return_value = mock_client
+
+        original_text = "Harper\xa0is\xa0an\xa0language\xa0checker."
+        res = run_harper_lint(original_text, "/tmp/cfg", bcp47="en-US")
+
+        # client.lint must receive normalized string with standard ASCII spaces
+        mock_client.lint.assert_called_once_with("Harper is an language checker.", bcp47="en-US", heartbeat_fn=None)
+        # Sliced wrong text must match exact substring from original text
+        assert res["errors"][0]["wrong"] == "an"
+        assert res["errors"][0]["n_error_start"] == 10
+        assert res["errors"][0]["n_error_length"] == 2

@@ -72,6 +72,7 @@ This correctly handles:
 - Soft line breaks inside a single sentence.
 - Emoji and other non-BMP characters (LSP uses UTF-16 code units).
 - CRLF and other line endings.
+- Non-breaking spaces (`\xa0`) and Unicode whitespace: normalized 1-to-1 to ASCII spaces (` `) in `normalize_spaces_1to1` before passing to `client.lint()` so `harper-ls` tokenizes words correctly without altering string lengths or character offsets.
 
 Sentence-at-a-time scheduling removes cross-sentence / cross-paragraph offset work; it does **not** remove the need to map LSP lines **within** the sentence buffer.
 

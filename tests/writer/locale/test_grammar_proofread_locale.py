@@ -173,6 +173,10 @@ def test_word_before_period_is_abbrev() -> None:
     # Not abbreviations
     assert gl.word_before_period_is_abbrev("department") == 0
     assert gl.word_before_period_is_abbrev("O'Reilly") == 0
+    assert gl.word_before_period_is_abbrev("dn't") == 0
+    assert gl.word_before_period_is_abbrev("n't") == 0
+    assert gl.word_before_period_is_abbrev("can't") == 0
+    assert gl.word_before_period_is_abbrev("w/o") == 0
     assert gl.word_before_period_is_abbrev("") == 0
     assert gl.word_before_period_is_abbrev(".") == 0
     assert gl.word_before_period_is_abbrev("...") == 0

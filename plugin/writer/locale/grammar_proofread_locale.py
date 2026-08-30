@@ -623,8 +623,8 @@ def word_before_period_is_abbrev(word: str) -> int:
             return len(word)
 
     # 5. Consonant-only check (no vowels in Latin, Cyrillic, or Greek)
-    alpha_chars = [ch for ch in w_norm if ch.isalpha()]
-    if alpha_chars and not any(ch in _ABBREV_VOWELS for ch in alpha_chars):
+    # Must be a purely alphabetic word (no internal apostrophes/contractions like "dn't")
+    if w_norm.isalpha() and not any(ch in _ABBREV_VOWELS for ch in w_norm):
         return len(word)
 
     _log.debug("[grammar] obs word_before_period_is_abbrev REJECT word=%r", word)
