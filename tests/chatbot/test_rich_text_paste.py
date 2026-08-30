@@ -17,11 +17,15 @@ setup_uno_mocks()
 
 from plugin.chatbot.rich_text_control import HISTORY_RENDER_BATCH_CHARS
 from plugin.chatbot.rich_text_paste import (
+    _column_width_twips,
     _copy_formatted_from_hidden_doc_to_control,
     _flatten_text_table_rows,
     _is_writer_text_table,
     _list_prefix_for_paragraph,
+    _max_column_chars,
     _resolve_portion_char_color,
+    _TABLE_V_PAD_MM100,
+    _tab_stop_positions_twips,
     append_rich_messages_via_clipboard,
     append_rich_text_via_clipboard,
     build_message_html,
@@ -385,6 +389,24 @@ class TestFlattenTextTableCopy:
         table = _body_table([["a", "b"], ["c", "d"]])
         assert _flatten_text_table_rows(table) == ["a\tb", "c\td"]
 
+    def test_tab_stops_use_max_column_width_not_header(self):
+        rows = [
+            ["Item", "Description", "Quantity"],
+            ["Apples", "Fresh red apples", "12"],
+            ["Bananas", "Ripe yellow bananas", "8"],
+            ["Oranges", "Juicy orange citrus", "15"],
+        ]
+        max_chars = _max_column_chars(rows)
+        assert max_chars == [7, 19, 8]  # Bananas, Ripe yellow bananas, Quantity
+        stops = _tab_stop_positions_twips(max_chars)
+        assert stops == (
+            _column_width_twips(7),
+            _column_width_twips(7) + _column_width_twips(19),
+        )
+        # Header-only widths would overrun column 1 (Item=4 < Bananas=7).
+        header_only = _tab_stop_positions_twips([4, 11, 8])
+        assert header_only[0] < stops[0]
+
     def test_copy_flattens_table_between_paragraphs(self):
         control = MagicMock()
         model = MagicMock()
@@ -427,6 +449,83 @@ class TestFlattenTextTableCopy:
         assert ("stream\tplain", False, False) in header_flags
         assert ("before", False, False) in header_flags
         assert ("after", False, False) in header_flags
+
+    def test_copy_applies_tab_stops_from_max_width(self):
+        control = MagicMock()
+        model = MagicMock()
+        dest_cursor = MagicMock()
+        model.createTextCursor.return_value = dest_cursor
+        control.getModel.return_value = model
+        src_doc = MagicMock()
+        cells = [
+            ["Item", "Description", "Quantity"],
+            ["Bananas", "Ripe yellow bananas", "8"],
+        ]
+        src_doc.getText.return_value.createEnumeration.return_value = _uno_enum(
+            [_body_table(cells)]
+        )
+        theme = MagicMock(user_color=1, assistant_color=2)
+        applied: list[tuple[int, ...]] = []
+
+        with patch("plugin.chatbot.rich_text_paste.focus_preserved", _immediate_focus), \
+             patch("plugin.chatbot.rich_text_paste.ChatTheme.resolve", return_value=theme), \
+             patch("plugin.chatbot.rich_text_paste._rich_control_bg_color", return_value=0), \
+             patch("plugin.chatbot.rich_text_paste.get_control_text_length", return_value=1), \
+             patch("plugin.chatbot.rich_text_paste._apply_sidebar_para_margins"), \
+             patch("plugin.chatbot.rich_text_paste._scroll_rich_to_tail"), \
+             patch("plugin.chatbot.rich_text_paste._insert_string_at_rich_cursor"), \
+             patch(
+                 "plugin.chatbot.rich_text_paste._apply_table_tab_stops",
+                 side_effect=lambda _cursor, positions: applied.append(tuple(positions)),
+             ):
+            ok, reason = _copy_formatted_from_hidden_doc_to_control(
+                src_doc, control, MagicMock(), role="assistant", auto_scroll=False,
+            )
+
+        assert ok is True, reason
+        expected = _tab_stop_positions_twips(_max_column_chars(cells))
+        assert applied == [expected, expected]
+
+    def test_copy_applies_vertical_pad_on_first_and_last_row(self):
+        control = MagicMock()
+        model = MagicMock()
+        dest_cursor = MagicMock()
+        model.createTextCursor.return_value = dest_cursor
+        control.getModel.return_value = model
+        src_doc = MagicMock()
+        cells = [
+            ["Item", "Description"],
+            ["Apples", "Fresh red apples"],
+            ["Bananas", "Ripe yellow bananas"],
+        ]
+        src_doc.getText.return_value.createEnumeration.return_value = _uno_enum(
+            [_body_table(cells)]
+        )
+        theme = MagicMock(user_color=1, assistant_color=2)
+        pads: list[tuple[int, int]] = []
+
+        def _capture_vpad(cursor, *, top=0, bottom=0):
+            pads.append((top, bottom))
+
+        with patch("plugin.chatbot.rich_text_paste.focus_preserved", _immediate_focus), \
+             patch("plugin.chatbot.rich_text_paste.ChatTheme.resolve", return_value=theme), \
+             patch("plugin.chatbot.rich_text_paste._rich_control_bg_color", return_value=0), \
+             patch("plugin.chatbot.rich_text_paste.get_control_text_length", return_value=1), \
+             patch("plugin.chatbot.rich_text_paste._apply_sidebar_para_margins"), \
+             patch("plugin.chatbot.rich_text_paste._scroll_rich_to_tail"), \
+             patch("plugin.chatbot.rich_text_paste._insert_string_at_rich_cursor"), \
+             patch("plugin.chatbot.rich_text_paste._apply_table_tab_stops"), \
+             patch(
+                 "plugin.chatbot.rich_text_paste._apply_table_row_vpad",
+                 side_effect=_capture_vpad,
+             ):
+            ok, reason = _copy_formatted_from_hidden_doc_to_control(
+                src_doc, control, MagicMock(), role="assistant", auto_scroll=False,
+            )
+
+        assert ok is True, reason
+        pad = _TABLE_V_PAD_MM100
+        assert pads == [(pad, 0), (0, 0), (0, pad)]
 
     def test_copy_ok_when_table_portion_enum_would_throw(self):
         control = MagicMock()
