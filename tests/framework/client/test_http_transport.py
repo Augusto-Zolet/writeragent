@@ -4,7 +4,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from plugin.framework.client.http_transport import LlmHttpTransport
+from plugin.framework.client.request_controls import reset_host_pacing_for_tests
 from plugin.framework.errors import NetworkError
+
+
+@pytest.fixture(autouse=True)
+def _reset_host_pacing():
+    reset_host_pacing_for_tests()
+    yield
+    reset_host_pacing_for_tests()
 
 
 def test_transport_reuses_connection_and_reopens_on_endpoint_change():
@@ -54,7 +62,7 @@ def test_transport_non_local_cert_error_does_not_enable_local_fallback():
         transport.handle_connection_error(
             ssl.SSLCertVerificationError("self-signed certificate"),
             path="/v1/chat/completions",
-            retry_available=False,
+            retries_left=0,
             retry_log_message="retry",
         )
 
@@ -66,7 +74,7 @@ def test_transport_stop_checker_suppresses_retry():
     action = transport.handle_connection_error(
         OSError("closed by stop"),
         path="/v1/chat/completions",
-        retry_available=True,
+        retries_left=1,
         retry_log_message="retry",
         stop_checker=lambda: True,
     )
@@ -76,15 +84,34 @@ def test_transport_stop_checker_suppresses_retry():
 
 def test_transport_connection_retry_waits_with_backoff():
     transport = LlmHttpTransport(lambda: "https://api.openai.com", lambda: 60)
+    statuses: list[str] = []
     with patch("plugin.framework.client.http_transport.wait_abortable", return_value=True) as wait:
         action = transport.handle_connection_error(
             OSError("reset"),
             path="/v1/chat/completions",
-            retry_available=True,
+            retries_left=1,
             retry_log_message="retry",
+            status_callback=statuses.append,
         )
     assert action == "retry"
     wait.assert_called_once()
+    assert len(statuses) == 1
+    assert "retrying" in statuses[0].lower()
+
+
+def test_transport_stop_before_retry_does_not_emit_status():
+    transport = LlmHttpTransport(lambda: "https://api.openai.com", lambda: 60)
+    statuses: list[str] = []
+    action = transport.handle_connection_error(
+        OSError("closed by stop"),
+        path="/v1/chat/completions",
+        retries_left=1,
+        retry_log_message="retry",
+        stop_checker=lambda: True,
+        status_callback=statuses.append,
+    )
+    assert action == "stop"
+    assert statuses == []
 
 
 def test_transport_connection_retry_stop_during_wait():
@@ -93,7 +120,7 @@ def test_transport_connection_retry_stop_during_wait():
         action = transport.handle_connection_error(
             OSError("reset"),
             path="/v1/chat/completions",
-            retry_available=True,
+            retries_left=1,
             retry_log_message="retry",
         )
     assert action == "stop"

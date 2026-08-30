@@ -14,7 +14,9 @@ protect a connection you must not share in the first place.
 
 Backoff helpers port OpenClaw ``packages/retry`` delay math (jitter,
 Retry-After floor, delay cap) without the RetrySupervisor / retryAsync
-runner. Callers keep the existing one-retry loops.
+runner. After a retry wait we also remember that delay per host so later
+requests (new ``LlmClient`` per job) space themselves instead of immediately
+re-hitting a busy local server. OpenClaw does not persist the gap; we do.
 """
 
 import datetime
@@ -22,6 +24,7 @@ import email.utils
 import logging
 import math
 import random
+import threading
 import time
 from typing import Callable, Literal
 
@@ -38,7 +41,23 @@ LLM_MIN_REQUEST_INTERVAL_SEC = 0.05
 RETRY_MIN_DELAY_SEC = 0.3
 RETRY_MAX_DELAY_SEC = 30.0
 RETRY_WAIT_CHUNK_SEC = 0.05
+# OpenClaw packages/retry default: 3 total executions (first send + 2 retries).
+RETRY_MAX_ATTEMPTS = 3
 RETRYABLE_HTTP_STATUS = frozenset({429, 503})
+
+
+def format_retry_wait_status(delay_sec: float) -> str:
+    """Short sidebar status line for the abortable retry wait."""
+    from plugin.framework.i18n import _
+
+    shown = int(round(delay_sec)) if delay_sec >= 1 else round(max(delay_sec, 0.0), 1)
+    return _("Provider busy, retrying in {0}s…").format(shown)
+
+
+def emit_retry_status(status_callback: Callable[[str], None] | None, delay_sec: float) -> None:
+    if status_callback is None:
+        return
+    status_callback(format_retry_wait_status(delay_sec))
 
 
 def parse_retry_after(header: str | None) -> float | None:
@@ -90,7 +109,7 @@ def backoff_delay_sec(
     jitter: float | Literal["full"] = "full",
     random: Callable[[], float] = random.random,
 ) -> float:
-    """Jittered delay before the next attempt. ``attempt`` is 1-based (first retry)."""
+    """Jittered delay before the next attempt. ``attempt`` is 1-based (first wait = min_delay)."""
     retry_after_value = retry_after_sec if retry_after_sec is not None and math.isfinite(retry_after_sec) else None
     if retry_after_value is not None:
         base = max(retry_after_value, min_delay)
@@ -130,6 +149,73 @@ def wait_abortable(
         if remaining <= 0:
             return not (stop_checker and stop_checker())
         sleeper(min(chunk_sec, remaining))
+
+
+# Process-wide spacing after a retry: keyed by host so chat, grammar, and
+# Calc =PROMPT() share one cooldown. last_sent starts unset so the first
+# request of a session is never delayed by a stale epoch of 0.
+_host_gap_lock = threading.Lock()
+_host_gap_sec: dict[str, float] = {}
+_host_last_sent: dict[str, float] = {}
+
+
+def reset_host_pacing_for_tests() -> None:
+    with _host_gap_lock:
+        _host_gap_sec.clear()
+        _host_last_sent.clear()
+
+
+def remember_host_gap(host: str, delay_sec: float) -> None:
+    """Stick the retry delay as the minimum gap before the next send to *host*."""
+    if not host or not math.isfinite(delay_sec) or delay_sec <= 0:
+        return
+    gap = min(delay_sec, RETRY_MAX_DELAY_SEC)
+    with _host_gap_lock:
+        prev = _host_gap_sec.get(host, 0.0)
+        if gap > prev:
+            _host_gap_sec[host] = gap
+            log.debug("Host %s retry gap now %.3fs", host, gap)
+
+
+def clear_host_gap(host: str) -> None:
+    """Drop a learned gap after a first-try success (server is no longer busy)."""
+    if not host:
+        return
+    with _host_gap_lock:
+        _host_gap_sec.pop(host, None)
+
+
+def mark_host_sent(host: str, *, monotonic: Callable[[], float] | None = None) -> None:
+    if not host:
+        return
+    now = (monotonic or time.monotonic)()
+    with _host_gap_lock:
+        _host_last_sent[host] = now
+
+
+def remaining_host_gap(host: str, *, monotonic: Callable[[], float] | None = None) -> float:
+    if not host:
+        return 0.0
+    now = (monotonic or time.monotonic)()
+    with _host_gap_lock:
+        gap = _host_gap_sec.get(host, 0.0)
+        last = _host_last_sent.get(host)
+    if gap <= 0 or last is None:
+        return 0.0
+    return max(0.0, gap - (now - last))
+
+
+def wait_host_gap(
+    host: str,
+    stop_checker: Callable[[], bool] | None = None,
+    status_callback: Callable[[str], None] | None = None,
+) -> bool:
+    """Wait out a learned per-host gap. False if Stop fired."""
+    remaining = remaining_host_gap(host)
+    if remaining <= 0:
+        return True
+    emit_retry_status(status_callback, remaining)
+    return wait_abortable(remaining, stop_checker)
 
 
 class RequestPacer:

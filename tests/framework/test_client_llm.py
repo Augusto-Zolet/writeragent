@@ -6,6 +6,7 @@ import pytest
 
 from plugin.framework.client.auth import AuthError
 from plugin.framework.client.llm_client import LlmClient, strip_leaked_chat_template_control_tokens
+from plugin.framework.client.request_controls import reset_host_pacing_for_tests
 from plugin.framework.errors import NetworkError, format_error_message
 from plugin.tests.testing_utils import MockContext, create_mock_http_response
 
@@ -34,9 +35,11 @@ def client(default_config, mock_ctx):
 @pytest.fixture(autouse=True)
 def _fast_retry_waits():
     """Backoff must not sleep in unit tests; still assert call sites separately."""
+    reset_host_pacing_for_tests()
     with (
         patch("plugin.framework.client.llm_client.wait_abortable", return_value=True) as llm_wait,
         patch("plugin.framework.client.http_transport.wait_abortable", return_value=True) as transport_wait,
+        patch("plugin.framework.client.http_transport.wait_host_gap", return_value=True),
     ):
         yield {"llm": llm_wait, "transport": transport_wait}
 
@@ -484,8 +487,14 @@ def test_stream_tls_retry_does_not_backoff(_fast_retry_waits):
         mock_response.status = 200
         mock_response.__iter__.return_value = iter(mock_responses)
         mock_conn2.getresponse.return_value = mock_response
-        client.stream_request_with_tools(messages=[{"role": "user", "content": "Hello"}], max_tokens=100)
+        statuses: list[str] = []
+        client.stream_request_with_tools(
+            messages=[{"role": "user", "content": "Hello"}],
+            max_tokens=100,
+            status_callback=statuses.append,
+        )
     _fast_retry_waits["transport"].assert_not_called()
+    assert statuses == []
 
 
 def test_stream_connection_error_after_content_does_not_retry():
@@ -1330,6 +1339,20 @@ def test_stream_http_429_and_503_retry_once(client, status, reason, _fast_retry_
     _fast_retry_waits["llm"].assert_called_once()
 
 
+def test_stream_http_429_emits_status_callback(client, _fast_retry_waits):
+    statuses: list[str] = []
+    busy, ok = _busy_then_ok(429, "Too Many Requests")
+    with patch("http.client.HTTPSConnection") as mock_https:
+        _https_steps(mock_https, busy, ok)
+        client.stream_request_with_tools(
+            messages=[{"role": "user", "content": "Hi"}],
+            max_tokens=100,
+            status_callback=statuses.append,
+        )
+    assert len(statuses) == 1
+    assert "retrying" in statuses[0].lower()
+
+
 def test_stream_http_500_does_not_retry(client, _fast_retry_waits):
     resp = create_mock_http_response(500, json_data={"error": {"message": "boom"}}, reason="Error")
     with patch("http.client.HTTPSConnection") as mock_https:
@@ -1345,10 +1368,10 @@ def test_stream_http_500_does_not_retry(client, _fast_retry_waits):
     _fast_retry_waits["llm"].assert_not_called()
 
 
-def test_stream_http_429_retries_only_once(client):
+def test_stream_http_429_retries_until_max_attempts(client):
     busy = create_mock_http_response(429, json_data={"error": {"message": "overloaded"}}, reason="Too Many Requests")
     with patch("http.client.HTTPSConnection") as mock_https:
-        _https_steps(mock_https, busy, busy)
+        _https_steps(mock_https, busy, busy, busy)
         with pytest.raises(NetworkError) as err:
             client.stream_request_with_tools(
                 messages=[{"role": "user", "content": "Hi"}],
@@ -1356,7 +1379,20 @@ def test_stream_http_429_retries_only_once(client):
             )
     assert err.value.code == "HTTP_ERROR"
     assert err.value.details["status"] == 429
-    assert mock_https.call_count == 2
+    assert mock_https.call_count == 3
+
+
+def test_stream_http_429_succeeds_on_third_attempt(client, _fast_retry_waits):
+    busy, ok = _busy_then_ok(429, "Too Many Requests")
+    with patch("http.client.HTTPSConnection") as mock_https:
+        _https_steps(mock_https, busy, busy, ok)
+        result = client.stream_request_with_tools(
+            messages=[{"role": "user", "content": "Hi"}],
+            max_tokens=100,
+        )
+    assert result["content"] == "Hello"
+    assert mock_https.call_count == 3
+    assert _fast_retry_waits["llm"].call_count == 2
 
 
 def test_stream_timeout_retries_wait_then_succeeds(client, _fast_retry_waits):

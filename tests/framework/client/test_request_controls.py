@@ -6,9 +6,20 @@ from plugin.framework.client.request_controls import (
     LocalHttpsCertificateFallback,
     RequestPacer,
     backoff_delay_sec,
+    clear_host_gap,
+    emit_retry_status,
+    format_retry_wait_status,
+    mark_host_sent,
     parse_retry_after,
+    remaining_host_gap,
+    remember_host_gap,
+    reset_host_pacing_for_tests,
     wait_abortable,
 )
+
+
+def setup_function() -> None:
+    reset_host_pacing_for_tests()
 
 
 def test_request_pacer_sleeps_for_back_to_back_sends():
@@ -63,6 +74,13 @@ def test_backoff_honors_retry_after_floor_with_zero_jitter():
     assert delay == 0.002
 
 
+def test_backoff_without_retry_after_grows_with_attempt():
+    d1 = backoff_delay_sec(attempt=1, min_delay=0.3, max_delay=30.0, jitter=0, random=lambda: 0.0)
+    d2 = backoff_delay_sec(attempt=2, min_delay=0.3, max_delay=30.0, jitter=0, random=lambda: 0.0)
+    assert d1 == 0.3
+    assert d2 == 0.6
+
+
 def test_backoff_over_cap_retry_after_spreads_downward():
     delay = backoff_delay_sec(
         attempt=1,
@@ -93,3 +111,33 @@ def test_wait_abortable_stops_without_sleeping_remainder():
     )
     assert ok is False
     assert sleeps == [0.05]
+
+
+def test_format_retry_wait_status_rounds_seconds():
+    assert "0.3s" in format_retry_wait_status(0.3)
+    assert "2s" in format_retry_wait_status(1.6)
+
+
+def test_host_gap_is_sticky_until_first_try_success():
+    clock = {"t": 100.0}
+
+    def now() -> float:
+        return clock["t"]
+
+    assert remaining_host_gap("localhost", monotonic=now) == 0.0
+    mark_host_sent("localhost", monotonic=now)
+    remember_host_gap("localhost", 5.0)
+    clock["t"] = 102.0
+    assert remaining_host_gap("localhost", monotonic=now) == 3.0
+    remember_host_gap("localhost", 2.0)
+    assert remaining_host_gap("localhost", monotonic=now) == 3.0
+    clear_host_gap("localhost")
+    assert remaining_host_gap("localhost", monotonic=now) == 0.0
+
+
+def test_emit_retry_status_skips_none():
+    emit_retry_status(None, 1.0)
+    seen: list[str] = []
+    emit_retry_status(seen.append, 2.0)
+    assert len(seen) == 1
+    assert "2s" in seen[0]

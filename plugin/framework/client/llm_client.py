@@ -17,9 +17,9 @@
 """LLM API client for WriterAgent.
 
 Builds provider-aware LLM payloads and delegates chat HTTP execution to
-``http_transport``. Transient 429/503 and connection errors get one jittered,
-abortable retry (Retry-After honoured) unless stream tokens already reached
-the UI. Request assembly still owns leaked chat-template token
+``http_transport``. Transient 429/503 and connection errors get up to three total attempts
+(OpenClaw packages/retry) with jittered abortable backoff (Retry-After
+honoured) unless stream tokens already reached the UI. Request assembly still owns leaked chat-template token
 stripping, dev/release system prefix, date prefix on first system message,
 Anthropic/Gemini shims, OpenRouter merge (``merge_openrouter_chat_extra``), and
 logging redaction. Takes a config dict from ``get_api_config`` and UNO ``ctx``.
@@ -96,9 +96,13 @@ from plugin.framework.errors import format_error_message
 from .errors import _format_http_error_response, append_zai_unknown_model_hint
 from .http_transport import CONNECTION_ERRORS, LlmHttpTransport
 from .request_controls import (
+    RETRY_MAX_ATTEMPTS,
     RETRYABLE_HTTP_STATUS,
     backoff_delay_sec,
+    clear_host_gap,
+    emit_retry_status,
     parse_retry_after,
+    remember_host_gap,
     wait_abortable,
 )
 from .stream_normalizer import (
@@ -226,14 +230,15 @@ class LlmClient:
         body,
         path,
         *,
-        retry_available: bool,
+        retries_left: int,
         emitted_any: bool,
         stop_checker,
+        status_callback=None,
+        attempt: int = 1,
     ):
-        """On non-200: maybe one jittered 429/503 retry; otherwise raise HTTP_ERROR.
+        """On non-200: jittered 429/503 retry while attempts remain; else HTTP_ERROR.
 
-        OpenClaw Retry-After + jitter; WriterAgent still only retries once and
-        never after tokens already reached the UI.
+        OpenClaw Retry-After + jitter. Never after tokens already reached the UI.
         """
         err_body = response.read().decode("utf-8", errors="replace")
         request_model = _request_model_from_body(body)
@@ -246,15 +251,19 @@ class LlmClient:
             request_model,
         )
         self._close_connection()
-        if response.status in RETRYABLE_HTTP_STATUS and retry_available and not emitted_any:
+        if response.status in RETRYABLE_HTTP_STATUS and retries_left > 0 and not emitted_any:
             retry_after = parse_retry_after(response.getheader("Retry-After"))
-            delay = backoff_delay_sec(attempt=1, retry_after_sec=retry_after)
+            delay = backoff_delay_sec(attempt=attempt, retry_after_sec=retry_after)
+            remember_host_gap(self._current_host(), delay)
             log.warning(
-                "Retrying HTTP %s once after %.3fs (Retry-After=%s)",
+                "Retrying HTTP %s after %.3fs (Retry-After=%s attempt=%s left=%s)",
                 response.status,
                 delay,
                 retry_after,
+                attempt,
+                retries_left,
             )
+            emit_retry_status(status_callback, delay)
             if not wait_abortable(delay, stop_checker):
                 self._stopped = True
                 return "stop"
@@ -332,14 +341,19 @@ class LlmClient:
         """Compatibility wrapper for the transport-owned certificate fallback."""
         return self._transport.enable_local_ssl_fallback(err)
 
-    def _send_request(self, method, path, body, headers):
+    def _send_request(self, method, path, body, headers, *, stop_checker=None, status_callback=None):
         """Send through the transport while honoring tests/debuggers that override ``_get_connection`` on the instance."""
         if self._stopped:
             raise NetworkError("LLM request aborted by Stop", code="STOPPED")
+        def _stopped() -> bool:
+            if self._stopped:
+                return True
+            return bool(stop_checker and stop_checker())
         connection_getter = self.__dict__.get("_get_connection")
+        extra = {"stop_checker": _stopped, "status_callback": status_callback}
         if connection_getter is not None:
-            return self._transport.send(method, path, body, headers, connection_getter=connection_getter)
-        return self._transport.send(method, path, body, headers)
+            return self._transport.send(method, path, body, headers, connection_getter=connection_getter, **extra)
+        return self._transport.send(method, path, body, headers, **extra)
 
     def make_api_request(self, prompt, system_prompt="", max_tokens=70):
         """Build a streaming chat completions request (legacy/simple wrapper)."""
@@ -570,9 +584,12 @@ class LlmClient:
     def stream_completion(self, prompt, system_prompt, max_tokens, append_callback, append_thinking_callback=None, stop_checker=None, status_callback=None):
         """Stream a chat completions response via callbacks."""
         method, path, body, headers = self.make_api_request(prompt, system_prompt, max_tokens)
-        self.stream_request(method, path, body, headers, append_callback, append_thinking_callback, stop_checker=stop_checker)
+        self.stream_request(
+            method, path, body, headers, append_callback, append_thinking_callback,
+            stop_checker=stop_checker, status_callback=status_callback,
+        )
 
-    def _run_streaming_loop(self, method, path, body, headers, on_content, on_thinking=None, on_delta=None, stop_checker=None, _retry=True):
+    def _run_streaming_loop(self, method, path, body, headers, on_content, on_thinking=None, on_delta=None, stop_checker=None, _retry=True, status_callback=None):
         """Common low-level streaming engine."""
         init_logging(self.ctx)
         log.debug("=== Starting streaming loop (persistent, level=logging.INFO) ===")
@@ -586,7 +603,8 @@ class LlmClient:
             self._close_connection()
             return "stop"
 
-        retry_available = _retry
+        sends_left = RETRY_MAX_ATTEMPTS if _retry else 1
+        wait_index = 0
         emitted_any = False
         while True:
             last_finish_reason = None
@@ -597,21 +615,30 @@ class LlmClient:
                     self._stopped = True
                     self._close_connection()
                     return "stop"
-                response = self._send_request(method, path, body, headers)
+                response = self._send_request(
+                    method, path, body, headers,
+                    stop_checker=stop_checker, status_callback=status_callback,
+                )
 
                 if response.status != 200:
+                    sends_left -= 1
+                    wait_index += 1
                     action = self._retry_or_raise_http_error(
                         response,
                         body,
                         path,
-                        retry_available=retry_available,
+                        retries_left=sends_left,
                         emitted_any=emitted_any,
                         stop_checker=stop_checker,
+                        status_callback=status_callback,
+                        attempt=wait_index,
                     )
                     if action == "stop":
                         return "stop"
-                    retry_available = False
                     continue
+
+                if wait_index == 0:
+                    clear_host_gap(self._current_host())
 
                 try:
                     # Use a flag to stop logical processing but keep reading to exhaust the stream
@@ -786,18 +813,24 @@ class LlmClient:
                         code="CONNECTION_LOST",
                         details={"url": path},
                     ) from e
+                sends_left -= 1
+                wait_index += 1
                 action = self._transport.handle_connection_error(
                     e,
                     path=path,
-                    retry_available=retry_available,
-                    retry_log_message="Retrying streaming request once on fresh connection",
+                    retries_left=sends_left,
+                    retry_log_message="Retrying streaming request on fresh connection",
                     stop_checker=stop_checker,
+                    status_callback=status_callback,
+                    attempt=wait_index,
                 )
                 if action == "stop":
                     return "stop"
-                retry_available = False
                 continue
-            except NetworkError:
+            except NetworkError as e:
+                if getattr(e, "code", None) == "STOPPED":
+                    self._stopped = True
+                    return "stop"
                 raise
             except Exception as e:
                 err_msg = format_error_message(e)
@@ -807,10 +840,13 @@ class LlmClient:
             # If we completed successfully without retry, return
             return last_finish_reason
 
-    def stream_request(self, method, path, body, headers, append_callback, append_thinking_callback=None, stop_checker=None):
+    def stream_request(self, method, path, body, headers, append_callback, append_thinking_callback=None, stop_checker=None, status_callback=None):
         """Streaming request for chat completions, using persistent connection."""
         init_logging(self.ctx)
-        self._run_streaming_loop(method, path, body, headers, on_content=append_callback, on_thinking=append_thinking_callback, stop_checker=stop_checker)
+        self._run_streaming_loop(
+            method, path, body, headers, on_content=append_callback, on_thinking=append_thinking_callback,
+            stop_checker=stop_checker, status_callback=status_callback,
+        )
 
     def stream_chat_response(
         self,
@@ -819,6 +855,7 @@ class LlmClient:
         append_callback,
         append_thinking_callback=None,
         stop_checker=None,
+        status_callback=None,
         *,
         prepend_dev_build_system_prefix: bool = True,
     ):
@@ -830,7 +867,10 @@ class LlmClient:
             stream=True,
             prepend_dev_build_system_prefix=prepend_dev_build_system_prefix,
         )
-        self.stream_request(method, path, body, headers, append_callback, append_thinking_callback, stop_checker=stop_checker)
+        self.stream_request(
+            method, path, body, headers, append_callback, append_thinking_callback,
+            stop_checker=stop_checker, status_callback=status_callback,
+        )
 
     def request_with_tools(
         self,
@@ -840,6 +880,7 @@ class LlmClient:
         append_callback=None,
         append_thinking_callback=None,
         stop_checker=None,
+        status_callback=None,
         body_override=None,
         model=None,
         stream=False,
@@ -902,7 +943,10 @@ class LlmClient:
 
             log.debug("stream_request_with_tools: building request (%d messages)..." % len(messages))
             try:
-                last_finish_reason = self._run_streaming_loop(method, path, body, headers, on_content=append_callback, on_thinking=append_thinking_callback, on_delta=on_delta, stop_checker=stop_checker)
+                last_finish_reason = self._run_streaming_loop(
+                    method, path, body, headers, on_content=append_callback, on_thinking=append_thinking_callback,
+                    on_delta=on_delta, stop_checker=stop_checker, status_callback=status_callback,
+                )
             except NetworkError:
                 raise
             except Exception as e:
@@ -945,7 +989,8 @@ class LlmClient:
                     "model": requested_model,
                 }
             result = None
-            retry_available = True
+            sends_left = RETRY_MAX_ATTEMPTS
+            wait_index = 0
             while True:
                 try:
                     if self._stopped or (stop_checker and stop_checker()):
@@ -960,20 +1005,27 @@ class LlmClient:
                             "usage": {},
                             "model": requested_model,
                         }
-                    response = self._send_request(method, path, body, headers)
+                    response = self._send_request(
+                        method, path, body, headers,
+                        stop_checker=stop_checker, status_callback=status_callback,
+                    )
                     if response.status != 200:
                         try:
                             redacted_msgs = redact_sensitive_payload_for_log(messages)
                             log.error("request_with_tools outgoing messages (redacted): %s", json.dumps(redacted_msgs, indent=2, ensure_ascii=False))
                         except Exception as log_exc:
                             log.warning("Could not log redacted outgoing messages: %s", log_exc)
+                        sends_left -= 1
+                        wait_index += 1
                         action = self._retry_or_raise_http_error(
                             response,
                             body,
                             path,
-                            retry_available=retry_available,
+                            retries_left=sends_left,
                             emitted_any=False,
                             stop_checker=stop_checker,
+                            status_callback=status_callback,
+                            attempt=wait_index,
                         )
                         if action == "stop":
                             return {
@@ -985,22 +1037,38 @@ class LlmClient:
                                 "usage": {},
                                 "model": requested_model,
                             }
-                        retry_available = False
                         continue
+                    if wait_index == 0:
+                        clear_host_gap(self._current_host())
                     from plugin.framework.errors import safe_json_loads
 
                     result = safe_json_loads(response.read().decode("utf-8"))
                     break
                 except CONNECTION_ERRORS as e:
+                    sends_left -= 1
+                    wait_index += 1
                     self._transport.handle_connection_error(
                         e,
                         path=path,
-                        retry_available=retry_available,
-                        retry_log_message="Retrying request_with_tools once on fresh connection",
+                        retries_left=sends_left,
+                        retry_log_message="Retrying request_with_tools on fresh connection",
+                        stop_checker=stop_checker,
+                        status_callback=status_callback,
+                        attempt=wait_index,
                     )
-                    retry_available = False
                     continue
-                except NetworkError:
+                except NetworkError as e:
+                    if getattr(e, "code", None) == "STOPPED":
+                        self._stopped = True
+                        return {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": None,
+                            "finish_reason": "stop",
+                            "images": [],
+                            "usage": {},
+                            "model": requested_model,
+                        }
                     raise
                 except Exception as e:
                     err_msg = format_error_message(e)

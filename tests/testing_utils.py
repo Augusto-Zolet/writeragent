@@ -1316,7 +1316,7 @@ def create_mock_http_response(
     * ``sse_lines`` feeds ``for line in response`` / ``iterate_sse`` (bytes or str).
     * ``iter_side_effect`` is raised after those lines (timeout / connection reset
       mid-stream). HTTP 4xx/5xx use ``status`` + ``reason`` + body. ``LlmClient``
-      retries 429/503 once with backoff; other statuses raise immediately.
+      retries 429/503 up to three total attempts with backoff; other statuses raise immediately.
     """
     from unittest.mock import MagicMock
     import http.client

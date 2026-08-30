@@ -31,7 +31,11 @@ from .request_controls import (
     LocalHttpsCertificateFallback,
     RequestPacer,
     backoff_delay_sec,
+    emit_retry_status,
+    mark_host_sent,
+    remember_host_gap,
     wait_abortable,
+    wait_host_gap,
 )
 from .ssl_helpers import get_unverified_ssl_context, get_verified_ssl_context
 
@@ -42,7 +46,7 @@ RetryAction = Literal["retry", "stop"]
 
 
 class LlmHttpTransport:
-    """Own persistent chat HTTP connections plus pacing, one jittered retry, and local TLS fallback."""
+    """Own persistent chat HTTP connections plus pacing, jittered retries, per-host cooldown, and local TLS fallback."""
 
     def __init__(
         self,
@@ -120,8 +124,21 @@ class LlmHttpTransport:
         self._persistent_conn = None
         self._conn_key = None
 
-    def send(self, method: str, path: str, body: Any, headers: dict[str, str], *, connection_getter: Callable[[], http.client.HTTPConnection | http.client.HTTPSConnection] | None = None) -> http.client.HTTPResponse:
+    def send(
+        self,
+        method: str,
+        path: str,
+        body: Any,
+        headers: dict[str, str],
+        *,
+        connection_getter: Callable[[], http.client.HTTPConnection | http.client.HTTPSConnection] | None = None,
+        stop_checker: Callable[[], bool] | None = None,
+        status_callback: Callable[[str], None] | None = None,
+    ) -> http.client.HTTPResponse:
         """Send one request on the persistent connection and return its response."""
+        host = self.current_host()
+        if not wait_host_gap(host, stop_checker, status_callback):
+            raise NetworkError("LLM request aborted by Stop", code="STOPPED")
         conn = connection_getter() if connection_getter is not None else self.get_connection()
         self._pacer.wait_before_send()
         if not any(k.lower() == "user-agent" for k in headers):
@@ -130,6 +147,7 @@ class LlmHttpTransport:
             headers["User-Agent"] = USER_AGENT
         conn.request(method, path, body=body, headers=headers)
         self._pacer.mark_sent()
+        mark_host_sent(host)
         return conn.getresponse()
 
     def enable_local_ssl_fallback(self, err: Exception) -> bool:
@@ -143,9 +161,11 @@ class LlmHttpTransport:
         err: Exception,
         *,
         path: str,
-        retry_available: bool,
+        retries_left: int,
         retry_log_message: str,
         stop_checker: Callable[[], bool] | None = None,
+        status_callback: Callable[[str], None] | None = None,
+        attempt: int = 1,
     ) -> RetryAction:
         """Close failed connections and decide whether a request should retry."""
         log.error("Connection error, closing: %s" % err)
@@ -153,14 +173,16 @@ class LlmHttpTransport:
         if stop_checker and stop_checker():
             log.error("Connection error during stop; exiting streaming loop")
             return "stop"
-        if retry_available and self.enable_local_ssl_fallback(err):
+        if retries_left > 0 and self.enable_local_ssl_fallback(err):
             # Immediate reopen: TLS mode just changed; do not add backoff.
             return "retry"
 
         err_msg = format_error_message(err)
-        if retry_available:
+        if retries_left > 0:
             log.warning(retry_log_message)
-            delay = backoff_delay_sec(attempt=1)
+            delay = backoff_delay_sec(attempt=attempt)
+            remember_host_gap(self.current_host(), delay)
+            emit_retry_status(status_callback, delay)
             if not wait_abortable(delay, stop_checker):
                 return "stop"
             return "retry"

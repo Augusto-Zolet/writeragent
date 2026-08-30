@@ -426,6 +426,7 @@ class ToolCallingMixin:
                         append_callback=(batched.content_cb() if batched else lambda t: real_q.put((StreamQueueKind.CHUNK, t))),
                         append_thinking_callback=(batched.thinking_cb() if batched else lambda t: real_q.put((StreamQueueKind.THINKING, t))),
                         stop_checker=stop_checker,
+                        status_callback=lambda t: real_q.put((StreamQueueKind.STATUS, t)),
                     )
                 if self.stop_requested:
                     if batched: batched.flush()
@@ -471,7 +472,11 @@ class ToolCallingMixin:
                     real_q.put((StreamQueueKind.STOPPED,))
                     return
                 with llm_request_lane():
-                    client.stream_chat_response(self.session.messages, max_tokens, append_c, append_t, stop_checker=stop_checker)
+                    client.stream_chat_response(
+                        self.session.messages, max_tokens, append_c, append_t,
+                        stop_checker=stop_checker,
+                        status_callback=lambda t: real_q.put((StreamQueueKind.STATUS, t)),
+                    )
                 if self.stop_requested:
                     if batched: batched.flush()
                     real_q.put((StreamQueueKind.STOPPED,))
