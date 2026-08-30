@@ -43,6 +43,8 @@ def test_function_name_matches_packet_letter() -> None:
     assert _function_name_matches("test_f3a_hang_the_stream_then_hello", ["f"]) is True
     assert _function_name_matches("test_b1a_stop_ramble_then_hello", ["B"]) is True
     assert _function_name_matches("test_e9c_hitl_change", ["E"]) is True
+    assert _function_name_matches("test_c1_say_nothing_truncated_then_hello", ["C"]) is True
+    assert _function_name_matches("test_d1_think_out_loud_thinking_then_html", ["D"]) is True
     assert _function_name_matches("test_foo_bar", ["F"]) is False
     assert _function_name_matches("test_e7_outline_delegate", ["B"]) is False
 

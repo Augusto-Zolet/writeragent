@@ -503,6 +503,8 @@ def test_comment_after_add_comment_step():
 def test_detect_scenario_phrases_and_force():
     assert detect_scenario("please keep talking") == "ramble"
     assert detect_scenario("say nothing now") == "empty"
+    assert detect_scenario("empty finish stop") == "empty_stop"
+    assert detect_scenario("blank stop reason") == "empty_stop"
     assert detect_scenario("hello", forced="flood") == "flood"
     assert detect_scenario("hello") == ""
 
@@ -522,6 +524,13 @@ def test_ramble_and_empty_and_flood():
     assert empty.content is None
     assert empty.finish_reason == "length"
     assert not completion_tool_calls(empty)
+    empty_stop = decide_completion(
+        {"messages": [{"role": "user", "content": "empty finish stop"}], "tools": _tools("web_research")},
+        cfg,
+    )
+    assert empty_stop.content is None
+    assert empty_stop.finish_reason == "stop"
+    assert not completion_tool_calls(empty_stop)
     flood = decide_completion(
         {"messages": [{"role": "user", "content": "fill the sidebar"}], "tools": _tools("web_research")},
         cfg,
@@ -1009,7 +1018,23 @@ def test_summarize_chat_payload_doc_len_and_current_query():
     assert rec["current_query"] == "look up latest Python"
     assert rec["doc_content_len"] == len("Welcome to WriterAgent.")
     assert rec["decided_tools"] == ["web_research"]
+    assert rec["last_assistant_tool_calls"] == []
     assert "add_comment" in rec["advertised_tools"]
+
+    with_tools = {
+        "messages": payload["messages"]
+        + [
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [{"function": {"name": "web_research", "arguments": "{}"}}],
+            }
+        ],
+        "tools": payload["tools"],
+    }
+    rec2 = summarize_chat_payload(with_tools)
+    assert rec2["last_assistant_tool_calls"] == ["web_research"]
+    assert "web_research" in rec2["called_tools"]
 
 
 def test_fail_tool_followup_http500():

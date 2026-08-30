@@ -462,17 +462,22 @@ def next_state(state: ToolLoopState, event: ToolLoopEvent) -> FsmTransition[Tool
                     )
                     effects.append(ToolLoopUIEffect(kind="append", text="\n"))
                 elif finish_reason == "length":
-                    effects.append(ToolLoopUIEffect(kind="append", text="\n[Response truncated -- the model ran out of tokens...]\n"))
+                    # Session must get this banner. Otherwise finalize still sees the
+                    # previous HTML assistant and pastes it over the new turn (Packet C
+                    # after hello: truncated STREAM_DONE, sidebar showed leftover Mock notes).
+                    banner = "[Response truncated -- the model ran out of tokens...]"
+                    effects.append(ToolLoopUIEffect(kind="append", text="\n" + banner + "\n"))
+                    effects.append(AddMessageEffect(role="assistant", content=banner))
                 elif finish_reason == "content_filter":
-                    effects.append(ToolLoopUIEffect(kind="append", text="\n[Content filter: response was truncated.]\n"))
+                    banner = "[Content filter: response was truncated.]"
+                    effects.append(ToolLoopUIEffect(kind="append", text="\n" + banner + "\n"))
+                    effects.append(AddMessageEffect(role="assistant", content=banner))
                 else:
-                    effects.append(ToolLoopUIEffect(kind="append", text="\n[No text from model; any tool changes were still applied.]\n"))
-                    effects.append(
-                        ToolLoopUIEffect(
-                            kind="append",
-                            text=f"\n[Debug: {format_empty_model_response_debug(state.round_num, response)}]\n",
-                        )
-                    )
+                    banner = "[No text from model; any tool changes were still applied.]"
+                    debug = "[Debug: %s]" % format_empty_model_response_debug(state.round_num, response)
+                    effects.append(ToolLoopUIEffect(kind="append", text="\n" + banner + "\n"))
+                    effects.append(ToolLoopUIEffect(kind="append", text="\n" + debug + "\n"))
+                    effects.append(AddMessageEffect(role="assistant", content=banner + "\n" + debug))
 
                 effects.append(ToolLoopUIEffect(kind="status", text="Ready"))
                 effects.append(ExitLoopEffect())

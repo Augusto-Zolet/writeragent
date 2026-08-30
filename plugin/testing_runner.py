@@ -837,7 +837,7 @@ def main() -> int:
         python -m plugin.testing_runner tests/chatbot/test_mock_llm_sidebar_uno.py E
         python -m plugin.testing_runner --user-profile …/test_mock_llm_sidebar_uno.py f3a
 
-    Extra tokens select tests: packet letter (``B``/``E``/``F``), case id
+    Extra tokens select tests: packet letter (``B``/``C``/``D``/``E``/``F``), case id
     (``f3a``), or full ``test_*`` name. Prefer ``make test-mock-sidebar FILTER=E``.
 
     The import of officehelper/uno is done lazily so that this module

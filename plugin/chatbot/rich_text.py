@@ -314,6 +314,10 @@ def finalize_sidebar_assistant_response(listener, *, allow_rerender: bool = True
     ``No response.``; ``rerender_last_assistant_if_html`` then truncates the
     stream tail — including the ``[Stopped by user]`` append — and pastes that
     placeholder (Packet B1: ramble vanished, marker never visible).
+
+    Empty / truncated STREAM_DONE must AddMessageEffect the banner (see
+    ``tool_loop_state``) so this path does not paste the previous HTML assistant
+    over ``[Response truncated]`` / ``[No text from model]`` (Packet C).
     """
     if getattr(listener, "_terminal_status", None) == "Error":
         listener._plain_text_stripper = None

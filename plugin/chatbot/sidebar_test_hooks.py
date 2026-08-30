@@ -665,7 +665,10 @@ def wait_controls_send_finished(
         suffix = body[len(before) :] if before and body.startswith(before) else body
         if wait_for:
             found = wait_for.lower() in suffix.lower()
-            if not found and body != before:
+            # Only search the whole control when a rich rerender dropped the prefix.
+            # ``body != before`` is too weak: any new character plus a needle already
+            # in earlier turns (Packet C truncated banner) would look finished.
+            if not found and before and body and not body.startswith(before):
                 found = wait_for.lower() in body.lower()
         else:
             found = True
@@ -675,7 +678,11 @@ def wait_controls_send_finished(
     if wait_for and transcript_fn is not None:
         body = transcript_fn()
         suffix = body[len(before) :] if before and body.startswith(before) else body
-        return wait_for.lower() in suffix.lower() or (body != before and wait_for.lower() in body.lower())
+        if wait_for.lower() in suffix.lower():
+            return True
+        if before and body and not body.startswith(before):
+            return wait_for.lower() in body.lower()
+        return False
     en = control_enabled(stop) if stop is not None else None
     return en is not True
 

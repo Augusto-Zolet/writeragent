@@ -2,10 +2,10 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Native Packet F (HTTP/SSE), B (Stop/Send FSM), E (tools/HITL), and G (mocked audio) on a live chat sidebar.
+"""Native Packet F (HTTP/SSE), B (Stop/Send FSM), C (empty/truncated), D (reasoning), E (tools/HITL), and G (mocked audio) on a live chat sidebar.
 
 Run via ``make test-mock-sidebar`` (visible soffice, LibreOffice user profile).
-Subset: ``make test-mock-sidebar FILTER=G`` (packet), ``FILTER=g1`` (case), or a ``test_*`` name.
+Subset: ``make test-mock-sidebar FILTER=C`` (packet), ``FILTER=c1`` (case), or a ``test_*`` name.
 """
 
 from __future__ import annotations
@@ -330,6 +330,71 @@ def _hello_ok() -> None:
     ), ("hello reply missing: %r" % body[-400:])
 
 
+def _suffix(before: str) -> str:
+    body = _transcript()
+    if before and body.startswith(before):
+        return body[len(before) :]
+    return body
+
+
+def _is_busy() -> bool:
+    from plugin.chatbot.sidebar_test_hooks import control_enabled, send_state
+
+    controls = getattr(_session, "controls", None) or {}
+    stop = controls.get("stop")
+    if stop is not None:
+        return control_enabled(stop) is True
+    sl = getattr(_session, "listener", None)
+    if sl is not None:
+        return bool(send_state(listener=sl).is_busy)
+    return False
+
+
+def _poll_busy_transcript(needle: str, timeout: float = 8.0) -> bool:
+    """True if *needle* appears in the transcript while Stop is still Enabled.
+
+    Packet D: HTML rerender replaces the assistant tail, so ``[Thinking]`` is
+    usually gone after idle. Do not processEventsToIdle on the URP pipe.
+    """
+    want = needle.lower()
+    deadline = time.monotonic() + max(0.0, timeout)
+    while time.monotonic() <= deadline:
+        if want in _transcript().lower():
+            return True
+        if not _is_busy():
+            return want in _transcript().lower()
+        time.sleep(0.08)
+    return want in _transcript().lower()
+
+
+def _assert_truncated_banner(before: str) -> None:
+    suffix = _suffix(before)
+    low = suffix.lower()
+    assert "response truncated" in low and "ran out of tokens" in low, (
+        "C expected truncated banner, got %r" % suffix[-400:]
+    )
+    assert "[no text from model" not in low, "length path must not paint the empty Debug banner: %r" % suffix[-400:]
+
+
+def _assert_empty_debug_banner(before: str) -> None:
+    suffix = _suffix(before)
+    low = suffix.lower()
+    assert "[no text from model; any tool changes were still applied.]" in low, (
+        "C4 expected empty-model banner, got %r" % suffix[-400:]
+    )
+    assert "[debug:" in low and "finish_reason=" in low and "stop" in low, (
+        "C4 expected Debug finish_reason=stop, got %r" % suffix[-400:]
+    )
+
+
+def _assert_assistant_html(before: str) -> None:
+    suffix = _suffix(before)
+    low = suffix.lower()
+    assert "assistant:" in low and (
+        "mock" in low or "streamed as plain" in low or "table" in low or "numbered steps" in low or "mock notes" in low
+    ), ("expected mock HTML body after thinking, got %r" % suffix[-400:])
+
+
 def _set_writer_body(ctx, text: str) -> None:
     from plugin.chatbot.sidebar_test_hooks import current_component
 
@@ -423,6 +488,7 @@ def _reset_mock_runtime() -> None:
     _session.config.fail_after_chunks = 4
     _session.config.sse_comments = False
     _session.config.fail_tool_followup = False
+    _session.config.scenario = "none"
     from scripts.mock_llm_server import clear_captures
 
     clear_captures(_session.config)
@@ -959,6 +1025,164 @@ def test_b15_serial_hello_ramble_stop_empty_hello(ctx):
     finally:
         _reset_mock_runtime()
     _send_and_wait("say nothing", timeout=40.0)
+    _hello_ok()
+
+
+# --- Packet C: empty / truncated model ---
+
+
+@native_test
+def test_c1_say_nothing_truncated_then_hello(ctx):
+    _reset_mock_runtime()
+    before = _transcript()
+    _send_and_wait("say nothing", timeout=40.0, wait_for="ran out of tokens")
+    _assert_truncated_banner(before)
+    _hello_ok()
+
+
+@native_test
+def test_c3_scenario_empty_several_rounds(ctx):
+    assert _session is not None
+    _reset_mock_runtime()
+    from tests.chatbot.mock_llm_harness import mock_config
+
+    mock_config(_session.config, scenario="empty")
+    assert _session.config.scenario == "empty"
+    try:
+        for phrase in ("round one", "round two", "round three"):
+            before = _transcript()
+            try:
+                _send_and_wait(phrase, timeout=40.0, wait_for="ran out of tokens")
+            except AssertionError as err:
+                raise AssertionError("%s last_captures=%r" % (err, _captures()[-3:])) from err
+            _assert_truncated_banner(before)
+            rec = _captures()[-1] if _captures() else {}
+            got_q = (rec.get("current_query") or rec.get("user_text") or "")
+            assert phrase.lower() in got_q.lower(), "C3 mock saw %r expected %r" % (got_q, phrase)
+            suffix = _suffix(before)
+            assert "print('mock-llm')" not in suffix.lower()
+            assert "<ul>" not in suffix.lower()
+    finally:
+        _session.config.scenario = "none"
+    _hello_ok()
+
+
+@native_test
+def test_c4_empty_finish_stop_debug_banner(ctx):
+    _reset_mock_runtime()
+    before = _transcript()
+    _send_and_wait("empty finish stop", timeout=40.0, wait_for="No text from model")
+    _assert_empty_debug_banner(before)
+    _hello_ok()
+
+
+# --- Packet D: reasoning vs content ---
+
+
+@native_test
+def test_d1_think_out_loud_thinking_then_html(ctx):
+    from scripts.mock_llm_server import clear_captures
+
+    _reset_mock_runtime()
+    assert _session is not None
+    clear_captures(_session.config)
+    before = _start_until_stop_enabled("think out loud", delay_ms=80, timeout=15.0)
+    try:
+        saw = _poll_busy_transcript("[Thinking]", timeout=10.0)
+        _wait_idle_after_send(before, timeout=40.0)
+        snaps = list(_captures())
+    finally:
+        _reset_mock_runtime()
+    assert saw, "D1 expected [Thinking] during stream, got %r" % _suffix(before)[-500:]
+    _assert_assistant_html(before)
+    think_rows = [
+        row
+        for row in snaps
+        if "think out loud" in (row.get("user_text") or "").lower()
+        or "think out loud" in (row.get("current_query") or "").lower()
+    ]
+    assert think_rows, "D1 expected a think-out-loud capture, got %r" % snaps[-5:]
+    assert think_rows[0].get("decided_tools") == [], "D1 thinking must not be a tool call: %r" % think_rows[0]
+    _hello_ok()
+
+
+@native_test
+def test_d2_think_tags_no_raw_tags(ctx):
+    _reset_mock_runtime()
+    before = _transcript()
+    _send_and_wait("think tags", timeout=40.0)
+    suffix = _suffix(before)
+    low = suffix.lower()
+    assert "<think" not in low and "</think>" not in low, "D2 raw think tags in transcript: %r" % suffix[-400:]
+    _assert_assistant_html(before)
+    _hello_ok()
+
+
+@native_test
+def test_d3_reasoning_details_thinking_then_html(ctx):
+    from scripts.mock_llm_server import clear_captures
+
+    _reset_mock_runtime()
+    assert _session is not None
+    clear_captures(_session.config)
+    before = _start_until_stop_enabled("reasoning details", delay_ms=80, timeout=15.0)
+    try:
+        saw = _poll_busy_transcript("[Thinking]", timeout=10.0)
+        _wait_idle_after_send(before, timeout=40.0)
+        snaps = list(_captures())
+    finally:
+        _reset_mock_runtime()
+    assert saw, "D3 expected [Thinking] during stream, got %r" % _suffix(before)[-500:]
+    _assert_assistant_html(before)
+    detail_rows = [
+        row
+        for row in snaps
+        if "reasoning details" in (row.get("user_text") or "").lower()
+        or "reasoning details" in (row.get("current_query") or "").lower()
+    ]
+    assert detail_rows, "D3 expected a reasoning-details capture, got %r" % snaps[-5:]
+    assert detail_rows[0].get("decided_tools") == [], "D3 thinking must not be a tool call: %r" % detail_rows[0]
+    _hello_ok()
+
+
+@native_test
+def test_d4_think_then_look_up_not_tool_calls(ctx):
+    from scripts.mock_llm_server import clear_captures
+
+    _reset_mock_runtime()
+    _set_writer_body(ctx, WELCOME_BODY)
+    assert _session is not None
+    before = _start_until_stop_enabled("think out loud", delay_ms=80, timeout=15.0)
+    try:
+        _poll_busy_transcript("[Thinking]", timeout=10.0)
+        _wait_idle_after_send(before, timeout=40.0)
+    finally:
+        _reset_mock_runtime()
+    clear_captures(_session.config)
+    _send_and_wait("look up cats", timeout=90.0)
+    snaps = _captures()
+    look_user = [
+        row
+        for row in snaps
+        if row.get("last_role") == "user"
+        and (
+            "look up" in (row.get("user_text") or "").lower()
+            or "cats" in (row.get("current_query") or "").lower()
+        )
+    ]
+    assert look_user, "D4 expected look-up user-turn capture, got %r" % snaps[-8:]
+    first = look_user[0]
+    prior = first.get("last_assistant_tool_calls") or []
+    called = first.get("called_tools") or []
+    assert prior == [], "D4 prior thinking must not be session tool_calls: %r" % first
+    junk = [name for name in called if name not in {"web_research", "web_search", "visit_webpage", "final_answer"}]
+    assert not junk, "D4 unexpected history tool names: %r" % first
+    decided = []
+    for row in snaps:
+        decided.extend(row.get("decided_tools") or [])
+    assert "web_research" in decided or "final_answer" in decided or "web_search" in decided, (
+        "D4 expected research tools after look up, got %r" % snaps[-8:]
+    )
     _hello_ok()
 
 

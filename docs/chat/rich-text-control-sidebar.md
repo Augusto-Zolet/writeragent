@@ -278,7 +278,8 @@ Plain “hello” streams two HTML paragraphs (rotating lists/tables/code). Phra
 | `look up …` | `web_research` (then smol search loop) |
 | `comment` | `add_comment` or empty-doc `apply_document_content` |
 | `keep talking` / `ramble` / `stop me` | ~200 content chunks — hit **Stop**, then send again |
-| `say nothing` / `empty reply` | no content, `finish_reason=length` (empty-model debug banner) |
+| `say nothing` / `empty reply` | no content, `finish_reason=length` → `[Response truncated -- the model ran out of tokens...]` (session stores that banner so a later empty turn is not HTML-rerendered as the previous reply) |
+| `empty finish stop` / `blank stop reason` | no content, `finish_reason=stop` → `[No text from model…]` plus `[Debug: round=…, finish_reason='stop'…]` |
 | `think out loud` | several `delta.reasoning` chunks, then HTML |
 | `think tags` | XML think markers inside `content` |
 | `reasoning details` | `reasoning_content` + `reasoning_details` then HTML |
@@ -318,7 +319,7 @@ Hand these packets to separate agents. Each case is something **pytest cannot pa
 
 Assign by packet id (`A`–`H`). Do not skip the “why hard” line — that is the reason the mock exists.
 
-**v2 (scripted, no humans):** [Mock LLM tests v2](#mock-llm-tests-v2--scripted-b--e--f--g-audio) is the CI contract for Stop, tool-loop, HITL, HTTP/SSE, then **mocked Record**. Packets A (scroll/resize) and H (theme/exit) stay soak. v1 tables remain the human/agent checklist; v2 IDs are what `make test-uno` should own.
+**v2 (scripted, no humans):** [Mock LLM tests v2](#mock-llm-tests-v2--scripted-b--c--d--e--f--g-audio) is the CI contract for Stop, empty/truncated, reasoning, tool-loop, HITL, HTTP/SSE, then **mocked Record**. Packets A (scroll/resize) and H (theme/exit) stay soak. v1 tables remain the human/agent checklist; v2 IDs are what `make test-mock-sidebar` should own.
 
 #### Packet A — stream, HTML paste, scroll
 
@@ -353,9 +354,10 @@ Assign by packet id (`A`–`H`). Do not skip the “why hard” line — that is
 
 | ID | Mock | Steps | Pass | Watch |
 |----|------|-------|------|-------|
-| C1 | `say nothing` | Send | `[No text from model; any tool changes were still applied.]` plus `[Debug: round=…, finish_reason=…length…]` | warning in debug log; `finish_reason=length` |
-| C2 | C1 then `hello` | Recovery | Normal HTML chat; no stuck error state | |
-| C3 | `--scenario empty` | Several empty rounds | Banner each time, transcript does not grow garbage HTML | |
+| C1 | `say nothing` | Send | `[Response truncated -- the model ran out of tokens...]` (FSM `finish_reason=length` branch; **not** the Debug banner) | |
+| C2 | C1 then `hello` | Recovery | Normal HTML chat; no stuck error state. v2: C1’s `_hello_ok()` | |
+| C3 | `--scenario empty` | Several empty rounds | Truncated banner each time; transcript does not grow garbage HTML | |
+| C4 | `empty finish stop` | Send | `[No text from model; any tool changes were still applied.]` plus `[Debug: round=…, finish_reason='stop'…]` | `format_empty_model_response_debug` on a real drain |
 
 #### Packet D — reasoning vs content
 
@@ -439,11 +441,11 @@ Canned transcript default: `Hello from the mock microphone.` (`--transcript` to 
 
 ---
 
-## Mock LLM tests v2 — scripted B / E / F (+ G audio)
+## Mock LLM tests v2 — scripted B / C / D / E / F (+ G audio)
 
 **Goal:** every case below runs in **`testing_runner` / `make test-uno`** (or a dedicated `make test-mock-sidebar` that is still no-human). No eyeballs, no resize, no “does the viewport look right.” Pass = logs + control/query text + UNO document + **SendButtonState** (or button labels) + **next hello succeeds**.
 
-**Why B/E/F first:** Stop, drain, tools, HITL. Packet A scroll/resize and Packet H theme/exit stay soak. Packet C/D can piggy-back the same harness once Send works.
+**Why B/E/F first:** Stop, drain, tools, HITL. Packet A scroll/resize and Packet H theme/exit stay soak. **Packets C and D are landed** on the same harness (`FILTER=C` / `FILTER=D`).
 
 **Packet G (mocked audio) is next after B/E/F is boring** — lower priority only because manual Record feels fine, but it is a **second FSM** (`AudioRecorderState`: idle → initializing → recording → stopping) stacked on Send/Stop Rec/Send. That stack has acted up (busy vs recording, Stop vs Stop Rec, Record during ramble). Script it with a **fake capture child** (no mic, no `sounddevice`). The mock LLM already accepts `input_audio` and `/v1/audio/transcriptions`.
 
@@ -581,6 +583,33 @@ Stop is the mountain; these push the Send/Stop FSM into the rarer races the land
 
 ---
 
+### v2 Packet C — empty / truncated model
+
+**Landed:** C1, C3, C4 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar FILTER=C`). **C2** is C1’s `_hello_ok()` (not a separate function). B15 still sends `say nothing` without asserting the banner.
+
+Empty / truncated STREAM_DONE must **AddMessageEffect** the banner ([`tool_loop_state.py`](../../plugin/chatbot/tool_loop_state.py)) so finalize does not paste the previous HTML assistant over the new turn (C3 after hello used to show leftover Mock notes).
+
+| ID | Drive | Pass (assert) |
+|----|--------|----------------|
+| **C1** | `say nothing` | Suffix has `[Response truncated -- the model ran out of tokens...]`; **not** `[No text from model]`; `_hello_ok()` |
+| **C3** | `_session.config.scenario = "empty"`; send `round one` / `round two` / `round three`; restore `scenario=none` | Truncated banner each round; no rotating hello HTML (`<ul>`, `print('mock-llm')`); hello after restore |
+| **C4** | `empty finish stop` | `[No text from model; any tool changes were still applied.]` plus `[Debug:` with `finish_reason='stop'`; hello |
+
+---
+
+### v2 Packet D — reasoning vs content
+
+**Landed:** D1–D4 (`make test-mock-sidebar FILTER=D`). B14 **Stops during** `think out loud`; D1 lets the stream **finish**. Mid-stream `[Thinking]` must be polled while Stop is Enabled: HTML rerender replaces the assistant tail so the prefix is usually gone after idle. `chatbot.show_search_thinking` (default false) gates tool thinking only; main-chat `delta.reasoning` still paints.
+
+| ID | Drive | Pass (assert) |
+|----|--------|----------------|
+| **D1** | `think out loud`, `delay_ms=80`; poll `[Thinking]` while busy; wait idle | Saw `[Thinking]` during stream; after idle, mock HTML body; think-turn `decided_tools == []`; hello |
+| **D2** | `think tags` | After idle: no `<think` / `</think>` in transcript; HTML body present (tags in `content` are the [`llm-hacks.md`](llm-hacks.md) gap — do not require `[Thinking]`); hello |
+| **D3** | `reasoning details` (same poll as D1) | Mid-stream `[Thinking]`; after idle HTML; `decided_tools == []`; hello |
+| **D4** | D1-style think to idle, then `look up cats` (`--offline`) | Look-up user-turn capture: `last_assistant_tool_calls == []`; no junk history tool names; research `decided_tools`; hello |
+
+---
+
 ### v2 Packet E — tools, delegate, HITL
 
 **Landed:** E1, E3–E8a, E9a–c/e, E10–E15 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar`). **Skipped:** E2 (live DDG), E8b/E9d (`press_stop_mouse` / in-process listener, same as F3b), E12 if the Calc deck is missing, E9c unless the live listener is in-process.
@@ -633,11 +662,13 @@ Delegate / HITL / mutation-refresh failure modes beyond the landed set. Mock nee
 
 **Landed:** F1–F18 (F3b skipped over URP) in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py). Run **`make test-mock-sidebar`** (not `make test-uno`). Visible soffice with **your** LibreOffice user profile:
 
-**Filter (skip long packets while debugging):** definition order is F → B → E. Pass `FILTER=` to the Make target (forwarded to `testing_runner`):
+**Filter (skip long packets while debugging):** definition order is F → B → C → D → E → G. Pass `FILTER=` to the Make target (forwarded to `testing_runner`):
 
 ```bash
 make test-mock-sidebar                 # all packets
 make test-mock-sidebar FILTER=G        # packet G (mocked audio)
+make test-mock-sidebar FILTER=C        # empty / truncated banners
+make test-mock-sidebar FILTER=D        # reasoning vs content
 make test-mock-sidebar FILTER=B
 make test-mock-sidebar FILTER=f3a      # one case id
 make test-mock-sidebar FILTER=test_e7_outline_delegate
@@ -758,12 +789,13 @@ Recorder-child IPC and VAD edge cases beyond the landed set. Child-fixture / stu
 
 1. Harness: open sidebar, `set_query_text` + `press_send` + `wait_idle` + `next_hello_ok` (smoke).
 2. **B1a, B1b, B3, B7, B10** (Stop is the mountain).
-3. **F1, F2, F4, F14** (errors + recovery).
-4. **E3, E5, E6, E7** (tools without HITL).
-5. **E8a/b** (Stop mid-delegate).
-6. **E9a–E9e** (HITL overlay on the same buttons).
-7. F3/F6/F9+ only after cancel + hang are stable.
-8. **G1, G7, G11, G12, G15** (Record FSM vs Send busy) — stub capture, no mic. Rest of G after that.
+3. **C1, C4, D1, D2** (empty banners + `[Thinking]` vs HTML) — landed; `FILTER=C` / `FILTER=D`.
+4. **F1, F2, F4, F14** (errors + recovery).
+5. **E3, E5, E6, E7** (tools without HITL).
+6. **E8a/b** (Stop mid-delegate).
+7. **E9a–E9e** (HITL overlay on the same buttons).
+8. F3/F6/F9+ only after cancel + hang are stable.
+9. **G1, G7, G11, G12, G15** (Record FSM vs Send busy) — stub capture, no mic. Rest of G after that.
 
 Pytest already covers `decide_completion` in `tests/scripts/test_mock_llm_server.py`. v2 does **not** duplicate that; it covers **drain + FSM + UNO**. Mock already lists `writeragent-mock-whisper` and canned transcripts.
 

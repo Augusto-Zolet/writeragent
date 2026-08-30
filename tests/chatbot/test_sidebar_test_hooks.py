@@ -532,3 +532,20 @@ def test_wait_controls_send_finished_sees_new_transcript(monkeypatch) -> None:
     )
     assert ok is True
     assert control_enabled(stop) is False
+
+
+def test_wait_controls_send_finished_wait_for_ignores_prior_turns(monkeypatch) -> None:
+    """Packet C: ``ran out of tokens`` in an earlier turn must not finish a later send."""
+    stop = _StopCtrl()
+    stop._model.Enabled = False
+    prior = "Assistant: [Response truncated -- the model ran out of tokens...]\n"
+
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks.time.sleep", lambda _s: None)
+    ok = wait_controls_send_finished(
+        {"stop": stop},
+        timeout=0.4,
+        transcript_fn=lambda: prior + "You: round one\nAssistant: Mock notes\nTopic: hello.\n",
+        wait_for="ran out of tokens",
+        before=prior,
+    )
+    assert ok is False

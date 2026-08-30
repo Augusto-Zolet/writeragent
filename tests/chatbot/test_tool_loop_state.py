@@ -112,12 +112,16 @@ def test_stream_done_finish_reasons():
     new_state_len, effects_len = tr_len.state, tr_len.effects
     assert new_state_len.status == "Ready"
     assert any(isinstance(e, ToolLoopUIEffect) and "out of tokens" in e.text for e in effects_len)
-    
+    msg_len = next(e for e in effects_len if isinstance(e, AddMessageEffect))
+    assert "out of tokens" in msg_len.content
+
     # finish_reason="content_filter"
     event_filt = create_event(EventKind.STREAM_DONE, response={"finish_reason": "content_filter", "content": None})
     tr_filt = next_state(state, event_filt)
     _new_state_filt, effects_filt = tr_filt.state, tr_filt.effects
     assert any(isinstance(e, ToolLoopUIEffect) and "Content filter" in e.text for e in effects_filt)
+    msg_filt = next(e for e in effects_filt if isinstance(e, AddMessageEffect))
+    assert "Content filter" in msg_filt.content
 
 def test_stream_done_no_text_includes_debug_sidebar():
     state = create_base_state(round_num=2)
@@ -133,6 +137,9 @@ def test_stream_done_no_text_includes_debug_sidebar():
     assert "round=2" in debug_line
     assert "completion_tokens" in debug_line
     assert format_empty_model_response_debug(2, response) in debug_line
+    msg = next(e for e in effects if isinstance(e, AddMessageEffect))
+    assert "No text from model" in msg.content
+    assert "finish_reason='stop'" in msg.content
 
 
 def test_format_empty_model_response_debug_overflow_pre_fails_closed():

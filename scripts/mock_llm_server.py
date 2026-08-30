@@ -91,6 +91,9 @@ _SCENARIO_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("two_dones", re.compile(r"\btwo dones\b", re.IGNORECASE)),
     ("event_ping", re.compile(r"\bevent ping\b", re.IGNORECASE)),
     ("ramble", re.compile(r"\b(keep talking|ramble|stop me)\b", re.IGNORECASE)),
+    # Packet C4: empty content + finish_reason=stop (Debug banner). Must win
+    # before ``empty`` so "empty finish stop" is not ``say nothing`` / length.
+    ("empty_stop", re.compile(r"\b(empty finish stop|blank stop reason)\b", re.IGNORECASE)),
     ("empty", re.compile(r"\b(say nothing|empty reply)\b", re.IGNORECASE)),
     ("think_details", re.compile(r"\breasoning details\b", re.IGNORECASE)),
     ("think_content", re.compile(r"\bthink tags\b", re.IGNORECASE)),
@@ -126,6 +129,7 @@ SCENARIO_IDS = frozenset(
         "none",
         "ramble",
         "empty",
+        "empty_stop",
         "think",
         "think_content",
         "think_details",
@@ -230,7 +234,11 @@ def document_content_len(messages: list[Any]) -> int:
     return 0
 
 
-def summarize_chat_payload(payload: dict[str, Any], completion: Completion | None = None) -> dict[str, Any]:
+def summarize_chat_payload(
+    payload: dict[str, Any],
+    completion: Completion | None = None,
+    config: MockLLMConfig | None = None,
+) -> dict[str, Any]:
     """Compact request snapshot for Packet E tests (thread-safe append via record_capture)."""
     messages = payload.get("messages") if isinstance(payload.get("messages"), list) else []
     tools = _tool_names(payload.get("tools"))
@@ -240,7 +248,7 @@ def summarize_chat_payload(payload: dict[str, Any], completion: Completion | Non
     decided: list[str] = []
     if completion is not None:
         decided = [name for name, _args in completion_tool_calls(completion)]
-    return {
+    rec: dict[str, Any] = {
         "stream": bool(payload.get("stream")),
         "last_role": _last_role(messages),
         "user_text": user_text,
@@ -254,11 +262,18 @@ def summarize_chat_payload(payload: dict[str, Any], completion: Completion | Non
         ),
         "advertised_tools": sorted(tools),
         "called_tools": _called_tool_names(messages),
+        "last_assistant_tool_calls": _last_assistant_tool_names(messages),
         "decided_tools": decided,
         "doc_content_len": document_content_len(messages),
         "has_input_audio": bool(last_user is not None and _content_has_audio(last_user.get("content"))),
         "path": "/v1/chat/completions",
     }
+    if config is not None:
+        rec["forced_scenario"] = config.scenario
+    if completion is not None:
+        rec["finish_reason"] = completion.finish_reason
+        rec["empty_content"] = completion.content is None
+    return rec
 
 
 def record_capture(config: MockLLMConfig, rec: dict[str, Any]) -> None:
@@ -416,18 +431,32 @@ def _last_role(messages: list[Any]) -> str:
     return ""
 
 
+def _tool_names_from_message(msg: dict[str, Any]) -> list[str]:
+    names: list[str] = []
+    for tc in msg.get("tool_calls") or []:
+        if not isinstance(tc, dict):
+            continue
+        fn = tc.get("function") or {}
+        if isinstance(fn, dict) and fn.get("name"):
+            names.append(str(fn["name"]))
+    return names
+
+
 def _assistant_tool_names(messages: list[Any]) -> list[str]:
     names: list[str] = []
     for msg in messages:
         if not isinstance(msg, dict) or msg.get("role") != "assistant":
             continue
-        for tc in msg.get("tool_calls") or []:
-            if not isinstance(tc, dict):
-                continue
-            fn = tc.get("function") or {}
-            if isinstance(fn, dict) and fn.get("name"):
-                names.append(str(fn["name"]))
+        names.extend(_tool_names_from_message(msg))
     return names
+
+
+def _last_assistant_tool_names(messages: list[Any]) -> list[str]:
+    """tool_calls on the most recent assistant message (Packet D4)."""
+    for msg in reversed(messages):
+        if isinstance(msg, dict) and msg.get("role") == "assistant":
+            return _tool_names_from_message(msg)
+    return []
 
 
 def _action_tool_names(messages: list[Any]) -> list[str]:
@@ -793,6 +822,10 @@ def _scenario_user_turn(
         return Completion(content=_ramble_text(), hang=True, ramble_parts=RAMBLE_PARTS, finish_reason="stop")
     if scenario == "ramble":
         return Completion(content=_ramble_text(), ramble_parts=RAMBLE_PARTS, reasoning=reasoning, finish_reason="stop")
+    if scenario == "empty_stop":
+        # Packet C4: empty content with finish_reason=stop paints the Debug banner.
+        # ``empty`` / say nothing is finish_reason=length (truncated banner instead).
+        return Completion(content=None, finish_reason="stop")
     if scenario == "empty":
         return Completion(content=None, finish_reason="length")
     if scenario == "flood":
@@ -1285,7 +1318,7 @@ def make_handler_class(config: MockLLMConfig, turns: _TurnState | None = None) -
                 return
             model = str(payload.get("model") or MOCK_MODEL_ID)
             completion = decide_completion(payload, config, state)
-            record_capture(config, summarize_chat_payload(payload, completion))
+            record_capture(config, summarize_chat_payload(payload, completion, config))
             stream = bool(payload.get("stream"))
             messages = payload.get("messages") if isinstance(payload.get("messages"), list) else []
             if config.fail_tool_followup and _last_role(messages) == "tool":
