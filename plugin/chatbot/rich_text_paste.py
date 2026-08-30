@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import html
 import logging
+from typing import Any, cast
 
 from plugin.chatbot.rich_text import (
     CHAT_FONT_HEIGHT,
@@ -124,7 +125,7 @@ def _text_table_cell_rows(table) -> list[list[str]]:
     return rows
 
 
-def _flatten_text_table_rows(table) -> list[str]:
+def _flatten_text_table_rows(table) -> list[str]:  # pyright: ignore[reportUnusedFunction]  # test helper for text table row flattening
     """Cell strings as tab-separated rows. EditEngine cannot host a Writer table."""
     return ["\t".join(row) for row in _text_table_cell_rows(table)]
 
@@ -151,8 +152,6 @@ _LIBERATION_SANS_EM = (
     0.5562, 0.5562, 0.3330, 0.5000, 0.2778, 0.5562, 0.5000, 0.7222, 0.5000, 0.5000,
     0.5000, 0.3340, 0.2598, 0.3340, 0.5840,
 )
-
-
 def _cell_width_em(text: str, *, bold: bool = False) -> float:
     adv = 0.0
     for ch in text or "":
@@ -166,7 +165,7 @@ def _cell_width_em(text: str, *, bold: bool = False) -> float:
     return adv
 
 
-def _max_column_chars(rows: list[list[str]]) -> list[int]:
+def _max_column_chars(rows: list[list[str]]) -> list[int]:  # pyright: ignore[reportUnusedFunction]  # test helper for column char widths
     n_cols = max((len(row) for row in rows), default=0)
     widths = [0] * n_cols
     for row in rows:
@@ -228,7 +227,7 @@ def _apply_table_tab_stops(cursor, positions_twips) -> None:
 
         stops = []
         for pos in positions_twips:
-            ts = uno.createUnoStruct("com.sun.star.style.TabStop")
+            ts = cast("Any", uno.createUnoStruct("com.sun.star.style.TabStop"))
             ts.Position = int(pos)
             ts.Alignment = 0  # com.sun.star.style.TabAlign.LEFT
             ts.DecimalChar = "."
