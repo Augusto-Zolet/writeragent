@@ -74,6 +74,31 @@ def test_transport_stop_checker_suppresses_retry():
     assert action == "stop"
 
 
+def test_transport_connection_retry_waits_with_backoff():
+    transport = LlmHttpTransport(lambda: "https://api.openai.com", lambda: 60)
+    with patch("plugin.framework.client.http_transport.wait_abortable", return_value=True) as wait:
+        action = transport.handle_connection_error(
+            OSError("reset"),
+            path="/v1/chat/completions",
+            retry_available=True,
+            retry_log_message="retry",
+        )
+    assert action == "retry"
+    wait.assert_called_once()
+
+
+def test_transport_connection_retry_stop_during_wait():
+    transport = LlmHttpTransport(lambda: "https://api.openai.com", lambda: 60)
+    with patch("plugin.framework.client.http_transport.wait_abortable", return_value=False):
+        action = transport.handle_connection_error(
+            OSError("reset"),
+            path="/v1/chat/completions",
+            retry_available=True,
+            retry_log_message="retry",
+        )
+    assert action == "stop"
+
+
 def test_transport_send_injects_user_agent():
     from plugin.framework.constants import USER_AGENT
 

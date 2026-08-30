@@ -36,7 +36,7 @@ RequestPacer                      # per-client 50 ms burst guard
 LocalHttpsCertificateFallback     # local HTTPS verified-to-unverified retry policy
 ```
 
-`plugin/framework/client/llm_client.py` still owns provider shims, message normalization, date/dev prefixes, OpenRouter extra merging, response parsing, and token cleanup. Hosted providers with an empty API key raise `AuthError` from `_resolve_auth` (do not catch it into `{}`). `plugin/framework/client/http_transport.py` owns the persistent connection, close/stop behavior, one fresh-connection retry on connection exceptions, and local HTTPS certificate fallback. `plugin/framework/client/request_controls.py` owns the pacing constant and the local-only fallback rule.
+`plugin/framework/client/llm_client.py` still owns provider shims, message normalization, date/dev prefixes, OpenRouter extra merging, response parsing, and token cleanup. Hosted providers with an empty API key raise `AuthError` from `_resolve_auth` (do not catch it into `{}`). `plugin/framework/client/http_transport.py` owns the persistent connection, close/stop behavior, one jittered fresh-connection retry on connection exceptions, and local HTTPS certificate fallback. `plugin/framework/client/request_controls.py` owns pacing, backoff/Retry-After math (OpenClaw `packages/retry`), and the local-only TLS fallback rule.
 
 ### Current Strengths
 
@@ -46,9 +46,9 @@ LocalHttpsCertificateFallback     # local HTTPS verified-to-unverified retry pol
 4. **Request Pacing**: Applies a per-client 50 ms burst guard before consecutive sends.
 5. **Timeout Support**: Uses configurable connection timeouts.
 6. **SSL Handling**: Public HTTPS is always verified. Local HTTPS starts verified and retries unverified only after a certificate verification failure (self-signed Ollama/LM Studio).
-7. **Transient Retry**: Retries one connection failure on a fresh connection if no stream tokens have been delivered yet. After the first content/thinking token, a reset is surfaced as connection-lost (retrying would duplicate text). User stop still exits without retry. HTTP 429/5xx are not retried.
+7. **Transient Retry**: Retries one connection failure on a fresh connection if no stream tokens have been delivered yet, after a jittered abortable wait. HTTP `429`/`503` retry once the same way, honouring `Retry-After` (seconds or HTTP-date, capped at 30s). After the first content/thinking token, a reset is surfaced as connection-lost (retrying would duplicate text). User Stop aborts the backoff wait. Other 4xx/5xx are not retried. Local TLS fallback still retries immediately with no backoff.
 
-Pytest (no UNO): [`tests/framework/test_client_llm.py`](../../tests/framework/test_client_llm.py) drives this with [`create_mock_http_response`](../../tests/testing_utils.py) — 503/429 do not retry, one timeout/reset retry before tokens, `CONNECTION_LOST` after the first token, and malformed / truncated SSE chunks are skipped. Parser unit tests: [`tests/framework/test_stream_normalizer.py`](../../tests/framework/test_stream_normalizer.py) (`iterate_sse`). Well-formed SSE fragmentation (line-partition + readline-wrapper identity) is Hypothesis/VHS in [`tests/framework/test_stream_normalizer_verification.py`](../../tests/framework/test_stream_normalizer_verification.py), not CrossHair.
+Pytest (no UNO): [`tests/framework/test_client_llm.py`](../../tests/framework/test_client_llm.py) drives this with [`create_mock_http_response`](../../tests/testing_utils.py) — 429/503 retry once, 500 does not, one timeout/reset retry before tokens, `CONNECTION_LOST` after the first token, and malformed / truncated SSE chunks are skipped. Backoff math: [`tests/framework/client/test_request_controls.py`](../../tests/framework/client/test_request_controls.py). Parser unit tests: [`tests/framework/test_stream_normalizer.py`](../../tests/framework/test_stream_normalizer.py) (`iterate_sse`). Well-formed SSE fragmentation (line-partition + readline-wrapper identity) is Hypothesis/VHS in [`tests/framework/test_stream_normalizer_verification.py`](../../tests/framework/test_stream_normalizer_verification.py), not CrossHair.
 
 ### Current Limitations
 
@@ -57,7 +57,7 @@ The existing system works well for sequential requests but has some limitations:
 1. **Single Connection Only**: Can only maintain one connection at a time
 2. **No Concurrent Requests**: Can't handle multiple simultaneous requests
 3. **No Connection Health Checks**: Doesn't verify if connection is still valid
-4. **Limited Automatic Reconnection**: Connection exceptions get one fresh-connection retry; HTTP status errors such as 429/5xx are not retried with backoff.
+4. **Limited Automatic Reconnection**: One jittered retry on connection exceptions and on HTTP 429/503 (Retry-After). Not a multi-attempt supervisor.
 5. **No DNS Caching**: Repeated DNS lookups for the same endpoint
 6. **No Connection Pooling**: Can't maintain multiple connections for different endpoints
 
@@ -587,7 +587,7 @@ class ConnectionHealthMonitor:
 
 ### Current Limitation
 
-Current implementation has **limited automatic reconnection**: chat requests retry one connection exception on a fresh connection, but there is no multi-attempt backoff strategy and HTTP status failures such as 429/5xx are not retried.
+Current implementation retries **once** with OpenClaw-style jitter and Retry-After on connection errors and HTTP 429/503. It does not run a multi-attempt `RetrySupervisor`. The sketch below is an unused enhancement idea, not shipped code.
 
 ### Enhanced Reconnection Strategy
 

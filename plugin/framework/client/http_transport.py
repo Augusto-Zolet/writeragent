@@ -27,7 +27,12 @@ from plugin.framework.errors import NetworkError
 from plugin.framework.url_utils import get_url_hostname
 
 from plugin.framework.errors import format_error_message
-from .request_controls import LocalHttpsCertificateFallback, RequestPacer
+from .request_controls import (
+    LocalHttpsCertificateFallback,
+    RequestPacer,
+    backoff_delay_sec,
+    wait_abortable,
+)
 from .ssl_helpers import get_unverified_ssl_context, get_verified_ssl_context
 
 log = logging.getLogger(__name__)
@@ -37,7 +42,7 @@ RetryAction = Literal["retry", "stop"]
 
 
 class LlmHttpTransport:
-    """Own persistent chat HTTP connections plus pacing, retry, and local TLS fallback."""
+    """Own persistent chat HTTP connections plus pacing, one jittered retry, and local TLS fallback."""
 
     def __init__(
         self,
@@ -149,11 +154,15 @@ class LlmHttpTransport:
             log.error("Connection error during stop; exiting streaming loop")
             return "stop"
         if retry_available and self.enable_local_ssl_fallback(err):
+            # Immediate reopen: TLS mode just changed; do not add backoff.
             return "retry"
 
         err_msg = format_error_message(err)
         if retry_available:
             log.warning(retry_log_message)
+            delay = backoff_delay_sec(attempt=1)
+            if not wait_abortable(delay, stop_checker):
+                return "stop"
             return "retry"
         log.error("Connection retry failed: %s" % err_msg)
         raise NetworkError(err_msg, code="CONNECTION_ERROR", details={"url": path}) from err

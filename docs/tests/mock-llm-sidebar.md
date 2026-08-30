@@ -252,7 +252,7 @@ Every test must satisfy:
 | **E9e** | CI | E9 state | Call `press_stop()` ActionEvent | Dispatches Change/Reject branch, NOT `StopSendEffect` | **OK / Landed** |
 | **E10** | CI | Tool follow-up returning 500 | Send tool query | Tool error displayed in transcript; returns to idle; `next_hello_ok()` | **OK / Landed** |
 | **E11** | CI | `insert filler` then `add a comment` | Send as two sequential turns | Both mutations applied; context refreshed between turns; `next_hello_ok()` | **OK / Landed** |
-| **E12** | CI | Calc doc, `list sheets` | Send in Calc sidebar | `list_sheets` executes; HTML wrap-up | **Optional** (URP hang after scalc; isolate `FILTER=e12`) |
+| **E12** | CI | Calc doc, `list sheets` | Send in Calc sidebar | `list_sheets` executes; HTML wrap-up | **Optional** (URP hang on `factory/scalc` even isolated `FILTER=e12`; GUI two-window Calc chat does not repro) |
 | **E13** | CI | `add_comment` with mock tool delay | Call `press_stop()` during tool execution | Partial/no mutation; not stuck busy; no UI freeze; `next_hello_ok()` | **OK / Landed** |
 | **E14** | CI | `outline this` | Run delegate twice in succession | Nested agent functions repeatedly without stale session leaks; `next_hello_ok()` | **OK / Landed** |
 | **E15** | CI | `insert filler` | Stop after tool result queued, before HTML | Mutation applied; UI returns to idle; no double drain; `next_hello_ok()` | **OK / Landed** |

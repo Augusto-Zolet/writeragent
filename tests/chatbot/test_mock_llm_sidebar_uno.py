@@ -1587,11 +1587,11 @@ def test_e11_filler_then_comment_two_sends(ctx):
 
 @native_test
 def test_e12_calc_list_sheets(ctx):
-    # TODO(fix later): full-suite hang. Opening Calc (private:factory/scalc) after Packet E
-    # on the shared URP pipe never returns from wait_for_chat_dialog_controls /
-    # _send_and_wait (UNO calls block; last log was stream focus: query). Same class as G17.
-    # Isolate with FILTER=e12 after a fresh soffice; do not open Calc from the full suite.
-    raise unittest.SkipTest("E12 Calc list sheets hangs the full-suite URP; isolate later")
+    # Isolated FILTER=e12 still hangs (2026-08-30): after setup's Writer deck,
+    # desktop.loadComponentFromURL("private:factory/scalc", "_default", …) never
+    # returns over URP (120s timeout; last mock log was GET /v1/models). Not a
+    # "two GUI windows" bug — File→New Spreadsheet by hand is a different path.
+    raise unittest.SkipTest("E12 URP hang on factory/scalc after Writer deck; isolate later")
 
 
 @native_test

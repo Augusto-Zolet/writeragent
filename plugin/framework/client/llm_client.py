@@ -17,7 +17,9 @@
 """LLM API client for WriterAgent.
 
 Builds provider-aware LLM payloads and delegates chat HTTP execution to
-``http_transport``. Request assembly still owns leaked chat-template token
+``http_transport``. Transient 429/503 and connection errors get one jittered,
+abortable retry (Retry-After honoured) unless stream tokens already reached
+the UI. Request assembly still owns leaked chat-template token
 stripping, dev/release system prefix, date prefix on first system message,
 Anthropic/Gemini shims, OpenRouter merge (``merge_openrouter_chat_extra``), and
 logging redaction. Takes a config dict from ``get_api_config`` and UNO ``ctx``.
@@ -93,6 +95,12 @@ from plugin.framework.url_utils import get_api_version_suffix, normalize_endpoin
 from plugin.framework.errors import format_error_message
 from .errors import _format_http_error_response, append_zai_unknown_model_hint
 from .http_transport import CONNECTION_ERRORS, LlmHttpTransport
+from .request_controls import (
+    RETRYABLE_HTTP_STATUS,
+    backoff_delay_sec,
+    parse_retry_after,
+    wait_abortable,
+)
 from .stream_normalizer import (
     iterate_sse,
     _normalize_message_content,
@@ -211,6 +219,49 @@ class LlmClient:
 
     def _close_connection(self):
         self._transport.close()
+
+    def _retry_or_raise_http_error(
+        self,
+        response,
+        body,
+        path,
+        *,
+        retry_available: bool,
+        emitted_any: bool,
+        stop_checker,
+    ):
+        """On non-200: maybe one jittered 429/503 retry; otherwise raise HTTP_ERROR.
+
+        OpenClaw Retry-After + jitter; WriterAgent still only retries once and
+        never after tokens already reached the UI.
+        """
+        err_body = response.read().decode("utf-8", errors="replace")
+        request_model = _request_model_from_body(body)
+        log.error(
+            "Provider API Error %d: %s (provider=%s path=%s request_model=%r)",
+            response.status,
+            err_body,
+            self._get_provider(),
+            path,
+            request_model,
+        )
+        self._close_connection()
+        if response.status in RETRYABLE_HTTP_STATUS and retry_available and not emitted_any:
+            retry_after = parse_retry_after(response.getheader("Retry-After"))
+            delay = backoff_delay_sec(attempt=1, retry_after_sec=retry_after)
+            log.warning(
+                "Retrying HTTP %s once after %.3fs (Retry-After=%s)",
+                response.status,
+                delay,
+                retry_after,
+            )
+            if not wait_abortable(delay, stop_checker):
+                self._stopped = True
+                return "stop"
+            return "retry"
+        err_msg = _format_http_error_response(response.status, response.reason, err_body)
+        err_msg = append_zai_unknown_model_hint(err_msg, err_body, path, self._get_provider(), request_model)
+        raise NetworkError(err_msg, code="HTTP_ERROR", details={"url": path, "status": response.status})
 
     def stop(self):
         """Abort the in-flight request: latch + close socket (even if not open yet).
@@ -549,21 +600,18 @@ class LlmClient:
                 response = self._send_request(method, path, body, headers)
 
                 if response.status != 200:
-                    err_body = response.read().decode("utf-8", errors="replace")
-                    request_model = _request_model_from_body(body)
-                    log.error(
-                        "Provider API Error %d: %s (provider=%s path=%s request_model=%r)",
-                        response.status,
-                        err_body,
-                        self._get_provider(),
+                    action = self._retry_or_raise_http_error(
+                        response,
+                        body,
                         path,
-                        request_model,
+                        retry_available=retry_available,
+                        emitted_any=emitted_any,
+                        stop_checker=stop_checker,
                     )
-                    # Close on error to be safe
-                    self._close_connection()
-                    err_msg = _format_http_error_response(response.status, response.reason, err_body)
-                    err_msg = append_zai_unknown_model_hint(err_msg, err_body, path, self._get_provider(), request_model)
-                    raise NetworkError(err_msg, code="HTTP_ERROR", details={"url": path, "status": response.status})
+                    if action == "stop":
+                        return "stop"
+                    retry_available = False
+                    continue
 
                 try:
                     # Use a flag to stop logical processing but keep reading to exhaust the stream
@@ -914,25 +962,31 @@ class LlmClient:
                         }
                     response = self._send_request(method, path, body, headers)
                     if response.status != 200:
-                        err_body = response.read().decode("utf-8", errors="replace")
-                        request_model = _request_model_from_body(body)
-                        log.error(
-                            "Provider API Error %d: %s (provider=%s path=%s request_model=%r)",
-                            response.status,
-                            err_body,
-                            self._get_provider(),
-                            path,
-                            request_model,
-                        )
                         try:
                             redacted_msgs = redact_sensitive_payload_for_log(messages)
                             log.error("request_with_tools outgoing messages (redacted): %s", json.dumps(redacted_msgs, indent=2, ensure_ascii=False))
                         except Exception as log_exc:
                             log.warning("Could not log redacted outgoing messages: %s", log_exc)
-                        self._close_connection()
-                        err_msg = _format_http_error_response(response.status, response.reason, err_body)
-                        err_msg = append_zai_unknown_model_hint(err_msg, err_body, path, self._get_provider(), request_model)
-                        raise NetworkError(err_msg, code="HTTP_ERROR", details={"url": path, "status": response.status})
+                        action = self._retry_or_raise_http_error(
+                            response,
+                            body,
+                            path,
+                            retry_available=retry_available,
+                            emitted_any=False,
+                            stop_checker=stop_checker,
+                        )
+                        if action == "stop":
+                            return {
+                                "role": "assistant",
+                                "content": "",
+                                "tool_calls": None,
+                                "finish_reason": "stop",
+                                "images": [],
+                                "usage": {},
+                                "model": requested_model,
+                            }
+                        retry_available = False
+                        continue
                     from plugin.framework.errors import safe_json_loads
 
                     result = safe_json_loads(response.read().decode("utf-8"))
