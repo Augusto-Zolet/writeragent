@@ -198,6 +198,28 @@ class TestAppendTextChunk:
         cursor.gotoEnd.assert_called_once()
         mock_insert.assert_called_once_with(model, cursor, " tail", 0x1E293B)
 
+    def test_insert_table_header_applies_bold_and_underline(self):
+        from plugin.chatbot.rich_text import CHAT_FONT_WEIGHT
+        from plugin.chatbot.rich_text_control import _insert_string_at_rich_cursor
+
+        model = MagicMock()
+        cursor = MagicMock()
+        start = MagicMock(name="start")
+        end = MagicMock(name="end")
+        cursor.getStart.side_effect = [start, end]
+        sel = MagicMock()
+        model.createTextCursor.return_value = sel
+
+        _insert_string_at_rich_cursor(
+            model, cursor, "Col A\tCol B", 0x1E293B, bold=True, underline=True,
+        )
+
+        model.insertString.assert_called_once_with(cursor, "Col A\tCol B", False)
+        assert sel.CharWeight == 150.0
+        assert sel.CharUnderline == 1
+        assert cursor.CharWeight == CHAT_FONT_WEIGHT
+        assert cursor.CharUnderline == 0
+
     def test_reveal_caret_focuses_without_inserting(self):
         control = MagicMock()
         model = MagicMock(Text="hello", ReadOnly=True)

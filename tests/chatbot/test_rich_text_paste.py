@@ -400,9 +400,11 @@ class TestFlattenTextTableCopy:
         )
         theme = MagicMock(user_color=1, assistant_color=2)
         inserted: list[str] = []
+        header_flags: list[tuple[str, bool, bool]] = []
 
-        def _capture(_model, _cursor, text, char_color=None):
+        def _capture(_model, _cursor, text, char_color=None, **kwargs):
             inserted.append(text)
+            header_flags.append((text, bool(kwargs.get("bold")), bool(kwargs.get("underline"))))
 
         with patch("plugin.chatbot.rich_text_paste.focus_preserved", _immediate_focus), \
              patch("plugin.chatbot.rich_text_paste.ChatTheme.resolve", return_value=theme), \
@@ -421,6 +423,10 @@ class TestFlattenTextTableCopy:
         assert "Col A\tCol B" in inserted
         assert "stream\tplain" in inserted
         assert "after" in inserted
+        assert ("Col A\tCol B", True, True) in header_flags
+        assert ("stream\tplain", False, False) in header_flags
+        assert ("before", False, False) in header_flags
+        assert ("after", False, False) in header_flags
 
     def test_copy_ok_when_table_portion_enum_would_throw(self):
         control = MagicMock()

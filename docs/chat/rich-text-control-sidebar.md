@@ -17,7 +17,7 @@
 When **Rich Text Control Sidebar** is enabled (default), the chat transcript area uses LibreOffice’s **`RichTextControl`** (`com.sun.star.form.component.TextField` with `RichText=true`) instead of the plain multiline `dlg:textfield` named `response`. Users see:
 
 - **Role styling:** **You:** and **Assistant:** prefixes with theme-aware colors (light/dark follow sidebar `StyleSettings`).
-- **Formatted assistant replies:** bold, lists, code blocks, and other HTML the model emits within the supported tag subset — rendered with LibreOffice-native character and paragraph attributes after the message completes. HTML `<table>` is flattened to tab-separated rows (RichTextControl is EditEngine; it has no table grid).
+- **Formatted assistant replies:** bold, lists, code blocks, and other HTML the model emits within the supported tag subset — rendered with LibreOffice-native character and paragraph attributes after the message completes. HTML `<table>` is flattened to tab-separated rows (RichTextControl is EditEngine; it has no table grid); the first row is bold and underlined.
 - **Readable layout:** Liberation Sans 10pt, tightened list indents for the narrow sidebar, paragraph margins tuned for chat density.
 
 When the setting is off, behavior reverts to the legacy plain-text sidebar; models are not instructed to use HTML ([`get_chat_response_format_instructions`](../../plugin/framework/prompts.py)).
@@ -331,7 +331,7 @@ Assign by packet id (`A`–`H`). Do not skip the “why hard” line — that is
 | A1 | default, send `hello` | Stream then formatted rerender | Plain stream first; after done, bold/lists as in rotating templates; query field keeps focus | `_copy_formatted_from_hidden_doc_to_control: ok`; no `phase=reveal_caret` on user insert |
 | A2 | send 5–8 hellos | Fill transcript | Newest text visible; no jump to top on each send | `phase=user_append_done`; after `copy_done` expect trailing-break then Hidden scroll, not `reason=user_trailing_break` |
 | A3 | `fill the sidebar` | One huge HTML message, then **resize** sidebar | Viewport stays on newest text; no H-scrollbar gutter | `phase=sync_bounds` then Hidden SelectAll, not `reason=resize` / `phase=reveal_caret` |
-| A4 | rotating templates | Send until you see list, ordered list, table, `<pre>` | Table cells survive as tab-separated rows (not a grid); monospace `<pre>` survives paste | fallback WARNING lines absent |
+| A4 | rotating templates | Send until you see list, ordered list, table, `<pre>` | Table cells survive as tab-separated rows (first row bold+underline, not a grid); monospace `<pre>` survives paste | fallback WARNING lines absent |
 | A5 | default | Click into the **Writer document** during stream, type | Keystrokes stay in the document, not the history control | no `setFocus` on stream append |
 | A6 | default | Toggle rich setting off, restart, send hello; toggle on, restart | Plain path vs rich path; history reloads scrolled to bottom | `config rich_text_control_sidebar=` |
 
@@ -610,7 +610,7 @@ Empty / truncated STREAM_DONE must **AddMessageEffect** the banner ([`tool_loop_
 
 ### v2 Packet E — tools, delegate, HITL
 
-**Landed:** E1, E3–E8a, E9a–c/e, E10–E15 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar`). **Skipped:** E2 (live DDG), E8b/E9d (`press_stop_mouse` / in-process listener, same as F3b), E12 if the Calc deck is missing, E9c unless the live listener is in-process.
+**Landed:** E1, E3–E8a, E9a–c/e, E10–E11, E13–E15 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar`). **Skipped:** E2 (live DDG), E8b/E9d (`press_stop_mouse` / in-process listener, same as F3b), **E12** (full-suite Calc hangs URP — isolate `FILTER=e12`), E9c unless the live listener is in-process.
 
 Writer with body text “Welcome to WriterAgent.” unless **empty** is specified. Mock `--offline` for research unless E2. Setup turns `chatbot.prompt_for_web_research` **off** except E9. Mock request captures live on `MockLLMConfig.captures`.
 
@@ -633,7 +633,7 @@ Writer with body text “Welcome to WriterAgent.” unless **empty** is specifie
 | **E9e** | E9 then `press_stop()` ActionEvent | Change/Reject branch, not `StopSendEffect` |
 | **E10** | Tool error: mock tool-follow-up that returns 500 mid-loop | Error in transcript; not busy; hello |
 | **E11** | `insert filler` then `add a comment` as **two sends** | Both mutations present; context refresh between |
-| **E12** | Calc doc + `list sheets` | Tool ran if advertised; wrap-up HTML; hello (Calc deck). Skip if deck not in runner |
+| **E12** | Calc doc + `list sheets` | **SKIP** on full suite (URP hang after `scalc`). Isolate `FILTER=e12` later |
 | **E13** | Stop **during** `add_comment` round (delay tools via mock) | Partial or no comment; not busy; hello; no freeze |
 | **E14** | Delegate E7 completes; second `outline this` | Nested agent works twice (no stale inner session) |
 | **E15** | `insert filler` with Stop **after** tool result queued but before HTML wrap-up | Doc may have mutation; UI idle; hello; no double drain |
@@ -661,7 +661,7 @@ Same filter as Packet B. Unknown-domain / `VALIDATION_ERROR` / shrink-refresh ar
 
 ### v2 Packet F — HTTP / SSE errors
 
-**Landed:** F1–F18 (F3b skipped over URP) in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py). Run **`make test-mock-sidebar`** (not `make test-uno`). Visible soffice with **your** LibreOffice user profile:
+**Landed:** F1–F18 except **F11 / F18 SKIP** (2026-08-29 full suite: transcript `wait_for="mock"` failed; F3b skipped over URP) in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py). Run **`make test-mock-sidebar`** (not `make test-uno`). Visible soffice with **your** LibreOffice user profile:
 
 **Filter (skip long packets while debugging):** definition order is F → B → C → D → E → G. Pass `FILTER=` to the Make target (forwarded to `testing_runner`):
 
@@ -701,14 +701,15 @@ Each case ends with **`next_hello_ok()`** unless noted. Prefer phrase triggers s
 | **F8** | `error 403` | Same family as F7 |
 | **F9** | Malformed SSE (`data: {not json}` then hang/done) | Error or skip chunk; idle; hello |
 | **F10** | Truncated JSON chunk then `[DONE]` | Error or partial; idle; hello |
-| **F11** | Two `[DONE]` lines | Single terminal `STREAM_DONE`/`FINAL_DONE`; hello |
+| **F11** | Two `[DONE]` lines | **SKIP** on full suite 2026-08-29 (`wait_for="mock"` failed). Isolate `FILTER=f11` |
+
 | **F12** | HTTP 200 empty body | Empty-model or error banner; hello |
 | **F13** | Connection reset on first byte | Error; hello |
 | **F14** | 429 then immediately hello (mock not failing) | Recovery; no sticky 429 state |
 | **F15** | F1 (500) then F2 (429) then hello | Both errors visible in history or last+hello; not busy |
 | **F16** | Timeout: mock `delay-ms` > client timeout if configurable | ERROR_OCCURRED; Send enabled; hello |
 | **F17** | Stop **during** F3 hang | Same as B1 vs hang; idle |
-| **F18** | SSE `event: ping` / unknown event types if mock can emit | Ignored; stream still completes |
+| **F18** | SSE `event: ping` / unknown event types if mock can emit | **SKIP** on full suite 2026-08-29 (transcript / BrokenPipe). Isolate `FILTER=f18` |
 
 #### Next-level (not landed)
 

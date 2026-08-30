@@ -998,7 +998,24 @@ def _apply_char_color_to_cursor_range(model, start, end, char_color) -> None:
         log.debug("_apply_char_color_to_cursor_range failed: %s", e)
 
 
-def _insert_string_at_rich_cursor(model, cursor, text, char_color=None) -> None:
+def _apply_char_emphasis_to_cursor_range(model, start, end, *, bold=False, underline=False) -> None:
+    if start is None or end is None or not (bold or underline):
+        return
+    try:
+        sel = model.createTextCursor()
+        sel.gotoRange(start, False)
+        sel.gotoRange(end, True)
+        if bold:
+            sel.CharWeight = 150.0
+        if underline:
+            sel.CharUnderline = 1
+    except Exception as e:
+        log.debug("_apply_char_emphasis_to_cursor_range failed: %s", e)
+
+
+def _insert_string_at_rich_cursor(
+    model, cursor, text, char_color=None, *, bold=False, underline=False
+) -> None:
     """Insert *text* at *cursor* on a form RichText model."""
     if not text:
         return
@@ -1010,6 +1027,17 @@ def _insert_string_at_rich_cursor(model, cursor, text, char_color=None) -> None:
     if char_color is not None and not _is_automatic_char_color(char_color):
         try:
             cursor.CharColor = char_color
+        except Exception:
+            pass
+    if bold:
+        try:
+            cursor.CharWeight = 150.0
+        except Exception:
+            pass
+    if underline:
+        try:
+            # com.sun.star.awt.FontUnderline.SINGLE
+            cursor.CharUnderline = 1
         except Exception:
             pass
 
@@ -1037,10 +1065,27 @@ def _insert_string_at_rich_cursor(model, cursor, text, char_color=None) -> None:
     if not inserted:
         raise RuntimeError("RichTextControl model has no insertString")
 
-    # Post-insert pass: RichTextControl often ignores pre-insert cursor CharColor.
-    if start is not None and char_color is not None and not _is_automatic_char_color(char_color):
+    # Post-insert pass: RichTextControl often ignores pre-insert cursor Char* props.
+    if start is not None:
+        end = None
         try:
-            _apply_char_color_to_cursor_range(model, start, cursor.getStart(), char_color)
+            end = cursor.getStart()
+        except Exception:
+            end = None
+        if char_color is not None and not _is_automatic_char_color(char_color):
+            try:
+                _apply_char_color_to_cursor_range(model, start, end, char_color)
+            except Exception:
+                pass
+        if bold or underline:
+            try:
+                _apply_char_emphasis_to_cursor_range(model, start, end, bold=bold, underline=underline)
+            except Exception:
+                pass
+    if bold or underline:
+        try:
+            cursor.CharWeight = CHAT_FONT_WEIGHT
+            cursor.CharUnderline = 0
         except Exception:
             pass
     try:

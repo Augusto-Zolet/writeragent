@@ -373,7 +373,16 @@ def _copy_formatted_from_hidden_doc_to_control(
                                 _insert_string_at_rich_cursor(model, dest_cursor, "\n")
                                 dest_cursor.gotoEnd(False)
                                 _apply_sidebar_para_margins(dest_cursor)
-                            _insert_string_at_rich_cursor(model, dest_cursor, row_text, default_color)
+                            # First row stands in for <th>: no grid, so bold+underline.
+                            is_header = i == 0
+                            _insert_string_at_rich_cursor(
+                                model,
+                                dest_cursor,
+                                row_text,
+                                default_color,
+                                bold=is_header,
+                                underline=is_header,
+                            )
                             dest_cursor.gotoEnd(False)
                             inserted = True
                         continue
