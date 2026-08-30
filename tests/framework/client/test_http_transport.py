@@ -126,6 +126,14 @@ def test_transport_connection_retry_stop_during_wait():
     assert action == "stop"
 
 
+def test_transport_send_stop_during_host_gap_raises_stopped():
+    transport = LlmHttpTransport(lambda: "https://api.openai.com", lambda: 60)
+    with patch("plugin.framework.client.http_transport.wait_host_gap", return_value=False):
+        with pytest.raises(NetworkError) as err:
+            transport.send("POST", "/v1/chat/completions", b"{}", headers={"Content-Type": "application/json"})
+    assert err.value.code == "STOPPED"
+
+
 def test_transport_send_injects_user_agent():
     from plugin.framework.constants import USER_AGENT
 

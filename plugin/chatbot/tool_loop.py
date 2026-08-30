@@ -428,7 +428,9 @@ class ToolCallingMixin:
                         stop_checker=stop_checker,
                         status_callback=lambda t: real_q.put((StreamQueueKind.STATUS, t)),
                     )
-                if self.stop_requested:
+                # Stop during pre-send host-gap wait returns finish_reason "stop"
+                # without raising; also honor client._stopped so that is not STREAM_DONE.
+                if self.stop_requested or getattr(client, "_stopped", False):
                     if batched: batched.flush()
                     real_q.put((StreamQueueKind.STOPPED,))
                 else:
@@ -477,7 +479,7 @@ class ToolCallingMixin:
                         stop_checker=stop_checker,
                         status_callback=lambda t: real_q.put((StreamQueueKind.STATUS, t)),
                     )
-                if self.stop_requested:
+                if self.stop_requested or getattr(client, "_stopped", False):
                     if batched: batched.flush()
                     real_q.put((StreamQueueKind.STOPPED,))
                 else:

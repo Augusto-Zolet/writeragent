@@ -1420,6 +1420,22 @@ def test_stream_retry_backoff_stop_skips_second_send(client, _fast_retry_waits):
     assert mock_https.call_count == 1
 
 
+def test_stream_stop_during_host_gap_is_clean_stop_not_error(client):
+    """wait_host_gap abort raises STOPPED internally; streaming loop returns stop, not HTTP_ERROR."""
+    with (
+        patch("plugin.framework.client.http_transport.wait_host_gap", return_value=False),
+        patch("http.client.HTTPSConnection") as mock_https,
+    ):
+        result = client.stream_request_with_tools(
+            messages=[{"role": "user", "content": "Hi"}],
+            max_tokens=100,
+        )
+    assert result["finish_reason"] == "stop"
+    assert result["content"] == ""
+    assert client._stopped is True
+    mock_https.assert_not_called()
+
+
 def test_stream_timeout_before_tokens_retries_once(client):
     """socket.timeout before any token: one fresh-connection retry, then success."""
     ok = create_mock_http_response(sse_lines=_sse_content_lines("Hello"))

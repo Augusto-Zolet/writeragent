@@ -37,11 +37,14 @@ log = logging.getLogger(__name__)
 # workers also use this value to stagger parallel drains so they do not burst.
 LLM_MIN_REQUEST_INTERVAL_SEC = 0.05
 
-# OpenClaw packages/retry defaults (ms) expressed in seconds.
+# Fallback delay when the provider does not send Retry-After (connection errors,
+# 429/503 with no header). Copied from OpenClaw packages/retry (300ms / 30s /
+# 3 attempts) — do not treat those numbers as gospel; they are small for a
+# busy hosted API. Retry-After (capped at RETRY_MAX_DELAY_SEC) is what we
+# actually honor when present.
 RETRY_MIN_DELAY_SEC = 0.3
 RETRY_MAX_DELAY_SEC = 30.0
 RETRY_WAIT_CHUNK_SEC = 0.05
-# OpenClaw packages/retry default: 3 total executions (first send + 2 retries).
 RETRY_MAX_ATTEMPTS = 3
 RETRYABLE_HTTP_STATUS = frozenset({429, 503})
 
@@ -170,11 +173,14 @@ def remember_host_gap(host: str, delay_sec: float) -> None:
     if not host or not math.isfinite(delay_sec) or delay_sec <= 0:
         return
     gap = min(delay_sec, RETRY_MAX_DELAY_SEC)
+    updated = False
     with _host_gap_lock:
         prev = _host_gap_sec.get(host, 0.0)
         if gap > prev:
             _host_gap_sec[host] = gap
-            log.debug("Host %s retry gap now %.3fs", host, gap)
+            updated = True
+    if updated:
+        log.debug("Host %s retry gap now %.3fs", host, gap)
 
 
 def clear_host_gap(host: str) -> None:
