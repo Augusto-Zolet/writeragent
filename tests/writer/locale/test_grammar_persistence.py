@@ -10,6 +10,18 @@ from unittest.mock import MagicMock, patch
 
 from plugin.writer.locale.grammar_persistence import GRAMMAR_CACHE_VERSION
 
+_TEST_IDENT = "llm:test"
+
+
+def _v3_payload(*, good: list | None = None, bad: dict | None = None) -> dict:
+    return {
+        "version": GRAMMAR_CACHE_VERSION,
+        "model": _TEST_IDENT,
+        "good": good or [],
+        "bad": bad or {},
+        "ignored_rules": [],
+    }
+
 class TestGrammarPersistence(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.mkdtemp()
@@ -56,16 +68,13 @@ class TestGrammarPersistence(unittest.TestCase):
 
         ctx = MagicMock()
         model = MagicMock()
-        cached = {
-            "version": GRAMMAR_CACHE_VERSION,
-            "good": [],
-            "bad": {
-                "fp_cached": [{"s": 0, "l": 3, "g": ["fix"], "c": "c", "f": "f", "r": "wa_g_rule||test"}],
-            },
-        }
+        cached = _v3_payload(
+            bad={"fp_cached": [{"s": 0, "l": 3, "g": ["fix"], "c": "c", "f": "f", "r": "wa_g_rule||test"}]},
+        )
         gp.grammar_registry.doc_persistence_instances.clear()
         try:
-            with patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
+            with patch("plugin.writer.locale.grammar_persistence.grammar_checker_identity", return_value=_TEST_IDENT), \
+                 patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
                 dp = DocumentPersistence(ctx, "2", model=model)
                 hit = dp.get("fp_cached")
             self.assertIsNotNone(hit)
@@ -80,16 +89,13 @@ class TestGrammarPersistence(unittest.TestCase):
 
         ctx = MagicMock()
         model = MagicMock()
-        cached = {
-            "version": GRAMMAR_CACHE_VERSION,
-            "good": [],
-            "bad": {
-                "fp_cached": [{"s": 0, "l": 3, "g": ["fix"], "c": "c", "f": "f", "r": "wa_g_rule||test"}],
-            },
-        }
+        cached = _v3_payload(
+            bad={"fp_cached": [{"s": 0, "l": 3, "g": ["fix"], "c": "c", "f": "f", "r": "wa_g_rule||test"}]},
+        )
         gp.grammar_registry.doc_persistence_instances.clear()
         try:
-            with patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
+            with patch("plugin.writer.locale.grammar_persistence.grammar_checker_identity", return_value=_TEST_IDENT), \
+                 patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
                 dp = gp.DocumentPersistence(ctx, "2")
                 gp.grammar_registry.doc_persistence_instances["2"] = dp
                 self.assertIsNone(dp._model)
@@ -120,7 +126,8 @@ class TestGrammarPersistence(unittest.TestCase):
         args = mock_set.call_args[0]
         self.assertIs(args[0], model)
         written = json.loads(str(args[2]))
-        self.assertEqual(written.get("version"), 2)
+        self.assertEqual(written.get("version"), GRAMMAR_CACHE_VERSION)
+        self.assertIn("model", written)
         self.assertIn("fp1", written.get("bad", {}))
         self.assertIn("fp2", written.get("good", []))
         self.assertEqual(written["bad"]["fp1"][0]["s"], 0)
@@ -195,16 +202,14 @@ class TestGrammarPersistence(unittest.TestCase):
 
         ctx = MagicMock()
         model = MagicMock()
-        cached = {
-            "version": GRAMMAR_CACHE_VERSION,
-            "good": ["fp_clean"],
-            "bad": {
-                "fp_err": [{"s": 0, "l": 4, "g": ["test"], "c": "c", "f": "f", "r": "wa_g_rule||test"}],
-            },
-        }
+        cached = _v3_payload(
+            good=["fp_clean"],
+            bad={"fp_err": [{"s": 0, "l": 4, "g": ["test"], "c": "c", "f": "f", "r": "wa_g_rule||test"}]},
+        )
         gp.grammar_registry.clear_all(ctx)
         try:
-            with patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
+            with patch("plugin.writer.locale.grammar_persistence.grammar_checker_identity", return_value=_TEST_IDENT), \
+                 patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
                 dp = gp.DocumentPersistence(ctx, "doc-entries-test", model=model)
 
             # Check that _entries was populated
@@ -227,6 +232,79 @@ class TestGrammarPersistence(unittest.TestCase):
             dp.put("fp_new", "en-US", [{"n_error_start": 2, "n_error_length": 3}])
             self.assertIn("fp_new", dp._entries)
             self.assertEqual(len(gp.grammar_registry.sentence_cache), 0)
+        finally:
+            gp.clear_all_document_persistence(ctx)
+
+    def test_sniff_v2_cache_identity(self) -> None:
+        from plugin.writer.locale.grammar_persistence import sniff_v2_cache_identity
+
+        self.assertEqual(
+            sniff_v2_cache_identity({"bad": {"fp": [{"r": "harper||SpellCheck"}]}}),
+            "harper",
+        )
+        self.assertEqual(
+            sniff_v2_cache_identity({"bad": {"fp": [{"r": "wa_g_rule||comma"}]}}),
+            "llm",
+        )
+        self.assertIsNone(sniff_v2_cache_identity({"good": ["fp"], "bad": {}}))
+        self.assertIsNone(
+            sniff_v2_cache_identity(
+                {"bad": {"a": [{"r": "harper||X"}], "b": [{"r": "wa_g_rule||Y"}]}}
+            )
+        )
+
+    def test_v2_llm_adopts_first_incoming_model(self) -> None:
+        """v2 LLM rows keep serving after upgrade: first llm: identity owns them."""
+        from plugin.writer.locale import grammar_persistence as gp
+
+        ctx = MagicMock()
+        model = MagicMock()
+        cached = {
+            "version": 2,
+            "good": ["fp_clean"],
+            "bad": {"fp_err": [{"s": 0, "l": 4, "g": ["x"], "c": "c", "f": "f", "r": "wa_g_rule||test"}]},
+        }
+        gp.grammar_registry.clear_all(ctx)
+        try:
+            with patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
+                dp = gp.DocumentPersistence(ctx, "doc-v2-llm", model=model)
+            self.assertEqual(len(dp._entries), 2)
+            self.assertIsNone(dp.get("fp_err"))
+            dp.ensure_identity("llm:gpt-upgrade")
+            hit = dp.get("fp_err")
+            self.assertIsNotNone(hit)
+            self.assertEqual(len(hit), 1)
+            self.assertEqual(dp._blob_identity, "llm:gpt-upgrade")
+        finally:
+            gp.clear_all_document_persistence(ctx)
+
+    def test_v2_good_only_dropped(self) -> None:
+        from plugin.writer.locale import grammar_persistence as gp
+
+        ctx = MagicMock()
+        model = MagicMock()
+        cached = {"version": 2, "good": ["fp_clean"], "bad": {}}
+        gp.grammar_registry.clear_all(ctx)
+        try:
+            with patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
+                dp = gp.DocumentPersistence(ctx, "doc-v2-good", model=model)
+            self.assertEqual(len(dp._entries), 0)
+        finally:
+            gp.clear_all_document_persistence(ctx)
+
+    def test_v3_model_mismatch_skips_entries(self) -> None:
+        from plugin.writer.locale import grammar_persistence as gp
+
+        ctx = MagicMock()
+        model = MagicMock()
+        cached = _v3_payload(good=["fp_clean"])
+        cached["model"] = "harper"
+        gp.grammar_registry.clear_all(ctx)
+        try:
+            with patch("plugin.writer.locale.grammar_persistence.grammar_checker_identity", return_value=_TEST_IDENT), \
+                 patch("plugin.doc.udprops.get_document_property", return_value=json.dumps(cached)):
+                dp = gp.DocumentPersistence(ctx, "doc-mismatch", model=model)
+            self.assertEqual(len(dp._entries), 0)
         finally:
             gp.clear_all_document_persistence(ctx)
 

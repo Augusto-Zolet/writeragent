@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from plugin.framework.config import grammar_checker_identity
+
 from .grammar_persistence import get_persistence, grammar_registry
 from .grammar_proofread_locale import (
     GRAMMAR_CACHE_NORMALIZATION_RE,
@@ -19,6 +21,18 @@ from .grammar_proofread_locale import (
     fingerprint_for_text,
     looks_complete_sentence,
 )
+
+
+def _sanitize_checker_identity(identity: str) -> str:
+    """Pipe is the L1 key delimiter; model ids must not split the key."""
+    return identity.replace("|", "/")
+
+
+def resolve_checker_identity(checker_identity: str | None = None) -> str:
+    """Return the L1/L2 checker identity, defaulting to the active grammar checker."""
+    if checker_identity is not None:
+        return checker_identity
+    return grammar_checker_identity()
 
 def cache_clear(ctx: Any | None = None) -> None:
     """Clear the in-memory proofreading cache (tests / reset).
@@ -72,9 +86,10 @@ def sentence_identity_fp(sentence: str) -> str:
     return fingerprint_for_text(_normalize_for_sentence_cache(sentence))
 
 
-def sentence_cache_key_prefix(locale_key: str) -> str:
-    """Prefix for every sentence-cache OrderedDict key: ``sent|<locale>|``."""
-    return f"sent|{locale_key}|"
+def sentence_cache_key_prefix(locale_key: str, checker_identity: str | None = None) -> str:
+    """Prefix for every sentence-cache OrderedDict key: ``sent|<locale>|<identity>|``."""
+    ident = _sanitize_checker_identity(resolve_checker_identity(checker_identity))
+    return f"sent|{locale_key}|{ident}|"
 
 
 def should_evict_incomplete_prefix_predecessor(*, other_complete: bool, other_canon: str, new_canon: str) -> bool:
@@ -109,12 +124,27 @@ def _clip_errors_to_canonical_length(errors: list[dict[str, Any]], canonical_len
     return clipped
 
 
-def make_sentence_key(locale_key: str, sentence: str) -> str:
-    """Cache key for a specific sentence text (locale + fingerprint)."""
-    return f"{sentence_cache_key_prefix(locale_key)}{sentence_identity_fp(sentence)}"
+def make_sentence_key(locale_key: str, sentence: str, checker_identity: str | None = None) -> str:
+    """Cache key for a specific sentence text (locale + checker identity + fingerprint)."""
+    return f"{sentence_cache_key_prefix(locale_key, checker_identity)}{sentence_identity_fp(sentence)}"
 
 
-def _populate_memory_cache_only(locale_key: str, sentence: str, errors: list[dict[str, Any]]) -> tuple[str, str, bool, str, list[dict[str, Any]]]:
+def evict_sentence_cache_for_identity(checker_identity: str) -> None:
+    """Drop L1 rows for one checker identity (mid-session Harper ↔ LLM switch)."""
+    ident = _sanitize_checker_identity(checker_identity)
+    needle = f"|{ident}|"
+    with grammar_registry.lock:
+        to_remove = [k for k in grammar_registry.sentence_cache if needle in k]
+        for k in to_remove:
+            grammar_registry.sentence_cache.pop(k, None)
+
+
+def _populate_memory_cache_only(
+    locale_key: str,
+    sentence: str,
+    errors: list[dict[str, Any]],
+    checker_identity: str | None = None,
+) -> tuple[str, str, bool, str, list[dict[str, Any]]]:
     """Internal: populate memory cache only, no persistence, no compaction.
 
     Used by cache_get_sentence to warm cache from persistence without side effects.
@@ -122,7 +152,7 @@ def _populate_memory_cache_only(locale_key: str, sentence: str, errors: list[dic
     """
     canon = _normalize_for_sentence_cache(sentence)
     fp = fingerprint_for_text(canon)
-    key = f"{sentence_cache_key_prefix(locale_key)}{fp}"
+    key = f"{sentence_cache_key_prefix(locale_key, checker_identity)}{fp}"
     clipped = _clip_errors_to_canonical_length(errors, len(canon))
     is_complete = _is_complete_sentence(canon)
     cloned_errors = [dict(e) for e in clipped]
@@ -136,9 +166,23 @@ def _populate_memory_cache_only(locale_key: str, sentence: str, errors: list[dic
     return fp, canon, is_complete, key, cloned_errors
 
 
-def cache_get_sentence(locale_key: str, sentence: str, ctx: Any | None = None, doc_id: str | None = None) -> list[dict[str, Any]] | None:
+def _align_persistence_identity(p: Any, ident: str) -> None:
+    """Apply checker identity to L2; evict L1 for a mid-session switch."""
+    switched = p.ensure_identity(ident)
+    if switched:
+        evict_sentence_cache_for_identity(switched)
+
+
+def cache_get_sentence(
+    locale_key: str,
+    sentence: str,
+    ctx: Any | None = None,
+    doc_id: str | None = None,
+    checker_identity: str | None = None,
+) -> list[dict[str, Any]] | None:
     """Return cached errors for this exact sentence (relative to sentence start = 0)."""
-    key = make_sentence_key(locale_key, sentence)
+    ident = resolve_checker_identity(checker_identity)
+    key = make_sentence_key(locale_key, sentence, ident)
     fp = sentence_identity_fp(sentence)
     result = None
     with grammar_registry.lock:
@@ -151,16 +195,17 @@ def cache_get_sentence(locale_key: str, sentence: str, ctx: Any | None = None, d
         if ctx and doc_id:
             p = get_persistence(ctx, doc_id)
             if p:
+                _align_persistence_identity(p, ident)
                 p.mark_accessed(fp)
         return result
 
     if ctx and doc_id:
         p = get_persistence(ctx, doc_id)
         if p:
+            _align_persistence_identity(p, ident)
             persisted = p.get(fp)
             if persisted is not None:
-                # Warm memory cache
-                _populate_memory_cache_only(locale_key, sentence, persisted)
+                _populate_memory_cache_only(locale_key, sentence, persisted, ident)
                 return list(persisted)
 
     return None
@@ -172,14 +217,19 @@ def cache_put_sentence(
     errors: list[dict[str, Any]],
     ctx: Any | None = None,
     doc_id: str | None = None,
+    checker_identity: str | None = None,
 ) -> None:
     """Cache errors for this sentence text (errors must have offsets relative to sentence start)."""
+    ident = resolve_checker_identity(checker_identity)
     # Tier 1 (global LRU) + Tier 2 (document persistence): always warm L1; L2 when doc_id is set.
-    fp, canon, is_complete, _key, clipped_errors = _populate_memory_cache_only(locale_key, sentence, errors)
+    fp, canon, is_complete, _key, clipped_errors = _populate_memory_cache_only(
+        locale_key, sentence, errors, ident
+    )
 
     if ctx and doc_id:
         p = get_persistence(ctx, doc_id)
         if p:
+            _align_persistence_identity(p, ident)
             p.put(fp, locale_key, [dict(e) for e in clipped_errors])
         # Note: document mode skips incomplete-sentence prefix compaction logic (scans _SENTENCE_CACHE only)
         # but we still performed _populate_memory_cache_only above.
@@ -187,7 +237,7 @@ def cache_put_sentence(
 
     if not is_complete:
         with grammar_registry.lock:
-            prefix = sentence_cache_key_prefix(locale_key)
+            prefix = sentence_cache_key_prefix(locale_key, ident)
             scan_count = 0
             to_remove: list[str] = []
             # Newest-first: typing chains keep superseded incompletes near the LRU end;

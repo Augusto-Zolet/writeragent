@@ -365,6 +365,22 @@ def get_grammar_provider():
     return "off"
 
 
+def grammar_checker_identity() -> str:
+    """Stable cache/file identity for the active grammar checker.
+
+    Local engines use a sentinel (``harper`` / ``languagetool`` / ``vale``).
+    LLM uses ``llm:`` plus the resolved model from ``get_grammar_model()``.
+    """
+    provider = get_grammar_provider()
+    if provider in ("harper", "languagetool", "vale"):
+        return provider
+    if provider == "off":
+        return "off"
+    from plugin.framework.client.model_fetcher import get_grammar_model
+
+    return f"llm:{get_grammar_model() or ''}"
+
+
 def get_current_endpoint():
     """Return the current endpoint URL from config, normalized (stripped)."""
     return str(get_config("endpoint") or "").strip()

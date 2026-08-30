@@ -141,7 +141,8 @@ def test_sentence_cache_locale_isolation() -> None:
     assert gc.cache_get_sentence("fr-FR", "Bonjour") is not None
 
 def test_sentence_cache_key_prefix_and_identity_fp() -> None:
-    assert gc.sentence_cache_key_prefix("en-US") == "sent|en-US|"
+    ident = gc.resolve_checker_identity().replace("|", "/")
+    assert gc.sentence_cache_key_prefix("en-US") == f"sent|en-US|{ident}|"
     fp = gc.sentence_identity_fp("Hello.")
     assert gc.make_sentence_key("en-US", "Hello.") == f"{gc.sentence_cache_key_prefix('en-US')}{fp}"
 
@@ -208,6 +209,16 @@ def test_document_mode_populates_memory_cache() -> None:
         assert got is not None
         assert len(gc.grammar_registry.sentence_cache) == 1
         mock_gp.assert_called_once_with(ctx, "uid-1")
+
+
+def test_l1_miss_across_checker_identity() -> None:
+    """Harper and LLM identities do not share L1 rows for the same sentence."""
+    errors = [{"n_error_start": 0, "n_error_length": 5, "rule_identifier": "harper||SpellCheck"}]
+    gc.cache_put_sentence("en-US", "Same sentence here.", errors, checker_identity="harper")
+    assert gc.cache_get_sentence("en-US", "Same sentence here.", checker_identity="llm:gpt-test") is None
+    got = gc.cache_get_sentence("en-US", "Same sentence here.", checker_identity="harper")
+    assert got is not None
+    assert got[0]["rule_identifier"] == "harper||SpellCheck"
 
 
 def test_cross_document_l1_cache_hit() -> None:

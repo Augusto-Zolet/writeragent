@@ -22,12 +22,55 @@ from typing import Any
 
 log = logging.getLogger("writeragent.grammar")
 
+from plugin.framework.config import grammar_checker_identity
+
 from . import grammar_proofread_json
 from .grammar_proofread_locale import GRAMMAR_CACHE_VERSION, GRAMMAR_DOC_CACHE_UDPROP
+
+# v2 blobs with LLM-style errors have no model id. First `llm:…` identity to
+# touch the document adopts the rows (young-codebase hack; avoids a full recheck).
+_V2_LLM_PENDING = "llm"
+
+_SNIFF_PREFIXES: tuple[tuple[str, str], ...] = (
+    ("harper||", "harper"),
+    ("languagetool||", "languagetool"),
+    ("vale||", "vale"),
+)
 
 
 
 from plugin.framework.uno_listeners import BaseDocumentEventListener
+
+
+def sniff_v2_cache_identity(data: dict[str, Any]) -> str | None:
+    """Return a checker class for a v2 udprop blob, or None if it must be dropped.
+
+    Local engines are identified from ``r`` prefixes on *bad* rows. LLM-style
+    (``wa_g_rule||`` or unprefixed) errors return ``llm`` (pending adopt).
+    Good-only blobs and mixed prefixes return None.
+    """
+    bad = data.get("bad")
+    if not isinstance(bad, dict) or not bad:
+        return None
+    found: set[str] = set()
+    for compressed_errors in bad.values():
+        if not isinstance(compressed_errors, list):
+            continue
+        for err in compressed_errors:
+            if not isinstance(err, dict):
+                continue
+            rule = str(err.get("r") or err.get("rule_identifier") or "")
+            matched = False
+            for prefix, ident in _SNIFF_PREFIXES:
+                if rule.startswith(prefix):
+                    found.add(ident)
+                    matched = True
+                    break
+            if not matched:
+                found.add(_V2_LLM_PENDING)
+    if len(found) != 1:
+        return None
+    return next(iter(found))
 
 _HAVE_UNO_DOC_EVENTS = False
 try:
@@ -160,6 +203,8 @@ class DocumentPersistence:
         self._lock = threading.Lock()
         self._doc_id = doc_id
         self._entries: dict[str, list[dict[str, Any]]] = {}
+        self._blob_identity: str | None = None
+        self._session_identity: str | None = None
         self._model: Any = model
         self._doc_listener: Any = None
         self._teardown_done = False
@@ -212,6 +257,28 @@ class DocumentPersistence:
             log.debug("[grammar] removeDocumentEventListener: %s", e)
         self._doc_listener = None
 
+    def _fill_entries_from_payload(self, data: dict[str, Any]) -> int:
+        """Populate ``_entries`` from good/bad maps. Caller holds ``_lock``."""
+        loaded_count = 0
+        good = data.get("good")
+        if isinstance(good, list):
+            for fp in good:
+                self._entries[str(fp)] = []
+                loaded_count += 1
+        bad = data.get("bad")
+        if isinstance(bad, dict):
+            for fp, compressed_errors in bad.items():
+                if not isinstance(compressed_errors, list):
+                    continue
+                errs = [
+                    grammar_proofread_json.decompress_error(e)
+                    for e in compressed_errors
+                    if isinstance(e, dict)
+                ]
+                self._entries[str(fp)] = errs
+                loaded_count += 1
+        return loaded_count
+
     def _load_from_udprops(self) -> None:
         from plugin.doc.udprops import get_document_property
 
@@ -225,38 +292,85 @@ class DocumentPersistence:
             data = json.loads(raw)
             if not isinstance(data, dict):
                 return
-            
+
             version = data.get("version", 1)
-            if version < GRAMMAR_CACHE_VERSION:
-                log.debug("[grammar] DocumentPersistence: ignoring old-version cache (v=%s < %s) on doc_id=%s", version, GRAMMAR_CACHE_VERSION, self._doc_id[:32] if self._doc_id else "")
+            current = grammar_checker_identity()
+            load_entries = False
+            blob_identity: str | None = None
+
+            if version >= 3:
+                blob_identity = str(data.get("model") or "") or None
+                load_entries = bool(blob_identity) and blob_identity == current
+            elif version == 2:
+                sniffed = sniff_v2_cache_identity(data)
+                if sniffed == _V2_LLM_PENDING:
+                    blob_identity = _V2_LLM_PENDING
+                    load_entries = True
+                elif sniffed is not None:
+                    blob_identity = sniffed
+                    load_entries = sniffed == current
+                else:
+                    log.debug(
+                        "[grammar] DocumentPersistence: dropping unclassifiable v2 cache on doc_id=%s",
+                        self._doc_id[:32] if self._doc_id else "",
+                    )
+            else:
+                log.debug(
+                    "[grammar] DocumentPersistence: ignoring old-version cache (v=%s) on doc_id=%s",
+                    version,
+                    self._doc_id[:32] if self._doc_id else "",
+                )
                 return
 
             loaded_count = 0
             with self._lock:
-                # Good sentences (no errors)
-                good = data.get("good")
-                if isinstance(good, list):
-                    for fp in good:
-                        fp_str = str(fp)
-                        self._entries[fp_str] = []
-                        loaded_count += 1
-                
-                # Bad sentences (with errors)
-                bad = data.get("bad")
-                if isinstance(bad, dict):
-                    for fp, compressed_errors in bad.items():
-                        if isinstance(compressed_errors, list):
-                            fp_str = str(fp)
-                            errs = [grammar_proofread_json.decompress_error(e) for e in compressed_errors if isinstance(e, dict)]
-                            self._entries[fp_str] = errs
-                            loaded_count += 1
-                
-                # Ignored rules
-                self._ignored_rules = set(data.get("ignored_rules", []))
-                
-            log.debug("[grammar] DocumentPersistence: loaded %s sentences from udprop (doc_id=%s, v=%s)", loaded_count, self._doc_id[:32] if self._doc_id else "", version)
+                self._ignored_rules = set(data.get("ignored_rules") or [])
+                self._blob_identity = blob_identity
+                if load_entries:
+                    loaded_count = self._fill_entries_from_payload(data)
+                else:
+                    self._entries.clear()
+
+            log.debug(
+                "[grammar] DocumentPersistence: loaded %s sentences from udprop (doc_id=%s, v=%s, blob=%s, current=%s)",
+                loaded_count,
+                self._doc_id[:32] if self._doc_id else "",
+                version,
+                blob_identity,
+                current,
+            )
         except Exception as e:
             log.warning("[grammar] DocumentPersistence: load user property failed: %s", e)
+
+    def ensure_identity(self, identity: str) -> str | None:
+        """Bind this doc's L2 to *identity*. Return the previous identity after a switch."""
+        with self._lock:
+            previous = self._session_identity
+            blob = self._blob_identity
+
+            if blob == _V2_LLM_PENDING and identity.startswith("llm:"):
+                self._blob_identity = identity
+                self._session_identity = identity
+                return None
+
+            if previous is None:
+                self._session_identity = identity
+                if blob and blob != _V2_LLM_PENDING and blob != identity:
+                    self._entries.clear()
+                    self._session_accessed.clear()
+                    self._blob_identity = identity
+                elif not blob:
+                    self._blob_identity = identity
+                return None
+
+            if previous == identity:
+                return None
+
+            self._entries.clear()
+            self._session_accessed.clear()
+            self._session_identity = identity
+            self._blob_identity = identity
+            return previous
 
     def _persist_to_udprops(self) -> None:
         # Note (Backlog P22): _persist_to_udprops only serializes _session_accessed keys.
@@ -269,24 +383,44 @@ class DocumentPersistence:
             return
         try:
             with self._lock:
+                if self._blob_identity == _V2_LLM_PENDING:
+                    log.debug(
+                        "[grammar] DocumentPersistence: skip save; v2 LLM blob not yet adopted (doc_id=%s)",
+                        self._doc_id[:32] if self._doc_id else "",
+                    )
+                    return
+                current = grammar_checker_identity()
+                if (
+                    self._session_identity is None
+                    and self._blob_identity
+                    and self._blob_identity != current
+                ):
+                    log.debug(
+                        "[grammar] DocumentPersistence: skip save; unused mismatched blob %s (current %s, doc_id=%s)",
+                        self._blob_identity,
+                        current,
+                        self._doc_id[:32] if self._doc_id else "",
+                    )
+                    return
+                model_id = self._session_identity or self._blob_identity or current
                 accessed_fps = set(self._session_accessed)
                 ignored_rules_list = list(self._ignored_rules)
+                entries_snap = dict(self._entries)
 
             good_fps: list[str] = []
             bad_map: dict[str, list[dict[str, Any]]] = {}
+            for fp in accessed_fps:
+                errs = entries_snap.get(fp)
+                if errs is None:
+                    continue
+                if not errs:
+                    good_fps.append(fp)
+                else:
+                    bad_map[fp] = [grammar_proofread_json.compress_error(e) for e in errs]
 
-            with self._lock:
-                for fp in accessed_fps:
-                    errs = self._entries.get(fp)
-                    if errs is None:
-                        continue
-                    if not errs:
-                        good_fps.append(fp)
-                    else:
-                        bad_map[fp] = [grammar_proofread_json.compress_error(e) for e in errs]
-            
             payload_dict = {
                 "version": GRAMMAR_CACHE_VERSION,
+                "model": model_id,
                 "good": good_fps,
                 "bad": bad_map,
                 "ignored_rules": ignored_rules_list,
@@ -296,7 +430,14 @@ class DocumentPersistence:
                 log.warning("[grammar] DocumentPersistence: cache JSON too large (%s bytes), skip write", len(payload))
                 return
             set_document_property(self._model, GRAMMAR_DOC_CACHE_UDPROP, payload)
-            log.debug("[grammar] DocumentPersistence: saved %s sentences (%s bytes) to udprop (doc_id=%s, v=%s)", len(good_fps) + len(bad_map), len(payload), self._doc_id[:32] if self._doc_id else "", GRAMMAR_CACHE_VERSION)
+            log.debug(
+                "[grammar] DocumentPersistence: saved %s sentences (%s bytes) to udprop (doc_id=%s, v=%s, model=%s)",
+                len(good_fps) + len(bad_map),
+                len(payload),
+                self._doc_id[:32] if self._doc_id else "",
+                GRAMMAR_CACHE_VERSION,
+                model_id,
+            )
         except Exception as e:
             log.warning("[grammar] DocumentPersistence: save user property failed: %s", e)
 
@@ -308,6 +449,8 @@ class DocumentPersistence:
         with self._lock:
             self._session_accessed.clear()
             self._entries.clear()
+            self._blob_identity = None
+            self._session_identity = None
         grammar_registry.remove_persistence(self._doc_id)
         self._model = None
 
@@ -315,6 +458,14 @@ class DocumentPersistence:
         if self._teardown_done:
             return None
         with self._lock:
+            if self._blob_identity == _V2_LLM_PENDING:
+                return None
+            if (
+                self._session_identity is not None
+                and self._blob_identity is not None
+                and self._session_identity != self._blob_identity
+            ):
+                return None
             errs = self._entries.get(fp)
             if errs is not None:
                 self._session_accessed.add(fp)
@@ -333,6 +484,8 @@ class DocumentPersistence:
         with self._lock:
             self._session_accessed.clear()
             self._entries.clear()
+            self._blob_identity = None
+            self._session_identity = None
 
 
 def get_persistence(ctx: Any, doc_id: str | None = None, *, model: Any = None) -> DocumentPersistence | None:
