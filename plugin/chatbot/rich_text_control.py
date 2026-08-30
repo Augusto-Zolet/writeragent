@@ -47,6 +47,8 @@ HISTORY_RENDER_BATCH_CHARS = 16384
 # Very noisy live scroll tracing. Keep available for sidebar scroll investigations,
 # but do not emit it by default even when log_level is DEBUG.
 RICH_SCROLL_VERBOSE_DEBUG = False
+# TEMP: set False (and revert ReadOnly/Tabstop below) when done experimenting.
+TEMP_RICH_CONTROL_EDITABLE = True
 _RICH_SCROLL_SEQ = 0
 
 
@@ -704,8 +706,8 @@ def _try_dialog_embedded_rich_control(root_window, placeholder_ctrl, placeholder
             ("Width", bw),
             ("Height", bh),
             ("RichText", True),
-            ("ReadOnly", True),
-            ("Tabstop", False),
+            ("ReadOnly", not TEMP_RICH_CONTROL_EDITABLE),
+            ("Tabstop", TEMP_RICH_CONTROL_EDITABLE),
             ("MultiLine", True),
             ("VScroll", True),
             ("HScroll", False),
@@ -934,7 +936,7 @@ def create_sidebar_rich_text_control(ctx, root_window, placeholder_ctrl, placeho
         impl = field_model.getImplementationName() if hasattr(field_model, "getImplementationName") else "?"
         _set_model_property(field_model, "Name", RICH_CONTROL_NAME)
         _set_model_property(field_model, "RichText", True)
-        _set_model_property(field_model, "ReadOnly", True)
+        _set_model_property(field_model, "ReadOnly", not TEMP_RICH_CONTROL_EDITABLE)
         _apply_rich_control_style_defaults_on_model(field_model, root_window)
 
         rich_flag = None

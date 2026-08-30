@@ -18,9 +18,11 @@
 Pipeline: create_hidden_html_writer → append_rich_text (HTML filter) → direct portion copy
 into the control (preferred), then transferable / SystemClipboard / Ctrl+V fallbacks.
 
-The direct-copy path walks Writer paragraphs/portions and inserts via insertString on the
-form TextField model. EditEngine paste does not preserve Writer NumberingRules, so list
-bullets and ordered numbers are reconstructed manually — see _list_prefix_for_paragraph.
+The direct-copy path walks Writer body enumeration (paragraphs and TextTables) and inserts
+via insertString on the form TextField model. RichTextControl is EditEngine — no table grid —
+so TextTables are flattened to tab-separated rows. EditEngine paste does not preserve Writer
+NumberingRules, so list bullets and ordered numbers are reconstructed manually — see
+_list_prefix_for_paragraph.
 """
 
 from __future__ import annotations
@@ -94,6 +96,31 @@ def create_hidden_html_writer(ctx):
     except Exception:
         log.exception("create_hidden_html_writer failed")
         return None
+
+
+def _is_writer_text_table(element) -> bool:
+    """True for a Writer XTextTable in body enumeration (not a paragraph)."""
+    try:
+        # ``is True``: MagicMock.supportsService() is truthy but not the bool True.
+        return element.supportsService("com.sun.star.text.TextTable") is True
+    except Exception:
+        return False
+
+
+def _flatten_text_table_rows(table) -> list[str]:
+    """Cell strings as tab-separated rows. EditEngine cannot host a Writer table."""
+    n_rows = int(table.getRows().getCount())
+    n_cols = int(table.getColumns().getCount())
+    rows: list[str] = []
+    for row_idx in range(n_rows):
+        cells: list[str] = []
+        for col_idx in range(n_cols):
+            try:
+                cells.append(table.getCellByPosition(col_idx, row_idx).getString() or "")
+            except Exception:
+                cells.append("")
+        rows.append("\t".join(cells))
+    return rows
 
 
 def _role_color_for_text(text: str, user_color: int, assistant_color: int, default_role: str = "assistant") -> int:
@@ -331,44 +358,65 @@ def _copy_formatted_from_hidden_doc_to_control(
             pending_links = list(cell_link_targets or [])
             while para_enum.hasMoreElements():
                 para = para_enum.nextElement()
-                line_prefix = _list_prefix_for_paragraph(para, order_counters)
-                if not first_para:
-                    _insert_string_at_rich_cursor(model, dest_cursor, "\n")
-                    dest_cursor.gotoEnd(False)
-                    _apply_sidebar_para_margins(dest_cursor)
-                first_para = False
-                prefix_inserted = not line_prefix
+                try:
+                    if not first_para:
+                        _insert_string_at_rich_cursor(model, dest_cursor, "\n")
+                        dest_cursor.gotoEnd(False)
+                        _apply_sidebar_para_margins(dest_cursor)
+                    first_para = False
 
-                portion_enum = para.createEnumeration()
-                while portion_enum.hasMoreElements():
-                    portion = portion_enum.nextElement()
-                    txt = portion.getString()
-                    if not txt:
+                    if _is_writer_text_table(para):
+                        # HTML import creates a real TextTable; portion enum throws and used
+                        # to abort the whole copy (truncate-then-fail blanked the stream tail).
+                        for i, row_text in enumerate(_flatten_text_table_rows(para)):
+                            if i:
+                                _insert_string_at_rich_cursor(model, dest_cursor, "\n")
+                                dest_cursor.gotoEnd(False)
+                                _apply_sidebar_para_margins(dest_cursor)
+                            _insert_string_at_rich_cursor(model, dest_cursor, row_text, default_color)
+                            dest_cursor.gotoEnd(False)
+                            inserted = True
                         continue
+
+                    line_prefix = _list_prefix_for_paragraph(para, order_counters)
+                    prefix_inserted = not line_prefix
+                    portion_enum = para.createEnumeration()
+                    while portion_enum.hasMoreElements():
+                        portion = portion_enum.nextElement()
+                        txt = portion.getString()
+                        if not txt:
+                            continue
+                        if line_prefix and not prefix_inserted:
+                            _insert_string_at_rich_cursor(model, dest_cursor, line_prefix, default_color)
+                            dest_cursor.gotoEnd(False)
+                            prefix_inserted = True
+                        portion_color = _resolve_portion_char_color(
+                            portion, txt, theme.user_color, theme.assistant_color, role
+                        )
+                        _apply_cursor_char_props(dest_cursor, portion, char_color=portion_color, bg_color=fill_color)
+                        _normalize_portion_font(portion)
+                        _apply_cursor_char_props(dest_cursor, portion, char_color=portion_color, bg_color=fill_color)
+                        before_len = get_control_text_length(control)
+                        _insert_string_at_rich_cursor(model, dest_cursor, txt, portion_color)
+                        after_len = get_control_text_length(control)
+                        href = portion_cell_href(portion)
+                        addr = normalize_cell_address(href) if href else None
+                        if not addr and pending_links and pending_links[0][0] == txt:
+                            addr = pending_links.pop(0)[1]
+                        elif not addr and portion_looks_like_cell_link(portion, txt):
+                            addr = normalize_cell_address(txt.strip())
+                        if addr:
+                            register_cell_link_span(control, before_len, after_len, addr)
+                        dest_cursor.gotoEnd(False)
+                        inserted = True
                     if line_prefix and not prefix_inserted:
                         _insert_string_at_rich_cursor(model, dest_cursor, line_prefix, default_color)
-                        dest_cursor.gotoEnd(False)
-                        prefix_inserted = True
-                    portion_color = _resolve_portion_char_color(portion, txt, theme.user_color, theme.assistant_color, role)
-                    _apply_cursor_char_props(dest_cursor, portion, char_color=portion_color, bg_color=fill_color)
-                    _normalize_portion_font(portion)
-                    _apply_cursor_char_props(dest_cursor, portion, char_color=portion_color, bg_color=fill_color)
-                    before_len = get_control_text_length(control)
-                    _insert_string_at_rich_cursor(model, dest_cursor, txt, portion_color)
-                    after_len = get_control_text_length(control)
-                    href = portion_cell_href(portion)
-                    addr = normalize_cell_address(href) if href else None
-                    if not addr and pending_links and pending_links[0][0] == txt:
-                        addr = pending_links.pop(0)[1]
-                    elif not addr and portion_looks_like_cell_link(portion, txt):
-                        addr = normalize_cell_address(txt.strip())
-                    if addr:
-                        register_cell_link_span(control, before_len, after_len, addr)
-                    dest_cursor.gotoEnd(False)
-                    inserted = True
-                if line_prefix and not prefix_inserted:
-                    _insert_string_at_rich_cursor(model, dest_cursor, line_prefix, default_color)
-                    inserted = True
+                        inserted = True
+                except Exception:
+                    log.exception(
+                        "_copy_formatted_from_hidden_doc_to_control: skip element role=%s",
+                        role,
+                    )
 
             if inserted:
                 if auto_scroll:
@@ -381,7 +429,6 @@ def _copy_formatted_from_hidden_doc_to_control(
                 )
         except Exception:
             log.exception("_copy_formatted_from_hidden_doc_to_control failed role=%s", role)
-            inserted = False
             copy_failed_with_exception = True
 
     if ctx is not None:

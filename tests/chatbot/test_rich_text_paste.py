@@ -18,6 +18,8 @@ setup_uno_mocks()
 from plugin.chatbot.rich_text_control import HISTORY_RENDER_BATCH_CHARS
 from plugin.chatbot.rich_text_paste import (
     _copy_formatted_from_hidden_doc_to_control,
+    _flatten_text_table_rows,
+    _is_writer_text_table,
     _list_prefix_for_paragraph,
     _resolve_portion_char_color,
     append_rich_messages_via_clipboard,
@@ -329,4 +331,119 @@ class TestRichInsertFallbackLogging:
         assert ok is False
         assert reason == "no_content_inserted"
         assert any("reason=no_content_inserted" in r.message for r in caplog.records)
+
+
+def _uno_enum(items):
+    remaining = list(items)
+    enum = MagicMock()
+    enum.hasMoreElements.side_effect = lambda: bool(remaining)
+    enum.nextElement.side_effect = lambda: remaining.pop(0)
+    return enum
+
+
+def _body_paragraph(text: str):
+    para = MagicMock()
+    para.supportsService.return_value = False
+    para.getPropertyValue.side_effect = Exception("not a list")
+    portion = MagicMock()
+    portion.getString.return_value = text
+    portion.CharColor = -1
+    para.createEnumeration.return_value = _uno_enum([portion])
+    return para
+
+
+def _body_table(cells: list[list[str]]):
+    table = MagicMock()
+    table.supportsService.side_effect = lambda name: name == "com.sun.star.text.TextTable"
+    table.createEnumeration.side_effect = RuntimeError("TextTable has no text portions")
+    n_rows = len(cells)
+    n_cols = len(cells[0]) if cells else 0
+    table.getRows.return_value.getCount.return_value = n_rows
+    table.getColumns.return_value.getCount.return_value = n_cols
+
+    def _cell(col, row):
+        cell = MagicMock()
+        cell.getString.return_value = cells[row][col]
+        return cell
+
+    table.getCellByPosition.side_effect = _cell
+    return table
+
+
+class TestFlattenTextTableCopy:
+    def test_is_writer_text_table_requires_bool_true(self):
+        table = MagicMock()
+        table.supportsService.return_value = True
+        assert _is_writer_text_table(table) is True
+        para = MagicMock()
+        para.supportsService.return_value = False
+        assert _is_writer_text_table(para) is False
+        # Unconfigured MagicMock must not look like a table (``is True``).
+        assert _is_writer_text_table(MagicMock()) is False
+
+    def test_flatten_tab_separated_rows(self):
+        table = _body_table([["a", "b"], ["c", "d"]])
+        assert _flatten_text_table_rows(table) == ["a\tb", "c\td"]
+
+    def test_copy_flattens_table_between_paragraphs(self):
+        control = MagicMock()
+        model = MagicMock()
+        model.createTextCursor.return_value = MagicMock()
+        control.getModel.return_value = model
+        src_doc = MagicMock()
+        src_doc.getText.return_value.createEnumeration.return_value = _uno_enum(
+            [
+                _body_paragraph("before"),
+                _body_table([["Col A", "Col B"], ["stream", "plain"]]),
+                _body_paragraph("after"),
+            ]
+        )
+        theme = MagicMock(user_color=1, assistant_color=2)
+        inserted: list[str] = []
+
+        def _capture(_model, _cursor, text, char_color=None):
+            inserted.append(text)
+
+        with patch("plugin.chatbot.rich_text_paste.focus_preserved", _immediate_focus), \
+             patch("plugin.chatbot.rich_text_paste.ChatTheme.resolve", return_value=theme), \
+             patch("plugin.chatbot.rich_text_paste._rich_control_bg_color", return_value=0), \
+             patch("plugin.chatbot.rich_text_paste.get_control_text_length", return_value=1), \
+             patch("plugin.chatbot.rich_text_paste._apply_sidebar_para_margins"), \
+             patch("plugin.chatbot.rich_text_paste._scroll_rich_to_tail"), \
+             patch("plugin.chatbot.rich_text_paste._insert_string_at_rich_cursor", side_effect=_capture):
+            ok, reason = _copy_formatted_from_hidden_doc_to_control(
+                src_doc, control, MagicMock(), role="assistant", auto_scroll=False,
+            )
+
+        assert ok is True
+        assert reason is None
+        assert "before" in inserted
+        assert "Col A\tCol B" in inserted
+        assert "stream\tplain" in inserted
+        assert "after" in inserted
+
+    def test_copy_ok_when_table_portion_enum_would_throw(self):
+        control = MagicMock()
+        model = MagicMock()
+        model.createTextCursor.return_value = MagicMock()
+        control.getModel.return_value = model
+        src_doc = MagicMock()
+        src_doc.getText.return_value.createEnumeration.return_value = _uno_enum(
+            [_body_table([["only"]])]
+        )
+        theme = MagicMock(user_color=1, assistant_color=2)
+
+        with patch("plugin.chatbot.rich_text_paste.focus_preserved", _immediate_focus), \
+             patch("plugin.chatbot.rich_text_paste.ChatTheme.resolve", return_value=theme), \
+             patch("plugin.chatbot.rich_text_paste._rich_control_bg_color", return_value=0), \
+             patch("plugin.chatbot.rich_text_paste.get_control_text_length", return_value=1), \
+             patch("plugin.chatbot.rich_text_paste._apply_sidebar_para_margins"), \
+             patch("plugin.chatbot.rich_text_paste._scroll_rich_to_tail"), \
+             patch("plugin.chatbot.rich_text_paste._insert_string_at_rich_cursor"):
+            ok, reason = _copy_formatted_from_hidden_doc_to_control(
+                src_doc, control, MagicMock(), role="assistant",
+            )
+
+        assert ok is True
+        assert reason is None
 
