@@ -566,26 +566,29 @@ Out-of-process: live `SendButtonListener` is in soffice. Tests drive `uno_click`
 | **B14** | Stop during `[Thinking]`-style ramble (`think out loud` + delay) | Thinking cleared or frozen; Stopped banner or idle; hello |
 | **B15** | Serial: hello (complete) → ramble+Stop → `say nothing` → hello | Four terminals; never stuck busy |
 
-#### Next-level cases (not landed — assume harness + mock extensions exist)
+#### Next-level (not landed)
 
-Stop is the mountain; these push the Send/Stop FSM into the rarer races the landed set does not reach. New mock/harness needs are flagged inline.
+Native leftovers only: drain + FSM + UNO that pytest cannot paint. Do **not** add parser races, soak ×N, or pass conditions the product does not implement. `NEXT_TOOL` + `is_stopped` is already a pytest property in [`test_tool_loop_state.py`](../../tests/chatbot/test_tool_loop_state.py); native is “the tool never mutates the doc.”
 
 | ID | Drive | Pass (assert) |
 |----|--------|----------------|
-| **B16** | Mock returns **tool_calls only** (no content chunk), then Stop before the tool worker spawns | No orphan `SpawnToolWorkerEffect` after Stop; `is_busy` false; the tool never runs; hello |
-| **B17** | `STREAM_DONE` and `STOP_CLICKED` race — delay so the terminal chunk lands in the same window as the click | Exactly one terminal (`on_stream_done` runs once); never stuck busy; no double `[Stopped by user]` + `No response.`; hello |
-| **B18** | N-cycle stress: send → Stop ×5 (ramble each, no restart) | No cancel-scope accumulation; `_active_q` not dual-owned after the final cycle; hello |
-| **B19** | Stop at `NEXT_TOOL` between rounds (mock `two tools` + `--delay-ms`) | Loop exits cleanly; the second tool never spawns; idle; hello |
-| **B20** | Stop during post-tool `UpdateDocumentContext` (refresh between rounds) | No mutation race; doc consistent; idle; hello |
-| **B21** | **Clear** transcript (Clear button) while a stream is mid-flight | Stream cancelled or cleanly orphaned; no zombie appends land after Clear; transcript empty then hello |
-| **B22** | Stop, then immediately Clear, then hello | Cancel and Clear order does not leave a half-drained queue or stuck busy; hello |
-| **B23** | Stop during the post-`STREAM_DONE` hidden-Writer rerender (long HTML) | Rerender does not block Stop/next send; terminal state already latched; hello |
+| **B16** | `add_comment` **tool_calls only** (no content), `delay_ms` high; Stop **before** the tool runs | Comment never appears; `is_busy` false; hello. Pytest already forbids `SpawnToolWorkerEffect` when stopped |
+| **B19** | Two **sequential** tool rounds (not E6 parallel); Stop at `NEXT_TOOL` after the first tool result | Second tool never runs; idle; hello. Do not drive with `two tools` in one round (that is E6 / E15) |
+| **B21** | Clear during ramble (`uno_click` on existing `controls["clear"]`; no new hook architecture) | **Clear does not Stop** (`ClearButtonListener` only `session.clear()` + wipes the control). Greeting visible; Stop still enabled; press Stop; idle; hello; no freeze / nested drain. Do not assert “stream cancelled” |
+
+**Dropped (do not re-add):**
+
+- **B17** — `STREAM_DONE` vs click in the same window is not deterministic over URP. B1a (mid-stream) and B9 (natural end) already bracket it
+- **B18** — Stop ×5 is soak. B10 already cancels twice in one panel lifetime
+- **B20** — Stop during `UpdateDocumentContext` is not observable over URP; E5 already proves refresh
+- **B22** — folded into B21 (Clear after Stop is the same recovery)
+- **B23** — after `STREAM_DONE` the FSM is often already idle (B3b). Rerender timing is Packet A soak
 
 ---
 
 ### v2 Packet C — empty / truncated model
 
-**Landed:** C1, C3, C4 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar FILTER=C`). **C2** is C1’s `_hello_ok()` (not a separate function). B15 still sends `say nothing` without asserting the banner.
+**Landed:** C1, C3, C4 in [`tests/chatbot/test_mock_llm_sidebar_uno.py`](../../tests/chatbot/test_mock_llm_sidebar_uno.py) (`make test-mock-sidebar FILTER=C`). **C2** is C1’s `_hello_ok()` (not a separate function). **C5** (`content_filter` banner) is not landed. B15 still sends `say nothing` without asserting the banner.
 
 Empty / truncated STREAM_DONE must **AddMessageEffect** the banner ([`tool_loop_state.py`](../../plugin/chatbot/tool_loop_state.py)) so finalize does not paste the previous HTML assistant over the new turn (C3 after hello used to show leftover Mock notes).
 
@@ -594,6 +597,7 @@ Empty / truncated STREAM_DONE must **AddMessageEffect** the banner ([`tool_loop_
 | **C1** | `say nothing` | Suffix has `[Response truncated -- the model ran out of tokens...]`; **not** `[No text from model]`; `_hello_ok()` |
 | **C3** | `_session.config.scenario = "empty"`; send `round one` / `round two` / `round three`; restore `scenario=none` | Truncated banner each round; no rotating hello HTML (`<ul>`, `print('mock-llm')`); hello after restore |
 | **C4** | `empty finish stop` | `[No text from model; any tool changes were still applied.]` plus `[Debug:` with `finish_reason='stop'`; hello |
+| **C5** | *(not landed)* mock phrase → `finish_reason=content_filter` | `[Content filter: response was truncated.]`; **not** the length or Debug banners; hello. FSM branch is unit-tested; C1/C4 never paint this on the live drain |
 
 ---
 
@@ -640,21 +644,24 @@ Writer with body text “Welcome to WriterAgent.” unless **empty** is specifie
 | **E14** | Delegate E7 completes; second `outline this` | Nested agent works twice (no stale inner session) |
 | **E15** | `insert filler` with Stop **after** tool result queued but before HTML wrap-up | Doc may have mutation; UI idle; hello; no double drain |
 
-#### Next-level cases (not landed — assume harness + mock extensions exist)
+#### Next-level (not landed)
 
-Delegate / HITL / mutation-refresh failure modes beyond the landed set. Mock needs a couple of new scripted inner-agent replies (flagged inline).
+Same filter as Packet B. Unknown-domain / `VALIDATION_ERROR` / shrink-refresh are pytest ([`test_tool.py`](../../tests/framework/test_tool.py), [`test_tool_loop_state.py`](../../tests/chatbot/test_tool_loop_state.py), E5). Do not close the Writer doc under this suite.
 
 | ID | Drive | Pass (assert) |
 |----|--------|----------------|
-| **E16** | `delegate_to_specialized_*_toolset` to an **unknown/empty domain** | Graceful error or no-op tool result; no crash; hello |
-| **E17** | Nested `final_answer` returns **empty / `None` content** | Main wrap-up still lands (or clean empty banner); no garbage HTML; hello |
-| **E18** | HITL `web_search` returns **zero results** (mock empty search) | Approval still resolves; "no results" surface, not a hang; hello |
-| **E19** | Tool called with **schema-invalid args** (missing required field; mock emits a tool call the schema rejects) | Clean tool error in transcript, not an unhandled exception; hello |
-| **E20** | Close the Writer doc **mid-tool** (tool raises `DisposedException`) | Re-raised as `DocumentDisposedError` (not swallowed into a freeze); reopen doc + hello |
-| **E21** | Parallel tools (`two tools`) where **one succeeds, one errors** | Partial-success wrap-up; the error is surfaced, not the whole round dropped; hello |
-| **E22** | Nested agent **exhausts `max_steps`** (mock inner loop never emits `final_answer`) | Clean budget-exhausted error, not an infinite loop; main UI idle; hello |
-| **E23** | Tool that **deletes** content, then next send | `refresh_document_context` reflects a **shorter** doc (not just grow); next prompt has new length; hello |
-| **E24** | HITL `press_change()` with an **edited query** | The edited query propagates to the search (mock capture shows edited text, not the original); not treated as `STOP_CLICKED` |
+| **E17** | Nested `final_answer` empty / `None` (new mock inner reply) | Main wrap-up or clean empty banner; **no** leftover previous HTML (C3 analog for delegate); hello |
+| **E21** | `two tools` where **one succeeds, one errors** (mock mixed tool results) | Partial wrap-up; error surfaced, successful mutation kept; not the whole round dropped; hello. Distinct from E6 (both ok) and E10 (follow-up HTTP 500) |
+| **E22** | Nested agent never emits `final_answer` (hits `max_steps`) | Budget-exhausted error, not an infinite loop; main UI idle; hello. Nested analog of F3 |
+
+**Dropped (do not re-add):**
+
+- **E16** — unknown domain already `_tool_error`s when `domain_tools` is empty; same UI as E10
+- **E18** — zero search hits is tool content, not a drain hang
+- **E19** — `tool.validate` / `VALIDATION_ERROR` is pytest
+- **E20** — close doc mid-tool kills the **shared** soffice; that is H4 soak
+- **E23** — shorter-doc refresh is the same `refresh_document_context` path as E5
+- **E24** — same in-process hole as skipped E9c; do not list as “assume harness exists”
 
 ---
 
@@ -709,26 +716,13 @@ Each case ends with **`next_hello_ok()`** unless noted. Prefer phrase triggers s
 | **F17** | Stop **during** F3 hang | Same as B1 vs hang; idle |
 | **F18** | SSE `event: ping` / unknown event types if mock can emit | Ignored; stream still completes |
 
-#### Next-level cases (not landed — assume harness + mock extensions exist)
+#### Next-level (not landed)
 
-Transport-level and SSE-framing edge cases the landed set skips. Each needs a small mock addition (flag/phrase/status) — flagged inline. Single LO instance.
+**None in this suite.** Packet F is landed (F1–F18). Further HTTP/SSE envelopes (redirect, 204, Content-Length, fragmented SSE, BOM, missing `finish_reason`, charset, non-UTF8, keep-alive, 503, `Retry-After`) belong in [`tests/framework/test_client_llm.py`](../../tests/framework/test_client_llm.py) / [`tests/scripts/test_mock_llm_server.py`](../../tests/scripts/test_mock_llm_server.py), not `test_mock_llm_sidebar_uno.py`.
 
-| ID | Drive | Pass (assert) |
-|----|--------|----------------|
-| **F19** | Mock adds HTTP **3xx redirect** | Not silently followed into a loop; clean error or handled; hello |
-| **F20** | HTTP **204** no content | Empty-model or error banner; not a hang; hello |
-| **F21** | **Content-Length mismatch** (body shorter/longer than header) | Error or truncated gracefully; no read-block; hello |
-| **F22** | SSE `data:` line **split across TCP reads** (fragmented JSON) | Partial JSON reassembled or skipped; stream completes; hello |
-| **F23** | Leading **BOM / blank lines** before the first `data:` | Parser skips and completes; hello |
-| **F24** | JSON chunk with **`finish_reason` missing** | Content still rendered; no hang; hello |
-| **F25** | **Wrong content-type / charset** (mock sends `text/html` or `utf-16`) | Error or treated as SSE; no decode crash; hello |
-| **F26** | **Single very large chunk** (one huge delta, `--scenario huge`) | Rendered without stutter/crash; no buffer blowup; hello |
-| **F27** | 429 with **`Retry-After`** header | Surfaced (and/or respected); recovery hello; no sticky 429 |
-| **F28** | `[DONE]` missing + **`Connection: close`** header | Treated as clean end; idle; hello |
-| **F29** | **Non-UTF8 bytes** mid-stream | Decoded/ignored without crash; hello |
-| **F30** | HTTP **503** (not 429) | Distinct clean error; hello |
-| **F31** | **Drip feed**: a chunk every few seconds, never `[DONE]` | Per-request timeout (not infinite); Stop works; hello |
-| **F32** | **Stale keep-alive**: reuse the connection after the server closed it between requests | One fresh-connection retry; second request succeeds; hello |
+F20 ≈ F12; F28/F31 ≈ F3; F30 ≈ F1; F26 is Packet A (`fill the sidebar`). The product does **not** sleep the UI thread on `Retry-After`. The empty-model `content_filter` banner is **C5**, not an F row.
+
+**Dropped IDs (do not re-add):** F19–F32.
 
 ---
 
@@ -764,24 +758,26 @@ Two machines must stay legal (`send_state.py`: never `is_busy and is_recording`)
 | **G17** | G1 on **Calc** deck if sidebar exists | Same native path; hello |
 | **G18** | HITL active; `press_record()` | No Record (approval owns buttons); E9 still valid |
 
-#### Next-level cases (not landed — assume harness + mock extensions exist)
+#### Next-level (not landed)
 
-Recorder-child IPC and VAD edge cases beyond the landed set. Child-fixture / stub additions are flagged inline. Single LO instance.
+IPC JSON parse and VAD child lines are pytest ([`test_audio_silence_detector.py`](../../tests/scripting/test_audio_silence_detector.py)). G4 already fires the same host `_notify_auto_stop` path. Do not add file-write races over URP.
 
 | ID | Drive | Pass (assert) |
 |----|--------|----------------|
-| **G19** | Child emits `silence_progress` then **`auto_stopped`** (real VAD path, not host-fired) | Auto-stop works via the child message; same native reply as G1; hello |
-| **G20** | Child emits an **unknown/garbage JSON line** mid-recording | Ignored without crash; recording continues; Stop Rec still works |
-| **G21** | Child **never emits `ready`** (spawn hang) | Host init timeout; `audio_status` error; not stuck initializing; Send still works |
-| **G22** | Child **exits with no `ready` and no error** | Clean error state; not stuck Stop Rec; hello |
-| **G23** | `inject_wav` with **0-byte** file | No send or explicit error; not busy; hello |
-| **G24** | `inject_wav` with **corrupt non-WAV bytes** | Native/STT fails gracefully; error surfaced; `has_audio` cleared; hello |
-| **G25** | Stop Rec then the WAV **appears late** (race on file write vs read) | No stuck busy; error or retry; hello |
-| **G26** | **Auto-stop and manual Stop Rec race** (both fire near-simultaneously) | Idempotent; one terminal; `is_recording` false; hello |
-| **G27** | STT returns **empty text** | Query stays empty; no send; clean idle; hello |
-| **G28** | STT returns **error JSON** | Error surfaced; `has_audio` cleared; hello |
-| **G29** | Native `input_audio` rejected (**400** from chat model) | Fallback to STT or clean error; not a silent dropped audio; hello |
-| **G30** | A **stale WAV from a prior take** is on disk at record start | New take does not read the stale file; transcript matches the new WAV |
+| **G21** | Stub **never `ready`** (`hang_ready`; existing `wait_for_recording_ready` timeout). Distinct from G12 `fail_start` | Init timeout; `audio_status` error; not stuck initializing; Send still works. No mic |
+| **G27** | STT returns **empty text** (WAV exists; not G14 missing file) | Query stays empty; no send; idle; hello |
+| **G28** | STT returns **error JSON** (G5’s error cousin) | Error surfaced; `has_audio` cleared; hello |
+| **G29** | Native chat POST with `input_audio` returns **400**; STT then succeeds **on the same drain** | Transcript shows `[Model does not support audio. Falling back to STT...]`; no nested drain (`_handle_stream_error` must not re-enter `_do_send`); hello. Distinct from G5 (which pre-sets `audio_supported=False`) |
+
+**Dropped (do not re-add):**
+
+- **G19** — G4 already is host auto-stop; child `auto_stopped` JSON is pytest
+- **G20** — garbage IPC line is parser pytest
+- **G22** — silent child exit is a G12 variant
+- **G23** — 0-byte WAV is G14
+- **G24** — corrupt bytes: fold into G14 / pytest of WAV load unless `has_audio` sticks (then it is G14’s assert)
+- **G25 / G26** — late WAV and auto-stop vs Stop Rec are flaky over URP
+- **G30** — stale WAV is G16 (second take replaces)
 
 ---
 
@@ -796,6 +792,7 @@ Recorder-child IPC and VAD edge cases beyond the landed set. Child-fixture / stu
 7. **E9a–E9e** (HITL overlay on the same buttons).
 8. F3/F6/F9+ only after cancel + hang are stable.
 9. **G1, G7, G11, G12, G15** (Record FSM vs Send busy) — stub capture, no mic. Rest of G after that.
+10. Next-level keep only (not the dropped F19–F32 dump): **C5**, then **B16 / B19 / B21**, **E17 / E21 / E22**, **G29** (native 400 → STT on the same drain), then **G21 / G27 / G28**.
 
 Pytest already covers `decide_completion` in `tests/scripts/test_mock_llm_server.py`. v2 does **not** duplicate that; it covers **drain + FSM + UNO**. Mock already lists `writeragent-mock-whisper` and canned transcripts.
 
