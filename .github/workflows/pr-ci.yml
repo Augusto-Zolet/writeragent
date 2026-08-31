@@ -90,28 +90,28 @@ jobs:
         run: |
           make typecheck
 
-      - name: Run tests (Pytest + UNO)
+      - name: Build & install WriterAgent extension
         run: |
-          make test
-
-      - name: Verify Extension Builds & Packaging Lifecycles (WriterAgent, LibrePy, LibreHarper)
-        run: |
-          # 1. Build and install WriterAgent
           make build
           make register-built-oxt
           unopkg list | grep -q "org.extension.writeragent"
 
-          # 2. Build and install LibrePy (removes WriterAgent as both share addin namespace)
+      - name: Run tests (Pytest + UNO)
+        run: |
+          make test
+
+      - name: Verify Core & Grammar Extension Packaging Lifecycles (LibrePy, LibreHarper)
+        run: |
+          # 1. Build and install LibrePy (removes WriterAgent as both share addin namespace)
           make build-core
           make register-librepy-oxt
           unopkg list | grep -q "org.extension.librepy"
 
-          # 3. Build and install LibreHarper
+          # 2. Build and install LibreHarper
           make build-harper
           make register-libreharper-oxt
           unopkg list | grep -q "org.extension.libreharper"
 
-          # 4. Clean up installed packages
+          # 3. Clean up installed packages
           unopkg remove org.extension.libreharper || true
           unopkg remove org.extension.librepy || true
-          unopkg remove org.extension.writeragent || true
