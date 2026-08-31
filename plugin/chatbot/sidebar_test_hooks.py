@@ -281,16 +281,35 @@ def _send_event_or_urp(kind: SendEventKind, *, listener: Any = None) -> None:
     if sl is not None:
         sl.dispatch(SendEvent(kind))
         return
-    if _try_click_send_for_kind(kind):
-        # G15: ActionEvent on Record can be a no-op while the label still says
-        # Record. Fall back to the debug protocol so Stop Rec actually appears.
-        if kind == SendEventKind.RECORD_CLICKED:
-            deadline = time.monotonic() + 1.5
+    if kind == SendEventKind.RECORD_CLICKED:
+        deadline = time.monotonic() + 1.5
+        while time.monotonic() < deadline:
+            if "record" in _send_label_lower() and "stop rec" not in _send_label_lower():
+                break
+            time.sleep(0.05)
+        if _try_click_send_for_kind(kind):
+            deadline = time.monotonic() + 2.0
             while time.monotonic() < deadline:
                 if "stop rec" in _send_label_lower():
                     return
-                time.sleep(0.1)
-            execute_debug_sidebar_op(kind.name)
+                time.sleep(0.05)
+        execute_debug_sidebar_op(kind.name)
+        return
+    if kind == SendEventKind.STOP_REC_CLICKED:
+        deadline = time.monotonic() + 2.0
+        while time.monotonic() < deadline:
+            if "stop rec" in _send_label_lower():
+                break
+            time.sleep(0.05)
+        if _try_click_send_for_kind(kind):
+            deadline = time.monotonic() + 1.5
+            while time.monotonic() < deadline:
+                if "stop rec" not in _send_label_lower():
+                    return
+                time.sleep(0.05)
+        execute_debug_sidebar_op(kind.name)
+        return
+    if _try_click_send_for_kind(kind):
         return
     execute_debug_sidebar_op(kind.name)
 
