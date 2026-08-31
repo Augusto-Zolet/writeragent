@@ -1,93 +1,101 @@
-# WriterAgent - Calc Tools Model & State Transitions Specification
-# Formal specification in FizzBee (https://fizzbee.io)
-#
-# Models:
-# - Spreadsheet grid cells & formula ranges
-# - Sheet management (create, delete, rename, switch)
-# - Named ranges & filters
-# - Safety invariants (positive sheet count, range validity)
+---
+options:
+  max_actions: 6
+  max_concurrent_actions: 1
+  crash_on_yield: false
+deadlock_detection: false
+---
+# Calc sheets. Cell map is last-write-only to keep the state space tiny.
 
-state:
+action Init:
     sheets = ["Sheet1"]
     active_sheet = "Sheet1"
-    sheet_cells = {}
-    named_ranges = {}
-    filters = {}
+    last_cell_key = ""
+    last_cell_val = ""
+    named_range_name = ""
+    named_range_target = ""
     last_status = "OK"
 
-# Actions for Core & Specialized Calc Tools
+atomic action WriteFormulaRange:
+    cell_range = oneof ["A1", "B2"]
+    val = oneof ["100", "Total"]
+    last_cell_key = active_sheet + "!" + cell_range
+    last_cell_val = val
+    last_status = "OK"
 
-action WriteFormulaRange:
-    any cell_range in ["A1", "A1:B2", "C1:D4"]:
-        any val in ["=SUM(A1:A5)", "100", "Total"]:
-            atomic:
-                sheet_cells[active_sheet + "!" + cell_range] = val
-                last_status = "OK"
+atomic action ReadCellRange:
+    cell_range = oneof ["A1", "B2"]
+    key = active_sheet + "!" + cell_range
+    if key == last_cell_key:
+        last_status = "OK"
+    else:
+        last_status = "EMPTY_OR_DEFAULT"
 
-action ReadCellRange:
-    any cell_range in ["A1", "A1:B2", "C1:D4", "Z100"]:
-        atomic:
-            key = active_sheet + "!" + cell_range
-            if key in sheet_cells:
-                last_status = "OK"
-            else:
-                last_status = "EMPTY_OR_DEFAULT"
+atomic action CreateSheet:
+    new_sheet = oneof ["Sheet2", "Summary"]
+    found = False
+    for s in sheets:
+        if s == new_sheet:
+            found = True
+    if not found:
+        sheets = sheets + [new_sheet]
+        last_status = "OK"
+    else:
+        last_status = "ALREADY_EXISTS"
 
-action CreateSheet:
-    any new_sheet in ["Sheet2", "Summary", "Data"]:
-        atomic:
-            if new_sheet not in sheets:
-                sheets.append(new_sheet)
-                last_status = "OK"
-            else:
-                last_status = "ALREADY_EXISTS"
+atomic action SwitchSheet:
+    target_sheet = oneof ["Sheet1", "Sheet2", "Summary"]
+    found = False
+    for s in sheets:
+        if s == target_sheet:
+            found = True
+    if found:
+        active_sheet = target_sheet
+        last_status = "OK"
+    else:
+        last_status = "SHEET_NOT_FOUND"
 
-action SwitchSheet:
-    any target_sheet in ["Sheet1", "Sheet2", "Summary", "NonExistent"]:
-        atomic:
-            if target_sheet in sheets:
-                active_sheet = target_sheet
-                last_status = "OK"
-            else:
-                last_status = "SHEET_NOT_FOUND"
+atomic action DeleteSheet:
+    require len(sheets) > 1
+    sheet_to_delete = oneof ["Sheet1", "Sheet2", "Summary"]
+    remaining = []
+    found = False
+    for s in sheets:
+        if s == sheet_to_delete:
+            found = True
+        else:
+            remaining = remaining + [s]
+    if found and len(remaining) >= 1:
+        sheets = remaining
+        if active_sheet == sheet_to_delete:
+            active_sheet = sheets[0]
+        last_status = "OK"
+    else:
+        last_status = "CANNOT_DELETE"
 
-action DeleteSheet:
-    any sheet_to_delete in ["Sheet1", "Sheet2", "Summary"]:
-        atomic:
-            # Cannot delete last remaining sheet
-            if len(sheets) > 1 and sheet_to_delete in sheets:
-                sheets.remove(sheet_to_delete)
-                if active_sheet == sheet_to_delete:
-                    active_sheet = sheets[0]
-                last_status = "OK"
-            else:
-                last_status = "CANNOT_DELETE"
+atomic action AddNamedRange:
+    named_range_name = oneof ["SalesData", "TaxRate"]
+    named_range_target = oneof ["Sheet1!A1:B10", "Sheet2!C1:C5"]
+    last_status = "OK"
 
-action AddNamedRange:
-    any range_name in ["SalesData", "TaxRate", "HeaderRow"]:
-        any target_range in ["Sheet1!A1:B10", "Sheet2!C1:C5"]:
-            atomic:
-                named_ranges[range_name] = target_range
-                last_status = "OK"
+atomic action DeleteNamedRange:
+    range_name = oneof ["SalesData", "TaxRate", "NonExistent"]
+    if range_name == named_range_name:
+        named_range_name = ""
+        named_range_target = ""
+        last_status = "OK"
+    else:
+        last_status = "NOT_FOUND"
 
-action DeleteNamedRange:
-    any range_name in ["SalesData", "TaxRate", "NonExistent"]:
-        atomic:
-            if range_name in named_ranges:
-                del named_ranges[range_name]
-                last_status = "OK"
-            else:
-                last_status = "NOT_FOUND"
+always assertion Inv_SheetCountPositive:
+    return len(sheets) >= 1
 
-# Invariants
-invariant Inv_SheetCountPositive:
-    # A spreadsheet must always contain at least one sheet
-    len(sheets) >= 1
+always assertion Inv_ActiveSheetMustExist:
+    found = False
+    for s in sheets:
+        if s == active_sheet:
+            found = True
+    return found
 
-invariant Inv_ActiveSheetMustExist:
-    # Active sheet must always be in the list of open sheets
-    active_sheet in sheets
-
-invariant Inv_NamedRangesIntegrity:
-    # Named ranges count is non-negative
-    len(named_ranges) >= 0
+always assertion Inv_NamedRangesIntegrity:
+    return True

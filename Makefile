@@ -667,7 +667,7 @@ check-ext:
 # For LO tests: use Python that has uno/officehelper (LibreOffice's Python on Windows;
 # otherwise same as "python -m plugin.testing_runner").
 # We try to detect one that has the 'uno' module available, falling back to 'python' if none found.
-LO_PYTHON ?= $(shell python3 -c "import uno" 2>/dev/null && echo python3 || (python -c "import uno" 2>/dev/null && echo python || echo python))
+LO_PYTHON ?= $(shell python3 -c "import uno" 2>/dev/null && echo python3 || (python -c "import uno" 2>/dev/null && echo python || echo $(PYTHON)))
 
 # -j6 leaves a core free. Do not pass basedpyright --threads: it nests workers on this pool.
 typecheck: manifest ruff-for-build
@@ -816,14 +816,20 @@ install-fizzbee:
 	"$(PYTHON)" scripts/install_fizzbee.py --install
 
 check-fizzbee:
-	@if command -v fizzbee >/dev/null 2>&1 || [ -x .venv/bin/fizzbee ]; then \
+	@if command -v fizz >/dev/null 2>&1 || command -v fizzbee >/dev/null 2>&1 || [ -x .venv/bin/fizz ] || [ -x .venv/bin/fizzbee ]; then \
 		echo "=== Checking FizzBee Formal Models ==="; \
-		FB=$$(command -v fizzbee || echo ".venv/bin/fizzbee"); \
-		$$FB tests/mcp/fizzbee/writer_mcp_protocol.fizz; \
-		$$FB tests/mcp/fizzbee/writer_tools_model.fizz; \
-		$$FB tests/mcp/fizzbee/calc_tools_model.fizz; \
+		FB=$$(command -v fizz || command -v fizzbee || echo ".venv/bin/fizz"); \
+		if [ ! -x "$$FB" ]; then FB=".venv/bin/fizzbee"; fi; \
+		ok=0; \
+		for spec in tests/mcp/fizzbee/writer_mcp_protocol.fizz tests/mcp/fizzbee/writer_tools_model.fizz tests/mcp/fizzbee/calc_tools_model.fizz; do \
+			echo "--- $$spec ---"; \
+			if ! $$FB "$$spec" | tee /dev/stderr | grep -q "PASSED: Model checker completed successfully"; then \
+				echo "FAILED: $$spec"; ok=1; \
+			fi; \
+		done; \
+		exit $$ok; \
 	else \
-		echo "FizzBee is not installed. Run 'make install-fizzbee' or check docs/mcp-fizzbee-testing.md."; \
+		echo "FizzBee is not installed. Run 'make install-fizzbee' or check docs/tests/fizzbee-testing.md."; \
 		"$(PYTHON)" scripts/install_fizzbee.py --check; \
 	fi
 

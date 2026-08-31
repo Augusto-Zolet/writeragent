@@ -50,6 +50,10 @@ _manifest.py
 description.xml
 .coverage
 
+# FizzBee model-checker artifacts
+tests/mcp/fizzbee/out/
+tests/mcp/fizzbee/*.json
+
 # Accidentally added directories
 LibreAI/
 cursor-libreoffice/

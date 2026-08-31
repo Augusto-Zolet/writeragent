@@ -10,7 +10,7 @@ and provides verification against MCP wire format requirements.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Mapping, Tuple
 from unittest.mock import MagicMock
 
 from plugin.framework.config import init_config
@@ -182,6 +182,33 @@ def generate_random_tool_arguments(
     return args
 
 
+# Mutate-nested-then-read: independent tool picks never put a cursor in a cell
+# then read it. These pairs stay on the MCP wire (MagicMock execute) but the
+# *order* is what found apply_document_content using body XText inside a cell.
+WRITER_MUTATE_READ_PAIRS: Mapping[str, Tuple[str, ...]] = {
+    "table_insert": ("get_document_content", "apply_document_content", "table_get_cells"),
+    "table_set_cell": ("get_document_content", "apply_document_content"),
+    "manage_table_structure": ("get_document_content", "table_get_cells"),
+    "apply_document_content": ("get_document_content",),
+    "set_selection": ("apply_document_content", "get_document_content"),
+    "search_in_document": ("get_document_content", "apply_document_content"),
+}
+
+
+def pick_followup_tool(
+    last_tool: str,
+    tool_names: List[str],
+    rng: Any,
+    pairs: Mapping[str, Tuple[str, ...]] | None = None,
+) -> str | None:
+    """Return a follow-up tool name if last_tool has a pair present in tool_names."""
+    table = WRITER_MUTATE_READ_PAIRS if pairs is None else pairs
+    candidates = [name for name in table.get(last_tool, ()) if name in tool_names]
+    if not candidates:
+        return None
+    return rng.choice(candidates)
+
+
 def run_randomized_mcp_fuzz(
     handler: Any,
     all_tools: List[ToolBase],
@@ -189,11 +216,15 @@ def run_randomized_mcp_fuzz(
     duration_sec: float | None = None,
     seed: int = 42,
     mutate_error_rate: float = 0.05,
+    pair_bias: float = 0.4,
 ) -> Dict[str, Any]:
     """Execute a randomized fuzzing loop over the full layout of Writer tools.
 
     Runs either for a fixed number of steps or until duration_sec expires.
     Validates JSON-RPC envelopes and MCP protocol invariants on every single request.
+
+    pair_bias (default 0.4): after a mutate tool, this fraction of tool_calls
+    pick a follow-up from WRITER_MUTATE_READ_PAIRS instead of an independent tool.
     """
     import random
     import time
@@ -203,9 +234,11 @@ def run_randomized_mcp_fuzz(
     call_counts: Dict[str, int] = {}
     completed_steps = 0
     errors_encountered = 0
+    paired_followups = 0
 
     tool_map = {t.name: t for t in all_tools}
     tool_names = list(tool_map.keys())
+    last_tool_name: str | None = None
 
     while True:
         if duration_sec is not None:
@@ -218,10 +251,19 @@ def run_randomized_mcp_fuzz(
         action_type = rng.choices(["tool_call", "tools_list", "ping", "initialize"], weights=[80, 10, 5, 5])[0]
 
         if action_type == "tool_call":
-            tool_name = rng.choice(tool_names)
+            tool_name = None
+            if last_tool_name and pair_bias > 0 and rng.random() < pair_bias:
+                tool_name = pick_followup_tool(last_tool_name, tool_names, rng)
+                if tool_name is not None:
+                    paired_followups += 1
+            if tool_name is None:
+                tool_name = rng.choice(tool_names)
+            last_tool_name = tool_name
             tool = tool_map[tool_name]
             schema = to_mcp_schema(tool, doc_type="writer")
             arguments = generate_random_tool_arguments(schema, rng, mutate_error_rate=mutate_error_rate)
+            if tool_name == "apply_document_content" and rng.random() < 0.5:
+                arguments["target"] = "selection"
 
             # Patch tool.execute to return valid structured responses without external network I/O
             if not hasattr(tool, "_fuzz_patched"):
@@ -274,5 +316,6 @@ def run_randomized_mcp_fuzz(
         "errors_handled": errors_encountered,
         "unique_tools_invoked": len(call_counts),
         "call_distribution": call_counts,
+        "paired_followups": paired_followups,
     }
 

@@ -46,6 +46,12 @@ def main():
     parser.add_argument("--duration", type=float, default=None, help="Duration in seconds to run (overrides --steps)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility (default: 42)")
     parser.add_argument("--mutate-rate", type=float, default=0.08, help="Malformed argument mutation rate (default: 0.08)")
+    parser.add_argument(
+        "--pair-bias",
+        type=float,
+        default=0.4,
+        help="After a nested mutate, probability of a read/apply follow-up (0 disables; default 0.4)",
+    )
     parser.add_argument("--verbose", action="store_true", help="Print tool call distribution breakdown")
     args = parser.parse_args()
 
@@ -93,7 +99,10 @@ def main():
     log(f"Loaded {len(all_tools)} {app_name} tools ({len(layout['core_tools'])} core, {len(layout['specialized_tools'])} specialized across {len(layout['domain_map'])} domains).")
 
     mode_str = f"duration={args.duration}s" if args.duration else f"steps={args.steps}"
-    log(f"Starting FizzBee randomized MCP fuzzing ({mode_str}, seed={args.seed}, mutation_rate={args.mutate_rate})...")
+    log(
+        f"Starting FizzBee randomized MCP fuzzing ({mode_str}, seed={args.seed}, "
+        f"mutation_rate={args.mutate_rate}, pair_bias={args.pair_bias})..."
+    )
 
     try:
         result = run_randomized_mcp_fuzz(
@@ -103,6 +112,7 @@ def main():
             duration_sec=args.duration,
             seed=args.seed,
             mutate_error_rate=args.mutate_rate,
+            pair_bias=args.pair_bias,
         )
     except Exception as e:
         import traceback
@@ -118,6 +128,7 @@ def main():
     log(f"Throughput:             {result['calls_per_second']:,} requests/sec")
     log(f"Unique tools exercised: {result['unique_tools_invoked']} / {len(all_tools)}")
     log(f"Errors handled cleanly: {result['errors_handled']:,}")
+    log(f"Paired mutate→read steps: {result.get('paired_followups', 0):,}")
 
     if args.verbose:
         log("\nTool Invocation Distribution (Top 25):")

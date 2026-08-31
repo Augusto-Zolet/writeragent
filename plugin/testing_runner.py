@@ -704,6 +704,7 @@ def run_all_tests(ctx: Any) -> str:
         except Exception:
             pass
         try:
+            _ensure_libreoffice_python_path()
             import officehelper
 
             new_ctx = _bootstrap_office(officehelper)
@@ -828,6 +829,26 @@ def run_all_tests(ctx: Any) -> str:
     return json.dumps(summary, ensure_ascii=False, indent=2)
 
 
+def _ensure_libreoffice_python_path() -> None:
+    """Add standard LibreOffice installation directories to sys.path if not present."""
+    candidates = [
+        # Linux standard paths
+        Path("/usr/lib/libreoffice/program"),
+        Path("/usr/lib/python3/dist-packages"),
+        Path("/usr/lib64/libreoffice/program"),
+        Path("/opt/libreoffice/program"),
+        # macOS standard paths
+        Path("/Applications/LibreOffice.app/Contents/Resources"),
+        Path("/Applications/LibreOffice.app/Contents/Frameworks"),
+        Path("/Applications/LibreOffice.app/Contents/MacOS"),
+        # Windows standard paths
+        Path(os.environ.get("PROGRAMFILES", "C:\\Program Files") + "\\LibreOffice\\program"),
+    ]
+    for p in candidates:
+        if p.is_dir() and str(p) not in sys.path:
+            sys.path.append(str(p))
+
+
 def main() -> int:
     """Command-line entrypoint: bootstrap LO and run tests.
 
@@ -843,6 +864,7 @@ def main() -> int:
     The import of officehelper/uno is done lazily so that this module
     can still be imported inside LibreOffice without pulling them in.
     """
+    _ensure_libreoffice_python_path()
     try:
         import officehelper
     except ImportError:

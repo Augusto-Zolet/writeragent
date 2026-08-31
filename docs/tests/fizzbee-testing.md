@@ -4,6 +4,8 @@
 
 This document describes the formal model checking and Model-Based Testing (MBT) infrastructure for WriterAgent's **MCP (Model Context Protocol)** server across **Writer** and **Calc** full toolset layouts, powered by **FizzBee** (formal specification language and model checker) and Python MBT runners.
 
+The bar is **WriterAgent's mapping** (which `XText`, which range, which tool after a mutate), not a LibreOffice harness. Do not add random keystrokes, mouse, layout, fonts, undo, or spelling to this stack. Live UNO regressions such as `tests/writer/test_apply_document_content_table_cell_uno.py` stay in the native runner.
+
 ---
 
 ## 1. Motivation
@@ -16,6 +18,7 @@ Testing such large surfaces requires:
 1. **Full layout discovery and validation**: Ensuring all tools produce valid MCP JSON schemas (`inputSchema`, normalized parameter types, `document_url` targeting support).
 2. **Formal state machine modeling**: Verifying protocol transitions (`UNINITIALIZED` $\rightarrow$ `INITIALIZED`, exposure mode switches, session handling).
 3. **Safety and invariant verification**: Guaranteeing structured error envelopes on invalid tools or parameters, correct tool visibility under different exposure modes (`direct_flat`, `delegate`, `direct_discovery`), and document/spreadsheet state integrity.
+4. **Nested-text mapping**: A range never crosses two `XText` objects (body vs table cell vs footnote vs frame). Independent random tool picks against a MagicMock cannot see that; mutate-then-read sequences can.
 
 ---
 
@@ -25,7 +28,9 @@ FizzBee is distributed as a standalone binary (Go). We provide an automated inst
 
 ### Installation
 ```bash
-# Automated install into active virtual environment (.venv/bin/fizzbee)
+# Automated install into the venv (release tree under .venv/share/fizzbee,
+# wrappers at .venv/bin/fizz and .venv/bin/fizzbee). GitHub assets are
+# linux_x86 / linux_arm / macos_*; the installer must not grab protobuf stubs.
 make install-fizzbee
 # Or directly via python:
 python scripts/install_fizzbee.py --install
@@ -46,15 +51,20 @@ make check-fizzbee
 
 Formal specifications live in [`tests/mcp/fizzbee/`](../../tests/mcp/fizzbee/):
 
+Specs use real FizzBee syntax (`action Init` for state, `atomic action`, `oneof`, `always assertion`). A `state:` block and `invariant Name:` are not valid FizzBee.
+
 ### A. Protocol Lifecycle (`tests/mcp/fizzbee/writer_mcp_protocol.fizz`)
 - MCP server lifecycle states (`UNINITIALIZED`, `INITIALIZED`).
 - Exposure modes (`DELEGATE`, `DIRECT_FLAT`, `DIRECT_DISCOVERY`).
 - Document context targeting (`NONE`, `WRITER`, `CALC`, `DRAW`).
-- Invariants: `Inv_InitializedBeforeCalls`, `Inv_FindToolsGating`.
+- Assertions: `Inv_InitializedBeforeCalls`, `Inv_FindToolsGating` (call-time mode stored on `last_call_mode`, not a growing history).
 
 ### B. Writer Tools Model (`tests/mcp/fizzbee/writer_tools_model.fizz`)
-- Document text buffer, bookmarks, footnotes, tables, and track changes state.
-- Invariants: `Inv_BookmarksBounded`, `Inv_TablesValidDimensions`, `Inv_PendingChangesOnlyWhenRecorded`.
+- Nested containers: body string, each table's representative cell string, footnotes, frames.
+- Cursor: `(kind, id, start, end)` on one container.
+- Actions include `CreateTable`, `SetCell`, `MoveCursorToCell`, `ApplySelection` (writes the **cursor** container, not the body), `GetSelection`.
+- Invariants: `Inv_BookmarksBounded`, `Inv_TablesValidDimensions`, `Inv_PendingChangesOnlyWhenRecorded`, `Inv_CursorSameContainer`. Selection-vs-body mapping is checked in the Python nested-text oracle (FizzBee `last_op` cannot shrink that story).
+- Alphabet is bounded for model checking. Shrinkable stories live in [`tests/mcp/nested_text_model.py`](../../tests/mcp/nested_text_model.py) (e.g. create 3×2 table, put `"MinerU"` in A2, select the cell, delete 2 characters, get content, search-replace). If a tool uses body text while the cursor is in a cell, the Python model fails in milliseconds with a shrinkable seed — the same class of bug as `apply_document_content` building a cursor on `model.getText()` instead of `target_range.getText()`.
 
 ### C. Calc Tools Model (`tests/mcp/fizzbee/calc_tools_model.fizz`)
 - Spreadsheet grid cells, formula ranges, sheet management, named ranges, and filters.
@@ -123,9 +133,18 @@ python scripts/fizzbee_mcp_fuzzer.py --app calc --duration 5
 
 # Run for a specific step count with malformed parameter mutations
 python scripts/fizzbee_mcp_fuzzer.py --app calc --steps 2000 --mutate-rate 0.15 --verbose
+
+# Writer: bias toward mutate-nested-then-read (default --pair-bias 0.4)
+python scripts/fizzbee_mcp_fuzzer.py --app writer --steps 2000 --pair-bias 0.4
+
+# Independent tool picks only (schema/wire fuzz, no pair follow-ups)
+python scripts/fizzbee_mcp_fuzzer.py --app writer --steps 2000 --pair-bias 0
 ```
+
+The CLI fuzzer still mocks `execute` (schema and JSON-RPC envelopes). That is why thousands of steps in 30 seconds is cheap. Pair bias does **not** run UNO; it only stops picking tools independently so sequences like `table_insert` → `get_document_content` or `apply_document_content` with `target=selection` after a nested mutate appear often. That order is what found the cell-content bug; MagicMock still cannot *execute* it. The nested-text oracle is the fast checker for container identity.
 
 ### Fuzzer Performance & Metrics
 - **Throughput**: ~750–1,000 JSON-RPC requests/second.
 - **Coverage**: Exercises **100% of all tools** in ~2 seconds.
 - **Invariants Checked**: Validates JSON-RPC 2.0 response format, correct request/response ID matching, error envelope schemas, and absence of server crashes on every request.
+- **Pair follow-ups**: Counted as `paired_followups` in the CLI summary.

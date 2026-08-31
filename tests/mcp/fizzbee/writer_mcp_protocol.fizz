@@ -1,89 +1,62 @@
-# WriterAgent - MCP Protocol Lifecycle & Tool Visibility Specification
-# Formal specification in FizzBee (https://fizzbee.io)
-#
-# Models:
-# - MCP Server lifecycle (UNINITIALIZED -> INITIALIZED)
-# - Tool exposure modes (delegate, direct_flat, direct_discovery)
-# - Document context targeting (active vs explicit document_url)
-# - Invariant checks on error envelopes and tool discovery
+---
+options:
+  max_actions: 10
+  max_concurrent_actions: 1
+  crash_on_yield: false
+deadlock_detection: false
+---
+# MCP lifecycle. last_tool is the latest call only (no growing history).
 
-# States and Constants
-enum State:
-    UNINITIALIZED
-    INITIALIZED
+State = enum("UNINITIALIZED", "INITIALIZED")
+ExposureMode = enum("DELEGATE", "DIRECT_FLAT", "DIRECT_DISCOVERY")
+DocType = enum("NONE", "WRITER", "CALC", "DRAW")
 
-enum ExposureMode:
-    DELEGATE
-    DIRECT_FLAT
-    DIRECT_DISCOVERY
-
-enum DocType:
-    NONE
-    WRITER
-    CALC
-    DRAW
-
-# Server state
-state:
+action Init:
     status = State.UNINITIALIZED
     mode = ExposureMode.DELEGATE
     active_doc = DocType.WRITER
-    session_ids = []
-    call_history = []
+    last_error = None
+    last_tool = ""
+    last_call_mode = ExposureMode.DELEGATE
+
+atomic action Initialize:
+    require status == State.UNINITIALIZED
+    status = State.INITIALIZED
     last_error = None
 
-# Actions
-action Init:
-    if status == State.UNINITIALIZED:
-        atomic:
-            status = State.INITIALIZED
-            session_ids.append("session_1")
-            last_error = None
+atomic action SwitchMode:
+    mode = oneof [ExposureMode.DELEGATE, ExposureMode.DIRECT_FLAT, ExposureMode.DIRECT_DISCOVERY]
 
-action SwitchMode:
-    any new_mode in [ExposureMode.DELEGATE, ExposureMode.DIRECT_FLAT, ExposureMode.DIRECT_DISCOVERY]:
-        mode = new_mode
+atomic action ChangeActiveDocument:
+    active_doc = oneof [DocType.NONE, DocType.WRITER, DocType.CALC, DocType.DRAW]
 
-action ChangeActiveDocument:
-    any new_doc in [DocType.NONE, DocType.WRITER, DocType.CALC, DocType.DRAW]:
-        active_doc = new_doc
-
-action ListTools:
-    # Model checking tools/list output behavior based on mode and doc_type
+atomic action ListTools:
     if status != State.INITIALIZED:
         last_error = "NOT_INITIALIZED"
     else:
-        atomic:
-            last_error = None
-            if mode == ExposureMode.DIRECT_FLAT:
-                # Exposes core + specialized tools (excluding specialized_control)
-                call_history.append({"action": "tools/list", "mode": "direct_flat", "doc": active_doc})
-            elif mode == ExposureMode.DIRECT_DISCOVERY:
-                # Exposes core tools + find_tools
-                call_history.append({"action": "tools/list", "mode": "direct_discovery", "doc": active_doc})
-            else:
-                # Delegate mode: only core tools
-                call_history.append({"action": "tools/list", "mode": "delegate", "doc": active_doc})
+        last_error = None
+        last_tool = "tools/list"
+        last_call_mode = mode
 
-action CallTool:
-    any tool_name in ["apply_document_content", "get_document_content", "find_tools", "bookmark_insert", "invalid_tool"]:
-        if status != State.INITIALIZED:
-            last_error = "SERVER_NOT_INITIALIZED"
-        elif tool_name == "invalid_tool":
-            last_error = "UNKNOWN_TOOL"
-        elif tool_name == "find_tools" and mode != ExposureMode.DIRECT_DISCOVERY:
-            # find_tools is only callable when mode is direct_discovery
-            last_error = "UNKNOWN_TOOL"
-        else:
-            atomic:
-                last_error = None
-                call_history.append({"action": "tools/call", "tool": tool_name})
+atomic action CallTool:
+    tool_name = oneof ["apply_document_content", "get_document_content", "find_tools", "invalid_tool"]
+    if status != State.INITIALIZED:
+        last_error = "SERVER_NOT_INITIALIZED"
+    elif tool_name == "invalid_tool":
+        last_error = "UNKNOWN_TOOL"
+    elif tool_name == "find_tools" and mode != ExposureMode.DIRECT_DISCOVERY:
+        last_error = "UNKNOWN_TOOL"
+    else:
+        last_error = None
+        last_tool = tool_name
+        last_call_mode = mode
 
-# Invariants
-invariant Inv_InitializedBeforeCalls:
-    # Calling tools or listing when uninitialized must record an error
-    (status == State.UNINITIALIZED and len(call_history) > 0) == False
+always assertion Inv_InitializedBeforeCalls:
+    if status == State.UNINITIALIZED and last_tool != "":
+        return False
+    return True
 
-invariant Inv_FindToolsGating:
-    # find_tools can only succeed in direct_discovery mode
-    not (mode != ExposureMode.DIRECT_DISCOVERY and len([c for c in call_history if c.get("tool") == "find_tools"]) > 0 and last_error == None)
+always assertion Inv_FindToolsGating:
+    if last_tool == "find_tools" and last_error == None:
+        return last_call_mode == ExposureMode.DIRECT_DISCOVERY
+    return True

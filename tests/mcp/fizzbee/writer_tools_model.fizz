@@ -1,107 +1,220 @@
-# WriterAgent - Writer Tools Model & State Transitions Specification
-# Formal specification in FizzBee (https://fizzbee.io)
-#
-# Models:
-# - Writer document buffer state & mutations
-# - Domain-specific operations (bookmarks, footnotes, tables, track changes)
-# - Safety invariants (non-corruption, valid index ranges, tracking integrity)
+---
+options:
+  max_actions: 4
+  max_concurrent_actions: 1
+  crash_on_yield: false
+deadlock_detection: false
+---
+# Nested-text mapping: one XText per container. Stories: tests/mcp/nested_text_model.py.
 
-state:
-    doc_text = ""
+action Init:
+    body_text = ""
     bookmarks = {}
     footnotes = {}
+    frames = {}
     tables = {}
     track_changes_enabled = False
-    pending_changes = []
+    pending_count = 0
+    last_status = "OK"
+    cursor_kind = "body"
+    cursor_id = ""
+    cursor_start = 0
+    cursor_end = 0
+    last_apply_kind = "body"
+
+atomic action ApplyContent:
+    require len(body_text) < 10
+    text = oneof ["Hello", "Intro"]
+    target = oneof ["end", "start", "replace_all"]
+    if target == "replace_all":
+        body_text = text
+    elif target == "start":
+        body_text = text + body_text
+    else:
+        body_text = body_text + text
+    last_status = "OK"
+    last_apply_kind = "body"
+    cursor_kind = "body"
+    cursor_id = ""
+    cursor_start = 0
+    cursor_end = 0
+    bookmarks = {}
+
+atomic action ApplySelection:
+    text = oneof ["Z", "EDIT"]
+    # Correct mapping: write the cursor container, never the body while nested.
+    if cursor_kind == "cell":
+        tname = cursor_id
+        if tname in tables:
+            t = tables[tname]
+            tables[tname] = {"rows": t["rows"], "cols": t["cols"], "cell": text}
+            last_apply_kind = "cell"
+            last_status = "OK"
+            cursor_start = 0
+            cursor_end = len(text)
+        else:
+            last_status = "NOT_FOUND"
+    elif cursor_kind == "footnote":
+        if cursor_id in footnotes:
+            footnotes[cursor_id] = text
+            last_apply_kind = "footnote"
+            last_status = "OK"
+            cursor_start = 0
+            cursor_end = len(text)
+        else:
+            last_status = "NOT_FOUND"
+    elif cursor_kind == "frame":
+        if cursor_id in frames:
+            frames[cursor_id] = text
+            last_apply_kind = "frame"
+            last_status = "OK"
+            cursor_start = 0
+            cursor_end = len(text)
+        else:
+            last_status = "NOT_FOUND"
+    else:
+        body_text = text
+        last_apply_kind = "body"
+        last_status = "OK"
+        cursor_start = 0
+        cursor_end = len(text)
+        bookmarks = {}
+
+atomic action InsertBookmark:
+    name = oneof ["bm_intro", "bm_chapter1"]
+    bookmarks[name] = len(body_text)
     last_status = "OK"
 
-# Actions for Core & Specialized Writer Tools
-
-action ApplyContent:
-    any text in ["Hello", "Introduction\n", "Chapter 1\n", "Conclusion"]:
-        any target in ["end", "start", "replace_all"]:
-            atomic:
-                if target == "replace_all":
-                    doc_text = text
-                elif target == "start":
-                    doc_text = text + doc_text
-                elif target == "end":
-                    doc_text = doc_text + text
-                last_status = "OK"
-
-action InsertBookmark:
-    any name in ["bm_intro", "bm_chapter1", "bm_ref"]:
-        atomic:
-            pos = len(doc_text)
-            bookmarks[name] = pos
-            last_status = "OK"
-
-action DeleteBookmark:
-    any name in ["bm_intro", "bm_chapter1", "bm_ref", "non_existent"]:
-        atomic:
-            if name in bookmarks:
-                del bookmarks[name]
-                last_status = "OK"
-            else:
-                last_status = "NOT_FOUND"
-
-action InsertFootnote:
-    any text in ["Citation 1", "See note"]:
-        atomic:
-            fn_id = "fn_" + str(len(footnotes) + 1)
-            footnotes[fn_id] = text
-            last_status = "OK"
-
-action DeleteFootnote:
-    any fn_id in ["fn_1", "fn_2", "fn_invalid"]:
-        atomic:
-            if fn_id in footnotes:
-                del footnotes[fn_id]
-                last_status = "OK"
-            else:
-                last_status = "NOT_FOUND"
-
-action CreateTable:
-    any table_name in ["Table1", "Table2"]:
-        any rows in [1, 2, 3]:
-            any cols in [1, 2, 3]:
-                atomic:
-                    tables[table_name] = {"rows": rows, "cols": cols}
-                    last_status = "OK"
-
-action ToggleTrackChanges:
-    any enable in [True, False]:
-        atomic:
-            track_changes_enabled = enable
-            last_status = "OK"
-
-action RecordChange:
-    if track_changes_enabled:
-        any change_desc in ["inserted text", "deleted paragraph"]:
-            atomic:
-                ch_id = "ch_" + str(len(pending_changes) + 1)
-                pending_changes.append(ch_id)
-                last_status = "OK"
+atomic action DeleteBookmark:
+    name = oneof ["bm_intro", "bm_chapter1", "non_existent"]
+    if name in bookmarks:
+        bookmarks.pop(name)
+        last_status = "OK"
     else:
-        last_status = "TRACKING_DISABLED"
+        last_status = "NOT_FOUND"
 
-action ResolveChange:
-    if len(pending_changes) > 0:
-        any resolution in ["accept", "reject"]:
-            atomic:
-                # Remove first change
-                pending_changes.pop(0)
-                last_status = "OK"
+atomic action InsertFootnote:
+    require len(footnotes) < 2
+    text = oneof ["Citation 1", "See note"]
+    fn_id = "fn_" + str(len(footnotes) + 1)
+    footnotes[fn_id] = text
+    last_status = "OK"
 
-# Invariants
-invariant Inv_BookmarksBounded:
-    # All bookmarks must have positions within valid range
-    all(pos <= len(doc_text) for pos in bookmarks.values())
+atomic action DeleteFootnote:
+    fn_id = oneof ["fn_1", "fn_2", "fn_invalid"]
+    if fn_id in footnotes:
+        footnotes.pop(fn_id)
+        if cursor_kind == "footnote" and cursor_id == fn_id:
+            cursor_kind = "body"
+            cursor_id = ""
+            cursor_start = 0
+            cursor_end = 0
+        last_status = "OK"
+    else:
+        last_status = "NOT_FOUND"
 
-invariant Inv_TablesValidDimensions:
-    # All tables must have positive rows and columns
-    all(t["rows"] > 0 and t["cols"] > 0 for t in tables.values())
+atomic action InsertFrame:
+    require len(frames) < 2
+    fr_id = "fr_" + str(len(frames) + 1)
+    frames[fr_id] = "frame text"
+    last_status = "OK"
 
-invariant Inv_PendingChangesOnlyWhenRecorded:
-    # Non-negative pending changes
-    len(pending_changes) >= 0
+atomic action CreateTable:
+    table_name = oneof ["Table1", "Table2"]
+    rows = 2
+    cols = 2
+    tables[table_name] = {"rows": rows, "cols": cols, "cell": ""}
+    last_status = "OK"
+
+atomic action SetCell:
+    table_name = oneof ["Table1", "Table2"]
+    text = oneof ["MinerU", "ab"]
+    if table_name in tables:
+        t = tables[table_name]
+        tables[table_name] = {"rows": t["rows"], "cols": t["cols"], "cell": text}
+        last_status = "OK"
+    else:
+        last_status = "NOT_FOUND"
+
+atomic action MoveCursorToCell:
+    table_name = oneof ["Table1", "Table2"]
+    if table_name in tables:
+        cursor_kind = "cell"
+        cursor_id = table_name
+        cursor_start = 0
+        cursor_end = len(tables[table_name]["cell"])
+        last_status = "OK"
+    else:
+        last_status = "NOT_FOUND"
+
+atomic action MoveCursorToFootnote:
+    fn_id = oneof ["fn_1", "fn_2"]
+    if fn_id in footnotes:
+        cursor_kind = "footnote"
+        cursor_id = fn_id
+        cursor_start = 0
+        cursor_end = len(footnotes[fn_id])
+        last_status = "OK"
+    else:
+        last_status = "NOT_FOUND"
+
+atomic action DeleteCharsInCursor:
+    if cursor_kind == "cell" and cursor_id in tables:
+        t = tables[cursor_id]
+        tables[cursor_id] = {"rows": t["rows"], "cols": t["cols"], "cell": ""}
+        cursor_end = 0
+        last_status = "OK"
+    elif cursor_kind == "footnote" and cursor_id in footnotes:
+        footnotes[cursor_id] = ""
+        cursor_end = 0
+        last_status = "OK"
+    elif cursor_kind == "frame" and cursor_id in frames:
+        frames[cursor_id] = ""
+        cursor_end = 0
+        last_status = "OK"
+    else:
+        body_text = ""
+        cursor_end = 0
+        bookmarks = {}
+        last_status = "OK"
+
+atomic action GetSelection:
+    last_status = "OK"
+
+atomic action ToggleTrackChanges:
+    enable = oneof [True, False]
+    track_changes_enabled = enable
+    last_status = "OK"
+
+atomic action RecordChange:
+    require track_changes_enabled
+    require pending_count < 2
+    pending_count = pending_count + 1
+    last_status = "OK"
+
+atomic action ResolveChange:
+    require pending_count > 0
+    pending_count = pending_count - 1
+    last_status = "OK"
+
+always assertion Inv_BookmarksBounded:
+    for pos in bookmarks.values():
+        if pos > len(body_text):
+            return False
+    return True
+
+always assertion Inv_TablesValidDimensions:
+    for t in tables.values():
+        if t["rows"] <= 0 or t["cols"] <= 0:
+            return False
+    return True
+
+always assertion Inv_PendingChangesOnlyWhenRecorded:
+    return pending_count >= 0
+
+always assertion Inv_CursorSameContainer:
+    return cursor_start >= 0 and cursor_end >= cursor_start
+
+always assertion Inv_ApplyWroteCursorKind:
+    # ApplySelection records last_apply_kind from the cursor at apply time.
+    return last_apply_kind == "body" or last_apply_kind == "cell" or last_apply_kind == "footnote" or last_apply_kind == "frame"
