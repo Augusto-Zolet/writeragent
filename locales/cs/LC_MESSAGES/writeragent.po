@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Czech <LL@li.org>\n"
@@ -202,6 +202,10 @@ msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr ""
 "Koncový bod nebyl nalezen (404). Zkontrolujte adresu URL a název modelu."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Limit požadavků překročen (429). Počkejte chvíli a zkuste to znovu."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -211,6 +215,16 @@ msgstr "Chyba serveru ({0}). Poskytovatel AI má potíže."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "Chyba HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"Pro {0} není nastaven žádný klíč API. Otevřete Nastavení a přidejte klíč."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr "Není nastaven žádný klíč API. Otevřete Nastavení a přidejte klíč."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -319,6 +333,11 @@ msgid ""
 msgstr ""
 "Model opakuje stejný úsek (nekonečná smyčka). Zkuste to znovu nebo použijte "
 "jiný model."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Poskytovatel je zaneprázdněn, opakuji za {0} s…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -471,6 +490,11 @@ msgstr "Editor Pythonu neočekávaně selhal."
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "Pro úpravu Pythonu vyberte buňku v tabulkovém dokumentu Calc."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Nelze otevřít buňku kódu {0}."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1124,6 +1148,10 @@ msgstr "Informační panel hodnocení"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Ladění"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Nebyla detekována žádná řeč.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2194,13 +2222,8 @@ msgstr ""
 "přidejte inicializační skript."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Tento dokument Writer neobsahuje žádný registr importovaných poznámkových "
-"bloků. Nejprve zvolte Soubor → Otevřít poznámkový blok Jupyter (.ipynb) pro "
-"povolení resetování relace Pythonu v poznámkovém bloku."
+msgid "Python session reset for this document."
+msgstr "Relace Pythonu pro tento dokument byla resetována."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3203,6 +3226,16 @@ msgstr "Model (volitelné)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Ponechte prázdné pro použití stejného textového modelu jako u chatu."
+
+msgid "Recheck this document"
+msgstr "Znovu zkontrolovat tento dokument"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Vymaže mezipaměť výsledků kontroly gramatiky pro tento dokument a požádá "
+"Writer o novou kontrolu. Použijte po změně kontroloru nebo modelu."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Pozastavit gramatiku během běhu chatu/agenta"

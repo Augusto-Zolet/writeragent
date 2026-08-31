@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WriterAgent 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: 2024-03-21 12:00+0000\n"
 "Last-Translator: \n"
 "Language-Team: German\n"
@@ -199,6 +199,11 @@ msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr ""
 "Endpunkt nicht gefunden (404). Überprüfen Sie Ihre URL und den Modellnamen."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr ""
+"Ratenbegrenzung (429). Warten Sie einen Moment und versuchen Sie es erneut."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -208,6 +213,19 @@ msgstr "Serverfehler ({0}). Der KI-Anbieter hat Probleme."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP-Fehler {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"Kein API-Schlüssel für {0} konfiguriert. Öffnen Sie die Einstellungen und "
+"fügen Sie einen Schlüssel hinzu."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr ""
+"Kein API-Schlüssel konfiguriert. Öffnen Sie die Einstellungen und fügen Sie "
+"einen Schlüssel hinzu."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -314,6 +332,11 @@ msgid ""
 msgstr ""
 "Das Modell wiederholt denselben Block (Endlosschleife). Versuchen Sie es "
 "erneut oder verwenden Sie ein anderes Modell."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Anbieter ausgelastet, erneuter Versuch in {0}s…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -472,6 +495,11 @@ msgstr "Der Python-Editor wurde unerwartet beendet."
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr ""
 "Wählen Sie eine Zelle in einer Calc-Tabelle aus, um Python zu bearbeiten."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Der Code-Bereich {0} konnte nicht geöffnet werden."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1136,6 +1164,10 @@ msgstr "Evaluations-Dashboard"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Fehlersuche"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Keine Sprache erkannt.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2224,13 +2256,8 @@ msgstr ""
 "wenn Sie aufwendige, einmalige Arbeitsmappen-Einrichtungen löschen müssen."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Dieses Writer-Dokument enthält kein importiertes Notebook-Verzeichnis. Datei"
-" → Öffnen Sie zuerst ein Jupyter-Notebook (.ipynb), um den Python-Sitzungs-"
-"Reset für Notebooks zu aktivieren."
+msgid "Python session reset for this document."
+msgstr "Python-Sitzung für dieses Dokument zurückgesetzt."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3237,6 +3264,17 @@ msgstr "Modell (optional)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Leer lassen, um dasselbe Textmodell wie im Chat zu verwenden."
+
+msgid "Recheck this document"
+msgstr "Dokument erneut prüfen"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Löscht zwischengespeicherte Grammatikergebnisse für dieses Dokument und "
+"veranlasst Writer zu einer erneuten Prüfung. Nach dem Ändern der Prüfung "
+"oder des Modells verwenden."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Grammatik während Chat/Agent pausieren"

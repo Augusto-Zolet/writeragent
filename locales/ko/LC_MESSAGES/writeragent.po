@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Korean <LL@li.org>\n"
@@ -191,6 +191,10 @@ msgstr "API 접근이 거부되었습니다. 키에 해당 모델에 대한 권�
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "엔드포인트를 찾을 수 없습니다(404). URL 및 모델 이름을 확인하십시오."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "요청 제한(429)입니다. 잠시 후 다시 시도하세요."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -200,6 +204,15 @@ msgstr "서버 오류({0}). AI 제공업체에 문제가 발생했습니다."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP 오류 {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr "{0}에 대해 구성된 API 키가 없습니다. 설정을 열고 키를 추가하세요."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr "구성된 API 키가 없습니다. 설정을 열고 키를 추가하세요."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -296,6 +309,11 @@ msgid ""
 "The model is repeating the same chunk (infinite loop). Try again or use a "
 "different model."
 msgstr "모델이 동일한 청크를 반복하고 있습니다(무한 루프). 다시 시도하거나 다른 모델을 사용하세요."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "공급자가 바쁩니다. {0}초 후 재시도합니다…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -444,6 +462,11 @@ msgstr "Python 편집기가 예기치 않게 실패했습니다."
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "Python을 편집하려면 Calc 스프레드시트에서 셀을 선택하십시오."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "코드 셀 {0}을(를) 열 수 없습니다."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1089,6 +1112,10 @@ msgstr "평가 대시보드"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "디버그"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[음성이 감지되지 않았습니다.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2118,12 +2145,8 @@ msgstr ""
 " 많이 드는 일회성 통합 문서 설정이 필요한 경우 초기화 스크립트를 추가하십시오."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"이 Writer 문서에는 가져온 노트북 레지스트리가 없습니다. 노트북 Python 세션 재설정을 활성화하려면 먼저 파일 → Jupyter"
-" 노트북(.ipynb) 열기를 수행하십시오."
+msgid "Python session reset for this document."
+msgstr "이 문서에 대한 Python 세션이 초기화되었습니다."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3097,6 +3120,14 @@ msgstr "모델 (선택 사항)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "채팅과 동일한 텍스트 모델을 사용하려면 비워 두십시오."
+
+msgid "Recheck this document"
+msgstr "이 문서 다시 확인"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr "이 문서에 대한 캐시된 문법 결과를 지우고 Writer에 다시 확인을 요청합니다. 검사기나 모델을 변경한 후 사용하세요."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "채팅/에이전트 실행 중 문법 검사 일시 중지"

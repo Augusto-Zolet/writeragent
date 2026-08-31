@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Dutch <LL@li.org>\n"
@@ -202,6 +202,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "Eindpunt niet gevonden (404). Controleer uw URL en modelnaam."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Snelheidslimiet bereikt (429). Wacht even en probeer het opnieuw."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -211,6 +215,18 @@ msgstr "Serverfout ({0}). De AI-provider ondervindt problemen."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP-fout {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"Geen API-sleutel geconfigureerd voor {0}. Open Instellingen en voeg een "
+"sleutel toe."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr ""
+"Geen API-sleutel geconfigureerd. Open Instellingen en voeg een sleutel toe."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -315,6 +331,11 @@ msgid ""
 msgstr ""
 "Het model herhaalt hetzelfde fragment (oneindige lus). Probeer het opnieuw "
 "of gebruik een ander model."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Provider bezet, opnieuw proberen over {0}s…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -470,6 +491,11 @@ msgstr "De Python-editor is onverwacht afgesloten."
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "Selecteer een cel in een Calc-werkblad om Python te bewerken."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Kon de codecel {0} niet openen."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1129,6 +1155,10 @@ msgstr "Evaluatiedashboard"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Debuggen"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Geen spraak gedetecteerd.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2200,13 +2230,8 @@ msgstr ""
 "wissen."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Dit Writer-document heeft geen geïmporteerd notebookregister. Bestand → Open"
-" een Jupyter-notebook (.ipynb) om de Python-sessie van het notebook opnieuw "
-"in te stellen."
+msgid "Python session reset for this document."
+msgstr "Python-sessie voor dit document gereset."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3211,6 +3236,17 @@ msgstr "Model (optioneel)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Laat leeg om hetzelfde tekstmodel als de chat te gebruiken."
+
+msgid "Recheck this document"
+msgstr "Dit document opnieuw controleren"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Wist de gecachte grammaticaresultaten voor dit document en vraagt Writer om "
+"opnieuw te controleren. Gebruik dit na het wijzigen van de controleur of het"
+" model."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Grammaticacontrole pauzeren tijdens chat/agent"

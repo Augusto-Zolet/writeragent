@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WriterAgent 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: \n"
 "Language-Team: Swedish\n"
@@ -195,6 +195,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "Slutpunkt hittades inte (404). Kontrollera din URL och modellnamn."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Hastighetsbegränsning (429). Vänta en stund och försök igen."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -204,6 +208,18 @@ msgstr "Serverfel ({0}). AI-leverantören har problem."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP-fel {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"Ingen API-nyckel konfigurerad för {0}. Öppna Inställningar och lägg till en "
+"nyckel."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr ""
+"Ingen API-nyckel konfigurerad. Öppna Inställningar och lägg till en nyckel."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -310,6 +326,11 @@ msgid ""
 msgstr ""
 "Modellen upprepar samma segment (oändlig loop). Försök igen eller använd en "
 "annan modell."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Leverantören är upptagen, försöker igen om {0} s…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -461,6 +482,11 @@ msgstr "Python-redigeraren misslyckades oväntat."
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "Markera en cell i ett Calc-kalkylblad för att redigera Python."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Kunde inte öppna kodcellen {0}."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1117,6 +1143,10 @@ msgstr "Utvärderingspanel"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Felsökning"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Inget tal detekterat.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2186,13 +2216,8 @@ msgstr ""
 "för arbetsboken."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Detta Writer-dokument har inget register för importerade anteckningsböcker. "
-"Arkiv → Öppna en Jupyter-anteckningsbok (.ipynb) för att aktivera "
-"återställning av Python-session för anteckningsbok."
+msgid "Python session reset for this document."
+msgstr "Python-sessionen har återställts för detta dokument."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3187,6 +3212,16 @@ msgstr "Modell (valfritt)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Lämna tomt för att använda samma textmodell som chatten."
+
+msgid "Recheck this document"
+msgstr "Kontrollera dokumentet igen"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Rensar cachade grammatikresultat för detta dokument och ber Writer att "
+"kontrollera igen. Används efter byte av kontrollverktyg eller modell."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Pausa grammatik medan chatt/agent körs"

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Catalan <LL@li.org>\n"
@@ -203,6 +203,11 @@ msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr ""
 "No s'ha trobat el punt final (404). Comproveu l'URL i el nom del model."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr ""
+"Límit de velocitat assolit (429). Espereu un moment i torneu-ho a provar."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -212,6 +217,18 @@ msgstr "Error del servidor ({0}). El proveïdor d'IA té problemes."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "Error HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"No s'ha configurat cap clau d'API per a {0}. Obriu la configuració i afegiu "
+"una clau."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr ""
+"No s'ha configurat cap clau d'API. Obriu la configuració i afegiu una clau."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -323,6 +340,11 @@ msgid ""
 msgstr ""
 "El model repeteix el mateix fragment (bucle infinit). Torneu-ho a provar o "
 "utilitzeu un model diferent."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "El proveïdor està ocupat, es tornarà a provar en {0} s…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -479,6 +501,11 @@ msgstr "L'editor de Python ha fallat inesperadament."
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr ""
 "Seleccioneu una cel·la en un full de càlcul del Calc per editar Python."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "No s'ha pogut obrir la cel·la de codi {0}."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1138,6 +1165,10 @@ msgstr "Tauler d'avaluació"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Depura"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[No s'ha detectat veu.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2225,13 +2256,8 @@ msgstr ""
 "costosa del llibre de treball d'un sol ús."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Aquest document del Writer no té cap registre de quadern importat. Primer "
-"aneu a Fitxer → Obre un quadern Jupyter (.ipynb) per habilitar el "
-"restabliment de la sessió de Python del quadern."
+msgid "Python session reset for this document."
+msgstr "S'ha restablert la sessió de Python per a aquest document."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3240,6 +3266,17 @@ msgstr "Model (opcional)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Deixeu-ho buit per utilitzar el mateix model de text que el xat."
+
+msgid "Recheck this document"
+msgstr "Torna a comprovar aquest document"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Esborra els resultats gramaticals en memòria cau per a aquest document i "
+"demana al Writer que torni a comprovar-lo. Utilitzeu-ho després de canviar "
+"el corrector o el model."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Pausa la gramàtica mentre s'executa el xat/agent"

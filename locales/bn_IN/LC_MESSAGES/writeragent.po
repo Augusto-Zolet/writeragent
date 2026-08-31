@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bengali <LL@li.org>\n"
@@ -202,6 +202,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "এন্ডপয়েন্ট পাওয়া যায়নি (404)। আপনার URL এবং মডেলের নাম চেক করুন।"
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "রেট লিমিটেড (৪২৯)। কিছুক্ষণ অপেক্ষা করে আবার চেষ্টা করুন।"
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -211,6 +215,18 @@ msgstr "সার্ভার ত্রুটি ({0})। AI প্রোভা�
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP ত্রুটি {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"{0}-এর জন্য কোনো এপিআই (API) কি কনফিগার করা নেই। সেটিংস খুলুন এবং একটি কি "
+"যোগ করুন।"
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr ""
+"কোনো এপিআই (API) কি কনফিগার করা নেই। সেটিংস খুলুন এবং একটি কি যোগ করুন।"
 
 #: plugin/framework/errors.py
 msgid ""
@@ -318,6 +334,11 @@ msgid ""
 msgstr ""
 "মডেলটি একই অংশ বারবার পুনরাবৃত্তি করছে (ইনফিনিট লুপ)। আবার চেষ্টা করুন অথবা "
 "অন্য একটি মডেল ব্যবহার করুন।"
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "প্রোভাইডার ব্যস্ত, {0} সেকেন্ডে পুনরায় চেষ্টা করা হচ্ছে…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -469,6 +490,11 @@ msgstr "পাইথন এডিটরটি অপ্রত্যাশিত�
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "পাইথন সম্পাদনা করতে Calc স্প্রেডশিটে একটি সেল নির্বাচন করুন।"
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "কোড সেল {0} খোলা যায়নি।"
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1126,6 +1152,10 @@ msgstr "মূল্যায়ন ড্যাশবোর্ড"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "ডিবাগ"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[কোনো স্পিচ শনাক্ত হয়নি।]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2199,12 +2229,8 @@ msgstr ""
 "যোগ করুন।"
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"এই Writer নথিতে কোনো ইম্পোর্ট করা নোটবুক রেজিস্ট্রি নেই। নোটবুক পাইথন সেশন "
-"রিসেট সক্রিয় করতে প্রথমে ফাইল → একটি জুপিটার নোটবুক (.ipynb) খুলুন।"
+msgid "Python session reset for this document."
+msgstr "এই নথির জন্য পাইথন সেশন রিসেট করা হয়েছে।"
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3200,6 +3226,16 @@ msgstr "মডেল (ঐচ্ছিক)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "চ্যাটের মতো একই টেক্সট মডেল ব্যবহার করতে খালি রাখুন।"
+
+msgid "Recheck this document"
+msgstr "এই নথিটি পুনরায় পরীক্ষা করুন"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"এই নথির জন্য ক্যাশ করা ব্যাকরণ ফলাফল মুছে ফেলে এবং রাইটারকে পুনরায় পরীক্ষা "
+"করতে বলে। চেকার বা মডেল পরিবর্তন করার পর এটি ব্যবহার করুন।"
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "চ্যাট/এজেন্ট চলাকালীন ব্যাকরণ পরীক্ষা বিরতি দিন"

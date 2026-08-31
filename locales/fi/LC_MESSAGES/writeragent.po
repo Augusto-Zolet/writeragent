@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Finnish <LL@li.org>\n"
@@ -203,6 +203,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "Päätepistettä ei löytynyt (404). Tarkista URL-osoite ja mallin nimi."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Nopeusrajoitus (429). Odota hetki ja yritä uudelleen."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -212,6 +216,16 @@ msgstr "Palvelinvirhe ({0}). AI-palveluntarjoajalla on ongelmia."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP-virhe {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"Palvelulle {0} ei ole määritetty API-avainta. Avaa asetukset ja lisää avain."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr "API-avainta ei ole määritetty. Avaa asetukset ja lisää avain."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -319,6 +333,12 @@ msgid ""
 msgstr ""
 "Malli toistaa samaa osaa (päättymätön silmukka). Yritä uudelleen tai käytä "
 "toista mallia."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr ""
+"Palveluntarjoaja on varattu, yritetään uudelleen {0} sekunnin kuluttua…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -473,6 +493,11 @@ msgstr "Python-editori kaatui odottamattomasti."
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "Valitse solu Calc-laskentataulukosta muokataksesi Pythonia."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Koodisolua {0} ei voitu avata."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1127,6 +1152,10 @@ msgstr "Arvioinnin koontinäyttö"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Virheenjäljitys"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Puhetta ei tunnistettu.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2192,13 +2221,8 @@ msgstr ""
 " sinun on tyhjennettävä työlään kertaluonteisen työkirjan määritykset."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Tässä Writer-asiakirjassa ei ole tuotua muistikirjarekisteriä. Avaa ensin "
-"Jupyter-muistikirja (.ipynb) ottaaksesi käyttöön muistikirjan Python-"
-"istunnon nollauksen."
+msgid "Python session reset for this document."
+msgstr "Python-istunto nollattu tälle asiakirjalle."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3198,6 +3222,17 @@ msgstr "Malli (valinnainen)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Jätä tyhjäksi, jos haluat käyttää samaa tekstimallia kuin chatissa."
+
+msgid "Recheck this document"
+msgstr "Tarkista asiakirja uudelleen"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Tyhjentää tämän asiakirjan välimuistiin tallennetut kielioppitulokset ja "
+"pyytää Writeria tarkistamaan uudelleen. Käytä tarkistimen tai mallin "
+"vaihtamisen jälkeen."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Keskeytä kieliopin tarkistus chatin/agentin ollessa käynnissä"

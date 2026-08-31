@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Hungarian <LL@li.org>\n"
@@ -204,6 +204,10 @@ msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr ""
 "A végpont nem található (404). Ellenőrizze az URL-t és a modell nevét."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Túllépte a korlátot (429). Várjon egy kicsit, majd próbálja újra."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -213,6 +217,19 @@ msgstr "Kiszolgálóhiba ({0}). Az MI-szolgáltatónál problémák léptek fel.
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP-hiba {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"Nincs API-kulcs beállítva a következőhöz: {0}. Nyissa meg a Beállításokat, "
+"és adjon meg egy kulcsot."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr ""
+"Nincs API-kulcs beállítva. Nyissa meg a Beállításokat, és adjon meg egy "
+"kulcsot."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -321,6 +338,11 @@ msgid ""
 msgstr ""
 "A modell ugyanazt a darabot ismétli (végtelen ciklus). Próbálja újra, vagy "
 "használjon másik modellt."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "A szolgáltató foglalt, újrapróbálkozás {0} másodperc múlva…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -476,6 +498,11 @@ msgstr "A Python-szerkesztő váratlanul leállt."
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr ""
 "Válasszon ki egy cellát egy Calc-táblázatban a Python szerkesztéséhez."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Nem sikerült megnyitni a(z) {0} kódcellát."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1130,6 +1157,10 @@ msgstr "Értékelési irányítópult"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Hibakeresés"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Nem észlelhető beszéd.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2214,13 +2245,8 @@ msgstr ""
 "egyszeri munkafüzet-beállításokat."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Ebben a Writer-dokumentumban nincs importált jegyzetfüzet-nyilvántartás. A "
-"jegyzetfüzet Python-munkamenetének alaphelyzetbe állításához válassza a Fájl"
-" → Jupyter-jegyzetfüzet (.ipynb) megnyitása lehetőséget."
+msgid "Python session reset for this document."
+msgstr "Python-munkamenet alaphelyzetbe állítva ehhez a dokumentumhoz."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3227,6 +3253,16 @@ msgid "Leave empty to use the same text model as chat."
 msgstr ""
 "Hagyja üresen, ha ugyanazt a szövegmodellt szeretné használni, mint a "
 "csevegésnél."
+
+msgid "Recheck this document"
+msgstr "Dokumentum újbóli ellenőrzése"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Törli a dokumentumhoz tárolt nyelvtani eredményeket, és újra ellenőrizteti a"
+" Writerrel. Használja az ellenőrző vagy a modell módosítása után."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Nyelvhelyesség-ellenőrzés szüneteltetése csevegés/ügynök futtatásakor"

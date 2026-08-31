@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Indonesian <LL@li.org>\n"
@@ -201,6 +201,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "Titik akhir tidak ditemukan (404). Periksa URL dan nama Model Anda."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Terkena limit (429). Tunggu sejenak dan coba lagi."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -210,6 +214,18 @@ msgstr "Kesalahan server ({0}). Penyedia AI sedang mengalami masalah."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "Kesalahan HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"Tidak ada kunci API yang dikonfigurasi untuk {0}. Buka Pengaturan dan "
+"tambahkan kunci."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr ""
+"Tidak ada kunci API yang dikonfigurasi. Buka Pengaturan dan tambahkan kunci."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -317,6 +333,11 @@ msgid ""
 msgstr ""
 "Model mengulang potongan yang sama (perulangan tak terbatas). Coba lagi atau"
 " gunakan model yang berbeda."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Penyedia sibuk, mencoba lagi dalam {0} d…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -467,6 +488,11 @@ msgstr "Editor Python gagal secara tidak terduga."
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "Pilih sel di lembar kerja Calc untuk mengedit Python."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Tidak dapat membuka sel kode {0}."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1121,6 +1147,10 @@ msgstr "Dasbor Evaluasi"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Debug"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Tidak ada ucapan terdeteksi.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2184,13 +2214,8 @@ msgstr ""
 "memakan sumber daya."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Dokumen Writer ini tidak memiliki registri notebook yang diimpor. Buka "
-"Berkas → Buka notebook Jupyter (.ipynb) untuk mengaktifkan pengaturan ulang "
-"sesi Python notebook."
+msgid "Python session reset for this document."
+msgstr "Sesi Python diatur ulang untuk dokumen ini."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3191,6 +3216,17 @@ msgstr "Model (opsional)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Biarkan kosong untuk menggunakan model teks yang sama dengan obrolan."
+
+msgid "Recheck this document"
+msgstr "Periksa ulang dokumen ini"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Membersihkan hasil tata bahasa yang di-cache untuk dokumen ini dan meminta "
+"Writer untuk memeriksa kembali. Gunakan setelah mengubah pemeriksa atau "
+"model."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Jeda tata bahasa saat obrolan/agen berjalan"

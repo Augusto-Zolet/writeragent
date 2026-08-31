@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Danish <LL@li.org>\n"
@@ -199,6 +199,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "Slutpunkt ikke fundet (404). Tjek din URL og modelnavn."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Hastighedsbegrænset (429). Vent et øjeblik og prøv igen."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -208,6 +212,16 @@ msgstr "Serverfejl ({0}). AI-udbyderen har problemer."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP-fejl {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"Ingen API-nøgle konfigureret til {0}. Åbn Indstillinger og tilføj en nøgle."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr "Ingen API-nøgle konfigureret. Åbn Indstillinger og tilføj en nøgle."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -314,6 +328,11 @@ msgid ""
 msgstr ""
 "Modellen gentager den samme blok (uendelig løkke). Prøv igen eller brug en "
 "anden model."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Udbyder er optaget, prøver igen om {0}s…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -463,6 +482,11 @@ msgstr "Python-editoren fejlede uventet."
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "Vælg en celle i et Calc-regneark for at redigere Python."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Kunne ikke åbne kodecellen {0}."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1118,6 +1142,10 @@ msgstr "Evalueringspanel"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Fejlfinding"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Ingen tale registreret.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2187,13 +2215,8 @@ msgstr ""
 "engangsopsætninger af projektmappen."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Dette Writer-dokument har intet importeret notebook-register. Filer → Åbn en"
-" Jupyter-notebook (.ipynb) for at aktivere nulstilling af notebook Python-"
-"session."
+msgid "Python session reset for this document."
+msgstr "Python-session nulstillet for dette dokument."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3191,6 +3214,16 @@ msgstr "Model (valgfri)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Lad stå tom for at bruge samme tekstmodel som chatten."
+
+msgid "Recheck this document"
+msgstr "Kontrollér dette dokument igen"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Rydder cachelagrede grammatikresultater for dette dokument og beder Writer "
+"om at kontrollere igen. Bruges efter ændring af kontrolværktøj eller model."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Pause grammatik mens chat/agent kører"

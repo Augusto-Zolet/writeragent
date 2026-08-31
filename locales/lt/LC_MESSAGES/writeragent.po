@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Lithuanian <LL@li.org>\n"
@@ -199,6 +199,11 @@ msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr ""
 "Galutinis taškas nerastas (404). Patikrinkite URL ir modelio pavadinimą."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr ""
+"Viršytas užklausų skaičius (429). Palaukite akimirką ir bandykite dar kartą."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -208,6 +213,15 @@ msgstr "Serverio klaida ({0}). AI teikėjas turi problemų."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP klaida {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr "Nenustatytas {0} API raktas. Atverkite nuostatas ir pridėkite raktą."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr "Nenustatytas API raktas. Atverkite nuostatas ir pridėkite raktą."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -316,6 +330,11 @@ msgid ""
 msgstr ""
 "Modelis kartoja tą patį fragmentą (begalinis ciklas). Bandykite dar kartą "
 "arba naudokite kitą modelį."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Teikėjas užimtas, pakartotinis bandymas po {0} s…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -468,6 +487,11 @@ msgstr "Python redaktorius netikėtai nutrūko."
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr ""
 "Norėdami redaguoti Python kodą, pasirinkite langelį „Calc“ skaičiuoklėje."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Nepavyko atverti kodo langelio {0}."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1124,6 +1148,10 @@ msgstr "Vertinimo skydelis"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Derinimas"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Kalba neaptikta.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2195,13 +2223,8 @@ msgstr ""
 "reikalaujančią vienkartinę darbaknygės sąranką."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Šiame „Writer“ dokumente nėra importuoto užrašų knygelės registro. "
-"Pirmiausia pasirinkite Failas → Atverti „Jupyter“ užrašų knygelę (.ipynb), "
-"kad galėtumėte iš naujo paleisti užrašų knygelės „Python“ seansą."
+msgid "Python session reset for this document."
+msgstr "Šio dokumento „Python“ seansas nustatytas iš naujo."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3205,6 +3228,17 @@ msgid "Leave empty to use the same text model as chat."
 msgstr ""
 "Palikite tuščią, jei norite naudoti tą patį teksto modelį kaip ir "
 "pokalbiuose."
+
+msgid "Recheck this document"
+msgstr "Tikrinti dokumentą iš naujo"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Išvalo šio dokumento įrašytus gramatikos tikrinimo rezultatus ir nurodo "
+"„Writer“ atlikti pakartotinį tikrinimą. Naudokite pakeitę tikrintuvą arba "
+"modelį."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Pristabdyti gramatikos tikrinimą, kol veikia pokalbis / agentas"

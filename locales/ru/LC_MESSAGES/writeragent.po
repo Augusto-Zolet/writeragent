@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Russian <LL@li.org>\n"
@@ -204,6 +204,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "Конечная точка не найдена (404). Проверьте URL и название модели."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Превышен лимит запросов (429). Подождите немного и попробуйте снова."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -213,6 +217,15 @@ msgstr "Ошибка сервера ({0}). У провайдера ИИ возн
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "Ошибка HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr "API-ключ для {0} не настроен. Откройте настройки и добавьте ключ."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr "API-ключ не настроен. Откройте настройки и добавьте ключ."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -321,6 +334,11 @@ msgid ""
 msgstr ""
 "Модель повторяет один и тот же фрагмент (бесконечный цикл). Попробуйте еще "
 "раз или используйте другую модель."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Провайдер занят, повторная попытка через {0} с…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -478,6 +496,11 @@ msgstr "Редактор Python неожиданно завершил работ
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "Выберите ячейку в электронной таблице Calc для редактирования Python."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Не удалось открыть ячейку кода {0}."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1132,6 +1155,10 @@ msgstr "Панель оценки"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Отладка"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Речь не распознана.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2205,13 +2232,8 @@ msgstr ""
 "ресурсоемкие однократные настройки книги."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"В этом документе Writer нет реестра импортированных блокнотов. Сначала "
-"выберите Файл → Открыть блокнот Jupyter (.ipynb), чтобы включить сброс "
-"сеанса Python в блокноте."
+msgid "Python session reset for this document."
+msgstr "Сеанс Python для этого документа сброшен."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3222,6 +3244,17 @@ msgstr "Модель (необязательно)"
 msgid "Leave empty to use the same text model as chat."
 msgstr ""
 "Оставьте пустым, чтобы использовать ту же текстовую модель, что и в чате."
+
+msgid "Recheck this document"
+msgstr "Проверить документ повторно"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Очищает кэшированные результаты проверки грамматики для этого документа и "
+"запрашивает повторную проверку в Writer. Используйте после смены средства "
+"проверки или модели."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Приостанавливать проверку грамматики во время работы чата/агента"

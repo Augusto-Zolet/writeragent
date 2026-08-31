@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Urdu <LL@li.org>\n"
@@ -201,6 +201,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "اینڈ پوائنٹ نہیں ملا (404)۔ اپنا URL اور ماڈل کا نام چیک کریں۔"
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "شرح محدود (429)۔ کچھ دیر انتظار کریں اور دوبارہ کوشش کریں۔"
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -210,6 +214,18 @@ msgstr "سرور کی خرابی ({0})۔ AI فراہم کنندہ کو مسائ�
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP خرابی {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"{0} کے لیے کوئی API کلید ترتیب نہیں دی گئی۔ ترتیبات کھولیں اور ایک کلید شامل"
+" کریں۔"
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr ""
+"کوئی API کلید ترتیب نہیں دی گئی۔ ترتیبات کھولیں اور ایک کلید شامل کریں۔"
 
 #: plugin/framework/errors.py
 msgid ""
@@ -317,6 +333,11 @@ msgid ""
 msgstr ""
 "ماڈل ایک ہی حصہ دہرا رہا ہے (لامحدود لوپ)۔ دوبارہ کوشش کریں یا کوئی دوسرا "
 "ماڈل استعمال کریں۔"
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "فراہم کنندہ مصروف ہے، {0} سیکنڈ میں دوبارہ کوشش کی جا رہی ہے..."
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -467,6 +488,11 @@ msgstr "پائتھون ایڈیٹر غیر متوقع طور پر ناکام ہ�
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "پائتھون کی تدوین کے لیے Calc سپریڈ شیٹ میں ایک سیل منتخب کریں۔"
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "کوڈ سیل {0} نہیں کھول سکا۔"
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1120,6 +1146,10 @@ msgstr "تشخیصی ڈیش بورڈ"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "ڈیبگ"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[کوئی تقریر نہیں ملی۔]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2189,13 +2219,8 @@ msgstr ""
 "اسکرپٹ شامل کریں۔"
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"اس Writer دستاویز میں کوئی درآمد شدہ نوٹ بک رجسٹری نہیں ہے۔ نوٹ بک Python "
-"سیشن ری سیٹ کو فعال کرنے کے لیے پہلے فائل → ایک Jupyter نوٹ بک (.ipynb) "
-"کھولیں۔"
+msgid "Python session reset for this document."
+msgstr "اس دستاویز کے لیے پائتھن سیشن ری سیٹ کر دیا گیا۔"
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3197,6 +3222,16 @@ msgstr "ماڈل (اختیاری)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "چیٹ والے ٹیکسٹ ماڈل کو استعمال کرنے کے لیے خالی چھوڑ دیں۔"
+
+msgid "Recheck this document"
+msgstr "اس دستاویز کو دوبارہ چیک کریں"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"اس دستاویز کے لیے کیش شدہ گرامر کے نتائج کو صاف کرتا ہے اور Writer کو دوبارہ"
+" چیک کرنے کا کہتا ہے۔ چیکر یا ماڈل تبدیل کرنے کے بعد استعمال کریں۔"
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "چیٹ/ایجنٹ چلنے کے دوران گرامر چیک روکیں"

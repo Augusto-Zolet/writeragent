@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Turkish <LL@li.org>\n"
@@ -202,6 +202,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "Uç nokta bulunamadı (404). URL'nizi ve Model adınızı kontrol edin."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Hız sınırı aşıldı (429). Bir süre bekleyip tekrar deneyin."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -211,6 +215,18 @@ msgstr "Sunucu hatası ({0}). Yapay zeka sağlayıcısında sorunlar yaşanıyor
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP Hatası {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"{0} için yapılandırılmış API anahtarı yok. Ayarları açın ve bir anahtar "
+"ekleyin."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr ""
+"Yapılandırılmış API anahtarı yok. Ayarları açın ve bir anahtar ekleyin."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -318,6 +334,11 @@ msgid ""
 msgstr ""
 "Model aynı parçayı tekrarlıyor (sonsuz döngü). Tekrar deneyin veya farklı "
 "bir model kullanın."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Sağlayıcı meşgul, {0} saniye içinde tekrar deneniyor…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -471,6 +492,11 @@ msgstr "Python düzenleyicisi beklenmedik bir şekilde başarısız oldu."
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "Python'u düzenlemek için bir Calc hesap tablosunda bir hücre seçin."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "{0} kod hücresi açılamadı."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1124,6 +1150,10 @@ msgstr "Değerlendirme Panosu"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Hata Ayıklama"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Konuşma algılanmadı.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2195,13 +2225,8 @@ msgstr ""
 "betiği ekleyin."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Bu Writer belgesinin içe aktarılmış bir not defteri kaydı yok. Not defteri "
-"Python oturumunu sıfırlamayı etkinleştirmek için önce Dosya → Bir Jupyter "
-"not defteri (.ipynb) açın."
+msgid "Python session reset for this document."
+msgstr "Bu belge için Python oturumu sıfırlandı."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3204,6 +3229,17 @@ msgstr "Model (isteğe bağlı)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Sohbet ile aynı metin modelini kullanmak için boş bırakın."
+
+msgid "Recheck this document"
+msgstr "Bu belgeyi yeniden denetle"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Bu belge için önbelleğe alınmış dil bilgisi sonuçlarını temizler ve "
+"Writer'dan tekrar denetlemesini ister. Denetleyiciyi veya modeli "
+"değiştirdikten sonra kullanın."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Sohbet/aracı çalışırken dil bilgisini duraklat"

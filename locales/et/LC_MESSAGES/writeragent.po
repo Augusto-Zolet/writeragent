@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Estonian <LL@li.org>\n"
@@ -200,6 +200,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "Lõpp-punkti ei leitud (404). Kontrollige oma URL-i ja mudeli nime."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Kiirusepiirang (429). Oodake hetk ja proovige uuesti."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -209,6 +213,17 @@ msgstr "Serveri viga ({0}). AI-teenuse pakkujal on probleeme."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP-viga {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"Rakenduse {0} jaoks pole API-võtit konfigureeritud. Avage seaded ja lisage "
+"võti."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr "API-võtit pole konfigureeritud. Avage seaded ja lisage võti."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -313,6 +328,11 @@ msgid ""
 msgstr ""
 "Mudel kordab sama osa (lõputu tsükkel). Proovige uuesti või kasutage teist "
 "mudelit."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Teenusepakkuja on hõivatud, uus katse {0} sekundi pärast…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -464,6 +484,11 @@ msgstr "Pythoni redaktor tõrkus ootamatult."
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "Pythoni redigeerimiseks vali Calci arvutustabelist lahter."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Koodilahtrit {0} ei saanud avada."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1119,6 +1144,10 @@ msgstr "Hindamise töölaud"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Silumine"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Kõnet ei tuvastatud.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2183,13 +2212,8 @@ msgstr ""
 "ühekordse töövihiku seadistuse tühjendama, lisage lähtestamisskript."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Selles Writeri dokumendis pole imporditud märkmiku registrit. Märkmiku "
-"Pythoni seansi lähtestamise lubamiseks ava esmalt Jupyteri märkmik "
-"(failitüüp .ipynb) menüüst Fail → Ava."
+msgid "Python session reset for this document."
+msgstr "Selle dokumendi Pythoni seanss on lähtestatud."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3184,6 +3208,17 @@ msgstr "Mudel (valikuline)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Jätke tühjaks, et kasutada sama tekstimudelit nagu vestluses."
+
+msgid "Recheck this document"
+msgstr "Kontrolli dokument uuesti"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Tühjendab selle dokumendi vahemällu salvestatud grammatikatulemused ja palub"
+" Writeril uuesti kontrollida. Kasutage pärast kontrollija või mudeli "
+"muutmist."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Peata grammatikakontroll vestluse/agendi töötamise ajal"

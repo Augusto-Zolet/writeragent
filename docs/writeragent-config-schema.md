@@ -53,28 +53,14 @@ Top-level keys from the config dataclass (Settings dialog, chat, images).
 | --- | --- | --- | --- | --- |
 | `log_level` | `string` | `"DEBUG"` |  | Internal. Log Level Options: DEBUG (Debug), INFO (Info), WARN (Warning), ERROR (Error) |
 
-## Doc (`doc`)
+## Agent Communication Protocol (`agent_backend`)
 
 | Key | Type | Default | Range | Description |
 | --- | --- | --- | --- | --- |
-| `grammar_proofreader_enabled` | `string` | `"off"` |  | Off = disabled. AI (LLM) = use your configured text model/API. LanguageTool / Vale = local engines via Settings → Python venv. Harper = offline Rust binary auto-downloaded to your profile (no venv required). Options: off (Off), llm (AI (LLM)), harper (Harper), languagetool (LanguageTool (Local)), vale (Vale (Local Style) (WIP)) |
-| `grammar_proofreader_model` | `string` | `""` |  | Leave empty to use the same text model as chat. |
-| `grammar_proofreader_pause_during_agent` | `boolean` | `false` |  | When on, AI grammar skips background requests while sidebar chat or agent runs, to avoid concurrent API calls. |
-| `grammar_proofreader_batch_sentences` | `int` | `1` | `1`–`8` | Number of sentences to send per LLM request (1-8). 1 (default) is most reliable; higher values are faster and cheaper but may hit token limits or cause model errors. |
-| `grammar_proofreader_max_in_flight` | `int` | `1` | `1`–`8` | Max simultaneous background grammar API calls (1-8). 1 matches prior behavior. Raise for OpenRouter or other providers that allow parallel requests; use with care alongside sidebar chat. |
-| `grammar_proofreader_detect_language` | `string` | `"off"` |  | Verify each complete sentence's language against the document locale. AI uses your grammar/chat API; Local uses langdetect in your Python venv (Settings → Python; no API call). Mismatches update CharLocale and re-check grammar. Options: off (Off), llm (AI (LLM)), langdetect (Local (langdetect)) |
-| `chat_enter_key_sends_message` | `boolean` | `true` |  | When on, Enter in the sidebar query runs the same action as Send; Shift+Enter inserts a newline. When off, Enter inserts a newline. |
-| `agent_edit_review_mode` | `string` | `"off"` |  | Off = direct edits. Record = tracked changes you accept/reject yourself. Wait = apply_document_content blocks (on chat/MCP worker thread) until you review. Options: off (Off), record (Record (track changes)), wait (Wait for review) |
-| `edit_review_timeout` | `int` | `900` | ≥ `0` | Internal. Only used when mode is Wait. Max time apply_document_content blocks before returning with pending changes. |
-
-## Vector Search (`embeddings`)
-
-| Key | Type | Default | Range | Description |
-| --- | --- | --- | --- | --- |
-| `folder_search_mode` | `string` | `"none"` |  | Indexed semantic + keyword search for document_research (corpus.db). Requires embeddings venv — see Python Test. Options: none (Off), hybrid (Embeddings + FTS), llama_index (LlamaIndex), zvec (Zvec (experimental)), lancedb (LanceDB (experimental)) |
-| `embedding_model` | `string` | `"paraphrase-multilingual-MiniLM-L12-v2"` |  | HuggingFace model ID for local provider, or endpoint-specific model ID |
-| `folder_rerank_enabled` | `boolean` | `false` |  | Second-stage cross-encoder after hybrid retrieve (Embeddings + FTS and LlamaIndex). Off by default. |
-| `folder_rerank_model` | `string` | `"cross-encoder/ms-marco-MiniLM-L-6-v2"` |  | Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3 is multilingual and downloads ~2.3 GB. Options: cross-encoder/ms-marco-MiniLM-L-6-v2, BAAI/bge-reranker-v2-m3 |
+| `backend_id` | `string` | `"builtin"` |  | Backend Options: builtin (Built-in), hermes (Hermes), claude (Claude Code (ACP)), vibe (Mistral Vibe (ACP)), grok (Grok Build (ACP)), opencode (OpenCode (ACP)) |
+| `path` | `string` | `""` |  | Internal. Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://localhost:8000 for Hermes). Empty = try default. |
+| `args` | `string` | `""` |  | Internal. Optional arguments for the selected backend (space-separated). |
+| `acp_agent_name` | `string` | `""` |  | Internal. Agent name on the ACP server (e.g. hermes). Empty = auto-discover first agent. |
 
 ## Calc spreadsheet tools (`calc`)
 
@@ -126,6 +112,29 @@ Top-level keys from the config dataclass (Settings dialog, chat, images).
 | `audio_silence_stop_ms` | `int` | `3000` | `0`–`15000` | Pause after you stop talking, then auto-stop and send (Record). 0 = wait until you click Stop Rec. |
 | `query_history` | `string` | `"[]"` |  | Internal |
 
+## Doc (`doc`)
+
+| Key | Type | Default | Range | Description |
+| --- | --- | --- | --- | --- |
+| `grammar_proofreader_enabled` | `string` | `"off"` |  | Off = disabled. AI (LLM) = use your configured text model/API. LanguageTool / Vale = local engines via Settings → Python venv. Harper = offline Rust binary auto-downloaded to your profile (no venv required). Options: off (Off), llm (AI (LLM)), harper (Harper), languagetool (LanguageTool (Local)), vale (Vale (Local Style) (WIP)) |
+| `grammar_proofreader_model` | `string` | `""` |  | Leave empty to use the same text model as chat. |
+| `grammar_proofreader_pause_during_agent` | `boolean` | `false` |  | When on, AI grammar skips background requests while sidebar chat or agent runs, to avoid concurrent API calls. |
+| `grammar_proofreader_batch_sentences` | `int` | `1` | `1`–`8` | Number of sentences to send per LLM request (1-8). 1 (default) is most reliable; higher values are faster and cheaper but may hit token limits or cause model errors. |
+| `grammar_proofreader_max_in_flight` | `int` | `1` | `1`–`8` | Max simultaneous background grammar API calls (1-8). 1 matches prior behavior. Raise for OpenRouter or other providers that allow parallel requests; use with care alongside sidebar chat. |
+| `grammar_proofreader_detect_language` | `string` | `"off"` |  | Verify each complete sentence's language against the document locale. AI uses your grammar/chat API; Local uses langdetect in your Python venv (Settings → Python; no API call). Mismatches update CharLocale and re-check grammar. Options: off (Off), llm (AI (LLM)), langdetect (Local (langdetect)) |
+| `chat_enter_key_sends_message` | `boolean` | `true` |  | When on, Enter in the sidebar query runs the same action as Send; Shift+Enter inserts a newline. When off, Enter inserts a newline. |
+| `agent_edit_review_mode` | `string` | `"off"` |  | Off = direct edits. Record = tracked changes you accept/reject yourself. Wait = apply_document_content blocks (on chat/MCP worker thread) until you review. Options: off (Off), record (Record (track changes)), wait (Wait for review) |
+| `edit_review_timeout` | `int` | `900` | ≥ `0` | Internal. Only used when mode is Wait. Max time apply_document_content blocks before returning with pending changes. |
+
+## Vector Search (`embeddings`)
+
+| Key | Type | Default | Range | Description |
+| --- | --- | --- | --- | --- |
+| `folder_search_mode` | `string` | `"none"` |  | Indexed semantic + keyword search for document_research (corpus.db). Requires embeddings venv — see Python Test. Options: none (Off), hybrid (Embeddings + FTS), llama_index (LlamaIndex), zvec (Zvec (experimental)), lancedb (LanceDB (experimental)) |
+| `embedding_model` | `string` | `"paraphrase-multilingual-MiniLM-L12-v2"` |  | HuggingFace model ID for local provider, or endpoint-specific model ID |
+| `folder_rerank_enabled` | `boolean` | `false` |  | Second-stage cross-encoder after hybrid retrieve (Embeddings + FTS and LlamaIndex). Off by default. |
+| `folder_rerank_model` | `string` | `"cross-encoder/ms-marco-MiniLM-L-6-v2"` |  | Used only when rerank is enabled. English MiniLM is fast; bge-reranker-v2-m3 is multilingual and downloads ~2.3 GB. Options: cross-encoder/ms-marco-MiniLM-L-6-v2, BAAI/bge-reranker-v2-m3 |
+
 ## Python (`scripting`)
 
 | Key | Type | Default | Range | Description |
@@ -156,12 +165,3 @@ Top-level keys from the config dataclass (Settings dialog, chat, images).
 | `do_formula_enrichment` | `boolean` | `false` |  | Opt-in. Downloads extra VLM models on first use; slower. |
 | `do_code_enrichment` | `boolean` | `false` |  | Specialized OCR for code/terminal screenshots. |
 | `document_timeout` | `float` | `0` | `0`–`600` | Per-conversion timeout inside Docling. 0 = no limit. |
-
-## Agent Communication Protocol (`agent_backend`)
-
-| Key | Type | Default | Range | Description |
-| --- | --- | --- | --- | --- |
-| `backend_id` | `string` | `"builtin"` |  | Backend Options: builtin (Built-in), hermes (Hermes), claude (Claude Code (ACP)), vibe (Mistral Vibe (ACP)), grok (Grok Build (ACP)), opencode (OpenCode (ACP)) |
-| `path` | `string` | `""` |  | Internal. Path to backend CLI (e.g. aider) or ACP server URL (e.g. http://localhost:8000 for Hermes). Empty = try default. |
-| `args` | `string` | `""` |  | Internal. Optional arguments for the selected backend (space-separated). |
-| `acp_agent_name` | `string` | `""` |  | Internal. Agent name on the ACP server (e.g. hermes). Empty = auto-discover first agent. |

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Traditional) <LL@li.org>\n"
@@ -191,6 +191,10 @@ msgstr "API 存取被禁止。您的金鑰可能缺少此模型的權限。"
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "找不到端點 (404)。請檢查您的 URL 和模型名稱。"
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "請求過於頻繁 (429)。請稍候再試。"
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -200,6 +204,15 @@ msgstr "伺服器錯誤 ({0})。AI 提供者出現問題。"
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "HTTP 錯誤 {0}：{1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr "未設定 {0} 的 API 金鑰。請開啟「設定」並新增金鑰。"
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr "未設定 API 金鑰。請開啟「設定」並新增金鑰。"
 
 #: plugin/framework/errors.py
 msgid ""
@@ -295,6 +308,11 @@ msgid ""
 "The model is repeating the same chunk (infinite loop). Try again or use a "
 "different model."
 msgstr "模型正在重複相同的區塊（無限迴圈）。請重試或使用不同的模型。"
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "提供者忙碌中，將於 {0} 秒後重試…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -443,6 +461,11 @@ msgstr "Python 編輯器發生非預期的失敗。"
 #: plugin/calc/python/editor.py
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr "請選取 Calc 試算表中的儲存格以編輯 Python。"
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "無法開啟程式碼儲存格 {0}。"
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1088,6 +1111,10 @@ msgstr "評估儀表板"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "除錯"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[未偵測到語音。]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2105,11 +2132,8 @@ msgstr ""
 "儲存格使用各自的變數）。沒有可重設的共用儲存格工作階段。若需要清除昂貴的一次性活頁簿設定，請新增初始化指令碼。"
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"本 Writer 文件未匯入筆記本登錄檔。請先執行「檔案」→「開啟 Jupyter 筆記本 (.ipynb)」以啟用筆記本 Python 工作階段重設。"
+msgid "Python session reset for this document."
+msgstr "已重設此文件的 Python 工作階段。"
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3079,6 +3103,14 @@ msgstr "模型 (選填)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "留空以使用與聊天相同的文字模型。"
+
+msgid "Recheck this document"
+msgstr "重新檢查此文件"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr "清除此文件已快取的語法檢查結果，並要求 Writer 重新檢查。請在變更檢查器或模型後使用。"
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "聊天/代理運行時暫停語法檢查"

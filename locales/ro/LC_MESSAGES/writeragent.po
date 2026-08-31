@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-28 13:06-0400\n"
+"POT-Creation-Date: 2026-08-31 16:47-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Romanian <LL@li.org>\n"
@@ -202,6 +202,10 @@ msgstr ""
 msgid "Endpoint not found (404). Check your URL and Model name."
 msgstr "Endpoint negăsit (404). Verificați URL-ul și numele modelului."
 
+#: plugin/framework/errors.py plugin/framework/client/errors.py
+msgid "Rate limited (429). Wait a moment and try again."
+msgstr "Limit de rată atins (429). Așteptați un moment și încercați din nou."
+
 #: plugin/framework/errors.py
 #, python-brace-format
 msgid "Server error ({0}). The AI provider is having issues."
@@ -211,6 +215,17 @@ msgstr "Eroare de server ({0}). Furnizorul AI întâmpină probleme."
 #, python-brace-format
 msgid "HTTP Error {0}: {1}"
 msgstr "Eroare HTTP {0}: {1}"
+
+#: plugin/framework/errors.py
+#, python-brace-format
+msgid "No API key configured for {0}. Open Settings and add a key."
+msgstr ""
+"Nicio cheie API configurată pentru {0}. Deschideți Setări și adăugați o "
+"cheie."
+
+#: plugin/framework/errors.py
+msgid "No API key configured. Open Settings and add a key."
+msgstr "Nicio cheie API configurată. Deschideți Setări și adăugați o cheie."
 
 #: plugin/framework/errors.py
 msgid ""
@@ -318,6 +333,11 @@ msgid ""
 msgstr ""
 "Modelul repetă același fragment (buclă infinită). Încercați din nou sau "
 "folosiți un alt model."
+
+#: plugin/framework/client/request_controls.py
+#, python-brace-format
+msgid "Provider busy, retrying in {0}s…"
+msgstr "Furnizor ocupat, reîncercare în {0}s…"
 
 #: plugin/framework/main_shared.py plugin/calc/python/cell_editor_ui.py
 #: plugin/writer/math/latex_dialog.py plugin/chatbot/panel.py
@@ -472,6 +492,11 @@ msgstr "Editorul Python a eșuat în mod neașteptat."
 msgid "Select a cell in a Calc spreadsheet to edit Python."
 msgstr ""
 "Selectați o celulă dintr-o foaie de calcul Calc pentru a edita Python."
+
+#: plugin/calc/python/editor.py
+#, python-brace-format
+msgid "Could not open the code cell {0}."
+msgstr "Nu s-a putut deschide celula de cod {0}."
 
 #: plugin/calc/python/editor.py
 msgid ""
@@ -1129,6 +1154,10 @@ msgstr "Tablou de bord evaluare"
 #: plugin/chatbot/hamburger_menu.py
 msgid "Debug"
 msgstr "Depanare"
+
+#: plugin/chatbot/tool_loop.py plugin/chatbot/panel.py
+msgid "[No speech detected.]"
+msgstr "[Nu a fost detectată nicio voce.]"
 
 #: plugin/chatbot/tool_loop.py
 msgid "Error: Toolkit unavailable"
@@ -2203,13 +2232,8 @@ msgstr ""
 "configurări costisitoare de registru de lucru efectuate o singură dată."
 
 #: plugin/scripting/session_manager.py
-msgid ""
-"This Writer document has no imported notebook registry. File → Open a "
-"Jupyter notebook (.ipynb) to enable notebook Python session reset."
-msgstr ""
-"Acest document Writer nu are un registru de notebook-uri importat. "
-"Deschideți un notebook Jupyter (.ipynb) din Fișier → Deschidere pentru a "
-"activa resetarea sesiunii Python a notebook-ului."
+msgid "Python session reset for this document."
+msgstr "Sesiunea Python a fost resetată pentru acest document."
 
 #: plugin/scripting/units.py
 msgid "Units helper failed."
@@ -3214,6 +3238,17 @@ msgstr "Model (opțional)"
 
 msgid "Leave empty to use the same text model as chat."
 msgstr "Lăsați gol pentru a utiliza același model de text ca și pentru chat."
+
+msgid "Recheck this document"
+msgstr "Verifică din nou acest document"
+
+msgid ""
+"Clears cached grammar results for this document and asks Writer to check "
+"again. Use after changing checker or model."
+msgstr ""
+"Șterge rezultatele gramaticale stocate în cache pentru acest document și "
+"solicită Writer să verifice din nou. Utilizați după schimbarea "
+"verificatorului sau a modelului."
 
 msgid "Pause grammar while chat/agent runs"
 msgstr "Întrerupeți gramatica în timp ce chat-ul/agentul rulează"
