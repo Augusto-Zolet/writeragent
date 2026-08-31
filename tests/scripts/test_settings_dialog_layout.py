@@ -99,6 +99,24 @@ def test_doc_grammar_enable_and_model_share_row(tmp_path: Path) -> None:
     assert _same_layout_row(tops, "doc__grammar_proofreader_enabled", "doc__grammar_proofreader_model")
 
 
+def test_doc_recheck_and_pause_share_row_below_checker(tmp_path: Path) -> None:
+    xdl_path, xdl = _generate_settings_xdl(tmp_path)
+    tops = _control_tops(xdl_path)
+    attrs = _control_attrs(xdl_path)
+
+    assert _same_layout_row(tops, "doc__grammar_proofreader_recheck", "doc__grammar_proofreader_pause_during_agent")
+    assert int(tops["doc__grammar_proofreader_recheck"]) > int(tops["doc__grammar_proofreader_enabled"])
+    assert attrs["doc__grammar_proofreader_pause_during_agent"]["left"] == "220"
+    assert re.search(
+        r'dlg:id="label_doc__grammar_proofreader_recheck"',
+        xdl,
+    )
+    assert re.search(
+        r'dlg:id="doc__grammar_proofreader_recheck"[^>]*dlg:width="70"',
+        xdl,
+    )
+
+
 def test_doc_batch_sentences_and_concurrent_share_row(tmp_path: Path) -> None:
     xdl_path, _xdl = _generate_settings_xdl(tmp_path)
     tops = _control_tops(xdl_path)

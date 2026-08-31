@@ -163,6 +163,7 @@ class SettingsDialog:
         self._download_audio_listener = None
         self._copy_mcp_listener = None
         self._test_tunnel_listener = None
+        self._grammar_recheck_listener = None
         self._mcp_tunnel_enabled_listener = None
         self._mcp_tunnel_provider_listener = None
         self._mcp_port_listener = None
@@ -275,6 +276,11 @@ class SettingsDialog:
         if test_tunnel_btn:
             self._test_tunnel_listener = TestTunnelListener(self._ctx, self._dlg)
             test_tunnel_btn.addActionListener(self._test_tunnel_listener)
+
+        recheck_btn = get_optional(self._dlg, "doc__grammar_proofreader_recheck")
+        if recheck_btn:
+            self._grammar_recheck_listener = RecheckGrammarListener(self._ctx)
+            recheck_btn.addActionListener(self._grammar_recheck_listener)
 
         port_ctrl = get_optional(self._dlg, "mcp__mcp_port")
         if port_ctrl and hasattr(port_ctrl, "addTextListener"):
@@ -475,6 +481,14 @@ class SettingsDialog:
                 except Exception:
                     pass
             self._test_tunnel_listener = None
+        if self._grammar_recheck_listener and self._dlg is not None:
+            recheck_btn = get_optional(self._dlg, "doc__grammar_proofreader_recheck")
+            if recheck_btn and hasattr(recheck_btn, "removeActionListener"):
+                try:
+                    recheck_btn.removeActionListener(self._grammar_recheck_listener)
+                except Exception:
+                    pass
+            self._grammar_recheck_listener = None
         if self._mcp_tunnel_enabled_listener and self._dlg is not None:
             tunnel_enabled_ctrl = get_optional(self._dlg, "mcp__tunnel_enabled")
             if tunnel_enabled_ctrl and hasattr(tunnel_enabled_ctrl, "removeItemListener"):
@@ -535,6 +549,19 @@ class EditConfigListener(BaseActionListener):
     def on_action_performed(self, rEvent):
         from .external_editor import open_writeragent_json_in_editor
         open_writeragent_json_in_editor(self._ctx)
+
+
+class RecheckGrammarListener(BaseActionListener):
+    """Doc tab: dump this document's grammar L2 plus all of L1, then PROOFREAD_AGAIN."""
+
+    def __init__(self, ctx: Any):
+        self._ctx = ctx
+
+    def on_action_performed(self, rEvent: Any) -> None:
+        del rEvent
+        from plugin.writer.locale.grammar_proofread_cache import recheck_active_document_grammar
+
+        recheck_active_document_grammar(self._ctx)
 
 
 class ProviderStarterListener(BaseActionListener):

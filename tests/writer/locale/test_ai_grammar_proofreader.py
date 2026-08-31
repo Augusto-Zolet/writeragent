@@ -32,6 +32,7 @@ setattr(lang, "XServiceName", type("XServiceName", (), {}))
 setattr(lang, "XComponent", type("XComponent", (), {}))
 setattr(ling, "XProofreader", type("XProofreader", (), {}))
 setattr(ling, "XSupportedLocales", type("XSupportedLocales", (), {}))
+setattr(ling, "XLinguServiceEventBroadcaster", type("XLinguServiceEventBroadcaster", (), {}))
 setattr(text_mod, "TextMarkupType", type("TextMarkupType", (), {}))
 unohelper_mod = _ensure_module("unohelper")
 setattr(unohelper_mod, "Base", type("UnohelperBase", (object,), {}))
@@ -483,3 +484,17 @@ class TestTypingIntegration:
         mock_exec.assert_called_once()
         assert mock_exec.call_args[0][1:] == (pr.ctx, "test-doc")
         mock_bind.assert_called_once_with(pr.ctx, "test-doc")
+
+
+def test_proofreader_broadcast_proofread_again_notifies_listeners(
+    mock_config_fixture, mock_locale_fixture
+) -> None:
+    del mock_locale_fixture
+    pr = _make_proofreader()
+    listener = MagicMock()
+    assert pr.addLinguServiceEventListener(listener) is True
+    pr.broadcast_proofread_again()
+    listener.processLinguServiceEvent.assert_called_once()
+    event = listener.processLinguServiceEvent.call_args[0][0]
+    assert event.nEvent == 8
+    assert pr.removeLinguServiceEventListener(listener) is True

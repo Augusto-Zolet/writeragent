@@ -36,7 +36,7 @@ from typing import Any, Sequence, cast
 import unohelper
 
 from com.sun.star.lang import XServiceDisplayName, XServiceInfo, XServiceName
-from com.sun.star.linguistic2 import XProofreader, XSupportedLocales
+from com.sun.star.linguistic2 import XProofreader, XSupportedLocales, XLinguServiceEventBroadcaster
 
 log = logging.getLogger("writeragent.grammar")
 
@@ -365,7 +365,7 @@ def _errors_to_uno_tuple(norms: Sequence[NormalizedProofError]) -> tuple[Any, ..
     return tuple(out)
 
 
-class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo, XServiceName, XServiceDisplayName, XSupportedLocales):  # pyright: ignore[reportGeneralTypeIssues] — multiple UNO interface bases  # pyrefly: ignore[invalid-inheritance]
+class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo, XServiceName, XServiceDisplayName, XSupportedLocales, XLinguServiceEventBroadcaster):  # pyright: ignore[reportGeneralTypeIssues] — multiple UNO interface bases  # pyrefly: ignore[invalid-inheritance]
     """Grammar checker registered under Linguistic / GrammarCheckers (cf. Lightproof)."""
 
     def __init__(self, ctx: Any, *args: Any):
@@ -375,9 +375,12 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
         super().__init__()
         self.ctx = ctx
         self._last_doc_id: str | None = None
+        self._lingu_listeners: list[Any] = []
         from plugin.framework.logging import init_logging
+        from plugin.writer.locale.grammar_persistence import grammar_registry
 
         init_logging(ctx)
+        grammar_registry.register_live_proofreader(self)
         self._implementation_name = IMPLEMENTATION_NAME
         self._supported_service_names = (SERVICE_NAME,)
         try:
@@ -625,6 +628,45 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             _run_on_main_thread(_reset_ignore_rules_on_main, self.ctx, doc_id)
         except Exception as e:
             log.warning("[grammar] resetIgnoreRules: %s", e, exc_info=True)
+
+    def addLinguServiceEventListener(self, xLstnr: Any) -> bool:
+        if xLstnr is None:
+            return False
+        if xLstnr not in self._lingu_listeners:
+            self._lingu_listeners.append(xLstnr)
+        return True
+
+    def removeLinguServiceEventListener(self, xLstnr: Any) -> bool:
+        if xLstnr is None:
+            return False
+        try:
+            self._lingu_listeners.remove(xLstnr)
+            return True
+        except ValueError:
+            return False
+
+    def broadcast_proofread_again(self) -> None:
+        """Ask Writer's grammar iterator to walk the document again (PROOFREAD_AGAIN)."""
+        if not self._lingu_listeners:
+            return
+        n_event = 8  # com.sun.star.linguistic2.LinguServiceEventFlags.PROOFREAD_AGAIN
+        event: Any = None
+        if uno_mod is not None:
+            try:
+                event = uno_mod.createUnoStruct("com.sun.star.linguistic2.LinguServiceEvent")
+                setattr(event, "Source", self)
+                setattr(event, "nEvent", n_event)
+            except Exception:
+                event = None
+        if event is None:
+            from types import SimpleNamespace
+
+            event = SimpleNamespace(Source=self, nEvent=n_event)
+        for listener in list(self._lingu_listeners):
+            try:
+                listener.processLinguServiceEvent(event)
+            except Exception:
+                log.debug("[grammar] lingu service listener failed", exc_info=True)
 
     # --- XServiceDisplayName ---
     def getServiceDisplayName(self, aLocale: Any) -> str:

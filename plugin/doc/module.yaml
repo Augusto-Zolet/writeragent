@@ -38,12 +38,28 @@ config:
     x: 318
     width: 106
 
+  grammar_proofreader_recheck:
+    type: string
+    default: ""
+    widget: button
+    label: Recheck this document
+    button_text: Recheck
+    helper: "Clears cached grammar results for this document and asks Writer to check again. Use after changing checker or model."
+    show_button_label: true
+    settings_persist: false
+    inline: true
+    label_width: 100
+    x: 110
+    width: 70
+
   grammar_proofreader_pause_during_agent:
     type: boolean
     default: false
     widget: checkbox
     label: Pause grammar while chat/agent runs
     helper: "When on, AI grammar skips background requests while sidebar chat or agent runs, to avoid concurrent API calls."
+    x: 220
+    width: 204
 
 
 

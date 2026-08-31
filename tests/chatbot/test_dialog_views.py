@@ -494,6 +494,18 @@ class TestProviderButtonIcons(unittest.TestCase):
         self.assertEqual(model.ImageURL, "file:///tmp/oxt/assets/nvidia_48.png")
 
 
+class TestRecheckGrammarListener(unittest.TestCase):
+    def test_click_calls_recheck_helper(self) -> None:
+        from plugin.chatbot.dialog_views import RecheckGrammarListener
+
+        ctx = MagicMock()
+        with patch(
+            "plugin.writer.locale.grammar_proofread_cache.recheck_active_document_grammar"
+        ) as recheck:
+            RecheckGrammarListener(ctx).on_action_performed(MagicMock())
+        recheck.assert_called_once_with(ctx)
+
+
 if __name__ == '__main__':
     unittest.main()
 

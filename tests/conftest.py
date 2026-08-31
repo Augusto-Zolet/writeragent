@@ -61,6 +61,7 @@ class MockBase:
 
 # Unique mock classes for UNO interfaces to avoid TypeError during multiple inheritance
 class MockXProofreader: pass
+class MockXLinguServiceEventBroadcaster: pass
 class MockXSupportedLocales: pass
 class MockXServiceDisplayName: pass
 class MockXServiceInfo: pass
@@ -135,6 +136,7 @@ setattr(sys.modules["com.sun.star.text.TextContentAnchorType"], "AT_FRAME", Mock
 linguistic = _create_mock_module("com.sun.star.linguistic2")
 setattr(linguistic, "XProofreader", MockXProofreader)
 setattr(linguistic, "XSupportedLocales", MockXSupportedLocales)
+setattr(linguistic, "XLinguServiceEventBroadcaster", MockXLinguServiceEventBroadcaster)
 
 beans = _create_mock_module("com.sun.star.beans")
 setattr(beans, "PropertyValue", MockPropertyValue)

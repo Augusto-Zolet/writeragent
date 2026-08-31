@@ -18,6 +18,7 @@ import json
 import logging
 import threading
 import time
+import weakref
 from typing import Any
 
 log = logging.getLogger("writeragent.grammar")
@@ -87,6 +88,14 @@ class GrammarRegistry:
         self.ignored_rules: set[str] = set()
         self.doc_locales_cache: dict[str, tuple[float, list[str]]] = {}
         self.lang_detect_cache: collections.OrderedDict[str, str] = collections.OrderedDict()
+        self.live_proofreaders: weakref.WeakSet[Any] = weakref.WeakSet()
+
+    def register_live_proofreader(self, proofreader: Any) -> None:
+        """Keep the Linguistic-owned proofreader so Settings Recheck can fire PROOFREAD_AGAIN."""
+        try:
+            self.live_proofreaders.add(proofreader)
+        except TypeError:
+            log.debug("[grammar] live proofreader is not weak-referenceable")
 
     def get_persistence(self, ctx: Any, doc_id: str | None, *, model: Any = None) -> DocumentPersistence | None:
         if ctx is None or not doc_id:
@@ -487,10 +496,37 @@ class DocumentPersistence:
             self._blob_identity = None
             self._session_identity = None
 
+    def clear_and_persist(self) -> None:
+        """Drop L2 sentence rows and write an empty udprop blob (Recheck). Keep ignore rules."""
+        self.clear()
+        self._persist_to_udprops()
+
 
 def get_persistence(ctx: Any, doc_id: str | None = None, *, model: Any = None) -> DocumentPersistence | None:
     """Return per-document persistence for grammar sentence cache."""
     return grammar_registry.get_persistence(ctx, doc_id, model=model)
+
+
+def persistence_for_model(model: Any) -> DocumentPersistence | None:
+    """Return the persistence bound to *model* (RuntimeUID, then identity)."""
+    if model is None:
+        return None
+    from plugin.framework.uno_context import get_runtime_uid
+
+    uid = get_runtime_uid(model)
+    with grammar_registry.lock:
+        instances = list(grammar_registry.doc_persistence_instances.values())
+    for p in instances:
+        other = p._model
+        if other is None:
+            continue
+        if uid:
+            other_uid = get_runtime_uid(other)
+            if other_uid and other_uid == uid:
+                return p
+        if other is model:
+            return p
+    return None
 
 
 def clear_all_document_persistence(ctx: Any) -> None:

@@ -275,3 +275,61 @@ def test_cache_clear_does_not_register_empty_persistence() -> None:
     gc.cache_clear(ctx)
     assert "phantom-doc" not in grammar_registry.doc_persistence_instances
 
+
+def test_dump_grammar_cache_for_recheck_clears_l1_and_active_l2_only() -> None:
+    """Recheck dumps all of L1 but only the active document's L2 rows."""
+    from plugin.writer.locale import grammar_persistence as gp
+
+    ctx = MagicMock()
+    model_a = object()
+    model_b = object()
+    gp.grammar_registry.clear_all(ctx)
+    try:
+        with patch("plugin.doc.udprops.get_document_property", return_value=None):
+            pa = gp.DocumentPersistence(ctx, "doc-a", model=model_a)
+            pb = gp.DocumentPersistence(ctx, "doc-b", model=model_b)
+        gp.grammar_registry.doc_persistence_instances["doc-a"] = pa
+        gp.grammar_registry.doc_persistence_instances["doc-b"] = pb
+        pa.put("fp_a", "en-US", [{"n_error_start": 0, "n_error_length": 1}])
+        pb.put("fp_b", "en-US", [{"n_error_start": 0, "n_error_length": 1}])
+        gc.cache_put_sentence("en-US", "Hello there everyone.", [{"n_error_start": 0, "n_error_length": 1}])
+        assert gc.cache_get_sentence("en-US", "Hello there everyone.") is not None
+
+        def fake_uid(model: object) -> str:
+            if model is model_a:
+                return "uid-a"
+            if model is model_b:
+                return "uid-b"
+            return ""
+
+        with (
+            patch("plugin.framework.uno_context.get_active_document", return_value=model_a),
+            patch("plugin.framework.uno_context.get_runtime_uid", side_effect=fake_uid),
+            patch.object(pa, "_persist_to_udprops"),
+        ):
+            gc.dump_grammar_cache_for_recheck(ctx)
+
+        assert gc.cache_get_sentence("en-US", "Hello there everyone.") is None
+        assert "fp_a" not in pa._entries
+        assert "fp_b" in pb._entries
+    finally:
+        gp.clear_all_document_persistence(ctx)
+
+
+def test_recheck_active_document_grammar_broadcasts_from_live_proofreader() -> None:
+    from plugin.writer.locale.grammar_persistence import grammar_registry
+
+    class _Live:
+        def __init__(self) -> None:
+            self.broadcast_proofread_again = MagicMock()
+
+    pr = _Live()
+    grammar_registry.register_live_proofreader(pr)
+    try:
+        with patch("plugin.writer.locale.grammar_proofread_cache.dump_grammar_cache_for_recheck") as dump:
+            gc.recheck_active_document_grammar(MagicMock())
+        dump.assert_called_once()
+        pr.broadcast_proofread_again.assert_called_once()
+    finally:
+        grammar_registry.live_proofreaders.discard(pr)
+

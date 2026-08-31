@@ -9,6 +9,7 @@ Sentence-boundary tables and ``looks_complete_sentence`` live in ``grammar_proof
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from plugin.framework.config import grammar_checker_identity
@@ -21,6 +22,8 @@ from .grammar_proofread_locale import (
     fingerprint_for_text,
     looks_complete_sentence,
 )
+
+log = logging.getLogger("writeragent.grammar")
 
 
 def _sanitize_checker_identity(identity: str) -> str:
@@ -137,6 +140,40 @@ def evict_sentence_cache_for_identity(checker_identity: str) -> None:
         to_remove = [k for k in grammar_registry.sentence_cache if needle in k]
         for k in to_remove:
             grammar_registry.sentence_cache.pop(k, None)
+
+
+def dump_l1_sentence_cache() -> None:
+    """Clear the global in-memory sentence LRU (all checker identities)."""
+    with grammar_registry.lock:
+        grammar_registry.sentence_cache.clear()
+
+
+def dump_grammar_cache_for_recheck(ctx: Any) -> None:
+    """Recheck: drop all of L1 and this active document's L2. Does not clear ignore rules."""
+    dump_l1_sentence_cache()
+    from plugin.framework.uno_context import get_active_document
+    from plugin.writer.locale.grammar_persistence import persistence_for_model
+
+    model = get_active_document(ctx)
+    if model is None:
+        return
+    p = persistence_for_model(model)
+    if p is None:
+        return
+    p.clear_and_persist()
+
+
+def recheck_active_document_grammar(ctx: Any) -> None:
+    """Dump caches for the active document and ask Writer to walk it again."""
+    dump_grammar_cache_for_recheck(ctx)
+    for pr in list(grammar_registry.live_proofreaders):
+        fn = getattr(pr, "broadcast_proofread_again", None)
+        if not callable(fn):
+            continue
+        try:
+            fn()
+        except Exception:
+            log.debug("[grammar] PROOFREAD_AGAIN broadcast failed", exc_info=True)
 
 
 def _populate_memory_cache_only(
