@@ -55,6 +55,7 @@ def find_modules(modules_dir, filter_names=None):
         manifest.setdefault("name", module_name)
         manifests.append(manifest)
 
+    manifests.sort(key=lambda m: m["name"])
     return manifests
 
 
@@ -84,7 +85,7 @@ def topo_sort(modules):
 
     if "core" in by_name:
         visit("core")
-    for name in by_name:
+    for name in sorted(by_name):
         visit(name)
 
     return order

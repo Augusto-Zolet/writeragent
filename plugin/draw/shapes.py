@@ -18,11 +18,13 @@
 
 import logging
 
-from plugin.doc.visual_helpers import apply_character_properties, parse_color_to_uno_int
+from plugin.doc.visual_helpers import SHAPE_TOOL_UNO_SERVICES, apply_character_properties, parse_color_to_uno_int
 from plugin.framework.errors import WriterAgentException
 from .base import ToolDrawShapeBase
 
 log = logging.getLogger(__name__)
+
+_DRAW_SHAPE_DOCS = list(SHAPE_TOOL_UNO_SERVICES)
 
 # LibreOffice interprets CustomShapeGeometry as EnhancedCustomShapeGeometry when this engine is set.
 _ENHANCED_CUSTOM_SHAPE_ENGINE = "com.sun.star.drawing.EnhancedCustomShapeEngine"
@@ -355,8 +357,8 @@ class GetDrawSummary(ToolDrawShapeBase):
     intent = "edit"
     description = "Returns a summary of shapes on the active or specified page."
     parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": []}
-    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
-    doc_types = ["draw", "impress"]
+    uno_services = _DRAW_SHAPE_DOCS
+    doc_types = ["writer", "calc", "draw", "impress"]
 
     def execute(self, ctx, **kwargs):
         from plugin.draw.bridge import DrawBridge
@@ -603,8 +605,8 @@ class UpsertShape(ToolDrawShapeBase):
         },
         "required": ["action"],
     }
-    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
-    doc_types = ["draw", "impress"]
+    uno_services = _DRAW_SHAPE_DOCS
+    doc_types = ["writer", "calc", "draw", "impress"]
     is_mutation = True
 
     def validate(self, *, doc_type: str | None = None, **kwargs):
@@ -756,8 +758,8 @@ class ConnectShapes(ToolDrawShapeBase):
         },
         "required": ["start", "end"],
     }
-    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
-    doc_types = ["draw", "impress"]
+    uno_services = _DRAW_SHAPE_DOCS
+    doc_types = ["writer", "calc", "draw", "impress"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
@@ -809,8 +811,8 @@ class GroupShapes(ToolDrawShapeBase):
     intent = "edit"
     description = "Groups multiple shapes together on the same page."
     parameters = {"type": "object", "properties": {"indices": {"type": "array", "items": {"type": "integer"}, "description": "List of shape indices to group."}, "page": {"type": "integer", "description": "Page index containing the shapes"}}, "required": ["indices"]}
-    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
-    doc_types = ["draw", "impress"]
+    uno_services = _DRAW_SHAPE_DOCS
+    doc_types = ["writer", "calc", "draw", "impress"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
@@ -1110,7 +1112,8 @@ class DeleteShape(ToolDrawShapeBase):
     intent = "edit"
     description = "Deletes a shape by index."
     parameters = {"type": "object", "properties": {"index": {"type": "integer", "description": "0-based shape index"}, "page": {"type": "integer", "description": "0-based page index (active page if omitted)"}}, "required": ["index"]}
-    uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
+    uno_services = _DRAW_SHAPE_DOCS
+    doc_types = ["writer", "calc", "draw", "impress"]
     is_mutation = True
 
     def execute(self, ctx, **kwargs):
