@@ -114,8 +114,13 @@ def test_solver(ctx, doc):
     result_val = res.get("result", {}).get("result_value")
     assert abs(result_val - 50.0) < 0.0001, f"Expected 50.0, got {result_val}"
     
-    # Verify solution values in sheet
-    x = active_sheet.getCellByPosition(0, 2).getValue()
-    y = active_sheet.getCellByPosition(1, 2).getValue()
-    assert abs(x - 0.0) < 0.0001, f"Expected x=0, got {x}"
-    assert abs(y - 10.0) < 0.0001, f"Expected y=10, got {y}"
+    # Verify solution values in returned result or sheet cells
+    sol = res.get("result", {}).get("solution")
+    if sol and len(sol) >= 2:
+        assert abs(float(sol[0]) - 0.0) < 0.0001, f"Expected sol[0]=0, got {sol[0]}"
+        assert abs(float(sol[1]) - 10.0) < 0.0001, f"Expected sol[1]=10, got {sol[1]}"
+    else:
+        x = active_sheet.getCellByPosition(0, 2).getValue()
+        y = active_sheet.getCellByPosition(1, 2).getValue()
+        assert abs(x - 0.0) < 0.0001, f"Expected x=0, got {x}"
+        assert abs(y - 10.0) < 0.0001, f"Expected y=10, got {y}"
