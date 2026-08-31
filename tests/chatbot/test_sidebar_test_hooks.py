@@ -15,6 +15,8 @@ import pytest
 
 pytest.importorskip("plugin.chatbot.sidebar_test_hooks")
 
+pytestmark = pytest.mark.xdist_group("audio_recorder_control")
+
 from plugin.chatbot.audio_recorder_state import AudioRecorderState
 from plugin.chatbot.send_state import SendButtonState, SendEventKind
 from plugin.chatbot.sidebar_state import SidebarCompositeState

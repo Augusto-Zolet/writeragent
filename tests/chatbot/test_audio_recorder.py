@@ -5,6 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+pytestmark = pytest.mark.xdist_group("audio_recorder_control")
+
 from plugin.chatbot.audio_recorder import (
     AudioRecorder,
     clear_stub_recorder_control,
