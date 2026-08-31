@@ -40,6 +40,8 @@ brew tap fizzbee-io/fizzbee && brew install fizzbee
 ```
 
 ### Checking Formal Models
+Directory config lives in [`tests/mcp/fizzbee/fizz.yaml`](../../tests/mcp/fizzbee/fizz.yaml) (`crash_on_yield: false`, `max_concurrent_actions: 1`). Each spec’s YAML frontmatter can still override `max_actions`.
+
 To run the formal model checker against all `.fizz` specifications:
 ```bash
 make check-fizzbee

@@ -97,16 +97,16 @@ class FormulaProcessPool(BaseProcessPool):
                     leased.kill()
                 finally:
                     self.release_worker(leased)
+                with self._cond:
+                    self._session_last_activity.pop(sid, None)
+                    mapped = self._active_sessions.pop(sid, None)
+                    if mapped and mapped in self._worker_sessions:
+                        self._worker_sessions[mapped].discard(sid)
+                        if not self._worker_sessions[mapped]:
+                            del self._worker_sessions[mapped]
             else:
-                log.warning("TTL eviction could not lease worker for %s; killing", sid)
-                worker.kill()
-            with self._cond:
-                self._session_last_activity.pop(sid, None)
-                mapped = self._active_sessions.pop(sid, None)
-                if mapped and mapped in self._worker_sessions:
-                    self._worker_sessions[mapped].discard(sid)
-                    if not self._worker_sessions[mapped]:
-                        del self._worker_sessions[mapped]
+                # Worker is currently busy executing a task; skip eviction and retry on next cycle
+                log.debug("TTL eviction skipped for %s: worker is currently leased", sid)
         if stale:
             log.info("Session TTL reaper evicted %d idle session(s): %s", len(stale), [s for s, _w in stale])
 
@@ -275,6 +275,9 @@ class FormulaProcessPool(BaseProcessPool):
                 res["id"] = req_id
             return res
         finally:
+            if mode == "shared" and session_id:
+                with self._cond:
+                    self._session_last_activity[session_id] = time.monotonic()
             self.release_worker(leased)
 
 

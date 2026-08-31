@@ -1,0 +1,9 @@
+# Directory-level FizzBee options (proto/statespace_options.proto).
+# Per-spec YAML frontmatter still overrides max_actions.
+# crash_on_yield default is true; these specs model WriterAgent mapping, not LO crashes.
+options:
+  max_actions: 10
+  max_concurrent_actions: 1
+  crash_on_yield: false
+deadlock_detection: false
+liveness: "false"
