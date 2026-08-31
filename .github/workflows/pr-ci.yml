@@ -1,0 +1,53 @@
+name: PR CI
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  test-linux:
+    name: Test & Typecheck (Ubuntu)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install LibreOffice (PPA) and system tools
+        run: |
+          sudo add-apt-repository -y ppa:libreoffice/ppa
+          sudo apt-get update
+          sudo apt-get install -y libreoffice python3-uno gettext
+
+      - name: Install Opengrep
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          enable-cache: true
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Python dependencies
+        run: |
+          uv sync --dev
+
+      - name: Run typecheck
+        run: |
+          make typecheck
+
+      - name: Run tests (Pytest + UNO)
+        run: |
+          make test
