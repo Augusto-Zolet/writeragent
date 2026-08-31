@@ -11,6 +11,7 @@ RPC path used by LanguageTool and Vale). Status UI refresh during progress is be
 
 from __future__ import annotations
 
+import enum
 import logging
 import os
 import queue
@@ -68,9 +69,22 @@ def _harper_lsp_settings(bcp47: str, user_config_dir: str) -> dict:
     return {"harper-ls": settings}
 
 
-# One LSP client per binary path. Unlocked: Harper is capped to one drain thread
-# (grammar_max_in_flight is LLM-only). Add a lock if that ever changes.
+# One LSP client per binary path. Lock serializes UNO doProofreading vs the
+# single background ensure / leftover drain thread (Harper is never multi-flight).
 _HARPER_CLIENT_CACHE: dict[str, HarperLSClient] = {}
+_HARPER_LOCK = threading.Lock()
+_HARPER_FAIL_COOLDOWN_SEC = 30.0
+
+
+class HarperRuntimeState(enum.Enum):
+    IDLE = "idle"
+    RESOLVING = "resolving"
+    READY = "ready"
+    FAILED = "failed"
+
+
+_HARPER_STATE = HarperRuntimeState.IDLE
+_HARPER_FAILED_AT = 0.0
 
 
 def _emit_progress(heartbeat_fn: Callable[[dict[str, str]], None] | None, message: str) -> None:
@@ -303,6 +317,162 @@ def _get_or_create_client(harper_bin: str, user_config_dir: str, bcp47: str, *, 
     return client
 
 
+def _alive_client() -> HarperLSClient | None:
+    for client in _HARPER_CLIENT_CACHE.values():
+        if client.is_alive():
+            return client
+    return None
+
+
+def _set_state(state: HarperRuntimeState, *, failed_at: float | None = None) -> None:
+    global _HARPER_STATE, _HARPER_FAILED_AT
+    _HARPER_STATE = state
+    if failed_at is not None:
+        _HARPER_FAILED_AT = failed_at
+
+
+def _can_start_ensure_locked() -> bool:
+    """Caller holds ``_HARPER_LOCK``."""
+    if _HARPER_STATE is HarperRuntimeState.RESOLVING:
+        return False
+    if _HARPER_STATE is HarperRuntimeState.READY and _alive_client() is not None:
+        return False
+    if _HARPER_STATE is HarperRuntimeState.FAILED:
+        if time.monotonic() - _HARPER_FAILED_AT < _HARPER_FAIL_COOLDOWN_SEC:
+            return False
+    return True
+
+
+def _broadcast_proofread_again() -> None:
+    """Writer may have already walked the document while harper-ls was starting."""
+    from plugin.writer.locale.grammar_persistence import grammar_registry
+
+    for pr in list(grammar_registry.live_proofreaders):
+        fn = getattr(pr, "broadcast_proofread_again", None)
+        if not callable(fn):
+            continue
+        try:
+            fn()
+        except Exception:
+            log.debug("[harper] PROOFREAD_AGAIN failed", exc_info=True)
+
+
+def _schedule_proofread_again() -> None:
+    try:
+        from plugin.framework.queue_executor import post_to_main_thread
+
+        post_to_main_thread(_broadcast_proofread_again)
+    except Exception as e:
+        log.debug("[harper] Could not schedule PROOFREAD_AGAIN: %s", e)
+
+
+def _harper_ensure_ready_body(user_config_dir: str, bcp47: str) -> None:
+    try:
+        from plugin.writer.locale.grammar_obs import emit_harper_worker_status
+
+        def _on_progress(payload: dict[str, str]) -> None:
+            message = str(payload.get("message") or "").strip()
+            if message:
+                emit_harper_worker_status("Harper", message)
+
+        harper_bin = _get_harper_binary(user_config_dir, heartbeat_fn=_on_progress)
+        with _HARPER_LOCK:
+            client = _get_or_create_client(harper_bin, user_config_dir, bcp47)
+            if not client.is_alive():
+                raise RuntimeError("harper-ls process not running after start")
+            _set_state(HarperRuntimeState.READY)
+        emit_harper_worker_status("Harper", "Harper ready")
+        _schedule_proofread_again()
+    except Exception:
+        log.exception("[harper] Background ensure failed")
+        with _HARPER_LOCK:
+            _set_state(HarperRuntimeState.FAILED, failed_at=time.monotonic())
+
+
+def harper_ensure_ready_async(user_config_dir: str, bcp47: str = "en-US") -> bool:
+    """Start at most one download/start job. Returns True if a job was submitted."""
+    with _HARPER_LOCK:
+        if not _can_start_ensure_locked():
+            return False
+        _set_state(HarperRuntimeState.RESOLVING)
+    from plugin.framework.worker_pool import run_in_background
+
+    try:
+        run_in_background(
+            _harper_ensure_ready_body,
+            user_config_dir,
+            bcp47,
+            name="harper-ensure-ready",
+        )
+    except Exception:
+        log.exception("[harper] Could not submit ensure job")
+        with _HARPER_LOCK:
+            if _HARPER_STATE is HarperRuntimeState.RESOLVING:
+                _set_state(HarperRuntimeState.IDLE)
+        return False
+    return True
+
+
+def maybe_start_harper_async(
+    ctx: Any = None,
+    *,
+    user_config_dir: str | None = None,
+    bcp47: str = "en-US",
+) -> bool:
+    """Start background warmup of harper-ls if Harper is the active/enabled grammar engine.
+
+    Call after ``init_config`` so ``user_config_dir`` is the LibreOffice profile folder
+    (parent of writeragent.json). Empty path is a no-op. WriterAgent starts from OnStartApp;
+    LibreHarper from HarperProofreader after init_config (no Jobs.xcu). Returns True if submitted.
+    """
+    from plugin.framework.config import get_grammar_provider, is_grammar_enabled, user_config_dir as get_ucd
+    from plugin.framework.uno_context import is_libreharper
+
+    if not is_libreharper():
+        if not is_grammar_enabled() or get_grammar_provider() != "harper":
+            return False
+
+    ucd = user_config_dir
+    if not ucd:
+        try:
+            if ctx is not None:
+                from plugin.framework.config import init_config
+
+                init_config(ctx)
+            ucd = get_ucd() or ""
+        except Exception:
+            ucd = ""
+
+    # Empty profile path would resolve harper/ relative to soffice cwd and FAIL,
+    # which blocks doProofreading for the fail cooldown (Writer will not walk again).
+    if not ucd:
+        log.debug("[harper] skip warmup: user config dir not ready")
+        return False
+
+    return harper_ensure_ready_async(ucd, bcp47=bcp47)
+
+
+def harper_try_lint(text: str, user_config_dir: str, bcp47: str = "en-US") -> dict | None:
+    """Lint now if harper-ls is already in-process; else kick one ensure and return None.
+
+    Never downloads or ``Popen``s on the caller thread (UNO ``doProofreading``).
+    """
+    if not user_config_dir:
+        return None
+    with _HARPER_LOCK:
+        client = _alive_client()
+        if client is not None:
+            _set_state(HarperRuntimeState.READY)
+            try:
+                return _lint_with_client(client, text, bcp47=bcp47, restart=False)
+            except Exception:
+                _set_state(HarperRuntimeState.IDLE)
+        elif _HARPER_STATE is HarperRuntimeState.READY:
+            _set_state(HarperRuntimeState.IDLE)
+    harper_ensure_ready_async(user_config_dir, bcp47)
+    return None
+
+
 def normalize_spaces_1to1(text: str) -> str:
     """Normalize non-standard Unicode spaces (NBSP, CJK spaces, etc.) to ASCII ' '.
 
@@ -314,24 +484,7 @@ def normalize_spaces_1to1(text: str) -> str:
     return "".join(" " if ch.isspace() and ch not in "\r\n" else ch for ch in text)
 
 
-def run_harper_lint(text: str, user_config_dir: str, bcp47: str = "en-US", *, heartbeat_fn: Callable[[dict[str, str]], None] | None = None) -> dict:
-    """Run harper-ls on a text segment and return parsed errors (no LibreOffice UI)."""
-    try:
-        harper_bin = _get_harper_binary(user_config_dir, heartbeat_fn=heartbeat_fn)
-    except Exception as e:
-        log.exception("[harper] Failed to resolve harper-ls binary")
-        raise RuntimeError(str(e)) from e
-
-    lint_text = normalize_spaces_1to1(text)
-    client = _get_or_create_client(harper_bin, user_config_dir, bcp47, heartbeat_fn=heartbeat_fn)
-    try:
-        results = client.lint(lint_text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
-    except Exception:
-        log.exception("[harper] Linting error or connection lost, restarting client")
-        client.close()
-        _HARPER_CLIENT_CACHE[harper_bin] = HarperLSClient(harper_bin, user_config_dir=user_config_dir, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
-        results = _HARPER_CLIENT_CACHE[harper_bin].lint(lint_text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
-
+def _diagnostics_to_errors(text: str, results: list) -> dict:
     errors = []
     for item in results:
         diag = item["diagnostic"]
@@ -364,6 +517,43 @@ def run_harper_lint(text: str, user_config_dir: str, bcp47: str = "en-US", *, he
         )
 
     return {"errors": errors}
+
+
+def _lint_with_client(
+    client: HarperLSClient,
+    text: str,
+    bcp47: str,
+    *,
+    heartbeat_fn: Callable[[dict[str, str]], None] | None = None,
+    restart: bool = True,
+) -> dict:
+    """Caller holds ``_HARPER_LOCK``. ``restart=False`` avoids ``Popen`` on the UNO thread."""
+    lint_text = normalize_spaces_1to1(text)
+    try:
+        results = client.lint(lint_text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
+    except Exception:
+        log.exception("[harper] Linting error or connection lost, restarting client")
+        client.close()
+        if not restart:
+            raise
+        restarted = HarperLSClient(client.binary_path, user_config_dir=client.user_config_dir, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
+        _HARPER_CLIENT_CACHE[client.binary_path] = restarted
+        results = restarted.lint(lint_text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
+    return _diagnostics_to_errors(text, results)
+
+
+def run_harper_lint(text: str, user_config_dir: str, bcp47: str = "en-US", *, heartbeat_fn: Callable[[dict[str, str]], None] | None = None) -> dict:
+    """Run harper-ls on a text segment and return parsed errors (no LibreOffice UI)."""
+    try:
+        harper_bin = _get_harper_binary(user_config_dir, heartbeat_fn=heartbeat_fn)
+    except Exception as e:
+        log.exception("[harper] Failed to resolve harper-ls binary")
+        raise RuntimeError(str(e)) from e
+
+    with _HARPER_LOCK:
+        client = _get_or_create_client(harper_bin, user_config_dir, bcp47, heartbeat_fn=heartbeat_fn)
+        _set_state(HarperRuntimeState.READY)
+        return _lint_with_client(client, text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
 
 
 def _pump_grammar_status_ui(ctx: Any) -> None:

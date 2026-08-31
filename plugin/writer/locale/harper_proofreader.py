@@ -93,13 +93,11 @@ class HarperProofreader(WriterAgentAiGrammarProofreader):  # pyright: ignore[rep
     """Same proofreading pipeline; branded for the LibreHarper extension."""
 
     def __init__(self, ctx: Any, *args: Any) -> None:
-        super().__init__(ctx, *args)
-        self._implementation_name = IMPLEMENTATION_NAME
-        self._locales = _harper_locale_tuple()
+        # Pin package id before base init and update check: WriterAgent may also be installed, and
+        # resolve_package_extension_id prefers the first known id with a location.
+        # Identity before base init: register_live_proofreader / warmup may run doProofreading.
         self._checker_identity = "harper"
         self._provider = "harper"
-        # Pin package id before update check: WriterAgent may also be installed, and
-        # resolve_package_extension_id prefers the first known id with a location.
         try:
             from plugin.framework.uno_context import set_package_extension_id
 
@@ -109,6 +107,21 @@ class HarperProofreader(WriterAgentAiGrammarProofreader):  # pyright: ignore[rep
             schedule_extension_update_check_once(ctx, EXTENSION_ID_LIBREHARPER)
         except Exception as e:
             log.warning("[grammar] LibreHarper extension update check schedule failed: %s", e)
+
+        super().__init__(ctx, *args)
+        self._implementation_name = IMPLEMENTATION_NAME
+        self._locales = _harper_locale_tuple()
+        # LibreHarper has no OnStartApp job; start harper-ls only once the profile path exists.
+        try:
+            from plugin.framework.config import init_config, user_config_dir
+            from plugin.writer.locale.harper import maybe_start_harper_async
+
+            init_config(ctx)
+            ucd = user_config_dir() or ""
+            if ucd:
+                maybe_start_harper_async(ctx, user_config_dir=ucd)
+        except Exception as e:
+            log.warning("[grammar] LibreHarper harper warmup start failed: %s", e)
 
     def _check_enabled_and_locale(self, a_doc_id: str, a_text: str, a_locale: Any, n_start: int, n_suggested_end: int) -> str | None:
         """LibreHarper is always enabled when registered; check supported locale."""

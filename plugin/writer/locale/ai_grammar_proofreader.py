@@ -216,7 +216,7 @@ def _locale_tuple() -> tuple[Any, ...]:
 
 
 def ensure_writeragent_proofreader_configured(ctx: Any) -> None:
-    """Log Doc-tab grammar state only.
+    """Log Doc-tab grammar state and start background warmup if local engine is configured.
 
     We intentionally do **not** call ``XLinguServiceManager2.setConfiguredServices`` here: doing that
     during startup/sidebar init has been observed to destabilize LibreOffice (Writing aids / proofreader
@@ -224,15 +224,31 @@ def ensure_writeragent_proofreader_configured(ctx: Any) -> None:
     active grammar checker under Tools → Options → Language Settings → Writing aids.
     """
     from plugin.framework.logging import init_logging
+    from plugin.framework.config import init_config, is_grammar_enabled, user_config_dir
 
     init_logging(ctx)
     log.debug("[grammar] ensure_proofreader_selection: entry")
-    from plugin.framework.config import is_grammar_enabled
-
+    try:
+        init_config(ctx)
+    except Exception as e:
+        log.debug("[grammar] ensure_proofreader_selection: init_config: %s", e)
     enabled = is_grammar_enabled()
     if not enabled:
         log.info("[grammar] ensure_proofreader_selection: Doc-tab AI grammar off (enable on Doc tab to use the checker)")
         return
+    try:
+        ucd = user_config_dir() or ""
+    except Exception:
+        ucd = ""
+    if not ucd:
+        log.debug("[grammar] skip harper warmup: user config dir not ready")
+        return
+    try:
+        from plugin.writer.locale.harper import maybe_start_harper_async
+
+        maybe_start_harper_async(ctx, user_config_dir=ucd)
+    except Exception as e:
+        log.warning("[grammar] OnStartApp: could not warmup harper: %s", e)
     log.info("[grammar] Doc-tab AI grammar on — if Writer does not underline yet, set WriterAgent as the active grammar checker under Tools → Options → Language Settings → Writing aids for the document language (same locales as the extension’s UI translation set).")
 
 
@@ -497,6 +513,62 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
                 combined_errors.append(adj)
         return combined_errors, uncached_spans
 
+    def _try_harper_fast_path(
+        self,
+        a_doc_id: str,
+        loc_key: str,
+        uncached_spans: list[tuple[int, int, str]],
+        combined_errors: list[dict[str, Any]],
+    ) -> bool:
+        """If this is Harper, lint ready process now or kick one ensure. True = do not enqueue."""
+        from plugin.framework.config import get_grammar_provider, user_config_dir
+
+        provider = getattr(self, "_provider", "") or get_grammar_provider()
+        if provider != "harper":
+            return False
+
+        from dataclasses import asdict
+
+        from plugin.writer.locale.grammar_ignore_rules import doc_ignored_rules, is_rule_ignored
+        from plugin.writer.locale.grammar_proofread_cache import cache_put_sentence, ignored_rules_snapshot
+        from plugin.writer.locale.grammar_proofread_text import normalize_errors_for_text
+        from plugin.writer.locale.harper import harper_try_lint
+
+        cfg_dir = user_config_dir() or ""
+        ident = getattr(self, "_checker_identity", "harper")
+        first_text = uncached_spans[0][2] if uncached_spans else ""
+        if first_text:
+            emit_grammar_status("start", first_text, result="Harper")
+        last_text = first_text
+        issue_count = 0
+        ensuring = False
+        for sent_start, unused_end, sent_text in uncached_spans:
+            del unused_end
+            last_text = sent_text
+            res = harper_try_lint(sent_text, cfg_dir, bcp47=loc_key)
+            if res is None:
+                grammar_obs("do_proofreading_harper_ensure", doc_id=a_doc_id, grammar_bcp47=loc_key)
+                emit_grammar_status("request", sent_text, result="Starting Harper…")
+                ensuring = True
+                break
+            emit_grammar_status("request", sent_text, result="Harper check")
+            errors = res.get("errors", [])
+            ignored = doc_ignored_rules(self.ctx, a_doc_id)
+            global_ignored = ignored_rules_snapshot()
+            norm_errors = normalize_errors_for_text(sent_text, 0, len(sent_text), errors, self.ctx, loc_key)
+            filtered = [e for e in norm_errors if not is_rule_ignored(e.rule_identifier, ignored, global_ignored)]
+            payload = [asdict(e) for e in filtered]
+            issue_count += len(payload)
+            cache_put_sentence(loc_key, sent_text, payload, ctx=self.ctx, doc_id=a_doc_id, checker_identity=ident)
+            for err_item in payload:
+                adj = dict(err_item)
+                adj["n_error_start"] = sent_start + err_item.get("n_error_start", 0)
+                combined_errors.append(adj)
+        if last_text and not ensuring:
+            iw = "issue" if issue_count == 1 else "issues"
+            emit_grammar_status("done", last_text, result=f"{issue_count} {iw}")
+        return True
+
     def _enqueue_misses(self, a_doc_id: str, a_text: str, loc_key: str, uncached_spans: list[tuple[int, int, str]]) -> None:
         """Enqueue uncached sentences for background processing."""
         provider = getattr(self, "_provider", "")
@@ -617,6 +689,11 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             miss_reason = "partial_miss" if cached_ct > 0 else "all_uncached"
 
             grammar_obs("do_proofreading_cache_partial_hit", doc_id=aDocumentIdentifier, grammar_bcp47=loc_key, cached_count=cached_ct, uncached_count=len(uncached_active_spans), errors_returned=len(combined_errors), miss_reason=miss_reason)
+
+            if self._try_harper_fast_path(aDocumentIdentifier, loc_key, uncached_active_spans, combined_errors):
+                if combined_errors:
+                    a_res.aErrors = _cached_errors_to_uno_tuple(tuple(combined_errors), self.ctx, aDocumentIdentifier)
+                return a_res
 
             self._enqueue_misses(aDocumentIdentifier, aText, loc_key, uncached_active_spans)
             log.debug("[grammar] doProofreading: async miss returning partial or empty errors; sentence cache fills in background")
