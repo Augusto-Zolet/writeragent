@@ -48,7 +48,16 @@ def _setup_mock(ctx):
 
     global _saved_prompt_research
     init_config(ctx)
+    from plugin.chatbot.chat_sidebar_mode import mark_librarian_invoked
+    from plugin.chatbot.memory import MemoryStore
     from plugin.framework.config import get_config_bool, set_config
+
+    # Ensure clean CI profile starts directly in Chat mode (creates USER.md and sets flag).
+    mark_librarian_invoked()
+    try:
+        MemoryStore(ctx).write("user", "# Test User Profile\n")
+    except Exception:
+        pass
 
     # Packet E1–E8 must not block on HITL Accept. E9 turns this on locally.
     _saved_prompt_research = get_config_bool("chatbot.prompt_for_web_research")

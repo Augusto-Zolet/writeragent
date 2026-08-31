@@ -181,6 +181,21 @@ def handle_debug_sidebar_command(command: str) -> None:
             set_audio_supported(True, listener=sl)
         elif op == "AUTO_STOP":
             fire_audio_auto_stop(listener=sl)
+        elif op == "SET_TEXT_EMPTY":
+            from plugin.chatbot.dialogs import set_control_text
+
+            query = getattr(sl, "query_control", None)
+            if query is not None:
+                set_control_text(query, "")
+            sl.dispatch(SendEvent(SendEventKind.TEXT_UPDATED, {"has_text": False}))
+        elif op == "SET_TEXT_NONEMPTY":
+            sl.dispatch(SendEvent(SendEventKind.TEXT_UPDATED, {"has_text": True}))
+        elif op == "SET_CHAT_MODE":
+            apply_fn = getattr(sl, "_apply_sidebar_mode_fn", None)
+            if apply_fn is not None:
+                from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_CHAT
+
+                apply_fn(CHAT_MODE_CHAT)
         else:
             log.warning("debug_sidebar unknown op %s", op)
         _write_debug_snapshot(sl)
@@ -625,11 +640,23 @@ def ensure_sidebar_chat_mode(controls: dict[str, Any] | None) -> None:
     if not controls:
         return
     sel = controls.get("chat_mode_selector")
-    if sel is None:
-        return
-    from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_CHAT, set_selector_mode_with_flags, sidebar_mode_flags_for_doc_type
+    if sel is not None:
+        from plugin.chatbot.chat_sidebar_mode import (
+            CHAT_MODE_CHAT,
+            set_selector_mode_with_flags,
+            sidebar_mode_flags_for_doc_type,
+        )
 
-    set_selector_mode_with_flags(sel, CHAT_MODE_CHAT, sidebar_mode_flags_for_doc_type("writer"))
+        set_selector_mode_with_flags(sel, CHAT_MODE_CHAT, sidebar_mode_flags_for_doc_type("writer"))
+    sl = send_listener()
+    if sl is not None:
+        apply_fn = getattr(sl, "_apply_sidebar_mode_fn", None)
+        if apply_fn is not None:
+            from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_CHAT
+
+            apply_fn(CHAT_MODE_CHAT)
+    else:
+        execute_debug_sidebar_op("SET_CHAT_MODE")
 
 
 def set_query_text_via_controls(controls: dict[str, Any], text: str) -> None:
@@ -637,7 +664,13 @@ def set_query_text_via_controls(controls: dict[str, Any], text: str) -> None:
     _require_debug()
     from plugin.chatbot.dialogs import set_control_text
 
-    set_control_text(controls["query"], text)
+    if "query" in controls:
+        set_control_text(controls["query"], text)
+    sl = send_listener()
+    if sl is not None:
+        sl.dispatch(SendEvent(SendEventKind.TEXT_UPDATED, {"has_text": bool(text.strip())}))
+    else:
+        execute_debug_sidebar_op("SET_TEXT_NONEMPTY" if text.strip() else "SET_TEXT_EMPTY")
 
 
 def wait_controls_send_finished(
@@ -701,14 +734,18 @@ def set_query_text(text: str, *, listener: Any = None) -> None:
     """Set the query box and dispatch ``TEXT_UPDATED`` (same as ``QueryTextListener``)."""
     _require_debug()
     sl = listener if listener is not None else send_listener()
-    if sl is None:
-        raise RuntimeError("no live SendButtonListener")
-    from plugin.chatbot.dialogs import set_control_text
+    if sl is not None:
+        from plugin.chatbot.dialogs import set_control_text
 
-    query = getattr(sl, "query_control", None)
-    set_control_text(query, text)
-    stripped = (text or "").strip()
-    sl.dispatch(SendEvent(SendEventKind.TEXT_UPDATED, {"has_text": bool(stripped)}))
+        query = getattr(sl, "query_control", None)
+        set_control_text(query, text)
+        stripped = (text or "").strip()
+        sl.dispatch(SendEvent(SendEventKind.TEXT_UPDATED, {"has_text": bool(stripped)}))
+        return
+    ctx = _HOOK_CTX
+    if ctx is not None:
+        controls = chat_dialog_controls(ctx, current_component(ctx)) or {}
+        set_query_text_via_controls(controls, text)
 
 
 def query_text(*, listener: Any = None) -> str:

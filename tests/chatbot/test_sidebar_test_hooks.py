@@ -290,6 +290,22 @@ def test_handle_debug_sidebar_record_and_snapshot(fake_listener: _FakeListener, 
     os.remove(path)
 
 
+def test_handle_debug_sidebar_text_and_mode_commands(fake_listener: _FakeListener, monkeypatch) -> None:
+    applied_modes = []
+    fake_listener._apply_sidebar_mode_fn = lambda mode: applied_modes.append(mode)
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks.adopt_runtime_send_listeners", lambda: 0)
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks.send_listener", lambda frame=None: fake_listener)
+
+    handle_debug_sidebar_command("chatbot.debug_sidebar.SET_TEXT_EMPTY")
+    assert any(e.kind == SendEventKind.TEXT_UPDATED and e.data.get("has_text") is False for e in fake_listener.events)
+
+    handle_debug_sidebar_command("chatbot.debug_sidebar.SET_TEXT_NONEMPTY")
+    assert any(e.kind == SendEventKind.TEXT_UPDATED and e.data.get("has_text") is True for e in fake_listener.events)
+
+    handle_debug_sidebar_command("chatbot.debug_sidebar.SET_CHAT_MODE")
+    assert "chat" in applied_modes
+
+
 def test_press_record_and_stop_rec_dispatch(fake_listener: _FakeListener) -> None:
     press_record(listener=fake_listener)
     press_stop_rec(listener=fake_listener)
