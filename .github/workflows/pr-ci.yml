@@ -3,31 +3,69 @@ name: PR CI
 on:
   pull_request:
   workflow_dispatch:
+    inputs:
+      os:
+        description: "Operating system runner"
+        required: true
+        default: "ubuntu-latest"
+        type: choice
+        options:
+          - "ubuntu-latest"
+          - "macos-latest"
+          - "windows-latest"
+          - "all"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  test-linux:
-    name: Test & Typecheck (Ubuntu)
-    runs-on: ubuntu-latest
+  test:
+    name: Test & Typecheck (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: >-
+          ${{
+            github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') ||
+            (inputs.os == 'all' && fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') ||
+            fromJSON(format('["{0}"]', inputs.os || 'ubuntu-latest')))
+          }}
+
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install LibreOffice (PPA) and system tools
+      - name: Install LibreOffice and system tools (Ubuntu)
+        if: runner.os == 'Linux'
         run: |
           sudo add-apt-repository -y ppa:libreoffice/ppa
           sudo apt-get update
           sudo apt-get install -y libreoffice python3-uno gettext
-
-      - name: Install Opengrep
-        run: |
           curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install LibreOffice and system tools (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install --cask libreoffice || true
+          brew install gettext || true
+          curl -fsSL https://raw.githubusercontent.com/opengrep/opengrep/main/install.sh | bash || true
+          echo "/Applications/LibreOffice.app/Contents/MacOS" >> $GITHUB_PATH
+          echo "/opt/homebrew/opt/gettext/bin" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: Install LibreOffice and system tools (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install libreoffice-fresh gettext make -y || true
+          echo "C:\Program Files\LibreOffice\program" >> $GITHUB_PATH
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
