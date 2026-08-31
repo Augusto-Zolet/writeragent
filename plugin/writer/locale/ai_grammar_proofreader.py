@@ -481,8 +481,12 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
         """Check cache for spans; return (combined_errors, uncached_spans)."""
         combined_errors: list[dict[str, Any]] = []
         uncached_spans: list[tuple[int, int, str]] = []
+        checker_ident = getattr(self, "_checker_identity", None)
         for sent_start, _sent_end, sent_text in work_spans:
-            cached = cache_get_sentence(loc_key, sent_text, ctx=self.ctx, doc_id=a_doc_id)
+            get_kwargs: dict[str, Any] = {"ctx": self.ctx, "doc_id": a_doc_id}
+            if checker_ident:
+                get_kwargs["checker_identity"] = checker_ident
+            cached = cache_get_sentence(loc_key, sent_text, **get_kwargs)
             grammar_obs("do_proofreading_sentence_cache", doc_id=a_doc_id, sent_start=sent_start, sent_len=len(sent_text), cache_hit=cached is not None, sent_preview=slice_preview_debug(sent_text, 48))
             if cached is None:
                 uncached_spans.append((sent_start, _sent_end, sent_text))
@@ -495,13 +499,25 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
 
     def _enqueue_misses(self, a_doc_id: str, a_text: str, loc_key: str, uncached_spans: list[tuple[int, int, str]]) -> None:
         """Enqueue uncached sentences for background processing."""
+        provider = getattr(self, "_provider", "")
         for sent_start, sent_end, sent_text in uncached_spans:
             seq = next_enqueue_seq()
             complete_sentence = looks_complete_sentence(sent_text)
             inflight_key = grammar_inflight_key(a_doc_id, loc_key, sent_text, complete_sentence)
             grammar_obs("do_proofreading_enqueue", doc_id=a_doc_id, grammar_bcp47=loc_key, inflight_key=inflight_key, enqueue_seq=seq, n_start=sent_start, n_end=sent_end, slice_len=len(sent_text), partial_sentence_arg=not complete_sentence)
             emit_grammar_status("start", sent_text, result="queued")
-            grammar_queue.enqueue(GrammarWorkItem(ctx=self.ctx, text=sent_text, grammar_bcp47=loc_key, partial_sentence=not complete_sentence, doc_id=a_doc_id, inflight_key=inflight_key, enqueue_seq=seq))
+            grammar_queue.enqueue(
+                GrammarWorkItem(
+                    ctx=self.ctx,
+                    text=sent_text,
+                    grammar_bcp47=loc_key,
+                    partial_sentence=not complete_sentence,
+                    doc_id=a_doc_id,
+                    inflight_key=inflight_key,
+                    enqueue_seq=seq,
+                    provider=provider,
+                )
+            )
 
     # --- XProofreader ---
     def isSpellChecker(self) -> bool:

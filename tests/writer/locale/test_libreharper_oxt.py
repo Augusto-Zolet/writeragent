@@ -175,3 +175,45 @@ def test_collect_libreharper_plugin_paths() -> None:
     assert "plugin/chatbot/dialogs.py" in paths
     assert "plugin/framework/client/requests.py" in paths
 
+
+def test_libreharper_config_always_uses_harper_and_ignores_json() -> None:
+    from unittest.mock import patch
+    from plugin.framework.config import get_grammar_provider, grammar_checker_identity, is_grammar_enabled
+    from plugin.framework.constants import EXTENSION_ID_LIBREHARPER
+    from plugin.framework.uno_context import reset_package_extension_id_for_tests, set_package_extension_id
+
+    try:
+        set_package_extension_id(EXTENSION_ID_LIBREHARPER)
+        with patch("plugin.framework.config.get_config", return_value="off"):
+            assert is_grammar_enabled() is True
+            assert get_grammar_provider() == "harper"
+            assert grammar_checker_identity() == "harper"
+
+        with patch("plugin.framework.config.get_config", return_value="llm"):
+            assert is_grammar_enabled() is True
+            assert get_grammar_provider() == "harper"
+            assert grammar_checker_identity() == "harper"
+    finally:
+        reset_package_extension_id_for_tests()
+
+
+def test_harper_proofreader_identity_and_locale_check() -> None:
+    from unittest.mock import MagicMock
+    from plugin.writer.locale.harper_proofreader import HarperProofreader
+    from plugin.framework.uno_context import reset_package_extension_id_for_tests
+
+    try:
+        ctx = MagicMock()
+        proofreader = HarperProofreader(ctx)
+        assert proofreader._checker_identity == "harper"
+        assert proofreader._provider == "harper"
+
+        locale_en = SimpleNamespace(Language="en", Country="US", Variant="")
+        assert proofreader._check_enabled_and_locale("doc1", "Some text.", locale_en, 0, 10) == "en-US"
+
+        locale_de = SimpleNamespace(Language="de", Country="DE", Variant="")
+        assert proofreader._check_enabled_and_locale("doc1", "Some text.", locale_de, 0, 10) is None
+    finally:
+        reset_package_extension_id_for_tests()
+
+

@@ -117,10 +117,13 @@ def process_grammar_results(
                     continue
                 filtered_errors.append(e)
 
-            grammar_proofread_cache.cache_put_sentence(bcp47, text, [asdict(e) for e in filtered_errors], ctx=ec.ctx, doc_id=item.doc_id)
+            put_kwargs: dict[str, Any] = {"ctx": ec.ctx, "doc_id": item.doc_id}
+            if item.provider:
+                put_kwargs["checker_identity"] = item.provider
+            grammar_proofread_cache.cache_put_sentence(bcp47, text, [asdict(e) for e in filtered_errors], **put_kwargs)
             if original_bcp47 and not grammar_proofread_locale.grammar_bcp47_tags_match(original_bcp47, bcp47):
                 log.debug("[grammar] Double caching for %s (detected %s)", original_bcp47, bcp47)
-                grammar_proofread_cache.cache_put_sentence(original_bcp47, text, [asdict(e) for e in filtered_errors], ctx=ec.ctx, doc_id=item.doc_id)
+                grammar_proofread_cache.cache_put_sentence(original_bcp47, text, [asdict(e) for e in filtered_errors], **put_kwargs)
             else:
                 log.debug("[grammar] No double caching: original=%s, detected=%s", original_bcp47, bcp47)
 
@@ -213,7 +216,7 @@ def run_grammar_check(
     try:
         from plugin.framework.config import get_grammar_provider, user_config_dir
 
-        provider = get_grammar_provider()
+        provider = (chunk[0][0].provider if chunk and chunk[0][0].provider else "") or get_grammar_provider()
         spec = _SINGLE_SENTENCE_PROVIDERS.get(provider)
         if spec is not None:
             cfg_dir = user_config_dir() or ""
@@ -740,7 +743,9 @@ def requeue_individual_item(
 
 def _worker_batch_gates(ctx: Any, items: list[GrammarWorkItem]) -> bool:
     """Return False when the batch should not run (grammar off or agent pause)."""
-    if not config.is_grammar_enabled():
+    if items and items[0].provider == "harper":
+        pass
+    elif not config.is_grammar_enabled():
         grammar_obs("worker_batch_skip", reason="grammar_disabled", item_count=len(items))
         return False
     pause_during_agent = config.get_config_bool_safe("doc.grammar_proofreader_pause_during_agent")
@@ -748,7 +753,8 @@ def _worker_batch_gates(ctx: Any, items: list[GrammarWorkItem]) -> bool:
         from plugin.framework.config import get_grammar_provider
 
         # Local engines do not share the LLM request lane; only pause the LLM provider.
-        if get_grammar_provider() not in ("harper", "languagetool", "vale"):
+        active_prov = (items[0].provider if items and items[0].provider else "") or get_grammar_provider()
+        if active_prov not in ("harper", "languagetool", "vale"):
             grammar_obs("worker_batch_skip", reason="pause_during_agent", item_count=len(items))
             return False
     return True
@@ -765,7 +771,10 @@ def _worker_collect_valid_items(
         if gq.inflight_superseded(item.inflight_key, item.enqueue_seq):
             grammar_obs("worker_skip", reason="superseded_before_process", enqueue_seq=item.enqueue_seq, inflight_key=item.inflight_key)
             continue
-        if grammar_proofread_cache.cache_get_sentence(grammar_bcp47, item.text, ctx=ctx, doc_id=item.doc_id) is None:
+        get_kwargs: dict[str, Any] = {"ctx": ctx, "doc_id": item.doc_id}
+        if item.provider:
+            get_kwargs["checker_identity"] = item.provider
+        if grammar_proofread_cache.cache_get_sentence(grammar_bcp47, item.text, **get_kwargs) is None:
             valid_items.append((item, item.text))
     return valid_items
 
@@ -878,7 +887,7 @@ def run_llm_and_cache_batch(
 
         from plugin.framework.config import get_grammar_provider
 
-        provider = get_grammar_provider()
+        provider = (items[0].provider if items and items[0].provider else "") or get_grammar_provider()
         # Local engines never need LlmClient / model_fetcher (and must not import framework.client package).
         local_provider = provider in ("harper", "languagetool", "vale")
 

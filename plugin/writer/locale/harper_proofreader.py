@@ -96,6 +96,8 @@ class HarperProofreader(WriterAgentAiGrammarProofreader):  # pyright: ignore[rep
         super().__init__(ctx, *args)
         self._implementation_name = IMPLEMENTATION_NAME
         self._locales = _harper_locale_tuple()
+        self._checker_identity = "harper"
+        self._provider = "harper"
         # Pin package id before update check: WriterAgent may also be installed, and
         # resolve_package_extension_id prefers the first known id with a location.
         try:
@@ -107,6 +109,37 @@ class HarperProofreader(WriterAgentAiGrammarProofreader):  # pyright: ignore[rep
             schedule_extension_update_check_once(ctx, EXTENSION_ID_LIBREHARPER)
         except Exception as e:
             log.warning("[grammar] LibreHarper extension update check schedule failed: %s", e)
+
+    def _check_enabled_and_locale(self, a_doc_id: str, a_text: str, a_locale: Any, n_start: int, n_suggested_end: int) -> str | None:
+        """LibreHarper is always enabled when registered; check supported locale."""
+        from plugin.writer.locale.grammar_obs import grammar_obs
+        from plugin.writer.locale.grammar_proofread_text import slice_preview_debug
+
+        grammar_bcp47 = self._normalize_locale(a_locale)
+        loc_raw = getattr(a_locale, "Language", "") or ""
+        if grammar_bcp47 is None:
+            grammar_obs(
+                "do_proofreading_skip",
+                reason="locale_not_registered",
+                doc_id=a_doc_id,
+                len_aText=len(a_text),
+                n_start_lo=n_start,
+                n_suggested_behind_end=n_suggested_end,
+                locale_raw=loc_raw,
+            )
+            return None
+
+        grammar_obs(
+            "do_proofreading_entry",
+            doc_id=a_doc_id,
+            len_aText=len(a_text),
+            n_start_lo=n_start,
+            n_suggested_behind_end=n_suggested_end,
+            grammar_bcp47=grammar_bcp47,
+            locale_raw=loc_raw,
+            text_preview=slice_preview_debug(a_text),
+        )
+        return grammar_bcp47
 
     def _normalize_locale(self, a_locale: Any) -> str | None:
         return normalize_harper_locale_to_bcp47(a_locale)

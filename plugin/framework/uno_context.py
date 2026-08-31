@@ -66,6 +66,9 @@ def is_libreharper() -> bool:
     global _is_libreharper_cache
     if _is_libreharper_cache is not None:
         return _is_libreharper_cache
+    if _package_extension_id == EXTENSION_ID_LIBREHARPER:
+        _is_libreharper_cache = True
+        return True
     try:
         from plugin import _manifest
         _is_libreharper_cache = any(m.get("title") == "LibreHarper" for m in getattr(_manifest, "MODULES", []))
@@ -83,14 +86,19 @@ def set_fallback_ctx(ctx):
 
 def set_package_extension_id(extension_id: str) -> None:
     """Pin the OXT package id used by get_extension_url() (LibrePy vs WriterAgent)."""
-    global _package_extension_id
+    global _package_extension_id, _is_libreharper_cache
     _package_extension_id = extension_id
+    if extension_id == EXTENSION_ID_LIBREHARPER:
+        _is_libreharper_cache = True
+    elif extension_id is not None:
+        _is_libreharper_cache = False
 
 
 def reset_package_extension_id_for_tests() -> None:
     """Clear cached extension id (unit tests only)."""
-    global _package_extension_id
+    global _package_extension_id, _is_libreharper_cache
     _package_extension_id = None
+    _is_libreharper_cache = None
 
 
 def resolve_package_extension_id(ctx=None) -> str:

@@ -105,6 +105,7 @@ class GrammarWorkItem:
     inflight_key: str
     enqueue_seq: int
     original_bcp47: str = ""
+    provider: str = ""
 
 
 

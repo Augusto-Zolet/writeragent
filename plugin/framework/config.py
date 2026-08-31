@@ -344,6 +344,11 @@ def _load_config_dict(
 
 def is_grammar_enabled():
     """True if the grammar checker is enabled on the Doc tab (LLM, LanguageTool, Vale, or Harper)."""
+    from plugin.framework.uno_context import is_libreharper
+
+    if is_libreharper():
+        return True
+
     val = get_config("doc.grammar_proofreader_enabled")
     if isinstance(val, bool):
         return val  # Handle old boolean config
@@ -353,6 +358,11 @@ def is_grammar_enabled():
 
 def get_grammar_provider():
     """Return the active grammar provider name ('off', 'llm', 'languagetool', 'vale', or 'harper')."""
+    from plugin.framework.uno_context import is_libreharper
+
+    if is_libreharper():
+        return "harper"
+
     val = get_config("doc.grammar_proofreader_enabled")
     if isinstance(val, bool):
         return "llm" if val else "off"
@@ -376,9 +386,12 @@ def grammar_checker_identity() -> str:
         return provider
     if provider == "off":
         return "off"
-    from plugin.framework.client.model_fetcher import get_grammar_model
+    try:
+        from plugin.framework.client.model_fetcher import get_grammar_model
 
-    return f"llm:{get_grammar_model() or ''}"
+        return f"llm:{get_grammar_model() or ''}"
+    except (ImportError, ModuleNotFoundError):
+        return "llm:unknown"
 
 
 def get_current_endpoint():
