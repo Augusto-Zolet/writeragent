@@ -44,6 +44,10 @@ jobs:
         run: |
           uv sync --dev
 
+      - name: Prepare build artifacts (manifest, vendor, translations)
+        run: |
+          make vendor manifest compile-translations
+
       - name: Run typecheck
         run: |
           make typecheck
