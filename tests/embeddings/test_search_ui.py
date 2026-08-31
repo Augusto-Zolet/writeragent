@@ -42,6 +42,7 @@ class TestSearchDialog:
 
         show_search_dialog(mock_ctx)
 
+    @patch("plugin.embeddings.search_ui.run_in_background", side_effect=lambda fn, *args, **kwargs: fn(*args))
     @patch("plugin.embeddings.search_ui.execute_on_main_thread", side_effect=lambda fn, *args, **kwargs: fn(*args, **kwargs))
     @patch("plugin.framework.uno_context.get_desktop")
     @patch("plugin.embeddings.search_ui.get_active_document")
@@ -49,7 +50,7 @@ class TestSearchDialog:
     @patch("plugin.embeddings.embeddings_cache.clear_folder_cache")
     @patch("plugin.framework.client.embeddings_service.maintain_folder_index")
     @patch("plugin.framework.client.embeddings_service._folder_search_mode", return_value="llama_index")
-    def test_rebuild_action_triggered(self, mock_search_mode, mock_maintain, mock_clear, mock_resolve, mock_doc, mock_get_desktop, _mock_execute):
+    def test_rebuild_action_triggered(self, mock_search_mode, mock_maintain, mock_clear, mock_resolve, mock_doc, mock_get_desktop, _mock_execute, _mock_bg):
         mock_ctx = MagicMock()
         mock_smgr = mock_ctx.getServiceManager.return_value
         
@@ -71,10 +72,6 @@ class TestSearchDialog:
 
         # Call Rebuild
         dialog._run_rebuild(mock_dlg)
-
-        # Let background threads run or inspect execution
-        import time
-        time.sleep(0.1)
 
         assert mock_clear.called
         assert mock_maintain.called
@@ -111,6 +108,7 @@ class TestSearchDialog:
         dialog._run_search.assert_called_with(mock_dlg)
         assert dialog._run_search.call_count == 2
 
+    @patch("plugin.embeddings.search_ui.run_in_background", side_effect=lambda fn, *args, **kwargs: fn(*args))
     @patch("plugin.embeddings.search_ui.execute_on_main_thread", side_effect=lambda fn, *args, **kwargs: fn(*args, **kwargs))
     @patch("plugin.framework.uno_context.get_desktop")
     @patch("plugin.embeddings.search_ui.get_active_document")
@@ -125,6 +123,7 @@ class TestSearchDialog:
         mock_doc,
         mock_get_desktop,
         _mock_execute,
+        _mock_bg,
         tmp_path,
     ):
         mock_ctx = MagicMock()
@@ -151,8 +150,6 @@ class TestSearchDialog:
         with patch("plugin.doc.text_helpers.get_document_path", return_value=None):
             with patch("plugin.doc.document_research.get_work_directory", return_value=my_docs):
                 dialog._run_rebuild(mock_dlg)
-                import time
-                time.sleep(0.2)
 
         assert mock_clear.called
         assert mock_clear.call_args.args[0] == my_docs
