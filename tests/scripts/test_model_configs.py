@@ -21,28 +21,39 @@ EXPECTED_DEFAULT_IDS = [
     "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
     "openai/gpt-5.6-luna",
-    "google/gemini-3.7-flash",
+    "openai/gpt-5-nano",
     "google/gemini-3.5-flash-lite",
-    "nvidia/nemotron-3-nano-30b-a3b",
+    "google/gemma-4-31b-it",
+    "google/gemma-4-26b-a4b-it",
     "nvidia/nemotron-3.5-lightning",
     "inception/mercury-2",
     "x-ai/grok-4.6",
     "meta/muse-glimmer-30b",
     "meta/muse-spark-1.2-contributor",
     "poolside/laguna-s-2.1",
+    "poolside/laguna-xs-2.1",
     "qwen/qwen3.8-27b",
+    "qwen/qwen3.8-flash",
     "z-ai/glm-5.3",
+    "z-ai/glm-5.3-flash",
+    "upstage/solar-pro4",
+    "ibm-granite/granite-4.2-8b",
+    "mistralai/mistral-small-2603",
+    "bytedance-seed/seed-2.0-mini",
     "minimax/minimax-m3",
     "deepseek/deepseek-v4-flash-0731",
-    "qwen/qwen3.7-flash",
 ]
+
+EXPECTED_GOLD_ONLY_IDS: list[str] = []
 
 DROPPED_SLUGS = [
     "x-ai/grok-4.1-fast",
     "allenai/olmo-3.1-32b-instruct",
     "mistralai/devstral-2512",
+    "nvidia/nemotron-3-nano-30b-a3b",
     "nvidia/nemotron-3-super-120b-a12b:free",
     "google/gemini-3-flash-preview",
+    "google/gemini-3.7-flash",
     "z-ai/glm-5.1",
     "minimax/minimax-m2.7",
     "deepseek/deepseek-v3.2",
@@ -50,22 +61,25 @@ DROPPED_SLUGS = [
     "qwen/qwen3.5-27b",
     "qwen/qwen3.5-35b-a3b",
     "qwen/qwen3.5-122b-a10b",
+    "qwen/qwen3.7-flash",
+    "qwen/qwen3-30b-a3b-instruct-2507",
+    "anthropic/claude-sonnet-4.6",
+    "anthropic/claude-sonnet-5",
 ]
 
 
 def test_default_models_excludes_gold_only() -> None:
     default_ids = [m.openrouter_id for m in get_default_models()]
     assert default_ids == EXPECTED_DEFAULT_IDS
-    assert "anthropic/claude-sonnet-4.6" not in default_ids
-    assert GOLD_ONLY_MODEL_IDS == frozenset({"anthropic/claude-sonnet-4.6"})
-    assert "anthropic/claude-sonnet-4.6" in MODEL_BY_ID
+    assert GOLD_ONLY_MODEL_IDS == frozenset(EXPECTED_GOLD_ONLY_IDS)
 
 
 def test_models_catalog_matches_defaults_plus_gold() -> None:
     catalog_ids = [m.openrouter_id for m in MODELS]
-    assert catalog_ids == EXPECTED_DEFAULT_IDS + ["anthropic/claude-sonnet-4.6"]
+    assert catalog_ids == EXPECTED_DEFAULT_IDS + EXPECTED_GOLD_ONLY_IDS
     for slug in DROPPED_SLUGS:
         assert slug not in MODEL_BY_ID
+
 
 
 def test_model_config_fields_are_populated() -> None:
@@ -78,3 +92,4 @@ def test_model_config_fields_are_populated() -> None:
         assert model.output_cost_per_million >= 0
         assert model.notes
         assert ":" not in model.openrouter_id.split("/", 1)[-1]
+
