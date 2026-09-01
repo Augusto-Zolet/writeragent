@@ -113,7 +113,8 @@ else
     LO_CONF := $(HOME)/.config/libreoffice/4
     # python3-uno binds to the distro interpreter. setup-python / uv put
     # another python3 first on PATH, so a bare `python3 -c "import uno"`
-    # fails on Ubuntu CI even when python3-uno is installed (33453027089).
+    # fails on Ubuntu CI even when python3-uno is installed (33453027089,
+    # again 33456719039 on this branch before #532 was merged in).
     LO_PYTHON ?= $(shell /usr/bin/python3 -c "import uno" 2>/dev/null && echo /usr/bin/python3)
     endif
     HOME_DIR = $(HOME)
@@ -634,11 +635,7 @@ translate-missing:
 	"$(PYTHON)" scripts/translate_missing.py --execute
 
 compile-translations:
-	@if command -v msgfmt >/dev/null 2>&1; then \
-		find locales -name "*.po" -exec sh -c 'msgfmt -o "$$(dirname $$1)/$$(basename $$1 .po).mo" "$$1"' _ {} \;; \
-	else \
-		echo "Skipping .mo compilation (msgfmt not found; install gettext: choco install gettext.install)"; \
-	fi
+	"$(PYTHON)" $(SCRIPTS)/compile_translations.py
 
 compile-translations-core:
 	"$(PYTHON)" $(SCRIPTS)/build_librepy_locales.py
