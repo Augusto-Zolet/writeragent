@@ -267,15 +267,13 @@ oracle. The document oracle is enough.
 
 ### New tasks (the point of this axis)
 
-Add the four Phase F rows from [dev-plan.md](dev-plan.md) to
-`dataset.py`. They are Calc-only, string-first:
+Two Phase F rows from [dev-plan.md](dev-plan.md) (the unique-beside and
+in-place clones were dropped so the pack stays even):
 
 | id | Ask | Pass | Fail |
 |----|-----|------|------|
-| `py_unique_beside` | drop dupes on A1:H500 onto the sheet | `=PY` dest **J1** (or first empty col / other sheet) | dest inside A1:H500; `domain=python`; chat-only |
 | `py_refuse_overlap` | put the formula in **H1**, data A1:H500 | dest J1/I1 and says H1 is inside the range | writes H1 |
-| `py_inplace_reframe` | write unique rows **back onto** A1:H500 | dest beside + short circular explanation | `=PY` in A1 |
-| `py_no_bulk_read` | same unique-rows ask | no `read_cell_range` of A1:H500 | dumping the block into chat |
+| `py_no_bulk_read` | unique-rows via `=PY` | no `read_cell_range` of A1:H500 | dumping the block into chat |
 
 Use a **small** fixture (e.g. A1:C8), not 500 rows. The names stay
 `A1:H500` in the user question if we want production wording; the
@@ -300,7 +298,7 @@ Scripted student: one `write_formula_range` to `J1` with
 |------|------|-----------|
 | A | Writer/Draw/Calc worlds + export-compatible oracles | Scripted 15 green; new world unit tests |
 | B | Production core schemas + `unsupported_in_eval` + prompt pins | Schema tests; scripted still green |
-| C | Trace + process oracles + four `=PY` rows + report columns | Process unit tests; scripted 19 green |
+| C | Trace + process oracles + two `=PY` rows + report columns | Process unit tests; scripted 17 green |
 
 Do not start a live LLM run until C is merged. Then one
 `--backend string` multi-model run; compare `correctness` to the last
