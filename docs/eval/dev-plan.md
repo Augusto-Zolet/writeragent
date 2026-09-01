@@ -1,5 +1,11 @@
 # WriterAgent: Evaluation System Development Plan (Internal Edition)
 
+**Current string-harness work** lives in
+[`string-harness-upgrade.md`](string-harness-upgrade.md) (real core tool
+catalog, document worlds, process/`=PY` score; no LO; multi-turn later).
+This file is the older hybrid/LO roadmap and the Phase F `=PY` table
+that the upgrade plan implements.
+
 This plan covers the WriterAgent prompt optimization + evaluation system (`scripts/prompt_optimization/`). It supports fast non-LO evaluation via `StringDocState` (default `--backend string` in `llm_chat_eval.py`) for Writer text/HTML tasks, `DrawDocState` for shapes/flowcharts, and `CalcStringState` for data sorting (`data_sorting`) and tax column (`tax_column`) tests. Full LO (`--backend lo`) for fidelity. See `ideas.md` (annotated with LO requirements) for the original ~50 test cases. New Calc tests implemented in `string_eval_tools.py:231` (CalcStringState with `sort_range`, `write_cell_range`, `get_sheet_summary`, `snapshot()` JSON output) and `llm_chat_eval.py:221` (task detection + schemas).
 
 ## Current Status
@@ -9,7 +15,7 @@ The evaluation system lives in `scripts/prompt_optimization/`:
 - Default: `--backend string` (`string_eval_tools.py:StringDocState` — pure Python HTML/string mutations for `get_document_content`/`apply_document_content`/`find_text`; no LO).
 - `--backend lo`: Headless Writer via `tools_lo.py` + real `ToolRegistry`.
 - Judging: Honest `expected_contains` / `reject_contains` plus **result oracles** on the exported final document (`oracles.py`). LLM-as-a-Judge is **creative-only** (resume, logical rewriting, summarization). `gold_standards.json` is hand-written from the rubrics.
-- Current dataset: 15 tasks in `dataset.py` `ALL_EXAMPLES` (12 Writer including `style_consistency`, `smart_summarization`, `section_refactor`, `comment_management`, plus `flowchart_gen` + `data_sorting` + `tax_column`).
+- Current dataset: 19 tasks in `dataset.py` `ALL_EXAMPLES` (12 Writer including `style_consistency`, `smart_summarization`, `section_refactor`, `comment_management`, plus `flowchart_gen` + `data_sorting` + `tax_column` + four `=PY` dest rows). See [string-harness-upgrade.md](string-harness-upgrade.md).
 - `--student scripted` (`scripted_student.py`): no API key; pass is `example_passed` (substring + oracles) on exported state. `--backend lo` is headless UNO (`tools_lo.py`), not an in-memory mock. `-j` is threads; UNO is serialized on `_lo_thread`. Do not use `tests/eval_runner.py` for this harness. Do not set `WRITERAGENT_TESTING=1` for LO eval.
 - CI / pytest: `tests/scripts/test_eval_oracles.py` and `test_scripted_eval_pack.py` replay `--backend string --student scripted` (no OpenRouter). Prompt-text pins for `get_writer_eval_chat_system_prompt` live in `tests/scripts/test_eval_prompts.py` (imports `scripts/`, so they are omitted from the stripped `make release` tree). Headless `--backend lo --student scripted` is `@pytest.mark.integration` (excluded from `make pytest`); skipped unless `soffice` + real `uno` are available; local command: `python scripts/prompt_optimization/run_eval.py --backend lo --student scripted --no-bust-cache -v`.
 
