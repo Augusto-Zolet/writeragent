@@ -49,7 +49,9 @@ def test_unknown_task_raises() -> None:
 
 def test_tax_and_sort_use_production_names() -> None:
     sort_round = SCRIPTS["data_sorting"][0]
-    assert sort_round["tool_calls"][0]["function"]["name"] == "sort_range"
+    assert sort_round["tool_calls"][0]["function"]["name"] == (
+        "delegate_to_specialized_calc_toolset"
+    )
     tax_names = [
         tc["function"]["name"]
         for rnd in SCRIPTS["tax_column"]
@@ -57,3 +59,70 @@ def test_tax_and_sort_use_production_names() -> None:
     ]
     assert "write_formula_range" in tax_names
     assert "get_sheet_summary" in tax_names
+
+
+def _script_tool_names(task_id: str) -> list[str]:
+    names: list[str] = []
+    for rnd in SCRIPTS[task_id]:
+        for tc in rnd.get("tool_calls") or []:
+            names.append(tc["function"]["name"])
+    return names
+
+
+def test_scripted_specialized_names_match_schema_stages() -> None:
+    from eval_catalog import build_eval_tool_schemas
+
+    def schema_names(kind: str, domain: str | None = None) -> set[str]:
+        rows = build_eval_tool_schemas(kind=kind, active_domain=domain)
+        out: set[str] = set()
+        for row in rows:
+            fn = row.get("function") if isinstance(row.get("function"), dict) else None
+            name = str((fn or {}).get("name") or row.get("name") or "")
+            if name:
+                out.add(name)
+        return out
+
+    core_draw = schema_names("draw")
+    shapes = schema_names("draw", "shapes")
+    core_calc = schema_names("calc")
+    ranges = schema_names("calc", "ranges")
+    flow = _script_tool_names("flowchart_gen")
+    assert flow[0] == "delegate_to_specialized_draw_toolset"
+    assert flow[0] in core_draw
+    for name in flow[1:]:
+        if name == "get_draw_tree":
+            assert name in core_draw
+        else:
+            assert name in shapes, name
+    sort_names = _script_tool_names("data_sorting")
+    assert sort_names[0] == "delegate_to_specialized_calc_toolset"
+    assert sort_names[0] in core_calc
+    for name in sort_names[1:]:
+        assert name in ranges, name
+
+
+def test_scripted_flowchart_inner_loop_nests_shapes() -> None:
+    from dataset import ALL_EXAMPLES
+    from llm_chat_eval import run_llm_chat_eval
+
+    ex = next(row for row in ALL_EXAMPLES if row["task_id"] == "flowchart_gen")
+    _doc, _usage, err, trace = run_llm_chat_eval(
+        system_prompt="eval",
+        document_content=ex["document_content"],
+        user_question=ex["user_question"],
+        endpoint="https://openrouter.ai/api/v1",
+        api_key="",
+        model="scripted",
+        backend="string",
+        student="scripted",
+        task_id="flowchart_gen",
+        verbose=False,
+    )
+    assert err is None
+    names = [item["name"] for item in trace]
+    assert "delegate_to_specialized_draw_toolset" in names
+    nested = [item for item in trace if item.get("nested")]
+    assert any(item["name"] == "shape_upsert" for item in nested)
+    assert any(item["name"] == "shape_connect" for item in nested)
+    assert any(item["name"] == "specialized_workflow_finished" for item in nested)
+    assert all(item.get("domain") == "shapes" for item in nested)

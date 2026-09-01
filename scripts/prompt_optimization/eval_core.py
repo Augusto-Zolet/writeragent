@@ -65,12 +65,13 @@ if dspy is not None:
                 fmt = float(pred.formatting_score)
 
                 if task_category == "creative":
-                    # Creative: Accuracy 30%, Formatting 20%, Naturalness 50%
+                    # Creative quality: Accuracy 50%, Formatting 20%, Naturalness 30%
                     nat = float(pred.naturalness_score)
-                    weighted = (acc * 0.3 + fmt * 0.2 + nat * 0.5) / 5.0
+                    weighted = (acc * 0.5 + fmt * 0.2 + nat * 0.3) / 5.0
+                elif task_category == "table":
+                    weighted = (acc * 0.2 + fmt * 0.8) / 5.0
                 else:
                     # Structural: Accuracy 60%, Formatting 40%, Naturalness 0%
-                    # Explicitly set output to N/A for logging clarity
                     pred.naturalness_score = "N/A"
                     weighted = (acc * 0.6 + fmt * 0.4) / 5.0
 
@@ -133,8 +134,9 @@ Respond with a single JSON object only (no markdown fences), with these keys:
 - formatting_score: number 1-5, layout/HTML/structure quality
 - naturalness_score: number 1-5, or null for structural tasks where tone is N/A
 
-Task category is either "structural" (weight accuracy 60%, formatting 40%) or
-"creative" (accuracy 30%, formatting 20%, naturalness 50%)."""
+Task category is either "structural" (weight accuracy 60%, formatting 40%),
+"table" (accuracy 20%, formatting 80% after a hard correctness gate), or
+"creative" (accuracy 50%, formatting 20%, naturalness 30%)."""
 
 
 @dataclass
@@ -146,6 +148,7 @@ class JudgeResult:
     formatting_score: Any
     naturalness_score: Any
     score: float
+    parsed_ok: bool = True
 
 
 def _weighted_judge_score(
@@ -160,7 +163,9 @@ def _weighted_judge_score(
         fmt = float(formatting_score)
         if task_category == "creative":
             nat = float(naturalness_score)
-            return min(max((acc * 0.3 + fmt * 0.2 + nat * 0.5) / 5.0, 0.0), 1.0)
+            return min(max((acc * 0.5 + fmt * 0.2 + nat * 0.3) / 5.0, 0.0), 1.0)
+        if task_category == "table":
+            return min(max((acc * 0.2 + fmt * 0.8) / 5.0, 0.0), 1.0)
         return min(max((acc * 0.6 + fmt * 0.4) / 5.0, 0.0), 1.0)
     except (ValueError, TypeError):
         return 0.0
@@ -171,14 +176,14 @@ def _parse_judge_json(content: str, task_category: str) -> JudgeResult:
 
     text = (content or "").strip()
     if not text:
-        return JudgeResult("", "1", "1", "N/A" if task_category != "creative" else "1", 0.0)
+        return JudgeResult("", "1", "1", "N/A" if task_category != "creative" else "1", 0.0, False)
     # Strip optional markdown code fence
     fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
     if fence:
         text = fence.group(1).strip()
     data = safe_json_loads(text)
     if not isinstance(data, dict):
-        return JudgeResult(text[:500], "1", "1", "N/A", 0.0)
+        return JudgeResult(text[:500], "1", "1", "N/A", 0.0, False)
     thought = str(data.get("thought_process") or "")
     acc = data.get("accuracy_score", 1)
     fmt = data.get("formatting_score", 1)
@@ -186,7 +191,7 @@ def _parse_judge_json(content: str, task_category: str) -> JudgeResult:
     if task_category != "creative":
         nat = "N/A"
     score = _weighted_judge_score(acc, fmt, nat, task_category)
-    return JudgeResult(thought, acc, fmt, nat, score)
+    return JudgeResult(thought, acc, fmt, nat, score, True)
 
 
 def score_with_judge_llm(
@@ -228,17 +233,22 @@ def score_with_judge_llm(
         max_tool_rounds=1,
     )
     client = LlmClient(cfg, _EvalMockContext())
-    resp = client.request_with_tools(
-        messages,
-        max_tokens=2048,
-        tools=None,
-        stream=False,
-        model=judge_model,
-        prepend_dev_build_system_prefix=False,
-    )
-    content = (resp.get("content") or "") if isinstance(resp, dict) else ""
-    result = _parse_judge_json(str(content), task_category)
-    return (result.score, result)
+    last: JudgeResult | None = None
+    for _attempt in range(2):
+        resp = client.request_with_tools(
+            messages,
+            max_tokens=2048,
+            tools=None,
+            stream=False,
+            model=judge_model,
+            prepend_dev_build_system_prefix=False,
+        )
+        content = (resp.get("content") or "") if isinstance(resp, dict) else ""
+        last = _parse_judge_json(str(content), task_category)
+        if last.parsed_ok:
+            return (last.score, last)
+    assert last is not None
+    return (last.score, last)
 
 
 @dataclass
@@ -266,10 +276,23 @@ class ExampleEval:
     process_failures: list[str] | None = None
     agent_score: float = 0.0
     trace: list[dict[str, Any]] | None = None
+    document_score: float = 0.0
+    judge_error: str | None = None
 
 
 def example_passed(result: ExampleEval) -> bool:
-    """Hard pass: no run error, no substring miss/reject, no result-oracle failure."""
+    """Hard pass: no run error, no substring miss/reject, no result or process-oracle failure."""
+    return (
+        result.error is None
+        and not result.missing_expected
+        and not result.found_reject
+        and not (result.oracle_failures or [])
+        and not (result.process_failures or [])
+    )
+
+
+def document_passed(result: ExampleEval) -> bool:
+    """Historical document-only gate (substring + result oracles)."""
     return (
         result.error is None
         and not result.missing_expected
@@ -285,14 +308,16 @@ def _should_use_judge(
     no_judge: bool = False,
     judge_available: bool = False,
 ) -> bool:
-    """LLM-as-judge is for creative tasks only (resume, rewriting, summarization)."""
-    from oracles import uses_llm_judge
+    """LLM-as-judge runs after the hard gate for quality-ranked tasks."""
+    from oracles import QUALITY_JUDGE_TASK_IDS, uses_llm_judge
 
     if student == "scripted" or no_judge or not judge_available:
         return False
+    if getattr(example, "use_quality_judge", False):
+        return True
     task_id = getattr(example, "task_id", "") or ""
     category = getattr(example, "category", "structural") or "structural"
-    return uses_llm_judge(task_id, category)
+    return task_id in QUALITY_JUDGE_TASK_IDS or uses_llm_judge(task_id, category)
 
 
 def _correctness_breakdown(
@@ -582,6 +607,7 @@ def run_eval_on_examples_llm(
     gold_lm: Any = None,
     student: str = "llm",
     no_judge: bool = False,
+    temperature: float = 0.0,
 ) -> List[ExampleEval]:
     """
     Run benchmarks with ``LlmClient`` + tool loop (same tool names as production chat).
@@ -637,6 +663,7 @@ def run_eval_on_examples_llm(
                 verbose=verbose,
                 student=student,
                 task_id=task_id,
+                temperature=temperature,
             )
             if gerr and not quiet:
                 print(f"  Gold generation error: {gerr}")
@@ -664,6 +691,7 @@ def run_eval_on_examples_llm(
                 verbose=verbose,
                 student=student,
                 task_id=task_id,
+                temperature=temperature,
             )
             if error and not quiet:
                 print(f"  API/run error: {error}", flush=True)
@@ -684,58 +712,83 @@ def run_eval_on_examples_llm(
             agent_score = agent_score_from_failures(
                 oracle_failures, process_failures, error=error
             )
+            document_score = correctness
+            hard_ok = (
+                error is None
+                and not missing
+                and not found_reject
+                and not oracle_failures
+                and not process_failures
+            )
 
             j_score = None
             j_reasoning = None
             j_accuracy = None
             j_formatting = None
             j_naturalness = None
+            judge_error: str | None = None
             jm = (judge_model or "").strip()
-            use_judge = _should_use_judge(
+            use_judge = hard_ok and _should_use_judge(
                 ex,
                 student=student,
                 no_judge=no_judge,
                 judge_available=bool(jm or judge_lm),
             )
+            judge_category = category
+            if getattr(ex, "task_id", "") in ("table_from_mess", "table_engineering"):
+                judge_category = "table"
 
+            effective_correctness = correctness
             if use_judge:
                 if not quiet:
                     print("  Calling judge...", flush=True)
-                if jm:
-                    j_score, j_result = score_with_judge_llm(
-                        endpoint=endpoint,
-                        api_key=api_key,
-                        judge_model=jm,
-                        document_content=doc,
-                        user_question=question,
-                        model_answer=final,
-                        gold_answer=gold or "N/A",
-                        rubric=rubric or "N/A",
-                        task_category=category,
-                    )
-                else:
-                    j_score, j_result = score_with_judge(
-                        judge_lm,
-                        document_content=doc,
-                        user_question=question,
-                        model_answer=final,
-                        gold_answer=gold or "N/A",
-                        rubric=rubric or "N/A",
-                        task_category=category,
-                    )
-                j_reasoning = getattr(j_result, "thought_process", None)
-                j_accuracy = getattr(j_result, "accuracy_score", None)
-                j_formatting = getattr(j_result, "formatting_score", None)
-                j_naturalness = getattr(j_result, "naturalness_score", None)
-                if not quiet:
-                    print(
-                        f"  judge_score={j_score:.2f} [{category}] "
-                        f"(Acc:{j_accuracy} Fmt:{j_formatting} Nat:{j_naturalness})"
-                    )
-                    print(f"  judge_reasoning: {j_reasoning}")
-                effective_correctness = j_score if correctness >= 1.0 else correctness
-            else:
-                effective_correctness = correctness
+                try:
+                    if jm:
+                        j_score, j_result = score_with_judge_llm(
+                            endpoint=endpoint,
+                            api_key=api_key,
+                            judge_model=jm,
+                            document_content=doc,
+                            user_question=question,
+                            model_answer=final,
+                            gold_answer=gold or "N/A",
+                            rubric=rubric or "N/A",
+                            task_category=judge_category,
+                        )
+                    else:
+                        j_score, j_result = score_with_judge(
+                            judge_lm,
+                            document_content=doc,
+                            user_question=question,
+                            model_answer=final,
+                            gold_answer=gold or "N/A",
+                            rubric=rubric or "N/A",
+                            task_category=judge_category,
+                        )
+                    if not getattr(j_result, "parsed_ok", True):
+                        judge_error = "unparseable judge JSON"
+                        j_score = None
+                    else:
+                        j_reasoning = getattr(j_result, "thought_process", None)
+                        j_accuracy = getattr(j_result, "accuracy_score", None)
+                        j_formatting = getattr(j_result, "formatting_score", None)
+                        j_naturalness = getattr(j_result, "naturalness_score", None)
+                        if j_score is not None:
+                            effective_correctness = j_score
+                    if not quiet:
+                        if judge_error:
+                            print(f"  judge_error={judge_error} (keeping hard pass)")
+                        else:
+                            print(
+                                f"  judge_score={j_score:.2f} [{judge_category}] "
+                                f"(Acc:{j_accuracy} Fmt:{j_formatting} Nat:{j_naturalness})"
+                            )
+                            print(f"  judge_reasoning: {j_reasoning}")
+                except Exception as je:
+                    judge_error = str(je)
+                    j_score = None
+                    if not quiet:
+                        print(f"  judge_error={judge_error} (keeping hard pass)")
 
             penalty = TOKEN_PENALTY_LAMBDA * (total_tok / 1000.0)
             metric_score = max(0.0, effective_correctness - penalty)
@@ -782,6 +835,8 @@ def run_eval_on_examples_llm(
                     process_failures=process_failures,
                     agent_score=agent_score,
                     trace=trace,
+                    document_score=document_score,
+                    judge_error=judge_error,
                 )
             )
         except Exception as e:
@@ -826,10 +881,21 @@ def summarize_results(results: Iterable[ExampleEval]) -> dict:
     avg_metric = sum(r.metric_score for r in results) / n
     avg_agent = sum(r.agent_score for r in results) / n
     total_tokens = sum(r.total_tokens for r in results)
+    n_hard = sum(1 for r in results if example_passed(r))
+    n_doc = sum(1 for r in results if document_passed(r))
+    judged = [r for r in results if r.judge_score is not None]
+    avg_quality = (
+        sum(r.judge_score or 0.0 for r in judged) / len(judged) if judged else 0.0
+    )
     return {
         "avg_correctness": avg_correctness,
         "avg_metric_score": avg_metric,
         "avg_agent_score": avg_agent,
         "total_tokens": total_tokens,
+        "hard_pass_rate": n_hard / n,
+        "document_pass_rate": n_doc / n,
+        "avg_quality": avg_quality,
+        "n_judged": len(judged),
+        "n_error": sum(1 for r in results if r.error),
     }
 

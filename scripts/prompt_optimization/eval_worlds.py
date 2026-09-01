@@ -18,6 +18,98 @@ from plugin.framework.errors import safe_json_loads
 
 _COMMENT_RE = re.compile(r"\[([^\]]+)\]")
 _HEADING_TAGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6"})
+_TAGGED_BLOCK_RE = re.compile(r"<(p|h[1-6])(\s[^>]*)?>(.*?)</\1>", re.IGNORECASE | re.DOTALL)
+_HEADING_STYLE_RE = re.compile(r"^heading\s*([1-6])$", re.IGNORECASE)
+
+
+def heading_level_from_style(style_name: str) -> int | None:
+    compact = re.sub(r"[\s_]+", " ", (style_name or "").strip())
+    m = _HEADING_STYLE_RE.match(compact)
+    return int(m.group(1)) if m else None
+
+
+def _restyle_tagged_block(
+    tag: str,
+    attrs: str,
+    inner: str,
+    *,
+    heading_level: int | None,
+    quotations: bool,
+    style_name: str,
+) -> str:
+    unused = tag
+    del unused
+    if heading_level is not None:
+        return f"<h{heading_level}>{inner}</h{heading_level}>"
+    token = "Quotations" if quotations else style_name
+    attrs = attrs or ""
+    if re.search(r"data-lo-style\s*=", attrs, re.I):
+        attrs = re.sub(r'data-lo-style\s*=\s*["\'][^"\']*["\']', f'data-lo-style="{token}"', attrs, flags=re.I)
+    elif re.search(r"class\s*=", attrs, re.I):
+        attrs = re.sub(r'class\s*=\s*["\'][^"\']*["\']', f'class="{token}"', attrs, flags=re.I)
+    else:
+        attrs = f'{attrs} data-lo-style="{token}"'
+    return f"<p{attrs}>{inner}</p>"
+
+
+def restyle_html_needle(
+    html: str,
+    needle: str,
+    *,
+    heading_level: int | None,
+    quotations: bool,
+    style_name: str,
+    all_matches: bool,
+    occurrence: int,
+) -> str:
+    """Apply a paragraph/heading style to search hits (string-harness HTML)."""
+    raw = html or ""
+    needle = needle or ""
+    if not needle:
+        return raw
+
+    tagged = list(_TAGGED_BLOCK_RE.finditer(raw))
+    hits = [m for m in tagged if needle in (m.group(3) or "")]
+    if hits:
+        chosen: list[re.Match[str]]
+        if all_matches:
+            chosen = hits
+        elif 0 <= occurrence < len(hits):
+            chosen = [hits[occurrence]]
+        else:
+            chosen = [hits[0]]
+        result = raw
+        for m in reversed(chosen):
+            repl = _restyle_tagged_block(
+                m.group(1),
+                m.group(2) or "",
+                m.group(3),
+                heading_level=heading_level,
+                quotations=quotations,
+                style_name=style_name,
+            )
+            result = result[: m.start()] + repl + result[m.end() :]
+        return result
+
+    lines = raw.split("\n")
+    count = 0
+    out: list[str] = []
+    replaced = False
+    for line in lines:
+        is_hit = needle in line or line.strip() == needle.strip()
+        if is_hit:
+            use = all_matches or (not replaced and count == occurrence)
+            count += 1
+            if use:
+                inner = line.strip() or needle
+                if heading_level is not None:
+                    line = f"<h{heading_level}>{inner}</h{heading_level}>"
+                else:
+                    token = "Quotations" if quotations else style_name
+                    line = f'<p data-lo-style="{token}">{inner}</p>'
+                replaced = not all_matches
+        out.append(line)
+    return "\n".join(out)
 
 
 def a1_to_col_row(addr: str) -> tuple[int, int]:
@@ -431,6 +523,63 @@ class WriterWorld:
             "anchor_text": search,
         }
 
+    def apply_style(self, **kwargs: Any) -> dict[str, Any]:
+        """Map production apply_style onto HTML tags / data-lo-style (no UNO families)."""
+        style_name = str(kwargs.get("style") or "").strip()
+        if not style_name:
+            return {"status": "error", "message": "style is required."}
+        family = str(kwargs.get("family") or "ParagraphStyles")
+        if family == "CharacterStyles":
+            return {
+                "status": "ok",
+                "message": "Character style noted (string harness is paragraph-level).",
+            }
+        old_content = kwargs.get("old_content")
+        target = kwargs.get("target") or ("search" if old_content is not None else "selection")
+        all_matches = bool(kwargs.get("all_matches", False))
+        try:
+            occurrence = int(kwargs.get("occurrence", 0) or 0)
+        except (TypeError, ValueError):
+            return {"status": "error", "message": "occurrence must be an integer."}
+
+        heading_level = heading_level_from_style(style_name)
+        quotations = style_name.casefold() == "quotations"
+
+        if target == "full_document":
+            if quotations:
+                html = re.sub(
+                    r'data-lo-style\s*=\s*["\']Default["\']',
+                    'data-lo-style="Quotations"',
+                    self._html,
+                    flags=re.I,
+                )
+                self.set_html(html)
+                return {"status": "ok", "message": "Applied Quotations to Default paragraphs."}
+            return {
+                "status": "error",
+                "message": "full_document apply_style in the string harness needs target=search.",
+            }
+        if target not in ("search", "selection") or old_content is None:
+            return {
+                "status": "error",
+                "message": "Provide target='search' and old_content for apply_style.",
+            }
+        needle = str(old_content).strip()
+        if not needle:
+            return {"status": "error", "message": "old_content is empty."}
+        self.set_html(
+            restyle_html_needle(
+                self._html,
+                needle,
+                heading_level=heading_level,
+                quotations=quotations,
+                style_name=style_name,
+                all_matches=all_matches,
+                occurrence=occurrence,
+            )
+        )
+        return {"status": "ok", "message": f"Applied {style_name}."}
+
 
 class DrawWorld:
     """Draw page: shapes, z-order (list order), and connectors."""
@@ -439,7 +588,7 @@ class DrawWorld:
 
     def __init__(self) -> None:
         self.shapes: list[dict[str, Any]] = []
-        self.connections: list[dict[str, int]] = []
+        self.connections: list[dict[str, Any]] = []
         self.groups: list[list[int]] = []
         self._next_index = 0
 
@@ -514,7 +663,11 @@ class DrawWorld:
         indexes = {s["index"] for s in self.shapes}
         if start_i not in indexes or end_i not in indexes:
             return {"status": "error", "message": "Failed to find shapes at given indices."}
-        self.connections.append({"from_index": start_i, "to_index": end_i})
+        label = str(kwargs.get("label") or kwargs.get("text") or "")
+        entry: dict[str, Any] = {"from_index": start_i, "to_index": end_i}
+        if label:
+            entry["label"] = label
+        self.connections.append(entry)
         return {
             "status": "ok",
             "message": f"Connected shape {start_i} to {end_i}",
@@ -662,7 +815,7 @@ class CalcWorld:
             "row_count": rows,
             "col_count": cols,
             "headers": self._headers,
-            "grid": self._grid[:5],
+            "grid": self._grid,
         }
 
     def read_cell_range(self, **kwargs: Any) -> dict[str, Any]:
@@ -697,29 +850,40 @@ class CalcWorld:
         }
 
     def sort_range(self, **kwargs: Any) -> dict[str, Any]:
+        """One-column sort (production sort_column is a 0-based int). Stable."""
         if not self._grid or len(self._grid) < 2:
             return {"status": "ok", "message": "Nothing to sort"}
-        col = kwargs.get("sort_column", "Revenue")
-        ascending = kwargs.get("ascending", False)
-        if isinstance(col, int):
-            col_idx = col
-            col_name = self._headers[col_idx] if 0 <= col_idx < len(self._headers) else str(col)
-        else:
+        col = kwargs.get("sort_column", 0)
+        ascending = kwargs.get("ascending", True)
+        has_header = kwargs.get("has_header", True)
+        if isinstance(ascending, str):
+            ascending = ascending.strip().lower() not in {"false", "0", "no"}
+        if isinstance(has_header, str):
+            has_header = has_header.strip().lower() not in {"false", "0", "no"}
+        if isinstance(col, str) and not str(col).strip().lstrip("-").isdigit():
             col_name = str(col)
             col_idx = self._headers.index(col_name) if col_name in self._headers else 0
-        data_rows = self._grid[1:]
-
-        def _key(row: list[Any]) -> Any:
-            if not row or len(row) <= col_idx:
-                return 0
-            raw = row[col_idx]
+        else:
             try:
-                return float(str(raw).replace(",", ""))
+                col_idx = int(col)
             except (TypeError, ValueError):
-                return str(raw)
+                col_idx = 0
+            col_name = (
+                self._headers[col_idx] if 0 <= col_idx < len(self._headers) else str(col_idx)
+            )
+        header = [self._grid[0]] if has_header else []
+        data_rows = self._grid[1:] if has_header else list(self._grid)
 
-        data_rows.sort(key=_key, reverse=not ascending)
-        self._grid = [self._grid[0]] + data_rows
+        def _key(row: list[Any]) -> tuple[int, float | str]:
+            raw = row[col_idx] if row and len(row) > col_idx else ""
+            try:
+                num = float(str(raw).replace(",", "").replace("$", ""))
+                return (0, num if ascending else -num)
+            except (TypeError, ValueError):
+                return (1, str(raw))
+
+        data_rows.sort(key=_key)
+        self._grid = header + data_rows
         self.sheets[self.active_sheet] = self._grid
         return {
             "status": "ok",

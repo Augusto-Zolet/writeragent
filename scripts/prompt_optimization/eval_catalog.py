@@ -46,11 +46,19 @@ def _headless_registry() -> ToolRegistry:
     return tools
 
 
-def build_eval_tool_schemas(*, kind: str) -> list[dict[str, Any]]:
-    """OpenAI function schemas for writer / draw / calc — same filter as sidebar."""
+def build_eval_tool_schemas(
+    *, kind: str, active_domain: str | None = None
+) -> list[dict[str, Any]]:
+    """OpenAI function schemas for writer / draw / calc — same filter as sidebar.
+
+    ``active_domain`` matches production specialized mode (shapes, ranges, …).
+    """
     doc_type = kind if kind in ("writer", "draw", "calc") else "writer"
-    return _headless_registry().get_schemas(
-        "openai",
-        doc_type=doc_type,
-        filter_doc_type=True,
-    )
+    kwargs: dict[str, Any] = {
+        "doc_type": doc_type,
+        "filter_doc_type": True,
+    }
+    if active_domain:
+        kwargs["active_domain"] = active_domain
+        kwargs["exclude_tiers"] = ()
+    return _headless_registry().get_schemas("openai", **kwargs)

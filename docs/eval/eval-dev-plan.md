@@ -1,23 +1,23 @@
 # WriterAgent: Evaluation System Development Plan (Internal Edition)
 
 **Current string-harness work** lives in
-[`string-harness-upgrade.md`](string-harness-upgrade.md) (real core tool
-catalog, document worlds, process/`=PY` score; no LO; multi-turn later).
-This file is the older hybrid/LO roadmap and the Phase F `=PY` table
-that the upgrade plan implements.
+[`string-harness-upgrade.md`](string-harness-upgrade.md) (core schemas,
+inner specialized `LlmClient` loop, document worlds, process/`=PY` score;
+no LO ranking). This file is the older hybrid/LO roadmap and the Phase F
+`=PY` table that the upgrade plan implements.
 
-This plan covers the WriterAgent prompt optimization + evaluation system (`scripts/prompt_optimization/`). It supports fast non-LO evaluation via `StringDocState` (default `--backend string` in `llm_chat_eval.py`) for Writer text/HTML tasks, `DrawDocState` for shapes/flowcharts, and `CalcStringState` for data sorting (`data_sorting`) and tax column (`tax_column`) tests. Full LO (`--backend lo`) for fidelity. See `ideas.md` (annotated with LO requirements) for the original ~50 test cases. New Calc tests implemented in `string_eval_tools.py:231` (CalcStringState with `sort_range`, `write_cell_range`, `get_sheet_summary`, `snapshot()` JSON output) and `llm_chat_eval.py:221` (task detection + schemas).
+This plan covers the WriterAgent prompt optimization + evaluation system (`scripts/prompt_optimization/`). Ranking is `--backend string` only (17 tasks). Specialized Draw/Calc work uses a bounded inner `LlmClient` loop (`delegate_to_specialized_*` → domain schemas → `specialized_workflow_finished`), not SmolAgents. See `ideas.md` for the original ~50 ideas; the shipped pack is the 17 in `dataset.py`.
 
 ## Current Status
 
 The evaluation system lives in `scripts/prompt_optimization/`:
-- `run_eval.py` / `run_eval_multi.py`: Main entrypoints (use `LlmClient` + tool loop from `llm_chat_eval.py`).
-- Default: `--backend string` (`string_eval_tools.py:StringDocState` — pure Python HTML/string mutations for `get_document_content`/`apply_document_content`/`find_text`; no LO).
-- `--backend lo`: Headless Writer via `tools_lo.py` + real `ToolRegistry`.
-- Judging: Honest `expected_contains` / `reject_contains` plus **result oracles** on the exported final document (`oracles.py`). LLM-as-a-Judge is **creative-only** (resume, logical rewriting, summarization). `gold_standards.json` is hand-written from the rubrics.
-- Current dataset: 17 tasks in `dataset.py` `ALL_EXAMPLES` (12 Writer including `style_consistency`, `smart_summarization`, `section_refactor`, `comment_management`, plus `flowchart_gen` + `data_sorting` + `tax_column` + two `=PY` dest rows). See [string-harness-upgrade.md](string-harness-upgrade.md).
-- `--student scripted` (`scripted_student.py`): no API key; pass is `example_passed` (substring + oracles) on exported state. `--backend lo` is headless UNO (`tools_lo.py`), not an in-memory mock. `-j` is threads; UNO is serialized on `_lo_thread`. Do not use `tests/eval_runner.py` for this harness. Do not set `WRITERAGENT_TESTING=1` for LO eval.
-- CI / pytest: `tests/scripts/test_eval_oracles.py` and `test_scripted_eval_pack.py` replay `--backend string --student scripted` (no OpenRouter). Prompt-text pins for `get_writer_eval_chat_system_prompt` live in `tests/scripts/test_eval_prompts.py` (imports `scripts/`, so they are omitted from the stripped `make release` tree). Headless `--backend lo --student scripted` is `@pytest.mark.integration` (excluded from `make pytest`); skipped unless `soffice` + real `uno` are available; local command: `python scripts/prompt_optimization/run_eval.py --backend lo --student scripted --no-bust-cache -v`.
+- `run_eval.py` / `run_eval_multi.py`: Main entrypoints (`LlmClient` + tool loop from `llm_chat_eval.py`). Student temperature defaults to **0**. `run_eval_multi.py` **refuses** a full catalog sweep unless `--models` or `--yes-all-models` is set. `--gold-model` runs only with `--generate-golds`.
+- Default: `--backend string` (Writer/Draw/Calc worlds in `eval_worlds.py` via `string_eval_tools.py`). Core schemas from `ToolRegistry.get_schemas`. Flowchart uses `delegate_to_specialized_draw_toolset(domain="shapes")`; sort uses `delegate_to_specialized_calc_toolset(domain="ranges")` then one-column `sort_range` (two stable passes for Product then Revenue).
+- `--backend lo`: Headless UNO via `tools_lo.py` (fidelity smoke, not ranking).
+- Judging: Hard gate is substring + **result oracles** + **process oracles**. Quality LLM-as-judge runs **after** the hard gate for resume, rewriting, summarization, and the two table tasks. Creative weights are accuracy-first (50/20/30); tables are formatting-heavy after the gate (20/80). Unparseable judge JSON retries once, then keeps the hard pass (`judge_score=None`). Rank by hard pass / agent score / quality; C²/$ is secondary.
+- Dataset: 17 tasks in `dataset.py` `ALL_EXAMPLES`. `gold_standards.json` is hand-written from the rubrics.
+- `--student scripted` (`scripted_student.py`): no API key; pass is `example_passed` (substring + oracles + process). `-j` is threads. Do not use `tests/eval_runner.py`. Do not set `WRITERAGENT_TESTING=1` for LO eval.
+- CI / pytest: `tests/scripts/test_eval_oracles.py` and `test_scripted_eval_pack.py` replay `--backend string --student scripted` (no OpenRouter). Prompt-text pins live in `tests/scripts/test_eval_prompts.py`. Headless `--backend lo --student scripted` is `@pytest.mark.integration`; local: `python scripts/prompt_optimization/run_eval.py --backend lo --student scripted --no-bust-cache -v`.
 
 The 50 test cases live in [`ideas.md`](ideas.md) (20 Writer, 20 Calc, 5 Draw, 5 Multimodal; categorized by level with modes for judging).
 

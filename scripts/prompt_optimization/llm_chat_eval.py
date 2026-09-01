@@ -37,6 +37,16 @@ from eval_catalog import build_eval_tool_schemas
 from eval_worlds import CalcWorld, DrawWorld, WriterWorld
 from string_eval_tools import dispatch_string_tool
 
+DELEGATE_TOOL_NAMES = frozenset(
+    {
+        "delegate_to_specialized_writer_toolset",
+        "delegate_to_specialized_calc_toolset",
+        "delegate_to_specialized_draw_toolset",
+    }
+)
+SPECIALIZED_FINISH = "specialized_workflow_finished"
+INNER_MAX_ROUNDS = 12
+
 
 class _EvalMockContext:
     """Stand-in for UNO context when constructing ``LlmClient`` outside LibreOffice."""
@@ -74,6 +84,7 @@ def _build_api_config(
     model: str,
     max_tool_rounds: int,
     request_timeout: int = 120,
+    temperature: float = 0.0,
 ) -> dict[str, Any]:
     ep = normalize_endpoint_url(endpoint)
     return {
@@ -85,6 +96,7 @@ def _build_api_config(
         "is_together": "together.xyz" in ep.lower(),
         "request_timeout": request_timeout,
         "chat_max_tool_rounds": max_tool_rounds,
+        "temperature": temperature,
     }
 
 
@@ -110,6 +122,173 @@ def _dispatch_lo_tool(name: str, raw_args: str, *, verbose: bool) -> str:
     return tl.execute_lo_tool(name, args, verbose=verbose)
 
 
+def _parse_tool_call(tc: Any) -> tuple[str, str, str]:
+    fn = (tc.get("function") or {}) if isinstance(tc, dict) else {}
+    name = fn.get("name", "") if isinstance(fn, dict) else ""
+    raw_args = fn.get("arguments", "") if isinstance(fn, dict) else ""
+    tid = (tc.get("id") or "") if isinstance(tc, dict) else ""
+    return str(name or ""), str(raw_args or "{}"), str(tid)
+
+
+def _dispatch_world_tool(
+    state: WriterWorld | DrawWorld | CalcWorld,
+    name: str,
+    raw_args: str,
+    *,
+    backend: BackendKind,
+    verbose: bool,
+) -> str:
+    if name == SPECIALIZED_FINISH:
+        args = safe_json_loads(raw_args)
+        if not isinstance(args, dict):
+            args = {}
+        return json.dumps(
+            {
+                "status": "ok",
+                "finished": True,
+                "answer": args.get("answer"),
+                "message": "Specialized task complete. Normal toolset restored.",
+            },
+            ensure_ascii=False,
+        )
+    if backend == "string":
+        if verbose:
+            print(
+                f"  [Tool] {name} args={raw_args[:500]!r}"
+                f"{'...' if len(raw_args or '') > 500 else ''}",
+                flush=True,
+            )
+        result = dispatch_string_tool(state, name, raw_args or "{}")
+        if verbose:
+            rp = result if len(result) <= 400 else result[:400] + "..."
+            print(f"  [Tool->] {rp!r}", flush=True)
+        return result
+    return _dispatch_lo_tool(name, raw_args or "{}", verbose=verbose)
+
+
+def _run_specialized_inner(
+    *,
+    kind: str,
+    domain: str,
+    task: str,
+    state: WriterWorld | DrawWorld | CalcWorld,
+    client: Any,
+    endpoint: str,
+    api_key: str,
+    model: str,
+    backend: BackendKind,
+    max_tokens: int,
+    verbose: bool,
+    student: Literal["llm", "scripted"],
+    usage_acc: dict[str, int],
+    trace: list[dict[str, Any]],
+    temperature: float,
+) -> str:
+    """Bounded inner LlmClient loop (not SmolAgents) on the same world."""
+    domain = str(domain or "").strip()
+    task = str(task or "").strip()
+    if not domain:
+        return json.dumps(
+            {"status": "error", "message": "domain is required for specialized delegation."}
+        )
+    if not task:
+        return json.dumps(
+            {"status": "error", "message": "task is required for specialized delegation."}
+        )
+    tools = build_eval_tool_schemas(kind=kind, active_domain=domain)
+    if student == "scripted":
+        inner_client = client
+        messages: list[dict[str, Any]] = []
+    else:
+        cfg = _build_api_config(
+            endpoint=endpoint,
+            api_key=api_key,
+            model=model,
+            max_tool_rounds=INNER_MAX_ROUNDS,
+            temperature=temperature,
+        )
+        inner_client = LlmClient(cfg, _EvalMockContext())
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    f"You are a specialized {kind} task executor for domain '{domain}'. "
+                    "Use the provided tools to complete the task. "
+                    f"Call {SPECIALIZED_FINISH} when done."
+                ),
+            },
+            {"role": "user", "content": task},
+        ]
+
+    last_content = ""
+    finished = False
+    for round_i in range(INNER_MAX_ROUNDS):
+        resp = inner_client.request_with_tools(
+            messages,
+            max_tokens=max_tokens,
+            tools=tools,
+            stream=False,
+            model=model,
+        )
+        _merge_usage(usage_acc, resp.get("usage"))
+        content = (resp.get("content") or "") or ""
+        last_content = content
+        tool_calls = resp.get("tool_calls")
+        if verbose:
+            n_tc = len(tool_calls) if tool_calls else 0
+            print(
+                f"  [Specialized {domain}] round={round_i + 1} "
+                f"content_len={len(content)} tool_calls={n_tc}",
+                flush=True,
+            )
+        asst_msg: dict[str, Any] = {"role": "assistant", "content": content}
+        if tool_calls:
+            asst_msg["tool_calls"] = tool_calls
+        messages.append(asst_msg)
+        if not tool_calls:
+            break
+        stop_inner = False
+        for tc in tool_calls:
+            name, raw_args, tid = _parse_tool_call(tc)
+            if name in DELEGATE_TOOL_NAMES:
+                result = json.dumps(
+                    {
+                        "status": "error",
+                        "code": "unsupported_in_eval",
+                        "message": "Nested specialized delegation is not allowed.",
+                    }
+                )
+            else:
+                result = _dispatch_world_tool(
+                    state, name, raw_args, backend=backend, verbose=verbose
+                )
+            entry = _trace_entry(name, raw_args, result)
+            entry["domain"] = domain
+            entry["nested"] = True
+            trace.append(entry)
+            messages.append(
+                {"role": "tool", "tool_call_id": tid, "content": result}
+            )
+            if name == SPECIALIZED_FINISH:
+                finished = True
+                stop_inner = True
+        if stop_inner:
+            break
+
+    answer = last_content
+    if not answer and finished:
+        answer = "Specialized task complete."
+    return json.dumps(
+        {
+            "status": "ok",
+            "domain": domain,
+            "finished": finished,
+            "message": answer or "Specialized task finished.",
+        },
+        ensure_ascii=False,
+    )
+
+
 def run_llm_chat_eval(
     *,
     system_prompt: str,
@@ -125,6 +304,7 @@ def run_llm_chat_eval(
     verbose: bool = False,
     student: Literal["llm", "scripted"] = "llm",
     task_id: str = "",
+    temperature: float = 0.0,
 ) -> tuple[str, dict[str, int], str | None, list[dict[str, Any]]]:
     """
     Run one eval example: multi-round tool loop.
@@ -171,6 +351,7 @@ def run_llm_chat_eval(
             api_key=api_key,
             model=model,
             max_tool_rounds=max_tool_rounds,
+            temperature=temperature,
         )
         client = LlmClient(cfg, _EvalMockContext())
 
@@ -180,6 +361,7 @@ def run_llm_chat_eval(
         tl.prepare_example(kind, document_content)
 
     rounds = max(1, int(max_tool_rounds))
+    last_had_tools = False
     try:
         for round_i in range(rounds):
             resp = client.request_with_tools(
@@ -207,34 +389,46 @@ def run_llm_chat_eval(
             messages.append(asst_msg)
 
             if not tool_calls:
+                last_had_tools = False
+                if round_i == 0 and not content.strip() and student != "scripted":
+                    err = "empty model response"
                 break
 
+            last_had_tools = True
             for tc in tool_calls:
-                tid = tc.get("id") or ""
-                fn = (tc.get("function") or {}) if isinstance(tc, dict) else {}
-                name = fn.get("name", "") if isinstance(fn, dict) else ""
-                raw_args = fn.get("arguments", "") if isinstance(fn, dict) else ""
-                if isinstance(name, str) and name:
-                    if backend == "string":
-                        if verbose:
-                            print(
-                                f"  [Tool] {name} args={raw_args[:500]!r}"
-                                f"{'...' if len(raw_args or '') > 500 else ''}",
-                                flush=True,
-                            )
-                        result = dispatch_string_tool(state, name, raw_args or "{}")
-                        trace.append(_trace_entry(name, raw_args or "{}", result))
-                        if verbose:
-                            rp = result if len(result) <= 400 else result[:400] + "..."
-                            print(f"  [Tool->] {rp!r}", flush=True)
-                    else:
-                        result = _dispatch_lo_tool(name, raw_args or "{}", verbose=verbose)
-                        trace.append(_trace_entry(name, raw_args or "{}", result))
-                else:
+                name, raw_args, tid = _parse_tool_call(tc)
+                if not name:
                     result = json.dumps(
                         {"status": "error", "message": "Missing tool name"}
                     )
-                    trace.append(_trace_entry(name, raw_args or "{}", result))
+                    trace.append(_trace_entry(name, raw_args, result))
+                elif name in DELEGATE_TOOL_NAMES:
+                    args = safe_json_loads(raw_args)
+                    if not isinstance(args, dict):
+                        args = {}
+                    result = _run_specialized_inner(
+                        kind=kind,
+                        domain=str(args.get("domain") or ""),
+                        task=str(args.get("task") or ""),
+                        state=state,
+                        client=client,
+                        endpoint=endpoint,
+                        api_key=api_key,
+                        model=model,
+                        backend=backend,
+                        max_tokens=max_tokens,
+                        verbose=verbose,
+                        student=student,
+                        usage_acc=usage_acc,
+                        trace=trace,
+                        temperature=temperature,
+                    )
+                    trace.append(_trace_entry(name, raw_args, result))
+                else:
+                    result = _dispatch_world_tool(
+                        state, name, raw_args, backend=backend, verbose=verbose
+                    )
+                    trace.append(_trace_entry(name, raw_args, result))
                 messages.append(
                     {
                         "role": "tool",
@@ -242,7 +436,9 @@ def run_llm_chat_eval(
                         "content": result,
                     }
                 )
-
+        else:
+            if last_had_tools:
+                err = "max_tool_rounds exceeded"
     except Exception as e:
         err = str(e)
         return "", usage_acc, err, trace

@@ -1,10 +1,12 @@
 # String-harness upgrade (no LO)
 
-**Status:** worlds + process/`=PY` score shipped. Schemas come from
-headless ``ToolRegistry.get_schemas`` (same filter as sidebar). The
-eval system prompt is ``get_chat_system_prompt_for_document`` plus
-``EVAL_HARNESS_NOTE``. Multi-turn and ``--backend lo`` still out of
-scope.
+**Status:** 17-task `--backend string` ranking pack. Core schemas from
+headless ``ToolRegistry.get_schemas``. Specialized work is a bounded
+inner ``LlmClient`` loop (``delegate_to_specialized_*`` with
+``active_domain`` ``shapes`` / ``ranges``), not SmolAgents. Worlds,
+process/`=PY` score, quality judge after the hard gate, T=0, and
+required ``--models`` are shipped. Multi-turn and ``--backend lo``
+ranking remain out of scope.
 
 Plan for making `--backend string` a real WriterAgent eval: same core
 tool catalog as chat, document worlds that can tell the truth, and a
@@ -52,23 +54,24 @@ tweaks. Those amplify a metric that is still too easy and too fake.
 ## Target picture
 
 ```
-LlmClient
-   │  production core schemas (writer | draw | calc)
+LlmClient (core schemas)
+   │  delegate_to_specialized_* (domain=shapes|ranges)
    ▼
-dispatch
-   │  implemented → mutate world
-   │  other core names → {"status":"error","code":"unsupported_in_eval"}
+inner LlmClient loop (domain schemas, same world)
+   │  specialized_workflow_finished → parent
    ▼
 WriterWorld / DrawWorld / CalcWorld
    │  export HTML / draw tree / calc snapshot   → result oracles
-   │  trace (name, args, result, size)          → process oracles
+   │  trace (name, args, nested, domain)        → process oracles
    ▼
-correctness (document) + agent_score (process)
+hard pass (document + process) ; quality judge after the gate
 ```
 
-Existing 15 tasks keep working: worlds **export** the same HTML / JSON
-the current oracles already read. New `=PY` rows use process oracles
-as the pass criterion.
+The 17 tasks export the same HTML / JSON the oracles already read.
+`=PY` rows use dest/process oracles (any empty cell outside A1:H500;
+all writes inspected; formula must mention the range). `apply_style`
+maps onto HTML tags / `data-lo-style`. `sort_range` is one 0-based
+column, stable, non-numeric last.
 
 ---
 
@@ -133,9 +136,11 @@ No formula evaluator. Tax column can still write `0.8` as a value.
 `=PY("result = …"; A1:H500)` is stored as formula text at dest; process
 oracles parse dest vs DataRange.
 
-`sort_range` / `get_sheet_summary` / `read_cell_range` stay. Snapshot
-JSON grows `formulas` / `writes` without breaking `grid` / `rows` that
-`oracle_data_sorting` and `oracle_tax_column` already use.
+`sort_range` is production-shaped: one 0-based column, stable,
+non-numeric last (tie-break = two calls). `get_sheet_summary` returns
+the full grid. Snapshot JSON grows `formulas` / `writes` without
+breaking `grid` / `rows` that `oracle_data_sorting` and
+`oracle_tax_column` already use.
 
 ### Migration of the 15
 

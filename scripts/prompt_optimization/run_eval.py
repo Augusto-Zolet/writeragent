@@ -82,6 +82,12 @@ def main():
         action="store_true",
         help="Skip LLM judge; use expected_contains/reject_contains only.",
     )
+    p.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="Student sampling temperature (default: 0).",
+    )
     args = p.parse_args()
 
     api_key = args.api_key
@@ -155,6 +161,7 @@ def main():
                 bust_cache=not args.no_bust_cache,
                 student=args.student,
                 no_judge=args.no_judge or args.student == "scripted",
+                temperature=args.temperature,
             )
             summary_a = summarize_results(results_a)
 
@@ -173,6 +180,7 @@ def main():
                 bust_cache=not args.no_bust_cache,
                 student=args.student,
                 no_judge=args.no_judge or args.student == "scripted",
+                temperature=args.temperature,
             )
             summary_b = summarize_results(results_b)
 
@@ -207,6 +215,7 @@ def main():
             bust_cache=not args.no_bust_cache,
             student=args.student,
             no_judge=args.no_judge or args.student == "scripted",
+            temperature=args.temperature,
         )
         summary = summarize_results(results)
         if results:
@@ -218,7 +227,7 @@ def main():
                 passed = sum(1 for r in results if example_passed(r))
                 print(
                     f"Scripted result pass: {passed}/{len(results)} "
-                    "(error is None, missing_expected=[], found_reject=[], oracle_failures=[])"
+                    "(error is None, missing/reject/oracle/process empty)"
                 )
                 for r in results:
                     print(

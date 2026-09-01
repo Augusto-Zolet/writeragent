@@ -32,7 +32,7 @@ from eval_auth import (
     resolve_api_key,
     resolve_judge_model,
 )
-from eval_core import ExampleEval, run_eval_on_examples_llm
+from eval_core import ExampleEval, example_passed, run_eval_on_examples_llm
 from model_configs import MODEL_BY_ID, ModelConfig, get_default_models
 import tools_lo as _tools_lo
 
@@ -151,6 +151,8 @@ def _run_one_model(
     allow_unknown: bool,
     student: str = "llm",
     no_judge: bool = False,
+    temperature: float = 0.0,
+    repeats: int = 1,
 ) -> dict[str, Any]:
     """Run eval for one model (used in a worker process). Returns summary dict."""
     from dataset import ALL_EXAMPLES, to_dspy_examples
@@ -182,7 +184,31 @@ def _run_one_model(
         gold_model=gm,
         student=student,
         no_judge=no_judge or student == "scripted",
+        temperature=temperature,
     )
+    if repeats > 1:
+        extra: list[ExampleEval] = []
+        for _rep in range(repeats - 1):
+            extra.extend(
+                run_eval_on_examples_llm(
+                    examples,
+                    endpoint=api_base,
+                    api_key=api_key,
+                    model=model,
+                    instruction=None,
+                    backend=backend,
+                    verbose=verbose,
+                    debug_usage=debug_usage,
+                    bust_cache=bust_cache,
+                    quiet=False,
+                    judge_model=jm,
+                    gold_model=gm,
+                    student=student,
+                    no_judge=no_judge or student == "scripted",
+                    temperature=temperature,
+                )
+            )
+        results = results + extra
     summary = summarize_results(results)
     total_cost = _estimate_cost_usd(results, cfg)
     pricing_known = cfg.input_cost_per_million > 0 or cfg.output_cost_per_million > 0
@@ -203,9 +229,15 @@ def _run_one_model(
             "judge_formatting": r.judge_formatting,
             "judge_naturalness": r.judge_naturalness,
             "judge_reasoning": r.judge_reasoning,
+            "judge_error": r.judge_error,
+            "document_score": r.document_score,
             "correctness": r.correctness,
             "agent_score": r.agent_score,
+            "hard_pass": example_passed(r),
             "process_failures": r.process_failures,
+            "oracle_failures": r.oracle_failures,
+            "missing_expected": r.missing_expected,
+            "found_reject": r.found_reject,
             "metric_score": r.metric_score,
             "total_tokens": r.total_tokens,
             "final_document": r.final_document,
@@ -222,6 +254,11 @@ def _run_one_model(
             "pricing_known": pricing_known,
             "avg_correctness": summary["avg_correctness"],
             "avg_agent_score": summary.get("avg_agent_score", 0.0),
+            "hard_pass_rate": summary.get("hard_pass_rate", 0.0),
+            "document_pass_rate": summary.get("document_pass_rate", 0.0),
+            "avg_quality": summary.get("avg_quality", 0.0),
+            "n_judged": summary.get("n_judged", 0),
+            "n_error": summary.get("n_error", 0),
             "avg_metric_score": summary["avg_metric_score"],
             "total_tokens": summary["total_tokens"],
             "total_cost_usd": total_cost,
@@ -263,6 +300,23 @@ def main() -> int:
         "--allow-unknown-model",
         action="store_true",
         help="Allow model ids not listed in model_configs.py (cost/IpD n/a).",
+    )
+    p.add_argument(
+        "--yes-all-models",
+        action="store_true",
+        help="Allow the default catalog sweep when --models is omitted.",
+    )
+    p.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="Student sampling temperature (default: 0).",
+    )
+    p.add_argument(
+        "--repeats",
+        type=int,
+        default=1,
+        help="Repeat each example this many times (default: 1; use 3 for selection runs).",
     )
     p.add_argument(
         "--example",
@@ -314,7 +368,7 @@ def main() -> int:
         "--gold-model",
         metavar="ID",
         default="anthropic/claude-sonnet-4.6",
-        help="Model id for gold standard generation (default: anthropic/claude-sonnet-4.6).",
+        help="Model id for --generate-golds only (default: anthropic/claude-sonnet-4.6). Not used during ranking.",
     )
     p.add_argument(
         "--generate-golds",
@@ -365,6 +419,14 @@ def main() -> int:
     model_summaries: list[dict[str, Any]] = []
     all_details: list[dict[str, Any]] = []
     model_ids = _parse_model_ids(args.models)
+    if not args.models and not args.yes_all_models and not args.generate_golds:
+        print(
+            "Refusing: omit --models only with --yes-all-models "
+            f"(would sweep {len(model_ids)} catalog models). "
+            "Pass --models id1,id2 or --yes-all-models.",
+            file=sys.stderr,
+        )
+        return 1
     unknown = [mid for mid in model_ids if mid not in MODEL_BY_ID]
     if unknown and not args.allow_unknown_model:
         print(f"Unknown model id(s): {unknown}", file=sys.stderr)
@@ -470,11 +532,13 @@ def main() -> int:
         debug_usage=args.debug_usage,
         bust_cache=not args.no_bust_cache,
         judge_model_id=judge_model_id,
-        gold_model_id=args.gold_model,
+        gold_model_id=args.gold_model if args.generate_golds else None,
         backend=args.backend,
         allow_unknown=args.allow_unknown_model,
         student=args.student,
         no_judge=args.no_judge or args.student == "scripted",
+        temperature=args.temperature,
+        repeats=max(1, args.repeats),
     )
 
     if args.backend == "lo":
@@ -560,6 +624,11 @@ def main() -> int:
                             "pricing_known": False,
                             "avg_correctness": 0.0,
                             "avg_agent_score": 0.0,
+                            "hard_pass_rate": 0.0,
+                            "document_pass_rate": 0.0,
+                            "avg_quality": 0.0,
+                            "n_judged": 0,
+                            "n_error": 1,
                             "avg_metric_score": 0.0,
                             "total_tokens": 0,
                             "total_cost_usd": 0.0,
@@ -577,26 +646,23 @@ def main() -> int:
         print("No models were evaluated.")
         return 0
 
-    any_pricing = any(m.get("pricing_known") for m in model_summaries)
-    if any_pricing:
-        model_summaries.sort(
-            key=lambda m: m["intelligence_per_dollar_correctness"],
-            reverse=True,
-        )
-    else:
-        model_summaries.sort(key=lambda m: m["avg_correctness"], reverse=True)
+    model_summaries.sort(
+        key=lambda m: (
+            m.get("hard_pass_rate", 0.0),
+            m.get("avg_agent_score", 0.0),
+            m.get("avg_quality", 0.0),
+            m.get("intelligence_per_dollar_correctness", 0.0),
+        ),
+        reverse=True,
+    )
 
     print("=" * 60)
-    if any_pricing:
-        print("INTELLIGENCE PER DOLLAR (higher is better)")
-    else:
-        print("RESULTS (sorted by avg correctness; cost/IpD n/a — unknown pricing)")
+    print("RESULTS (sorted by hard pass, then agent score, then quality; C²/$ is secondary)")
     print("=" * 60)
     print(
-        f"{'Rank':<4}  {'Model':<32}  {'AvgCorr':>7}  {'AvgScore':>8}  "
-        f"{'AvgToks':>10}  {'AvgCost($)':>11}  {'Value(C²/$)':>11}"
+        f"{'Rank':<4}  {'Model':<32}  {'Hard%':>6}  {'Agent':>6}  {'Qual':>6}  "
+        f"{'AvgCorr':>7}  {'AvgCost($)':>11}  {'Value(C²/$)':>11}"
     )
-    n_ex = max(len(examples), 1)
     for idx, m in enumerate(model_summaries, start=1):
         if m.get("pricing_known"):
             cost_col = f"{m['avg_cost_per_example']:>11.5f}"
@@ -606,9 +672,10 @@ def main() -> int:
             ipd_col = f"{'n/a':>11}"
         print(
             f"{idx:<4}  {m['openrouter_id']:<32}  "
+            f"{m.get('hard_pass_rate', 0.0):>6.3f}  "
+            f"{m.get('avg_agent_score', 0.0):>6.3f}  "
+            f"{m.get('avg_quality', 0.0):>6.3f}  "
             f"{m['avg_correctness']:>7.3f}  "
-            f"{m['avg_metric_score']:>8.3f}  "
-            f"{m['total_tokens']/n_ex:>10.1f}  "
             f"{cost_col}  "
             f"{ipd_col}"
         )

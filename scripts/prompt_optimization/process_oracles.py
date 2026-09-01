@@ -105,11 +105,24 @@ def check_process(
     if not writes:
         fails.append("no write_formula_range dest for =PY")
         return fails
-    dest, formula = writes[-1]
-    if not formula.lstrip().upper().startswith("=PY"):
-        fails.append("formula is not =PY(...)")
-    if cell_in_a1_range(dest, data_range):
-        fails.append(f"dest {dest} is inside {data_range}")
+    any_py_outside = False
+    for dest, formula in writes:
+        is_py = formula.lstrip().upper().startswith("=PY")
+        if is_py and cell_in_a1_range(dest, data_range):
+            fails.append(f"dest {dest} is inside {data_range}")
+        if is_py and not cell_in_a1_range(dest, data_range):
+            any_py_outside = True
+        if is_py:
+            compact = formula.upper().replace("$", "").replace(" ", "")
+            if "A1:H500" not in compact and "H500" not in compact:
+                fails.append("formula does not reference A1:H500")
+    if not any_py_outside and not any(
+        f.startswith("dest ") for f in fails
+    ):
+        if not any(formula.lstrip().upper().startswith("=PY") for _d, formula in writes):
+            fails.append("formula is not =PY(...)")
+        else:
+            fails.append(f"no =PY dest outside {data_range}")
 
     if task_id == "py_no_bulk_read":
         for item in items:

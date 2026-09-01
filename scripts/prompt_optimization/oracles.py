@@ -189,7 +189,7 @@ def oracle_table_engineering(doc: str) -> list[str]:
     if not _TABLE_RE.search(doc or ""):
         fails.append("no HTML table")
     text = visible_text(doc)
-    for token in ("Item", "Price", "Quantity", "Kiwi", "note"):
+    for token in ("Item", "Price", "Quantity", "Kiwi"):
         if token not in text:
             fails.append(f"missing {token!r}")
     if not _has_total_label(doc, text):
@@ -202,6 +202,25 @@ def oracle_table_engineering(doc: str) -> list[str]:
         r"Orange</td><td>0\.80</td><td>24", doc or "", re.I
     ):
         fails.append("Orange quantity was invented")
+    vis = " ".join(text.split())
+    orange_qty = re.search(
+        r"(?is)<td>\s*Orange\s*</td>\s*<td>[^<]*</td>\s*<td>\s*([^<]+)",
+        doc or "",
+    )
+    kiwi_qty = re.search(
+        r"(?is)<td>\s*Kiwi\s*</td>\s*<td>[^<]*</td>\s*<td>\s*([^<]+)",
+        doc or "",
+    )
+    if orange_qty:
+        qty = _as_float(orange_qty.group(1))
+        if qty is None or not _near(qty, 0.0, 0.01):
+            fails.append("Orange quantity is not 0")
+    if kiwi_qty:
+        qty = _as_float(kiwi_qty.group(1))
+        if qty is None or not _near(qty, 0.0, 0.01):
+            fails.append("Kiwi quantity is not 0")
+    if re.search(r"(?i)\[note\]", vis):
+        fails.append("[note] was kept as a quantity")
     return fails
 
 
@@ -209,8 +228,9 @@ def oracle_bulk_cleanup(doc: str) -> list[str]:
     fails: list[str] = []
     text = visible_text(doc)
     cmd_re = re.compile(r"CMD:\s*git\s+log\s+--oneline")
-    if not cmd_re.search(text):
-        fails.append("CMD line missing")
+    cmd_exact = "CMD: git  log  --oneline"
+    if cmd_exact not in text:
+        fails.append("CMD line not preserved exactly")
     body = cmd_re.sub(" ", text)
     for token in (
         "This sentence has extra spaces",
@@ -259,15 +279,27 @@ def oracle_bullet_consistency(doc: str) -> list[str]:
     fails: list[str] = []
     text = visible_text(doc)
     blob = f"{doc or ''}\n{text}"
-    for item in _BULLET_ITEMS:
+
+    def _has_item(item: str) -> bool:
         needle = f"- {item}."
-        if needle not in text and needle not in (doc or ""):
-            fails.append(f"missing hyphen+period bullet {needle!r}")
+        if needle in text or needle in (doc or ""):
+            return True
+        return bool(
+            re.search(
+                rf"<li\b[^>]*>\s*{re.escape(item)}\.?\s*</li>",
+                doc or "",
+                re.I,
+            )
+        )
+
+    for item in _BULLET_ITEMS:
+        if not _has_item(item):
+            fails.append(f"missing hyphen+period or <li> bullet {item!r}")
     if ".." in text:
         fails.append("double period on a bullet")
     if "do not bullet this line" not in text.casefold():
         fails.append("Note paragraph missing")
-    if re.search(r"-\s*Note:", blob):
+    if re.search(r"-\s*Note:", blob) or re.search(r"<li\b[^>]*>\s*Note:", blob, re.I):
         fails.append("Note paragraph was turned into a bullet")
     return fails
 
@@ -306,6 +338,9 @@ def oracle_section_refactor(doc: str) -> list[str]:
         return fails
     if not (intro < goal < body):
         fails.append("expected heading order Introduction, Goal, Body")
+    vis = visible_text(doc)
+    if "See the Goal" not in vis and "see the Goal" not in vis:
+        fails.append("cross-reference was not updated to Goal")
     return fails
 
 
@@ -335,21 +370,64 @@ def oracle_flowchart_gen(doc: str) -> list[str]:
     for token in ("Start", "Process", "Decision", "End", "login", "credentials"):
         if token.casefold() not in blob.casefold():
             fails.append(f"flowchart missing {token!r}")
-    # Labels alone are not a flowchart — require connector metadata.
-    connected = 0
+    type_blob = json.dumps(data).casefold() if data else (doc or "").casefold()
+    has_start_type = any(t in type_blob for t in ("ellipse", "oval", "terminator"))
+    has_process_type = any(t in type_blob for t in ("process", "rectangle"))
+    has_decision_type = any(t in type_blob for t in ("decision", "diamond"))
+    if not has_start_type:
+        fails.append("flowchart missing Start shape type")
+    if not has_process_type:
+        fails.append("flowchart missing Process shape type")
+    if not has_decision_type:
+        fails.append("flowchart missing Decision shape type")
+
+    nodes: list[dict[str, Any]] = []
     if data:
         tree = data.get("tree")
         if isinstance(tree, list):
-            for node in tree:
-                if not isinstance(node, dict):
+            nodes = [n for n in tree if isinstance(n, dict)]
+    by_idx_text: dict[int, str] = {}
+    for i, node in enumerate(nodes):
+        by_idx_text[i] = str(node.get("text") or "").casefold()
+
+    edges: list[tuple[str, str]] = []
+    if data:
+        conns = data.get("connections")
+        if isinstance(conns, list):
+            for conn in conns:
+                if not isinstance(conn, dict):
                     continue
-                if node.get("connected_start") or node.get("connected_end"):
-                    connected += 1
-        edges = data.get("connections")
-        if isinstance(edges, list) and edges:
-            connected = max(connected, len(edges))
-    if connected < 2:
-        fails.append("flowchart missing connections")
+                try:
+                    frm = int(conn.get("from_index"))
+                    to = int(conn.get("to_index"))
+                except (TypeError, ValueError):
+                    continue
+                edges.append((by_idx_text.get(frm, ""), by_idx_text.get(to, "")))
+        if not edges:
+            tree = data.get("tree")
+            if isinstance(tree, list):
+                for node in tree:
+                    if not isinstance(node, dict):
+                        continue
+                    src = str(node.get("text") or "").casefold()
+                    dest = node.get("connected_end")
+                    if isinstance(dest, dict):
+                        edges.append((src, str(dest.get("text") or "").casefold()))
+
+    def _has_edge(src_key: str, dst_key: str) -> bool:
+        for src, dst in edges:
+            if src_key in src and dst_key in dst:
+                return True
+        return False
+
+    if not _has_edge("start", "process") and not _has_edge("start", "login"):
+        fails.append("missing Start→Process edge")
+    if not _has_edge("process", "decision") and not _has_edge("login", "credential"):
+        fails.append("missing Process→Decision edge")
+    if not _has_edge("decision", "end") and not _has_edge("credential", "end"):
+        fails.append("missing Yes Decision→End edge")
+    if not _has_edge("decision", "process") and not _has_edge("credential", "login"):
+        fails.append("missing No Decision→Process loop")
     return fails
 
 
@@ -392,16 +470,28 @@ def oracle_py_dest(doc: str) -> list[str]:
 
     found_outside = False
     found_py = False
+    inside: list[str] = []
+    missing_range = True
     for addr, formula in formulas.items():
         text = str(formula)
-        if text.lstrip().upper().startswith("=PY"):
-            found_py = True
-            if not cell_in_a1_range(str(addr), "A1:H500"):
-                found_outside = True
+        if not text.lstrip().upper().startswith("=PY"):
+            continue
+        found_py = True
+        compact = text.upper().replace("$", "").replace(" ", "")
+        if "A1:H500" in compact or "H500" in compact:
+            missing_range = False
+        if cell_in_a1_range(str(addr), "A1:H500"):
+            inside.append(str(addr))
+        else:
+            found_outside = True
     if not found_py:
         return ["no =PY formula recorded"]
+    if inside:
+        return [f"=PY dest is inside A1:H500 ({', '.join(inside)})"]
     if not found_outside:
         return ["=PY dest is inside A1:H500"]
+    if missing_range:
+        return ["=PY formula does not reference A1:H500"]
     return []
 
 
@@ -442,6 +532,10 @@ def oracle_reformat_resume(doc: str) -> list[str]:
     for token in ("John Doe", "WORK HISTORY", "EDUCATION", "SKILLS", "Acme Corp", "TechStart"):
         if token not in blob:
             fails.append(f"missing {token!r}")
+    if "100K" not in blob and "100,000" not in blob:
+        fails.append("missing 100K users achievement")
+    if "100M" not in blob and "100,000,000" not in blob:
+        fails.append("missing 100M requests achievement")
     return fails
 
 
@@ -458,6 +552,9 @@ def oracle_logical_rewriting(doc: str) -> list[str]:
     for word in _HYPE:
         if word.casefold() in lower:
             fails.append(f"hype leftover {word!r}")
+    words = [w for w in text.split() if w]
+    if len(words) > 70:
+        fails.append(f"rewrite exceeds 70 words ({len(words)})")
     return fails
 
 
@@ -482,6 +579,14 @@ def oracle_smart_summarization(doc: str) -> list[str]:
     for junk in ("9001ms", "12%", "canary", "intern"):
         if junk.casefold() in summary.casefold():
             fails.append(f"distractor {junk!r} leaked into Executive Summary")
+    raw = doc or ""
+    raw_idx = raw.casefold().find("executive summary")
+    raw_summary = raw[raw_idx:] if raw_idx >= 0 else raw
+    n_li = len(re.findall(r"<li\b", raw_summary, re.I))
+    n_md = len(re.findall(r"^[\-\*]\s+\S", summary, re.M))
+    n_bullets = n_li or n_md
+    if n_bullets != 5:
+        fails.append(f"expected 5 summary bullets, got {n_bullets}")
     return fails
 
 
@@ -508,6 +613,9 @@ ORACLES: dict[str, Callable[[str], list[str]]] = {
 CREATIVE_TASK_IDS = frozenset(
     {"reformat_resume", "logical_rewriting", "smart_summarization"}
 )
+QUALITY_JUDGE_TASK_IDS = CREATIVE_TASK_IDS | frozenset(
+    {"table_from_mess", "table_engineering"}
+)
 
 
 def check_oracle(task_id: str, final_document: str) -> list[str]:
@@ -519,7 +627,7 @@ def check_oracle(task_id: str, final_document: str) -> list[str]:
 
 
 def uses_llm_judge(task_id: str, category: str = "") -> bool:
-    """LLM-as-judge is for creative tasks only."""
-    if task_id in CREATIVE_TASK_IDS:
+    """LLM-as-judge is for quality ranking after the hard gate."""
+    if task_id in QUALITY_JUDGE_TASK_IDS:
         return True
     return (category or "") == "creative"

@@ -67,7 +67,7 @@ _REFORMAT_RESUME = (
     "<h2>WORK HISTORY</h2>"
     "<ul>"
     "<li><strong>Developer</strong>, Acme Corp (2020-2023) — Built APIs and fixed bugs; led 2 junior devs.</li>"
-    "<li><strong>Senior Developer</strong>, TechStart Inc (2023-present) — Microservices, CI/CD, on-call.</li>"
+    "<li><strong>Senior Developer</strong>, TechStart Inc (2023-present) — Microservices, CI/CD, on-call. Scaled to 100K users and 100M requests per month.</li>"
     "</ul>"
     "<h2>EDUCATION</h2>"
     "<p>State University, BS Computer Science, 2016, GPA 3.8</p>"
@@ -81,7 +81,7 @@ _TABLE_ENGINEERING = (
     "<tr><td>Banana</td><td>0.50</td><td>24</td></tr>"
     "<tr><td>Orange</td><td>0.80</td><td>0</td></tr>"
     "<tr><td>Grape</td><td>2.00</td><td>8</td></tr>"
-    "<tr><td>Mango</td><td>1.50</td><td>6 [note]</td></tr>"
+    "<tr><td>Mango</td><td>1.50</td><td>6</td></tr>"
     "<tr><td>Kiwi</td><td>1.75</td><td>0</td></tr>"
     "<tr><td>Total</td><td>51.40</td><td>50</td></tr>"
     "</tbody></table>"
@@ -156,7 +156,7 @@ _SECTION_REFACTOR = (
     "<h1>Goal</h1>"
     "<p>Final thoughts and call to action.</p>"
     "<h1>Body</h1>"
-    "<p>Main content goes here.</p>"
+    "<p>Main content goes here. See the Goal for next steps.</p>"
 )
 
 _COMMENT_MANAGEMENT = (
@@ -192,6 +192,19 @@ SCRIPTS: dict[str, list[dict[str, Any]]] = {
         _stop(),
     ],
     "flowchart_gen": [
+        _tools(
+            _tc(
+                "delegate_to_specialized_draw_toolset",
+                {
+                    "domain": "shapes",
+                    "task": (
+                        "Create a login flowchart: Start oval, Process for user login, "
+                        "Decision credentials valid?, Yes to End, No back to Process."
+                    ),
+                },
+                "del_draw_1",
+            )
+        ),
         _tools(
             _tc(
                 "shape_upsert",
@@ -249,7 +262,15 @@ SCRIPTS: dict[str, list[dict[str, Any]]] = {
         _tools(
             _tc("shape_connect", {"start": 0, "end": 1}, "conn_1"),
             _tc("shape_connect", {"start": 1, "end": 2}, "conn_2"),
-            _tc("shape_connect", {"start": 2, "end": 3}, "conn_3"),
+            _tc("shape_connect", {"start": 2, "end": 3, "label": "Yes"}, "conn_3"),
+            _tc("shape_connect", {"start": 2, "end": 1, "label": "No"}, "conn_4"),
+        ),
+        _tools(
+            _tc(
+                "specialized_workflow_finished",
+                {"answer": "flowchart created"},
+                "fin_draw_1",
+            )
         ),
         _tools(_tc("get_draw_tree", {}, "tree_1")),
         _stop(),
@@ -257,29 +278,46 @@ SCRIPTS: dict[str, list[dict[str, Any]]] = {
     "data_sorting": [
         _tools(
             _tc(
+                "delegate_to_specialized_calc_toolset",
+                {
+                    "domain": "ranges",
+                    "task": (
+                        "Sort by Product ascending then Revenue descending; "
+                        "leave non-numeric Revenue last."
+                    ),
+                },
+                "del_calc_1",
+            )
+        ),
+        _tools(
+            _tc(
                 "sort_range",
                 {
-                    "range": ["A1:B5"],
+                    "range": ["A1:B6"],
+                    "sort_column": 0,
+                    "ascending": True,
+                    "has_header": True,
+                },
+                "sort_prod",
+            )
+        ),
+        _tools(
+            _tc(
+                "sort_range",
+                {
+                    "range": ["A1:B6"],
                     "sort_column": 1,
                     "ascending": False,
                     "has_header": True,
                 },
-                "sort_1",
+                "sort_rev",
             )
         ),
-        # UNO sort_range can report ok without reordering this TSV grid; write
-        # the exported result so string and LO both end Revenue-desc.
         _tools(
             _tc(
-                "write_formula_range",
-                {
-                    "range": ["A2:B6"],
-                    "values": (
-                        '["Tool", 2100, "Device", 1200, "Widget", 1200, '
-                        '"Gadget", 850, "Aardvark", "n/a"]'
-                    ),
-                },
-                "sort_write",
+                "specialized_workflow_finished",
+                {"answer": "sorted"},
+                "fin_calc_1",
             )
         ),
         _stop(),

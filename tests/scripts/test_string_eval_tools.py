@@ -113,9 +113,23 @@ def test_dispatch_search_in_document_alias():
     assert data["ranges"]
 
 
+def test_dispatch_apply_style_heading() -> None:
+    s = StringDocState("<p>Background</p><p>Keep me</p>")
+    out = dispatch_string_tool(
+        s,
+        "apply_style",
+        json.dumps({"style": "Heading 1", "target": "search", "old_content": "Background"}),
+    )
+    data = json.loads(out)
+    assert data["status"] == "ok"
+    html = s.get_html()
+    assert "<h1>" in html
+    assert "Background" in html
+
+
 def test_dispatch_unsupported_writer_tool():
     s = StringDocState("hello")
-    out = dispatch_string_tool(s, "apply_style", "{}")
+    out = dispatch_string_tool(s, "get_guidance", "{}")
     data = json.loads(out)
     assert data["code"] == "unsupported_in_eval"
 
@@ -125,4 +139,13 @@ def test_calc_sort_range_integer_column():
     res = state.sort_range(sort_column=1, ascending=False)
     assert res["status"] == "ok"
     assert state._grid[1][0] == "Tool"
+
+
+def test_calc_sort_mixed_types_non_numeric_last() -> None:
+    state = CalcStringState("Product\tRevenue\nWidget\t1200\nAardvark\tn/a\nTool\t2100")
+    res = state.sort_range(sort_column=1, ascending=False)
+    assert res["status"] == "ok"
+    names = [row[0] for row in state._grid[1:]]
+    assert names[-1] == "Aardvark"
+    assert names[0] == "Tool"
 

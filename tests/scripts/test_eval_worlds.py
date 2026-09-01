@@ -77,3 +77,31 @@ def test_calc_py_dest_snapshot() -> None:
     dump = json.dumps(snap)
     assert "J1" in dump
     assert "=PY" in dump
+
+
+def test_apply_style_heading_html() -> None:
+    world = WriterWorld("<p>Background</p><p>Other</p>")
+    res = world.apply_style(style="Heading 1", target="search", old_content="Background")
+    assert res["status"] == "ok"
+    html = world.get_html()
+    assert "<h1>" in html
+    assert "Background" in html
+    assert "Other" in html
+
+
+def test_sort_two_pass_stable_device_before_widget() -> None:
+    calc = CalcWorld(
+        "Product\tRevenue\nWidget\t1200\nGadget\t850\nTool\t2100\nDevice\t1200\nAardvark\tn/a"
+    )
+    calc.sort_range(sort_column=0, ascending=True, has_header=True)
+    calc.sort_range(sort_column=1, ascending=False, has_header=True)
+    names = [row[0] for row in calc._grid[1:]]
+    assert names == ["Tool", "Device", "Widget", "Gadget", "Aardvark"]
+
+
+def test_sheet_summary_includes_all_rows() -> None:
+    calc = CalcWorld("Item\tPrice\nApple\t10\nBanana\t5\nOrange\t8\nPear\t12.5\nNote\tn/a\nTotal\t?")
+    summary = calc.get_sheet_summary()
+    assert summary["row_count"] == 7
+    assert len(summary["grid"]) == 7
+    assert any("Note" in [str(c) for c in row] for row in summary["grid"])

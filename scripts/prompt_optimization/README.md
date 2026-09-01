@@ -101,13 +101,13 @@ Optimization and multi-model eval use **result oracles** for structural tasks (`
 
 `dataset.py` `ALL_EXAMPLES` is **17 tasks**: 12 Writer (the original 8 plus `style_consistency`, `smart_summarization`, `section_refactor`, `comment_management`) plus `flowchart_gen` (Draw), `data_sorting` / `tax_column` (Calc), and two Phase F `=PY` dest rows (`py_refuse_overlap`, `py_no_bulk_read`). Each has fixed `document_content` and `user_question` so runs are comparable. Kind is keyed by `task_id` (`task_kind()`), not question keywords.
 
-Structural pass/fail is the **exported final document** (`oracles.py`: Writer HTML, Draw tree JSON, Calc grid). Creative tasks (`reformat_resume`, `logical_rewriting`, `smart_summarization`) keep an LLM judge when `--student llm` and a judge model are set. `gold_standards.json` is hand-written from the rubrics (no live teacher API).
+Hard pass is the **exported final document** plus process oracles (`oracles.py` / `process_oracles.py`). A quality LLM judge runs **after** that gate for resume, rewriting, summarization, and the two table tasks. Student temperature defaults to **0**. `gold_standards.json` is hand-written from the rubrics (no live teacher API unless `--generate-golds`). Specialized Draw/Calc tools are reached through an inner `LlmClient` loop (`domain="shapes"` / `"ranges"`), not SmolAgents.
 
 ## Tool subset
 
 `--backend string` (default) is an in-memory simulator (`string_eval_tools.py`). `--backend lo` is **headless UNO**: `tools_lo.py` starts `soffice --headless`, serializes all UNO onto `_lo_thread` via `LOBackend.call`, and executes production tools with `bypass_thread_guard=True`. Do not use `tests/eval_runner.py` or `make lo-start` for this path.
 
-`--student scripted` replays `scripted_student.SCRIPTS` (no `LlmClient`, no API key, result oracles + honest substring checks). `--student llm` (default) uses a live model and still needs a key. `--no-judge` skips the LLM judge (judge is creative-only anyway).
+`--student scripted` replays `scripted_student.SCRIPTS` (no `LlmClient`, no API key, result oracles + honest substring checks). `--student llm` (default) uses a live model and still needs a key. `--no-judge` skips the quality judge.
 
 `-j N` in `run_eval_multi.py` is **ThreadPoolExecutor** (parallel models in one process). UNO is already serialized on `_lo_thread`. Do **not** `ProcessPoolExecutor` against one soffice. Scripted green runs use `-j 1`.
 
@@ -126,36 +126,31 @@ Models and prices live in `model_configs.py` (one `ModelConfig` per model with c
 ```bash
 export OPENROUTER_API_KEY="your-key"
 
-# Run all default models from model_configs.get_default_models()
-python run_eval_multi.py
-
-# Restrict to a subset of models by OpenRouter id
+# Required: --models (or --yes-all-models for the full catalog)
 python run_eval_multi.py --models openai/gpt-oss-120b,openai/gpt-4o-mini
 
-# Fewer examples (faster, cheaper)
-python run_eval_multi.py -n 2
+# Fewer examples (faster, cheaper); T=0 is the default
+python run_eval_multi.py --models qwen/qwen3-coder-next -n 2
+
+# Selection runs: three repeats
+python run_eval_multi.py --models qwen/qwen3-coder-next --repeats 3
 
 # 8 models in parallel (default); use -j 1 for sequential with verbose output
-python run_eval_multi.py -j 8
+python run_eval_multi.py --models openai/gpt-oss-120b,openai/gpt-4o-mini -j 8
 ```
 
-For each model, `run_eval_multi.py` reports:
+For each model, `run_eval_multi.py` reports **hard pass %**, **agent score**, **quality** (among judged passes), then historical avg correctness / cost / C²/$. Rank is hard pass, then agent, then quality; C²/$ is secondary.
 
-- **Average correctness** and **average score** (correctness minus token penalty).
-- **Total tokens** used across all examples.
-- **Estimated dollar cost**, based on per-million token prices.
-- An **“intelligence per dollar”** figure: average correctness divided by total cost (higher is better).
-
-Use `--out path.json` or `--out path.csv` to write results (format by extension). Results are written after each model completes so partial data is saved if the run is interrupted. The final file is sorted by intelligence-per-dollar.
+Use `--out path.json` or `--out path.csv` to write results (format by extension). Details files include missing/reject/oracle/process failures and `judge_error`. Results are written after each model completes so partial data is saved if the run is interrupted.
 
 ### Eval framework (summary)
 
-- **Dataset** (`dataset.py`): 19 fixed tasks (12 Writer + Draw flowchart + 2 Calc + 4 `=PY` dest) with assigned `category` (structural or creative).
+- **Dataset** (`dataset.py`): 17 fixed tasks (12 Writer + Draw flowchart + 2 Calc + 2 `=PY` dest) with assigned `category` (structural or creative).
 - **Result oracles** (`oracles.py`): Structural correctness from the exported final doc (table Total, 8% tax, Revenue desc, heading order, …). Not tool-name traces.
-- **Gold Standards** (`gold_standards.json`): Hand-written references matching current rubrics. `--generate-golds` can still merge a teacher run if you have a key.
+- **Gold Standards** (`gold_standards.json`): Hand-written references matching current rubrics. `--generate-golds` can still merge a teacher run if you have a key (not used during ranking).
 - **Program** (`program.py`): DSPy `WriterAssistant` (ReAct) with mock environment.
-- **Metric**: Result oracles for structural tasks; LLM-as-a-Judge (Acc/Fmt/Nat) for creative only, minus token penalty. Shared via `eval_core` for `run_optimize` (MIPROv2) and `run_eval_multi`.
-- **Multi-model**: `run_eval_multi.py` ranks models by **Corr/USD** (avg judge correctness ÷ total $).
+- **Metric**: Hard gate (document + process); quality judge after the gate for resume/rewrite/summary/tables. Shared via `eval_core` for `run_optimize` (MIPROv2) and `run_eval_multi`.
+- **Multi-model**: `run_eval_multi.py` ranks by hard pass / agent / quality; C²/$ is secondary. `--models` is required.
 
 ### Benchmark results (best models, combined runs)
 

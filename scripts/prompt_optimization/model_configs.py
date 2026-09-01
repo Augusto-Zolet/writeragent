@@ -62,14 +62,6 @@ MODELS: list[ModelConfig] = [
         notes="OpenAI GPT-5.6 fast/cheap tier for latency-sensitive agent work.",
     ),
     ModelConfig(
-        openrouter_id="openai/gpt-5-nano",
-        display_name="OpenAI: GPT-5 Nano",
-        context_window_tokens=400_000,
-        input_cost_per_million=0.05,
-        output_cost_per_million=0.4,
-        notes="OpenAI lightweight 400k model for simple office agent subtasks.",
-    ),
-    ModelConfig(
         openrouter_id="google/gemini-3.5-flash-lite",
         display_name="Google: Gemini 3.5 Flash Lite",
         context_window_tokens=1_048_576,

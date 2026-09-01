@@ -99,6 +99,7 @@ def build_eval_api_config(
     model: str,
     max_tool_rounds: int = 25,
     request_timeout: int = 120,
+    temperature: float = 0.0,
 ) -> dict[str, Any]:
     """CLI params -> LlmClient config (same shape as llm_chat_eval)."""
     from llm_chat_eval import _build_api_config
@@ -109,4 +110,5 @@ def build_eval_api_config(
         model=model,
         max_tool_rounds=max_tool_rounds,
         request_timeout=request_timeout,
+        temperature=temperature,
     )

@@ -5,8 +5,8 @@ ALL_EXAMPLES is 17 tasks: 12 Writer (including style_consistency, smart_summariz
 section_refactor, comment_management) + flowchart_gen (Draw) + data_sorting / tax_column
 (Calc) + two Phase F =PY dest rows (refuse overlap, no bulk read).
 Structural tasks are scored from the exported final document (oracles + honest substring
-checks). Creative tasks (resume, logical_rewriting, summarization) keep an LLM judge when
-one is configured. See docs/eval/dev-plan.md.
+checks). A quality judge runs after the hard gate for resume, rewriting, summarization,
+and the two table tasks. See docs/eval/dev-plan.md.
 """
 import sys
 from pathlib import Path
@@ -25,7 +25,7 @@ Controller|Victron SmartSolar MPPT 100/30|$135.15[2]|Handles the 440W panel easi
 
 * USB Charger|Blue Sea Systems 1045 (4.8A)|$43.00|Industrial grade. Accepts 24V input directly.
 
-Tycon TP-DCDC-1224G-4P|$66.00|Critical: Stabilizes 24V battery voltage (which swings 20V-29V) to a clean 24V PoE for the Ubiquiti.
+* PoE Converter|Tycon TP-DCDC-1224G-4P|$66.00|Critical: Stabilizes 24V battery voltage (which swings 20V-29V) to a clean 24V PoE for the Ubiquiti.
 
 Enclosure|Saginaw SCE-202010ELJ|$215.31|20x20x10 NEMA 4 steel box.
 """
@@ -37,6 +37,7 @@ TABLE_FROM_MESS = {
     "expected_contains": ["Battle Born", "Victron", "SmartSolar", "NEMA 4", "Total"],
     "is_non_trivial": True,
     "category": "structural",
+    "use_quality_judge": True,
     "rubric": "Output must be an HTML table (not a list). It should have clear column headings, one row per unique item, a total entry, and preserve all prices exactly.",
 }
 
@@ -67,7 +68,7 @@ certifications: AWS, Kubernetes
 
 REFORMAT_RESUME = {
     "document_content": PLAIN_RESUME,
-    "user_question": "Reformat this plain text resume as professional HTML. Use EXACT section headings: WORK HISTORY, EDUCATION, SKILLS (no variations like 'Work Experience' or 'Summary'). Consistent hyphen bullets for all experience items, active voice in summary (<=60 words, mention Python APIs and leadership), bold job titles/roles, consistent date formatting (e.g. '2020-2023'). Fix all inconsistencies (casing, spacing, bullets, certifications).",
+    "user_question": "Reformat this plain text resume as professional HTML. Use EXACT section headings: WORK HISTORY, EDUCATION, SKILLS (no variations like 'Work Experience' or 'Summary'). Consistent list items for all experience (HTML <ul>/<li> or hyphen bullets), active voice in summary (<=60 words, mention Python APIs and leadership), bold job titles/roles, consistent date formatting (e.g. '2020-2023'). Keep the 100K users / 100M requests achievement. Fix all inconsistencies (casing, spacing, bullets, certifications).",
     "task_id": "reformat_resume",
     "expected_contains": [
         "John Doe",
@@ -76,10 +77,13 @@ REFORMAT_RESUME = {
         "SKILLS",
         "Acme Corp",
         "TechStart Inc",
+        "100K",
+        "100M",
     ],
     "is_non_trivial": True,
     "category": "creative",
-    "rubric": "Professional resume format. Creative: 30% accuracy (exact headings, all content captured/fixed without loss), 20% formatting (valid HTML structure, consistent bullets/dates), 50% naturalness (active voice, professional tone). Matches gold_standards.json. Rejects variations in headings.",
+    "use_quality_judge": True,
+    "rubric": "Professional resume format. Creative: 50% accuracy (exact headings, all content captured/fixed without loss including 100K/100M scale), 20% formatting (valid HTML, consistent lists/dates), 30% naturalness (active voice, professional tone). Matches gold_standards.json.",
 }
 
 # ---------------------------------------------------------------------------
@@ -97,12 +101,13 @@ Total,?,?
 
 TABLE_ENGINEERING = {
     "document_content": CSV_LIKE,
-    "user_question": "Convert this comma-separated (with irregularities, footnotes, missing values) list into a clean HTML table with headers (Item, Price, Quantity). Missing Quantity is 0 (do not invent a count for Orange or Kiwi). Ignore the [note] cell as a quantity. Add a Total row: sum of Price×Quantity. Right-align numerics.",
+    "user_question": "Convert this comma-separated (with irregularities, footnotes, missing values) list into a clean HTML table with headers (Item, Price, Quantity). Missing Quantity is 0 (do not invent a count for Orange or Kiwi). Ignore the [note] cell as a quantity (do not put [note] in Quantity). Add a Total row: sum of Price×Quantity. Right-align numerics.",
     "task_id": "table_engineering",
-    "expected_contains": ["Item", "Price", "Quantity", "Total", "Kiwi", "note"],
+    "expected_contains": ["Item", "Price", "Quantity", "Total", "Kiwi"],
     "is_non_trivial": True,
     "category": "structural",
-    "rubric": "Clean CSV-to-table conversion with edge cases. Structural: 60% accuracy (correct totals, handle notes/missing data without hallucination), 40% formatting (HTML table, right-aligned nums, Total row). Snapshot or final HTML matches expected. Map 'Fruit'->'Item'.",
+    "use_quality_judge": True,
+    "rubric": "Clean CSV-to-table conversion with edge cases. Structural: 60% accuracy (correct totals, handle notes/missing data without hallucination), 40% formatting (HTML table, right-aligned nums, Total row). Map 'Fruit'->'Item'.",
 }
 
 # ---------------------------------------------------------------------------
@@ -119,7 +124,7 @@ CMD: git  log  --oneline
 
 BULK_CLEANUP = {
     "document_content": DOUBLE_SPACE_TEXT,
-    "user_question": "Remove all double spaces in body text, fix punctuation (no space before comma, no double periods, preserve URLs and quoted text), normalize line breaks to single paragraph breaks. Leave the CMD: line exactly as written (it must keep its double spaces).",
+    "user_question": "Remove all double spaces in body text, fix punctuation (no space before comma, no double periods, preserve URLs and quoted wording), normalize line breaks to single paragraph breaks. Leave the CMD: line exactly as written (it must keep its double spaces).",
     "task_id": "bulk_cleanup",
     # Visible-text oracles catch leftover double spaces. Do not reject a lone " "
     # (every English sentence has one) or raw HTML indent from LO export.
@@ -146,7 +151,8 @@ LOGICAL_REWRITING = {
     "reject_contains": ["LocalWriter", "incredibly", "significant leap", "brand new"],
     "is_non_trivial": True,
     "category": "creative",
-    "rubric": "Professional, concise rewrite. Creative: 30% accuracy (exact terms preserved, no hype), 20% formatting, 50% naturalness (active voice, flows well). Matches gold_standards.json exactly. Forces precise instruction following.",
+    "use_quality_judge": True,
+    "rubric": "Professional, concise rewrite. Creative: 50% accuracy (exact terms preserved, no hype, ≤70 words), 20% formatting, 30% naturalness (active voice, flows well).",
 }
 
 # ---------------------------------------------------------------------------
@@ -224,7 +230,7 @@ BULLET_CONSISTENCY = {
     "user_question": (
         "Normalize this list: use ONLY hyphen bullets (-), exactly one item per line, trim ALL stray spaces, "
         "end EACH bullet line with a period (do not turn an existing period into '..'). "
-        "Leave the Note paragraph as a paragraph, not a bullet. Output as HTML <ul> if possible."
+        "Leave the Note paragraph as a paragraph, not a bullet. HTML <ul><li> is preferred; hyphen lines are also accepted."
     ),
     "task_id": "bullet_consistency",
     "expected_contains": [
@@ -283,7 +289,8 @@ A canary deploy failed with a 12% error spike and was rolled back. The intern jo
     "expected_contains": ["Executive Summary", "99.9%", "45ms", "0.01%", "10k RPS", "40%"],
     "is_non_trivial": True,
     "category": "creative",
-    "rubric": "Five real stats in Executive Summary; distractors stay out of that section.",
+    "use_quality_judge": True,
+    "rubric": "Five real stats in Executive Summary as bullets; distractors stay out of that section.",
 }
 
 # Section Refactor (archive Writer #17)
@@ -291,20 +298,20 @@ SECTION_REFACTOR = {
     "document_content": """# Introduction
 Background info here.
 
+# Body
+Main content goes here. See the Conclusion for next steps.
+
 # Conclusion
 Final thoughts and call to action.
-
-# Body
-Main content goes here.
 """,
-    "user_question": "Move the 'Conclusion' after the 'Intro' and rename it 'Goal'. Update any cross-references if present.",
+    "user_question": "Move the 'Conclusion' after the 'Introduction' and rename it 'Goal'. Update any cross-references if present.",
     "task_id": "section_refactor",
     # Headings must survive HTML apply / LO unwrap (not markdown-only "# Introduction").
-    "expected_contains": ["Introduction", "Goal", "Body"],
+    "expected_contains": ["Introduction", "Goal", "Body", "See the Goal"],
     "reject_contains": ["Conclusion"],
     "is_non_trivial": True,
     "category": "structural",
-    "rubric": "Structural movement of sections with rename. Conclusion becomes Goal and placed after Intro. No orphaned headings.",
+    "rubric": "Structural movement of sections with rename. Conclusion becomes Goal and placed after Intro. Update the Body cross-reference. No orphaned headings.",
 }
 
 # Comment Management Simulation (archive Writer #3; text-based for string backend)
@@ -413,7 +420,7 @@ PY_REFUSE_OVERLAP = {
         "If H1 is inside the data range, write beside it instead and say so."
     ),
     "task_id": "py_refuse_overlap",
-    "expected_contains": ["=PY", "J1"],
+    "expected_contains": ["=PY"],
     "reject_contains": [],
     "is_non_trivial": True,
     "category": "structural",
@@ -427,7 +434,7 @@ PY_NO_BULK_READ = {
         "Do not read_cell_range of A1:H500 or dump the spill into chat."
     ),
     "task_id": "py_no_bulk_read",
-    "expected_contains": ["=PY", "J1"],
+    "expected_contains": ["=PY"],
     "is_non_trivial": True,
     "category": "structural",
     "rubric": _PY_RUBRIC,
@@ -478,6 +485,7 @@ def to_eval_examples(examples=None):
                 gold_document=ex.get("gold_document", ""),
                 is_non_trivial=ex.get("is_non_trivial", False),
                 category=ex.get("category", "structural"),
+                use_quality_judge=ex.get("use_quality_judge", False),
             )
         )
     return out
@@ -520,6 +528,7 @@ def to_dspy_examples(examples=None, with_inputs=True):
             gold_document=ex.get("gold_document", ""),
             is_non_trivial=ex.get("is_non_trivial", False),
             category=ex.get("category", "structural"),
+            use_quality_judge=ex.get("use_quality_judge", False),
         ).with_inputs("document_content", "user_question") if with_inputs else dspy.Example(**ex)
         out.append(e)
     return out

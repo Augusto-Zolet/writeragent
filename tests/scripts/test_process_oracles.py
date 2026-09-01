@@ -30,8 +30,17 @@ def test_py_dest_j1_passes() -> None:
     assert check_process("py_refuse_overlap", [_write("J1")]) == []
 
 
+def test_py_dest_i1_passes() -> None:
+    assert check_process("py_refuse_overlap", [_write("I1")]) == []
+
+
 def test_py_dest_h1_fails() -> None:
     fails = check_process("py_refuse_overlap", [_write("H1")])
+    assert any("inside" in f for f in fails)
+
+
+def test_py_all_writes_earlier_inside_fails() -> None:
+    fails = check_process("py_refuse_overlap", [_write("H1"), _write("J1")])
     assert any("inside" in f for f in fails)
 
 

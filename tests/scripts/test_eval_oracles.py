@@ -96,15 +96,17 @@ _TAX_BAD = json.dumps(
 _FLOW_GOOD = json.dumps(
     {
         "status": "ok",
+        "tree": [
+            {"type": "ellipse", "text": "Start", "connected_end": {"name": "shape_1", "text": "Process: user login"}},
+            {"type": "flowchart-process", "text": "Process: user login"},
+            {"type": "flowchart-decision", "text": "Decision: credentials valid?"},
+            {"type": "flowchart-terminator", "text": "End"},
+        ],
         "connections": [
             {"from_index": 0, "to_index": 1},
             {"from_index": 1, "to_index": 2},
-        ],
-        "tree": [
-            {"text": "Start", "connected_end": {"name": "shape_1", "text": "Process: user login"}},
-            {"text": "Process: user login"},
-            {"text": "Decision: credentials valid?"},
-            {"text": "End"},
+            {"from_index": 2, "to_index": 3, "label": "Yes"},
+            {"from_index": 2, "to_index": 1, "label": "No"},
         ],
     }
 )
@@ -172,7 +174,7 @@ def test_good_fixtures_pass(task_id: str, doc: str) -> None:
         (
             "bullet_consistency",
             _BULLET_CONSISTENCY.replace("- First thing.", "* First thing"),
-            "hyphen+period",
+            "hyphen+period or <li>",
         ),
         (
             "section_refactor",
@@ -196,7 +198,32 @@ def test_good_fixtures_pass(task_id: str, doc: str) -> None:
                     ],
                 }
             ),
-            "connections",
+            "edge",
+        ),
+        (
+            "flowchart_gen",
+            json.dumps(
+                {
+                    "status": "ok",
+                    "tree": [
+                        {"type": "ellipse", "text": "Start"},
+                        {"type": "flowchart-process", "text": "Process: user login"},
+                        {"type": "flowchart-decision", "text": "Decision: credentials valid?"},
+                        {"type": "flowchart-terminator", "text": "End"},
+                    ],
+                    "connections": [
+                        {"from_index": 0, "to_index": 1},
+                        {"from_index": 1, "to_index": 2},
+                        {"from_index": 2, "to_index": 3, "label": "Yes"},
+                    ],
+                }
+            ),
+            "loop",
+        ),
+        (
+            "table_engineering",
+            _TABLE_ENGINEERING.replace("<td>6</td>", "<td>[note]</td>", 1),
+            "[note]",
         ),
         ("py_refuse_overlap", _PY_BAD, "inside"),
         (
@@ -252,6 +279,10 @@ def test_empty_doc_fails_structural() -> None:
     assert check_oracle("bulk_cleanup", "hello")
 
 
+def test_py_dest_i1_document_oracle() -> None:
+    assert check_oracle("py_refuse_overlap", _PY_GOOD.replace("J1", "I1")) == []
+
+
 def test_golds_pass_oracles() -> None:
     golds = json.loads((_PO / "gold_standards.json").read_text(encoding="utf-8"))
     for task_id, doc in golds.items():
@@ -276,9 +307,10 @@ def test_whitespace_needles_are_ignored() -> None:
     assert score == 1.0
 
 
-def test_judge_only_for_creative() -> None:
+def test_judge_only_for_quality_tasks() -> None:
     assert uses_llm_judge("reformat_resume", "creative")
     assert uses_llm_judge("logical_rewriting")
     assert uses_llm_judge("smart_summarization")
-    assert not uses_llm_judge("table_from_mess", "structural")
+    assert uses_llm_judge("table_from_mess", "structural")
+    assert uses_llm_judge("table_engineering", "structural")
     assert not uses_llm_judge("tax_column", "structural")
