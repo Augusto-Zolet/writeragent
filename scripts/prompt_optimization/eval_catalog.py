@@ -2,88 +2,55 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Core tool schemas for string eval.
+"""Core tool schemas for string eval — same ``get_schemas`` path as sidebar chat.
 
-Prefer a committed snapshot so string eval never needs soffice. When UNO
-is importable, overlay live ``to_openai_schema`` from tool classes.
+Headless ``ToolRegistry`` + module ``initialize`` (no ``plugin.main.bootstrap``).
 """
 from __future__ import annotations
 
-import json
-import sys
-from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
-_HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-    sys.path.insert(0, str(_HERE))
+from plugin.calc import CalcModule
+from plugin.chatbot import ChatbotModule
+from plugin.draw import DrawModule
+from plugin.framework.config import init_config
+from plugin.framework.service import ServiceRegistry
+from plugin.framework.tool import ToolRegistry
+from plugin.writer import WriterModule
 
-_SNAPSHOT = Path(__file__).resolve().parent / "eval_core_schemas.json"
-
-# (kind, module, class) — overlay only; snapshot is the no-UNO baseline.
-_LIVE_CLASSES: tuple[tuple[str, str, str], ...] = (
-    ("writer", "plugin.writer.content", "GetDocumentContent"),
-    ("writer", "plugin.writer.content", "ApplyDocumentContent"),
-    ("writer", "plugin.writer.search", "SearchInDocument"),
-    ("writer", "plugin.writer.specialized.comments", "AddComment"),
-    ("draw", "plugin.draw.tree", "GetDrawTree"),
-    ("draw", "plugin.draw.shapes", "UpsertShape"),
-    ("draw", "plugin.draw.shapes", "ConnectShapes"),
-    ("draw", "plugin.draw.shapes", "GetDrawSummary"),
-    ("calc", "plugin.calc.cells", "ReadCellRange"),
-    ("calc", "plugin.calc.cells", "WriteCellRange"),
-    ("calc", "plugin.calc.cells", "SortRange"),
-    ("calc", "plugin.calc.sheets", "GetSheetSummary"),
-)
+_registry: ToolRegistry | None = None
 
 
-def load_schema_snapshot() -> dict[str, list[dict[str, Any]]]:
-    data = json.loads(_SNAPSHOT.read_text(encoding="utf-8"))
-    out: dict[str, list[dict[str, Any]]] = {}
-    for kind, rows in data.items():
-        if isinstance(rows, list):
-            out[str(kind)] = [row for row in rows if isinstance(row, dict)]
-    return out
+def _headless_registry() -> ToolRegistry:
+    """Writer + Calc + Draw + chatbot core tools, filtered later by doc_type."""
+    global _registry
+    if _registry is not None:
+        return _registry
 
+    init_config(MagicMock())
+    services = ServiceRegistry()
+    services.register("config", MagicMock())
+    services.register("document", MagicMock())
+    services.register("events", MagicMock())
+    tools = ToolRegistry(services)
+    services.register("tools", tools)
 
-def _try_live_schema(module_name: str, class_name: str) -> dict[str, Any] | None:
-    try:
-        import importlib
+    WriterModule().initialize(services)
+    CalcModule().initialize(services)
+    DrawModule().initialize(services)
+    ChatbotModule().initialize(services)
+    tools.auto_discover_package("plugin.doc")
 
-        from plugin.framework.tool import to_openai_schema
-
-        mod = importlib.import_module(module_name)
-        cls = getattr(mod, class_name)
-        schema = to_openai_schema(cls())
-    except Exception:
-        return None
-    return schema if isinstance(schema, dict) and schema.get("name") else None
-
-
-def _merge_live(snapshot: dict[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
-    by_kind: dict[str, dict[str, dict[str, Any]]] = {}
-    for kind, rows in snapshot.items():
-        by_kind[kind] = {str(row.get("name")): row for row in rows if row.get("name")}
-    for kind, module_name, class_name in _LIVE_CLASSES:
-        live = _try_live_schema(module_name, class_name)
-        if not live:
-            continue
-        name = str(live.get("name"))
-        bucket = by_kind.setdefault(kind, {})
-        bucket[name] = live
-    return {
-        kind: list(names.values())
-        for kind, names in by_kind.items()
-    }
-
-
-def schemas_for_kind(kind: str) -> list[dict[str, Any]]:
-    """OpenAI function schemas for writer / draw / calc."""
-    merged = _merge_live(load_schema_snapshot())
-    key = kind if kind in merged else "writer"
-    return list(merged.get(key) or [])
+    _registry = tools
+    return tools
 
 
 def build_eval_tool_schemas(*, kind: str) -> list[dict[str, Any]]:
-    """Public catalog used by ``llm_chat_eval``."""
-    return schemas_for_kind(kind)
+    """OpenAI function schemas for writer / draw / calc — same filter as sidebar."""
+    doc_type = kind if kind in ("writer", "draw", "calc") else "writer"
+    return _headless_registry().get_schemas(
+        "openai",
+        doc_type=doc_type,
+        filter_doc_type=True,
+    )

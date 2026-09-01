@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu (modifications and relicensing)
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Eval tool catalog is larger than the old 3–5 hand-written schemas."""
+"""Eval tool catalog is live ToolRegistry.get_schemas (same as sidebar)."""
 from __future__ import annotations
 
 import json
@@ -13,31 +13,63 @@ _PO = Path(__file__).resolve().parents[2] / "scripts" / "prompt_optimization"
 if str(_PO) not in sys.path:
     sys.path.insert(0, str(_PO))
 
-from eval_catalog import build_eval_tool_schemas
+from eval_catalog import _headless_registry, build_eval_tool_schemas
 from eval_worlds import CalcWorld, DrawWorld, WriterWorld
 from string_eval_tools import dispatch_string_tool
 
 
+def _schema_name(row: dict) -> str:
+    fn = row.get("function") if isinstance(row.get("function"), dict) else None
+    if fn:
+        return str(fn.get("name") or "")
+    return str(row.get("name") or "")
+
+
 def _names(kind: str) -> set[str]:
-    return {str(s.get("name")) for s in build_eval_tool_schemas(kind=kind)}
+    return {_schema_name(s) for s in build_eval_tool_schemas(kind=kind) if _schema_name(s)}
+
+
+def test_eval_catalog_matches_registry_get_schemas() -> None:
+    registry = _headless_registry()
+    for kind in ("writer", "calc", "draw"):
+        live = {
+            _schema_name(s)
+            for s in registry.get_schemas("openai", doc_type=kind, filter_doc_type=True)
+            if _schema_name(s)
+        }
+        assert _names(kind) == live
 
 
 def test_writer_catalog_has_production_names() -> None:
     names = _names("writer")
-    assert {"get_document_content", "apply_document_content", "search_in_document"} <= names
-    assert len(names) > 5
+    assert {
+        "get_document_content",
+        "apply_document_content",
+        "search_in_document",
+        "apply_style",
+        "get_guidance",
+    } <= names
+    assert any("delegate" in n for n in names)
+    assert len(names) > 8
 
 
-def test_draw_catalog_has_connect() -> None:
+def test_draw_catalog_has_core_names() -> None:
     names = _names("draw")
-    assert {"shape_upsert", "shape_connect", "get_draw_tree"} <= names
-    assert len(names) > 5
+    # shape_upsert / shape_connect are specialized (delegate), not main-chat core.
+    assert {"get_draw_tree", "list_pages", "delegate_to_specialized_draw_toolset"} <= names
+    assert len(names) > 8
 
 
 def test_calc_catalog_has_write_formula() -> None:
     names = _names("calc")
-    assert {"write_formula_range", "read_cell_range", "get_sheet_summary", "sort_range"} <= names
-    assert len(names) > 5
+    # sort_range is specialized; main chat uses write_formula_range / read / summary.
+    assert {
+        "write_formula_range",
+        "read_cell_range",
+        "get_sheet_summary",
+        "delegate_to_specialized_calc_toolset",
+    } <= names
+    assert len(names) > 8
 
 
 def test_unsupported_core_names() -> None:

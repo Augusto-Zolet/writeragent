@@ -1,7 +1,10 @@
 # String-harness upgrade (no LO)
 
-**Status:** implemented on the string backend (worlds, core catalog,
-process/`=PY` score). Multi-turn and `--backend lo` still out of scope.
+**Status:** worlds + process/`=PY` score shipped. Schemas come from
+headless ``ToolRegistry.get_schemas`` (same filter as sidebar). The
+eval system prompt is ``get_chat_system_prompt_for_document`` plus
+``EVAL_HARNESS_NOTE``. Multi-turn and ``--backend lo`` still out of
+scope.
 
 Plan for making `--backend string` a real WriterAgent eval: same core
 tool catalog as chat, document worlds that can tell the truth, and a
@@ -22,10 +25,8 @@ environment matches chat and the mocks are not theater.
 
 Today it does not:
 
-- `build_eval_tool_schemas()` in `llm_chat_eval.py` hands the model a
-  handful of hand-written schemas. Chat shows `tier="core"` for that
-  doc type. The hard WriterAgent problem is picking the right tool
-  among many.
+- (Shipped) `build_eval_tool_schemas()` uses live `ToolRegistry.get_schemas`
+  for that doc type. Unimplemented names still return `unsupported_in_eval`.
 - `StringDocState` is one HTML string. `DrawDocState` has no
   `shape_connect`. `CalcStringState` writes values, not formula text
   or dest. So `style_consistency`, `comment_management`, and flowchart
@@ -169,29 +170,20 @@ JSON grows `formulas` / `writes` without breaking `grid` / `rows` that
 
 ### Schemas
 
-Replace `build_eval_tool_schemas()` hand-written Draw/Calc dicts.
-
-For each task kind (`task_kind()` → writer / draw / calc):
-
-1. Collect **core** tool classes that declare that `doc_type` /
-   `uno_services` (same filter as `ToolRegistry.get_tools(tier="core")`).
-2. Instantiate and run `to_openai_schema` (already used for
-   `GetDocumentContent` / `ApplyDocumentContent` in `llm_chat_eval.py`).
-3. If a class cannot be imported without UNO, skip it and keep a
-   **committed schema snapshot** (`eval_core_schemas.json`) generated
-   by a tiny script when UNO is available. String eval never requires
-   soffice.
+`build_eval_tool_schemas()` uses a headless `ToolRegistry` (Writer/Calc/Draw
++ Chatbot modules, no `plugin.main.bootstrap`) and
+`get_schemas("openai", doc_type=kind)` — the same filter as sidebar
+(`tool_loop.py`). Specialized tools stay off the list; Draw
+`shape_upsert` / Calc `sort_range` are advertised only via
+`delegate_to_specialized_*`. There is no committed JSON snapshot.
 
 Do not include `specialized` / `specialized_control`. Do not
 bootstrap `MainJob`.
 
-`eval_prompts.py` today tells the model only three tools exist
-(`WRITER_EVAL_SCOPE`). That becomes a lie. Switch Writer eval to the
-production Writer core prompt pieces (`plugin/framework/prompts.py`)
-plus a one-line eval note: unimplemented core tools return
-`unsupported_in_eval`. Same idea for Calc (`CALC_CORE_DIRECTIVES` +
-`write_formula_range` description). Update
-`tests/scripts/test_eval_prompts.py` pins.
+`eval_prompts.py` calls `get_chat_system_prompt_for_document` (stub
+Writer/Calc/Draw model, `ctx=None`) and appends `EVAL_HARNESS_NOTE`
+via `additional_instructions`. Pin tests compare equality with that
+builder.
 
 ### Dispatch
 
