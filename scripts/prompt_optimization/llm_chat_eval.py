@@ -84,7 +84,6 @@ def _build_api_config(
     model: str,
     max_tool_rounds: int,
     request_timeout: int = 120,
-    temperature: float = 0.0,
 ) -> dict[str, Any]:
     ep = normalize_endpoint_url(endpoint)
     return {
@@ -96,7 +95,6 @@ def _build_api_config(
         "is_together": "together.xyz" in ep.lower(),
         "request_timeout": request_timeout,
         "chat_max_tool_rounds": max_tool_rounds,
-        "temperature": temperature,
     }
 
 
@@ -182,7 +180,6 @@ def _run_specialized_inner(
     student: Literal["llm", "scripted"],
     usage_acc: dict[str, int],
     trace: list[dict[str, Any]],
-    temperature: float,
 ) -> str:
     """Bounded inner LlmClient loop (not SmolAgents) on the same world."""
     domain = str(domain or "").strip()
@@ -205,7 +202,6 @@ def _run_specialized_inner(
             api_key=api_key,
             model=model,
             max_tool_rounds=INNER_MAX_ROUNDS,
-            temperature=temperature,
         )
         inner_client = LlmClient(cfg, _EvalMockContext())
         messages = [
@@ -304,7 +300,6 @@ def run_llm_chat_eval(
     verbose: bool = False,
     student: Literal["llm", "scripted"] = "llm",
     task_id: str = "",
-    temperature: float = 0.0,
 ) -> tuple[str, dict[str, int], str | None, list[dict[str, Any]]]:
     """
     Run one eval example: multi-round tool loop.
@@ -351,7 +346,6 @@ def run_llm_chat_eval(
             api_key=api_key,
             model=model,
             max_tool_rounds=max_tool_rounds,
-            temperature=temperature,
         )
         client = LlmClient(cfg, _EvalMockContext())
 
@@ -421,7 +415,6 @@ def run_llm_chat_eval(
                         student=student,
                         usage_acc=usage_acc,
                         trace=trace,
-                        temperature=temperature,
                     )
                     trace.append(_trace_entry(name, raw_args, result))
                 else:

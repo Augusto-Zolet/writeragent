@@ -94,6 +94,44 @@ def test_make_chat_request_logs_body_model(caplog, client):
     assert "full_url='https://api.z.ai/api/paas/v4/chat/completions'" in joined
 
 
+def test_make_chat_request_omits_temperature_when_unset():
+    """Settings default -1 means get_api_config leaves the key out; do not invent 0.5."""
+    client = LlmClient(
+        {"endpoint": "https://api.openai.com", "api_key": "sk-test", "model": "gpt-4o"},
+        MockContext(),
+    )
+    _m, _p, body, _h = client.make_chat_request(
+        [{"role": "user", "content": "hi"}], max_tokens=50
+    )
+    data = json.loads(body.decode("utf-8"))
+    assert "temperature" not in data
+
+
+def test_make_chat_request_includes_explicit_temperature(client):
+    _m, _p, body, _h = client.make_chat_request(
+        [{"role": "user", "content": "hi"}], max_tokens=50
+    )
+    data = json.loads(body.decode("utf-8"))
+    assert data["temperature"] == pytest.approx(0.7)
+
+
+def test_make_chat_request_sends_zero_temperature():
+    client = LlmClient(
+        {
+            "endpoint": "https://api.openai.com",
+            "api_key": "sk-test",
+            "model": "gpt-4o",
+            "temperature": 0.0,
+        },
+        MockContext(),
+    )
+    _m, _p, body, _h = client.make_chat_request(
+        [{"role": "user", "content": "hi"}], max_tokens=50
+    )
+    data = json.loads(body.decode("utf-8"))
+    assert data["temperature"] == 0.0
+
+
 def test_custom_endpoint_and_key():
     config = {
         "endpoint": "http://localhost:11434",

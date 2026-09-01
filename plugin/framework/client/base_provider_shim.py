@@ -23,7 +23,7 @@ class BaseProviderShim:
         self,
         messages: list[dict[str, Any]],
         max_tokens: int,
-        temperature: float,
+        temperature: float | None,
         tools: list[dict[str, Any]] | None,
         stream: bool,
         model_name: str | None,
@@ -39,10 +39,11 @@ class BaseProviderShim:
         data: dict[str, Any] = {
             "messages": messages,
             "max_tokens": max_tokens,
-            "temperature": temperature,
             "top_p": 0.9,
             "stream": stream,
         }
+        if temperature is not None:
+            data["temperature"] = temperature
         if model_name:
             data["model"] = model_name
         if tools:

@@ -306,6 +306,26 @@ class TestConfigSyncFileIO(unittest.TestCase):
         reset_config_for_tests()
         self.assertEqual(get_config_float("temperature"), -1.0)
 
+    def test_get_api_config_omits_default_temperature(self):
+        """Schema default -1 means leave temperature out so the provider picks."""
+        from plugin.framework.config import get_api_config
+
+        if os.path.exists(self.config_path):
+            os.remove(self.config_path)
+        reset_config_for_tests()
+        self.assertEqual(get_config_float("temperature"), -1.0)
+        cfg = get_api_config()
+        self.assertNotIn("temperature", cfg)
+
+    def test_get_api_config_includes_explicit_temperature(self):
+        from plugin.framework.config import get_api_config
+
+        with open(self.config_path, "w", encoding="utf-8") as f:
+            json.dump({"temperature": 0.3}, f)
+        reset_config_for_tests()
+        cfg = get_api_config()
+        self.assertEqual(cfg.get("temperature"), 0.3)
+
     def test_failed_api_key_write_does_not_leak_into_cache(self):
         reset_config_for_tests()
         with patch("plugin.framework.config._write_config_file", side_effect=OSError("disk full")):

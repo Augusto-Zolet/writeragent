@@ -478,7 +478,9 @@ class LlmClient:
                 break
 
         model_name = model or self.config.get("model", "")
-        temperature = self.config.get("temperature", 0.5)
+        # Missing key (settings default -1) means omit from the request so the
+        # provider uses its own default. Explicit 0.0 from Settings still sends.
+        temperature = self.config.get("temperature")
 
         shim = self._get_shim()
         method, path, body, headers = shim.build_chat_request(messages, max_tokens, temperature, tools, stream, model_name, response_format, chat_extra)

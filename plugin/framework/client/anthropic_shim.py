@@ -20,7 +20,7 @@ class AnthropicShim(BaseProviderShim):
         self,
         messages: list[dict[str, Any]],
         max_tokens: int,
-        temperature: float,
+        temperature: float | None,
         tools: list[dict[str, Any]] | None,
         stream: bool,
         model_name: str | None,
@@ -131,9 +131,10 @@ class AnthropicShim(BaseProviderShim):
             "model": model_name or "claude-3-5-sonnet-20241022",
             "messages": converted,
             "max_tokens": max_tokens,
-            "temperature": temperature,
             "stream": stream,
         }
+        if temperature is not None:
+            data["temperature"] = temperature
         if system_msg:
             data["system"] = system_msg
         if tools:

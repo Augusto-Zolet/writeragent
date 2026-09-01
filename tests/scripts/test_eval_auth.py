@@ -70,7 +70,7 @@ def test_build_eval_api_config_openrouter_flag() -> None:
     )
     assert cfg["is_openrouter"] is True
     assert cfg["model"] == "openai/gpt-4o-mini"
-    assert cfg["temperature"] == 0.0
+    assert "temperature" not in cfg
 
 
 def test_is_openrouter_endpoint() -> None:

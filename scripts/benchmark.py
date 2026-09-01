@@ -40,7 +40,6 @@ def build_eval_argv(
     document: str | None = None,
     category: str | None = None,
     extra: list[str] | None = None,
-    temperature: float = 0.0,
     repeats: int = 1,
     yes_all_models: bool = False,
 ) -> list[str]:
@@ -70,8 +69,6 @@ def build_eval_argv(
         cmd.append("--allow-unknown-model")
     if no_judge:
         cmd.append("--no-judge")
-    if temperature != 0.0:
-        cmd.extend(["--temperature", str(temperature)])
     if repeats != 1:
         cmd.extend(["--repeats", str(repeats)])
     if yes_all_models:
@@ -103,7 +100,6 @@ def main() -> int:
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("--allow-unknown-model", action="store_true")
     parser.add_argument("--no-judge", action="store_true", help="Skip LLM judge")
-    parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--repeats", type=int, default=1)
     parser.add_argument("--yes-all-models", action="store_true")
     parser.add_argument("--task", help="Custom task prompt (Phase 2)")
@@ -132,7 +128,6 @@ def main() -> int:
         allow_unknown_model=args.allow_unknown_model,
         no_judge=args.no_judge,
         extra=extra,
-        temperature=args.temperature,
         repeats=args.repeats,
         yes_all_models=args.yes_all_models,
     )

@@ -151,7 +151,6 @@ def _run_one_model(
     allow_unknown: bool,
     student: str = "llm",
     no_judge: bool = False,
-    temperature: float = 0.0,
     repeats: int = 1,
 ) -> dict[str, Any]:
     """Run eval for one model (used in a worker process). Returns summary dict."""
@@ -184,7 +183,6 @@ def _run_one_model(
         gold_model=gm,
         student=student,
         no_judge=no_judge or student == "scripted",
-        temperature=temperature,
     )
     if repeats > 1:
         extra: list[ExampleEval] = []
@@ -205,7 +203,6 @@ def _run_one_model(
                     gold_model=gm,
                     student=student,
                     no_judge=no_judge or student == "scripted",
-                    temperature=temperature,
                 )
             )
         results = results + extra
@@ -305,12 +302,6 @@ def main() -> int:
         "--yes-all-models",
         action="store_true",
         help="Allow the default catalog sweep when --models is omitted.",
-    )
-    p.add_argument(
-        "--temperature",
-        type=float,
-        default=0.0,
-        help="Student sampling temperature (default: 0).",
     )
     p.add_argument(
         "--repeats",
@@ -537,7 +528,6 @@ def main() -> int:
         allow_unknown=args.allow_unknown_model,
         student=args.student,
         no_judge=args.no_judge or args.student == "scripted",
-        temperature=args.temperature,
         repeats=max(1, args.repeats),
     )
 

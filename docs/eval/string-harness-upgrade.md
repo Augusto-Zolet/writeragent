@@ -4,9 +4,10 @@
 headless ``ToolRegistry.get_schemas``. Specialized work is a bounded
 inner ``LlmClient`` loop (``delegate_to_specialized_*`` with
 ``active_domain`` ``shapes`` / ``ranges``), not SmolAgents. Worlds,
-process/`=PY` score, quality judge after the hard gate, T=0, and
-required ``--models`` are shipped. Multi-turn and ``--backend lo``
-ranking remain out of scope.
+process/`=PY` score, quality judge after the hard gate, and
+required ``--models`` are shipped. Eval does not set sampling
+temperature. Multi-turn and ``--backend lo`` ranking remain out of
+scope.
 
 Plan for making `--backend string` a real WriterAgent eval: same core
 tool catalog as chat, document worlds that can tell the truth, and a

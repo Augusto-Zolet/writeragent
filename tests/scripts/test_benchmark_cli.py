@@ -48,16 +48,15 @@ def test_build_eval_argv_allow_unknown() -> None:
     assert "--allow-unknown-model" in argv
 
 
-def test_build_eval_argv_temperature_and_repeats() -> None:
+def test_build_eval_argv_repeats_and_yes_all_models() -> None:
     argv = build_eval_argv(
         model="qwen/qwen3-coder-next",
-        temperature=0.2,
         repeats=3,
         yes_all_models=True,
     )
-    assert "--temperature" in argv and "0.2" in argv
     assert "--repeats" in argv and "3" in argv
     assert "--yes-all-models" in argv
+    assert "--temperature" not in argv
 
 
 def test_build_eval_argv_task_not_implemented() -> None:

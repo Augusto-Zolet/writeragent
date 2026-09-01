@@ -101,7 +101,7 @@ Optimization and multi-model eval use **result oracles** for structural tasks (`
 
 `dataset.py` `ALL_EXAMPLES` is **17 tasks**: 12 Writer (the original 8 plus `style_consistency`, `smart_summarization`, `section_refactor`, `comment_management`) plus `flowchart_gen` (Draw), `data_sorting` / `tax_column` (Calc), and two Phase F `=PY` dest rows (`py_refuse_overlap`, `py_no_bulk_read`). Each has fixed `document_content` and `user_question` so runs are comparable. Kind is keyed by `task_id` (`task_kind()`), not question keywords.
 
-Hard pass is the **exported final document** plus process oracles (`oracles.py` / `process_oracles.py`). A quality LLM judge runs **after** that gate for resume, rewriting, summarization, and the two table tasks. Student temperature defaults to **0**. `gold_standards.json` is hand-written from the rubrics (no live teacher API unless `--generate-golds`). Specialized Draw/Calc tools are reached through an inner `LlmClient` loop (`domain="shapes"` / `"ranges"`), not SmolAgents.
+Hard pass is the **exported final document** plus process oracles (`oracles.py` / `process_oracles.py`). A quality LLM judge runs **after** that gate for resume, rewriting, summarization, and the two table tasks. Eval does not set sampling temperature. `gold_standards.json` is hand-written from the rubrics (no live teacher API unless `--generate-golds`). Specialized Draw/Calc tools are reached through an inner `LlmClient` loop (`domain="shapes"` / `"ranges"`), not SmolAgents.
 
 ## Tool subset
 
@@ -129,7 +129,7 @@ export OPENROUTER_API_KEY="your-key"
 # Required: --models (or --yes-all-models for the full catalog)
 python run_eval_multi.py --models openai/gpt-oss-120b,openai/gpt-4o-mini
 
-# Fewer examples (faster, cheaper); T=0 is the default
+# Fewer examples (faster, cheaper)
 python run_eval_multi.py --models qwen/qwen3-coder-next -n 2
 
 # Selection runs: three repeats

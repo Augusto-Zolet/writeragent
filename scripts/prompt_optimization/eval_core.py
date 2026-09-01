@@ -607,7 +607,6 @@ def run_eval_on_examples_llm(
     gold_lm: Any = None,
     student: str = "llm",
     no_judge: bool = False,
-    temperature: float = 0.0,
 ) -> List[ExampleEval]:
     """
     Run benchmarks with ``LlmClient`` + tool loop (same tool names as production chat).
@@ -663,7 +662,6 @@ def run_eval_on_examples_llm(
                 verbose=verbose,
                 student=student,
                 task_id=task_id,
-                temperature=temperature,
             )
             if gerr and not quiet:
                 print(f"  Gold generation error: {gerr}")
@@ -691,7 +689,6 @@ def run_eval_on_examples_llm(
                 verbose=verbose,
                 student=student,
                 task_id=task_id,
-                temperature=temperature,
             )
             if error and not quiet:
                 print(f"  API/run error: {error}", flush=True)
