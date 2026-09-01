@@ -27,7 +27,7 @@ def _write(dest: str, formula: str = '=PY("result = 1"; A1:H500)') -> dict:
 
 
 def test_py_dest_j1_passes() -> None:
-    assert check_process("py_unique_beside", [_write("J1")]) == []
+    assert check_process("py_refuse_overlap", [_write("J1")]) == []
 
 
 def test_py_dest_h1_fails() -> None:
@@ -61,7 +61,7 @@ def test_domain_python_fails() -> None:
         },
         _write("J1"),
     ]
-    fails = check_process("py_unique_beside", trace)
+    fails = check_process("py_refuse_overlap", trace)
     assert any("domain=python" in f for f in fails)
 
 

@@ -1,9 +1,9 @@
 """
 Fixed examples for prompt optimization / eval (scripts/prompt_optimization/).
 
-ALL_EXAMPLES is 19 tasks: 12 Writer (including style_consistency, smart_summarization,
+ALL_EXAMPLES is 17 tasks: 12 Writer (including style_consistency, smart_summarization,
 section_refactor, comment_management) + flowchart_gen (Draw) + data_sorting / tax_column
-(Calc) + four Phase F =PY dest rows.
+(Calc) + two Phase F =PY dest rows (refuse overlap, no bulk read).
 Structural tasks are scored from the exported final document (oracles + honest substring
 checks). Creative tasks (resume, logical_rewriting, summarization) keep an LLM judge when
 one is configured. See docs/eval/dev-plan.md.
@@ -97,7 +97,7 @@ Total,?,?
 
 TABLE_ENGINEERING = {
     "document_content": CSV_LIKE,
-    "user_question": "Convert this comma-separated (with irregularities, footnotes, missing values) list into a clean HTML table with headers (Item, Price, Quantity). Fix all missing/extra commas/commas. Add a computed Total row at bottom. Use get_document_content then targeted apply_document_content if needed. Right-align numerics.",
+    "user_question": "Convert this comma-separated (with irregularities, footnotes, missing values) list into a clean HTML table with headers (Item, Price, Quantity). Missing Quantity is 0 (do not invent a count for Orange or Kiwi). Ignore the [note] cell as a quantity. Add a Total row: sum of Price×Quantity. Right-align numerics.",
     "task_id": "table_engineering",
     "expected_contains": ["Item", "Price", "Quantity", "Total", "Kiwi", "note"],
     "is_non_trivial": True,
@@ -113,11 +113,13 @@ Another   paragraph   here  ,  with spaces before commas.  Fix  all  double  spa
 https://example.com/test  with   URL. "Quoted  text"  should  stay  intact .
 
 Too many line breaks above  .  Normalize to single paragraph breaks. Also fix this one with trailing  period  .
+
+CMD: git  log  --oneline
 """
 
 BULK_CLEANUP = {
     "document_content": DOUBLE_SPACE_TEXT,
-    "user_question": "Remove all double spaces, fix punctuation (no space before comma, no double periods, preserve URLs and quoted text), normalize line breaks to single paragraph breaks. Output as clean HTML paragraphs.",
+    "user_question": "Remove all double spaces in body text, fix punctuation (no space before comma, no double periods, preserve URLs and quoted text), normalize line breaks to single paragraph breaks. Leave the CMD: line exactly as written (it must keep its double spaces).",
     "task_id": "bulk_cleanup",
     # Visible-text oracles catch leftover double spaces. Do not reject a lone " "
     # (every English sentence has one) or raw HTML indent from LO export.
@@ -213,14 +215,16 @@ BULLET_LIST = """* First thing
 • Fourth thing
 1. Fifth item (number)
 - Sixth  with extra  space  
-* Seventh (mixed)
+* Seventh is already done.
+Note: do not bullet this line
 """
 
 BULLET_CONSISTENCY = {
     "document_content": BULLET_LIST,
     "user_question": (
         "Normalize this list: use ONLY hyphen bullets (-), exactly one item per line, trim ALL stray spaces, "
-        "end EACH bullet line with a period. Output as HTML <ul> if possible. Handle all variants including numbers and mixed symbols."
+        "end EACH bullet line with a period (do not turn an existing period into '..'). "
+        "Leave the Note paragraph as a paragraph, not a bullet. Output as HTML <ul> if possible."
     ),
     "task_id": "bullet_consistency",
     "expected_contains": [
@@ -230,11 +234,9 @@ BULLET_CONSISTENCY = {
         "- Fourth thing.",
         "- Fifth item.",
         "- Sixth with extra space.",
-        "- Seventh (mixed).",
+        "- Seventh is already done.",
     ],
-    # Reject the un-normalized marker, not the expected "- Seventh (mixed)." line
-    # (that expected string would otherwise always trip a "Seventh (mixed)" reject).
-    "reject_contains": ["* First", "3) Third", "• Fourth", "1. Fifth", "* Seventh"],
+    "reject_contains": ["* First", "3) Third", "• Fourth", "1. Fifth", "* Seventh", ".."],
     "category": "structural",
     "rubric": "Perfect list normalization. Structural: 60% accuracy (all 7 items preserved exactly, no variants left), 40% formatting (consistent - bullets + period, clean HTML <ul> preferred). Zero rejects. Uses targeted apply_document_content.",
 }
@@ -245,35 +247,43 @@ BULLET_CONSISTENCY = {
 
 # Style Consistency (archive Writer #12, #18)
 STYLE_CONSISTENCY = {
-    "document_content": """Default style paragraph one.
-
-HEADING 2 text that should be upgraded.
-
-Another default paragraph.
-Heading 2 again.
-""",
-    "user_question": "Use find_text first if needed. Find all text in 'Default' style and change it to 'Quotations'. Map all 'Heading 2' to 'Heading 1' and adjust levels.",
+    "document_content": (
+        '<p data-lo-style="Default">Default style paragraph one.</p>'
+        '<h2 data-lo-style="Heading2">HEADING 2 text that should be upgraded.</h2>'
+        '<p data-lo-style="Default">Another default paragraph.</p>'
+        "<h2>Heading 2 again.</h2>"
+    ),
+    "user_question": (
+        "Change every Default paragraph to the Quotations style (data-lo-style or class). "
+        "Promote both Heading 2 lines to Heading 1. Do not put Default paragraphs in H1. "
+        "Keep the original sentence text."
+    ),
     "task_id": "style_consistency",
     "expected_contains": ["Quotations", "HEADING 2 text", "Heading 2 again"],
     "is_non_trivial": True,
     "category": "structural",
-    "rubric": "Consistent style mapping across document. Default -> Quotations; Heading 2 -> Heading 1. Preserve content and structure. Use targeted edits.",
+    "rubric": "Default -> Quotations as a style token, not a stuffed word. Heading 2 -> H1. Preserve content.",
 }
 
 # Smart Summarization (archive Writer #15)
 SMART_SUMMARIZATION = {
     "document_content": """# Findings
 The system achieved 99.9% uptime. Latency averaged 45ms under load. Error rate was 0.01%. Scaling tests confirmed linear performance to 10k RPS. Cost per query dropped 40% after optimization.
+A canary deploy failed with a 12% error spike and was rolled back. The intern joked that p95 latency was 9001ms.
 
 # Executive Summary
 [To be filled by agent]
 """,
-    "user_question": "Summarize the 'Finding' section into 5 bullet points and insert it into the 'Executive Summary'.",
+    "user_question": (
+        "Summarize Findings into exactly 5 bullet points in Executive Summary covering "
+        "uptime, latency, error rate, scale, and cost. Do not include the canary failure "
+        "or the intern joke."
+    ),
     "task_id": "smart_summarization",
     "expected_contains": ["Executive Summary", "99.9%", "45ms", "0.01%", "10k RPS", "40%"],
     "is_non_trivial": True,
     "category": "creative",
-    "rubric": "Accurate 5-bullet summary extracted from Findings. Inserted cleanly into Executive Summary section. Professional tone.",
+    "rubric": "Five real stats in Executive Summary; distractors stay out of that section.",
 }
 
 # Section Refactor (archive Writer #17)
@@ -301,9 +311,9 @@ Main content goes here.
 COMMENT_MANAGEMENT = {
     "document_content": """The results are uncertain at this point in the analysis.
 Further testing is recommended before deployment.""",
-    "user_question": "Use find_text to locate 'uncertain'. Add a comment 'Review this before finalizing' to the word 'uncertain'. Then ensure the document notes the review requirement (e.g. via annotation or note in text).",
+    "user_question": "Add a comment 'Review this before finalizing' anchored on the word 'uncertain'.",
     "task_id": "comment_management",
-    "expected_contains": ["uncertain", "Review this before finalizing", "review requirement"],
+    "expected_contains": ["uncertain", "Review this before finalizing"],
     "is_non_trivial": True,
     "category": "structural",
     "rubric": "Simulate comment addition via text annotation or note (use find_text + apply). Document reflects the review note. (Full UNO comments require LO backend.)",
@@ -330,7 +340,11 @@ ALL_EXAMPLES = [
 # Flowchart Gen (from archive/eval/ideas.md Draw #3) - tests non-LO shapes via DrawDocState
 FLOWCHART_GEN = {
     "document_content": "Create a simple login flowchart.",
-    "user_question": "Create a 'Start' oval connected to a 'Process' box for user login, then a 'Decision' diamond for credentials valid?, with Yes to 'End' and No back to Process. Use get_draw_tree to verify connections.",
+    "user_question": (
+        "Create a login flowchart: Start oval, then a Process box for user login, then a "
+        "Decision diamond 'credentials valid?', Yes to End, No back to Process. "
+        "Verify the layout with get_draw_tree (nodes and connections)."
+    ),
     "task_id": "flowchart_gen",
     "expected_contains": ["Start", "Process", "Decision", "End", "login", "credentials"],
     "is_non_trivial": True,
@@ -340,11 +354,20 @@ FLOWCHART_GEN = {
 
 # Data Sorting (eval/ideas.md Calc #6) - non-LO test using CalcStringState.sort_range
 DATA_SORTING = {
-    "document_content": "Product\tRevenue\nWidget\t1200\nGadget\t850\nTool\t2100\nDevice\t950",
-    "user_question": "Sort this data by Revenue descending. Use sort_range on the Revenue column.",
+    "document_content": (
+        "Product\tRevenue\n"
+        "Widget\t1200\n"
+        "Gadget\t850\n"
+        "Tool\t2100\n"
+        "Device\t1200\n"
+        "Aardvark\tn/a"
+    ),
+    "user_question": (
+        "Sort this sheet by Revenue descending. Ties (same Revenue) go by Product "
+        "ascending. Leave non-numeric Revenue rows last."
+    ),
     "task_id": "data_sorting",
-    # Names exist in the unsorted input; order is enforced by the result oracle.
-    "expected_contains": ["Tool", "2100", "Widget", "1200"],
+    "expected_contains": ["Tool", "2100", "Widget", "1200", "Aardvark"],
     "is_non_trivial": True,
     "category": "structural",
     "rubric": "Correct descending sort by Revenue. Final snapshot JSON shows Tool first. Uses CalcStringState.",
@@ -352,8 +375,11 @@ DATA_SORTING = {
 
 # Basic Tax Column (eval/ideas.md Calc #1, hardened) - non-LO test using CalcStringState.write_cell_range
 TAX_COLUMN = {
-    "document_content": "Item\tPrice\nApple\t10\nBanana\t5\nOrange\t8\nPear\t12.5\nTotal\t?",
-    "user_question": "First use get_sheet_summary or get_document_content to verify data, then calculate exact 8% tax (round appropriately) for each Price and write to a new Tax column using write_cell_range. Add Total if appropriate. Verify final with get_sheet_summary.",
+    "document_content": "Item\tPrice\nApple\t10\nBanana\t5\nOrange\t8\nPear\t12.5\nNote\tn/a\nTotal\t?",
+    "user_question": (
+        "Add a Tax column with exact 8% of Price for each fruit row. "
+        "Do not tax the Note or Total rows. Verify with get_sheet_summary."
+    ),
     "task_id": "tax_column",
     # "snapshot" is a harness export key, not a student-visible result.
     "expected_contains": ["0.8", "0.4", "0.64", "1.0", "Tax"],
@@ -380,19 +406,6 @@ _PY_RUBRIC = (
     "Do not read_cell_range the whole block."
 )
 
-PY_UNIQUE_BESIDE = {
-    "document_content": _PY_SHEET,
-    "user_question": (
-        "Drop duplicate rows on A1:H500 onto the sheet using =PY. "
-        "Write the formula into an empty cell outside the data range."
-    ),
-    "task_id": "py_unique_beside",
-    "expected_contains": ["=PY", "J1"],
-    "is_non_trivial": True,
-    "category": "structural",
-    "rubric": _PY_RUBRIC,
-}
-
 PY_REFUSE_OVERLAP = {
     "document_content": _PY_SHEET,
     "user_question": (
@@ -405,19 +418,6 @@ PY_REFUSE_OVERLAP = {
     "is_non_trivial": True,
     "category": "structural",
     "rubric": _PY_RUBRIC + " H1 is inside A1:H500 — dest must be J1/I1.",
-}
-
-PY_INPLACE_REFRAME = {
-    "document_content": _PY_SHEET,
-    "user_question": (
-        "Write unique rows back onto A1:H500 using =PY. "
-        "If landing on the data range is circular, write beside it and explain briefly."
-    ),
-    "task_id": "py_inplace_reframe",
-    "expected_contains": ["=PY", "J1"],
-    "is_non_trivial": True,
-    "category": "structural",
-    "rubric": _PY_RUBRIC + " Dest beside the range, not A1.",
 }
 
 PY_NO_BULK_READ = {
@@ -436,9 +436,7 @@ PY_NO_BULK_READ = {
 ALL_EXAMPLES.append(FLOWCHART_GEN)
 ALL_EXAMPLES.append(DATA_SORTING)
 ALL_EXAMPLES.append(TAX_COLUMN)
-ALL_EXAMPLES.append(PY_UNIQUE_BESIDE)
 ALL_EXAMPLES.append(PY_REFUSE_OVERLAP)
-ALL_EXAMPLES.append(PY_INPLACE_REFRAME)
 ALL_EXAMPLES.append(PY_NO_BULK_READ)
 
 
@@ -454,9 +452,7 @@ def task_kind(task_id: str) -> str:
     if task_id in (
         "data_sorting",
         "tax_column",
-        "py_unique_beside",
         "py_refuse_overlap",
-        "py_inplace_reframe",
         "py_no_bulk_read",
     ):
         return "calc"

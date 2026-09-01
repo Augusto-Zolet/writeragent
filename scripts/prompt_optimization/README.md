@@ -99,7 +99,7 @@ Optimization and multi-model eval use **result oracles** for structural tasks (`
 
 ## Dataset
 
-`dataset.py` `ALL_EXAMPLES` is **19 tasks**: 12 Writer (the original 8 plus `style_consistency`, `smart_summarization`, `section_refactor`, `comment_management`) plus `flowchart_gen` (Draw), `data_sorting` / `tax_column` (Calc), and four Phase F `=PY` dest rows. Each has fixed `document_content` and `user_question` so runs are comparable. Kind is keyed by `task_id` (`task_kind()`), not question keywords.
+`dataset.py` `ALL_EXAMPLES` is **17 tasks**: 12 Writer (the original 8 plus `style_consistency`, `smart_summarization`, `section_refactor`, `comment_management`) plus `flowchart_gen` (Draw), `data_sorting` / `tax_column` (Calc), and two Phase F `=PY` dest rows (`py_refuse_overlap`, `py_no_bulk_read`). Each has fixed `document_content` and `user_question` so runs are comparable. Kind is keyed by `task_id` (`task_kind()`), not question keywords.
 
 Structural pass/fail is the **exported final document** (`oracles.py`: Writer HTML, Draw tree JSON, Calc grid). Creative tasks (`reformat_resume`, `logical_rewriting`, `smart_summarization`) keep an LLM judge when `--student llm` and a judge model are set. `gold_standards.json` is hand-written from the rubrics (no live teacher API).
 

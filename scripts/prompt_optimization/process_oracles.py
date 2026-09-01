@@ -18,9 +18,7 @@ from eval_worlds import cell_in_a1_range, range_cell_count
 
 PY_TASK_IDS = frozenset(
     {
-        "py_unique_beside",
         "py_refuse_overlap",
-        "py_inplace_reframe",
         "py_no_bulk_read",
     }
 )

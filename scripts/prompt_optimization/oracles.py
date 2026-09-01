@@ -25,8 +25,8 @@ if str(_HERE) not in sys.path:
 
 # 999 + 135.15 + 43 + 66 + 215.31
 _TABLE_FROM_MESS_TOTAL = 1458.46
-# 1.20 + 0.50 + 0.80 + 2.00 + 1.50 + 1.75
-_TABLE_ENGINEERING_PRICE_TOTAL = 7.75
+# Price×Qty with missing Qty = 0: 14.4+12+0+16+9+0
+_TABLE_ENGINEERING_EXT_TOTAL = 51.40
 
 _TAX_BY_ITEM = {
     "Apple": (10.0, 0.8),
@@ -42,7 +42,7 @@ _BULLET_ITEMS = (
     "Fourth thing",
     "Fifth item",
     "Sixth with extra space",
-    "Seventh (mixed)",
+    "Seventh is already done",
 )
 
 _HYPE = ("incredibly", "significant leap", "brand new")
@@ -195,27 +195,33 @@ def oracle_table_engineering(doc: str) -> list[str]:
     if not _has_total_label(doc, text):
         fails.append("no Total row")
     amounts = parse_money(text)
-    if not any(_near(v, _TABLE_ENGINEERING_PRICE_TOTAL) for v in amounts):
-        fails.append(f"price Total is not {_TABLE_ENGINEERING_PRICE_TOTAL}")
+    if not any(_near(v, _TABLE_ENGINEERING_EXT_TOTAL) for v in amounts):
+        fails.append(f"extended Total is not {_TABLE_ENGINEERING_EXT_TOTAL}")
+    # Orange had no qty — inventing Banana's 24 is the easy cheat.
+    if re.search(r"Orange[^<]{0,40}24", text) or re.search(
+        r"Orange</td><td>0\.80</td><td>24", doc or "", re.I
+    ):
+        fails.append("Orange quantity was invented")
     return fails
 
 
 def oracle_bulk_cleanup(doc: str) -> list[str]:
     fails: list[str] = []
     text = visible_text(doc)
+    cmd_re = re.compile(r"CMD:\s*git\s+log\s+--oneline")
+    if not cmd_re.search(text):
+        fails.append("CMD line missing")
+    body = cmd_re.sub(" ", text)
     for token in (
         "This sentence has extra spaces",
         "https://example.com/test",
         "Quoted text",
     ):
-        if token not in text:
+        if token not in body:
             fails.append(f"missing {token!r}")
-    # Score visible text only — raw LO XHTML indent is not a content error,
-    # and a lone ASCII space is ordinary English, not a leftover artifact.
-    # Check the tag-deleted string so inter-tag joins are not counted as "  ".
-    if "  " in text:
+    if "  " in body:
         fails.append("visible double space")
-    if " ." in text or " ," in text or ".." in text:
+    if " ." in body or " ," in body or ".." in body:
         fails.append("punctuation artifact in visible text")
     return fails
 
@@ -252,23 +258,34 @@ def oracle_style_application(doc: str) -> list[str]:
 def oracle_bullet_consistency(doc: str) -> list[str]:
     fails: list[str] = []
     text = visible_text(doc)
+    blob = f"{doc or ''}\n{text}"
     for item in _BULLET_ITEMS:
         needle = f"- {item}."
         if needle not in text and needle not in (doc or ""):
             fails.append(f"missing hyphen+period bullet {needle!r}")
+    if ".." in text:
+        fails.append("double period on a bullet")
+    if "do not bullet this line" not in text.casefold():
+        fails.append("Note paragraph missing")
+    if re.search(r"-\s*Note:", blob):
+        fails.append("Note paragraph was turned into a bullet")
     return fails
 
 
 def oracle_style_consistency(doc: str) -> list[str]:
     fails: list[str] = []
-    text = visible_text(doc)
-    if "Quotations" not in (doc or "") and "Quotations" not in text:
-        fails.append("Default paragraphs were not mapped to Quotations")
-    h1 = " | ".join(t.casefold() for t in h1_texts(doc))
-    if "heading 2 text that should be upgraded" not in h1:
+    raw = doc or ""
+    text = visible_text(raw)
+    if not re.search(r'(?:class|data-lo-style)\s*=\s*["\'][^"\']*Quotations', raw, re.I):
+        fails.append("Quotations is not a style/class on Default paragraphs")
+    h1 = h1_texts(raw)
+    h1_fold = " | ".join(t.casefold() for t in h1)
+    if "heading 2 text that should be upgraded" not in h1_fold:
         fails.append("HEADING 2 line was not upgraded to Heading 1")
-    if "heading 2 again" not in h1:
+    if "heading 2 again" not in h1_fold:
         fails.append("'Heading 2 again' was not upgraded to Heading 1")
+    if any("default style paragraph" in t.casefold() for t in h1):
+        fails.append("Default paragraph was promoted to Heading 1")
     if "Default style paragraph one" not in text:
         fails.append("default paragraph content was lost")
     return fails
@@ -300,8 +317,11 @@ def oracle_comment_management(doc: str) -> list[str]:
         fails.append("missing 'uncertain'")
     if "Review this before finalizing" not in blob:
         fails.append("missing review comment text")
-    if "review requirement" not in blob.casefold():
-        fails.append("missing review-requirement note")
+    anchored = bool(re.search(r"uncertain\s+\[Review this before finalizing\]", blob, re.I))
+    # LO export uses an annotation span, not the string-harness ``[comment]``.
+    lo_note = "annotation" in blob.casefold() and "Review this before finalizing" in blob
+    if not anchored and not lo_note:
+        fails.append("comment is not on 'uncertain'")
     return fails
 
 
@@ -339,21 +359,23 @@ def oracle_data_sorting(doc: str) -> list[str]:
         return ["no Calc grid/snapshot"]
     rows = grid[1:] if any(str(c).casefold() == "product" for c in grid[0]) else grid
     names = [str(r[0]) if r else "" for r in rows]
-    try:
-        tool_i = next(i for i, n in enumerate(names) if n == "Tool")
-        widget_i = next(i for i, n in enumerate(names) if n == "Widget")
-    except StopIteration:
-        return ["sorted grid missing Tool or Widget"]
-    if tool_i >= widget_i:
-        return ["Revenue sort is not descending (Tool/2100 must precede Widget)"]
-    revenues: list[float] = []
+    want = ["Tool", "Device", "Widget", "Gadget", "Aardvark"]
+    got = [n for n in names if n in want]
+    if got != want:
+        return [f"sort order is not {want} (got {got})"]
+    numeric: list[float] = []
+    junk_after_numeric = False
     for row in rows:
         if len(row) < 2:
             continue
         num = _as_float(row[1])
-        if num is not None:
-            revenues.append(num)
-    if revenues != sorted(revenues, reverse=True):
+        if num is None:
+            junk_after_numeric = True
+        elif junk_after_numeric:
+            return ["non-numeric Revenue row is not last"]
+        else:
+            numeric.append(num)
+    if numeric != sorted(numeric, reverse=True):
         return ["Revenue column is not sorted descending"]
     return []
 
@@ -397,15 +419,18 @@ def oracle_tax_column(doc: str) -> list[str]:
         if not row:
             continue
         name = str(row[item_idx])
-        if name not in _TAX_BY_ITEM:
-            continue
-        price_expected, tax_expected = _TAX_BY_ITEM[name]
-        price = _as_float(row[price_idx]) if len(row) > price_idx else None
-        tax = _as_float(row[tax_idx]) if len(row) > tax_idx else None
-        if price is None or not _near(price, price_expected, 0.05):
-            return [f"{name} price is not {price_expected}"]
-        if tax is None or not _near(tax, tax_expected, 0.02):
-            return [f"{name} tax is not 8% ({tax_expected})"]
+        if name in _TAX_BY_ITEM:
+            price_expected, tax_expected = _TAX_BY_ITEM[name]
+            price = _as_float(row[price_idx]) if len(row) > price_idx else None
+            tax = _as_float(row[tax_idx]) if len(row) > tax_idx else None
+            if price is None or not _near(price, price_expected, 0.05):
+                return [f"{name} price is not {price_expected}"]
+            if tax is None or not _near(tax, tax_expected, 0.02):
+                return [f"{name} tax is not 8% ({tax_expected})"]
+        elif name.casefold() in {"note", "total"}:
+            tax = _as_float(row[tax_idx]) if len(row) > tax_idx else None
+            if tax is not None and tax != 0.0:
+                return [f"{name} row must not be taxed"]
     return []
 
 
@@ -440,11 +465,23 @@ def oracle_smart_summarization(doc: str) -> list[str]:
     fails: list[str] = []
     text = visible_text(doc)
     blob = f"{doc or ''}\n{text}"
-    if "Executive Summary" not in blob:
+    if "Findings" not in blob and "Finding" not in blob:
+        fails.append("Findings section missing")
+    idx = text.casefold().find("executive summary")
+    if idx < 0:
         fails.append("Executive Summary heading missing")
+        return fails
+    summary = text[idx:]
+    # LO eval can echo the source Findings after the summary; stop at a later Findings.
+    later = summary.casefold().find("findings", 1)
+    if later > 20:
+        summary = summary[:later]
     for token in ("99.9%", "45ms", "0.01%", "10k RPS", "40%"):
-        if token not in blob:
+        if token not in summary:
             fails.append(f"summary missing {token!r}")
+    for junk in ("9001ms", "12%", "canary", "intern"):
+        if junk.casefold() in summary.casefold():
+            fails.append(f"distractor {junk!r} leaked into Executive Summary")
     return fails
 
 
@@ -461,9 +498,7 @@ ORACLES: dict[str, Callable[[str], list[str]]] = {
     "flowchart_gen": oracle_flowchart_gen,
     "data_sorting": oracle_data_sorting,
     "tax_column": oracle_tax_column,
-    "py_unique_beside": oracle_py_dest,
     "py_refuse_overlap": oracle_py_dest,
-    "py_inplace_reframe": oracle_py_dest,
     "py_no_bulk_read": oracle_py_dest,
     "reformat_resume": oracle_reformat_resume,
     "logical_rewriting": oracle_logical_rewriting,

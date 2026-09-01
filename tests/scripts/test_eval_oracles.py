@@ -42,9 +42,10 @@ _SORT_GOOD = json.dumps(
         "grid": [
             ["Product", "Revenue"],
             ["Tool", 2100],
+            ["Device", 1200],
             ["Widget", 1200],
-            ["Device", 950],
             ["Gadget", 850],
+            ["Aardvark", "n/a"],
         ],
     }
 )
@@ -73,6 +74,8 @@ _TAX_GOOD = json.dumps(
             ["Banana", 5, 0.4],
             ["Orange", 8, 0.64],
             ["Pear", 12.5, 1.0],
+            ["Note", "n/a", ""],
+            ["Total", "?", ""],
         ],
     }
 )
@@ -143,7 +146,7 @@ _PY_BAD = json.dumps(
         ("data_sorting", _SORT_GOOD),
         ("tax_column", _TAX_GOOD),
         ("flowchart_gen", _FLOW_GOOD),
-        ("py_unique_beside", _PY_GOOD),
+        ("py_refuse_overlap", _PY_GOOD),
     ],
 )
 def test_good_fixtures_pass(task_id: str, doc: str) -> None:
@@ -154,7 +157,7 @@ def test_good_fixtures_pass(task_id: str, doc: str) -> None:
     ("task_id", "doc", "needle"),
     [
         ("table_from_mess", _TABLE_FROM_MESS.replace("Total", "Subtotal").replace("$1458.46", "$1.00"), "Total"),
-        ("table_engineering", _TABLE_ENGINEERING.replace("7.75", "0.00"), "7.75"),
+        ("table_engineering", _TABLE_ENGINEERING.replace("51.40", "0.00"), "51.4"),
         ("bulk_cleanup", _BULK_CLEANUP.replace("extra spaces", "extra  spaces"), "double space"),
         (
             "format_preservation",
@@ -176,7 +179,7 @@ def test_good_fixtures_pass(task_id: str, doc: str) -> None:
             _SECTION_REFACTOR.replace("<h1>Goal</h1>", "<h1>Conclusion</h1>"),
             "Conclusion",
         ),
-        ("data_sorting", _SORT_BAD, "descending"),
+        ("data_sorting", _SORT_BAD, "sort order"),
         ("tax_column", _TAX_BAD, "8%"),
         ("logical_rewriting", _LOGICAL_REWRITING.replace("WriterAgent", "LocalWriter"), "LocalWriter"),
         ("flowchart_gen", json.dumps({"status": "ok", "tree": [{"text": "Start"}]}), "Process"),
@@ -195,7 +198,41 @@ def test_good_fixtures_pass(task_id: str, doc: str) -> None:
             ),
             "connections",
         ),
-        ("py_unique_beside", _PY_BAD, "inside"),
+        ("py_refuse_overlap", _PY_BAD, "inside"),
+        (
+            "style_consistency",
+            _STYLE_CONSISTENCY.replace("data-lo-style=\"Quotations\"", ""),
+            "style/class",
+        ),
+        (
+            "smart_summarization",
+            _SMART_SUMMARIZATION.replace("40% cost reduction", "9001ms intern joke"),
+            "distractor",
+        ),
+        (
+            "comment_management",
+            "<p>uncertain</p><p>[Review this before finalizing]</p>",
+            "uncertain",
+        ),
+        (
+            "tax_column",
+            json.dumps(
+                {
+                    "status": "ok",
+                    "snapshot": True,
+                    "headers": ["Item", "Price", "Tax"],
+                    "grid": [
+                        ["Item", "Price", "Tax"],
+                        ["Apple", 10, 0.8],
+                        ["Banana", 5, 0.4],
+                        ["Orange", 8, 0.64],
+                        ["Pear", 12.5, 1.0],
+                        ["Note", "n/a", 0.08],
+                    ],
+                }
+            ),
+            "not be taxed",
+        ),
     ],
 )
 def test_mutated_fixtures_fail(task_id: str, doc: str, needle: str) -> None:
@@ -205,7 +242,7 @@ def test_mutated_fixtures_fail(task_id: str, doc: str, needle: str) -> None:
 
 
 def test_unsorted_input_fails_data_sorting() -> None:
-    raw = "Product\tRevenue\nWidget\t1200\nGadget\t850\nTool\t2100\nDevice\t950"
+    raw = "Product\tRevenue\nWidget\t1200\nGadget\t850\nTool\t2100\nDevice\t1200\nAardvark\tn/a"
     fails = check_oracle("data_sorting", raw)
     assert fails
 

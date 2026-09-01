@@ -33,15 +33,17 @@ _LO_CMD = (
 
 def test_scripts_cover_expanded_pack() -> None:
     ids = {ex["task_id"] for ex in ALL_EXAMPLES}
-    assert len(ids) >= 19
+    assert len(ids) >= 17
     assert {
         "style_consistency",
         "smart_summarization",
         "section_refactor",
         "comment_management",
-        "py_unique_beside",
+        "py_refuse_overlap",
         "py_no_bulk_read",
     } <= ids
+    assert "py_unique_beside" not in ids
+    assert "py_inplace_reframe" not in ids
     assert ids <= set(SCRIPTS)
 
 

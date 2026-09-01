@@ -79,11 +79,11 @@ _TABLE_ENGINEERING = (
     "<table><thead><tr><th>Item</th><th>Price</th><th>Quantity</th></tr></thead><tbody>"
     "<tr><td>Apple</td><td>1.20</td><td>12</td></tr>"
     "<tr><td>Banana</td><td>0.50</td><td>24</td></tr>"
-    "<tr><td>Orange</td><td>0.80</td><td></td></tr>"
+    "<tr><td>Orange</td><td>0.80</td><td>0</td></tr>"
     "<tr><td>Grape</td><td>2.00</td><td>8</td></tr>"
     "<tr><td>Mango</td><td>1.50</td><td>6 [note]</td></tr>"
-    "<tr><td>Kiwi</td><td>1.75</td><td></td></tr>"
-    "<tr><td>Total</td><td>7.75</td><td>50</td></tr>"
+    "<tr><td>Kiwi</td><td>1.75</td><td>0</td></tr>"
+    "<tr><td>Total</td><td>51.40</td><td>50</td></tr>"
     "</tbody></table>"
 )
 
@@ -92,6 +92,7 @@ _BULK_CLEANUP = (
     "<p>Another paragraph here, with spaces before commas. Fix all double spaces and ensure one space after sentences.</p>"
     '<p>https://example.com/test with URL. "Quoted text" should stay intact.</p>'
     "<p>Too many line breaks above. Normalize to single paragraph breaks. Also fix this one with trailing period.</p>"
+    "<p>CMD: git  log  --oneline</p>"
 )
 
 _LOGICAL_REWRITING = (
@@ -121,15 +122,14 @@ _BULLET_CONSISTENCY = (
     "<p>- Fourth thing.</p>"
     "<p>- Fifth item.</p>"
     "<p>- Sixth with extra space.</p>"
-    "<p>- Seventh (mixed).</p>"
+    "<p>- Seventh is already done.</p>"
+    "<p>Note: do not bullet this line</p>"
 )
 
-# Visible "Quotations" word so LO HTML apply (which drops class=) still
-# shows the Default→Quotations mapping in the exported document.
 _STYLE_CONSISTENCY = (
-    '<p class="Quotations">Quotations. Default style paragraph one.</p>'
+    '<p data-lo-style="Quotations">Default style paragraph one.</p>'
     "<h1>HEADING 2 text that should be upgraded.</h1>"
-    '<p class="Quotations">Quotations. Another default paragraph.</p>'
+    '<p data-lo-style="Quotations">Another default paragraph.</p>'
     "<h1>Heading 2 again.</h1>"
 )
 
@@ -137,7 +137,9 @@ _SMART_SUMMARIZATION = (
     "<h1>Findings</h1>"
     "<p>The system achieved 99.9% uptime. Latency averaged 45ms under load. "
     "Error rate was 0.01%. Scaling tests confirmed linear performance to 10k RPS. "
-    "Cost per query dropped 40% after optimization.</p>"
+    "Cost per query dropped 40% after optimization. "
+    "A canary deploy failed with a 12% error spike and was rolled back. "
+    "The intern joked that p95 latency was 9001ms.</p>"
     "<h1>Executive Summary</h1>"
     "<ul>"
     "<li>99.9% uptime.</li>"
@@ -160,7 +162,7 @@ _SECTION_REFACTOR = (
 _COMMENT_MANAGEMENT = (
     "<p>The results are uncertain [Review this before finalizing] at this point "
     "in the analysis.</p>"
-    "<p>Further testing is recommended before deployment. (review requirement)</p>"
+    "<p>Further testing is recommended before deployment.</p>"
 )
 
 
@@ -185,13 +187,6 @@ SCRIPTS: dict[str, list[dict[str, Any]]] = {
                     "content": "Review this before finalizing",
                 },
                 "cmt_1",
-            )
-        ),
-        _tools(
-            _tc(
-                "apply_document_content",
-                {"target": "end", "content": " (review requirement)"},
-                "note_1",
             )
         ),
         _stop(),
@@ -278,8 +273,11 @@ SCRIPTS: dict[str, list[dict[str, Any]]] = {
             _tc(
                 "write_formula_range",
                 {
-                    "range": ["A2:B5"],
-                    "values": '["Tool", 2100, "Widget", 1200, "Device", 950, "Gadget", 850]',
+                    "range": ["A2:B6"],
+                    "values": (
+                        '["Tool", 2100, "Device", 1200, "Widget", 1200, '
+                        '"Gadget", 850, "Aardvark", "n/a"]'
+                    ),
                 },
                 "sort_write",
             )
@@ -299,6 +297,11 @@ SCRIPTS: dict[str, list[dict[str, Any]]] = {
                 {"range": ["C2:C5"], "values": "[0.8, 0.4, 0.64, 1.0]"},
                 "tax_vals",
             ),
+            _tc(
+                "write_formula_range",
+                {"range": ["C6:C7"], "values": '["", ""]'},
+                "tax_skip",
+            ),
         ),
         _tools(_tc("get_sheet_summary", {}, "sum_2")),
         _stop(),
@@ -313,14 +316,9 @@ _PY_WRITE = _tools(
         "py_1",
     )
 )
-SCRIPTS["py_unique_beside"] = [_PY_WRITE, _stop("wrote unique rows beside the range at J1")]
 SCRIPTS["py_refuse_overlap"] = [
     _PY_WRITE,
     _stop("H1 is inside A1:H500; wrote =PY at J1 instead"),
-]
-SCRIPTS["py_inplace_reframe"] = [
-    _PY_WRITE,
-    _stop("writing onto A1:H500 is circular; dest is J1 beside the data"),
 ]
 SCRIPTS["py_no_bulk_read"] = [_PY_WRITE, _stop("wrote =PY at J1 without reading the block")]
 
