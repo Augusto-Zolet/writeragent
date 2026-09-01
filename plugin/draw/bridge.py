@@ -22,7 +22,7 @@ import logging
 from typing import Any
 
 from plugin.doc import text_helpers as _text_helpers
-from plugin.framework.errors import UnoObjectError, check_disposed, safe_call
+from plugin.framework.errors import ToolExecutionError, UnoObjectError, check_disposed, is_disposed_exception, safe_call
 from plugin.framework.thread_guard import main_thread_only
 
 log = logging.getLogger(__name__)
@@ -103,6 +103,29 @@ class DrawBridge:
         if page is None:
             raise RuntimeError("No draw page available.")
         return page
+
+    @classmethod
+    def get_slide_for_tool(cls, doc, page_index=None):
+        """Resolve a slide for tool ``execute()``.
+
+        Re-raises UNO dispose so ``execute_safe`` maps it to ``DOCUMENT_DISPOSED``.
+        The four Draw/Impress tool modules used to catch ``Exception`` and raise
+        ``ToolExecutionError(str(e))``, which stripped dispose identity. The native
+        test runner then treated a dead URP as a normal tool failure instead of
+        aborting the remaining suite.
+
+        ``IndexError`` stays a ``ToolExecutionError`` (page out of range). Other
+        failures are wrapped the same way so callers still get a tool error, not
+        a raw UNO exception.
+        """
+        try:
+            return cls.resolve_slide(doc, page_index)
+        except IndexError:
+            raise ToolExecutionError("Page index %d out of range." % page_index)
+        except Exception as e:
+            if is_disposed_exception(e):
+                raise
+            raise ToolExecutionError(str(e)) from e
 
     def create_shape(self, shape_type, x, y, width, height, page=None):
         """

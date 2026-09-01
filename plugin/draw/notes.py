@@ -7,17 +7,6 @@
 
 from plugin.draw.base import ToolDrawSpeakerNotesBase
 from plugin.draw.bridge import DrawBridge
-from plugin.framework.errors import ToolExecutionError
-
-
-def _get_slide(doc, page_index=None):
-    """Resolve a slide by index or active."""
-    try:
-        return DrawBridge.resolve_slide(doc, page_index)
-    except IndexError:
-        raise ToolExecutionError("Page index %d out of range." % page_index)
-    except Exception as e:
-        raise ToolExecutionError(str(e))
 
 
 class GetSpeakerNotes(ToolDrawSpeakerNotesBase):
@@ -31,7 +20,7 @@ class GetSpeakerNotes(ToolDrawSpeakerNotesBase):
 
     def execute(self, ctx, **kwargs):
         page_idx = kwargs.get("page")
-        page = _get_slide(ctx.doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         notes_page = page.getNotesPage()
         notes_text = ""
         if notes_page and notes_page.getCount() > 1:
@@ -63,7 +52,7 @@ class SetSpeakerNotes(ToolDrawSpeakerNotesBase):
         append = kwargs.get("append", False)
 
         page_idx = kwargs.get("page")
-        page = _get_slide(ctx.doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         notes_page = page.getNotesPage()
         if notes_page is None or notes_page.getCount() < 2:
             return self._tool_error("No notes page available.")

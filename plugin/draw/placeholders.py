@@ -10,7 +10,6 @@ slide with specific presentation types. These tools provide direct access
 to placeholders by role rather than shape index.
 """
 
-from plugin.framework.errors import ToolExecutionError
 import logging
 
 from plugin.framework.tool import ToolBase
@@ -26,16 +25,6 @@ log = logging.getLogger("nelson.draw")
 from plugin.draw.bridge import DrawBridge
 
 _PLACEHOLDER_ROLES = {"title": ["Title", "TitleText"], "subtitle": ["SubTitle", "Subtitle"], "body": ["Outline", "Text", "Body"], "notes": ["Notes"]}
-
-
-def _get_slide(doc, page_index=None):
-    """Resolve a slide by index or active."""
-    try:
-        return DrawBridge.resolve_slide(doc, page_index)
-    except IndexError:
-        raise ToolExecutionError("Page index %d out of range." % page_index)
-    except Exception as e:
-        raise ToolExecutionError(str(e))
 
 
 def _find_placeholder(page, role):
@@ -143,7 +132,7 @@ class ListPlaceholders(ToolBase):
 
     def execute(self, ctx, **kwargs):
         page_idx = kwargs.get("page")
-        page = _get_slide(ctx.doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         placeholders = _list_placeholders(page)
         return {"status": "ok", "page": page_idx, "placeholders": placeholders, "count": len(placeholders)}
 
@@ -167,7 +156,7 @@ class GetPlaceholderText(ToolBase):
 
     def execute(self, ctx, **kwargs):
         page_idx = kwargs.get("page")
-        page = _get_slide(ctx.doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         role = kwargs.get("role")
         shape_index = kwargs.get("index")
 
@@ -209,7 +198,7 @@ class SetPlaceholderText(ToolBase):
 
     def execute(self, ctx, **kwargs):
         page_idx = kwargs.get("page")
-        page = _get_slide(ctx.doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         text = kwargs["text"]
         role = kwargs.get("role")
         shape_index = kwargs.get("index")

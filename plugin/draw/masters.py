@@ -7,17 +7,6 @@
 
 from plugin.draw.base import ToolDrawSlideMastersBase
 from plugin.draw.bridge import DrawBridge
-from plugin.framework.errors import ToolExecutionError
-
-
-def _get_slide(doc, page_index=None):
-    """Resolve a slide by index or active."""
-    try:
-        return DrawBridge.resolve_slide(doc, page_index)
-    except IndexError:
-        raise ToolExecutionError("Page index %d out of range." % page_index)
-    except Exception as e:
-        raise ToolExecutionError(str(e))
 
 
 class ListMasterSlides(ToolDrawSlideMastersBase):
@@ -56,7 +45,7 @@ class GetSlideMaster(ToolDrawSlideMastersBase):
 
     def execute(self, ctx, **kwargs):
         page_idx = kwargs.get("page")
-        page = _get_slide(ctx.doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         master = page.MasterPage
         name = master.Name if hasattr(master, "Name") else ""
         return {"status": "ok", "page": page_idx, "master": name}
@@ -75,7 +64,7 @@ class SetSlideMaster(ToolDrawSlideMastersBase):
     def execute(self, ctx, **kwargs):
         doc = ctx.doc
         page_idx = kwargs.get("page")
-        page = _get_slide(doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(doc, page_idx)
         master_name = kwargs.get("master")
         if not master_name:
             return self._tool_error("master is required.")

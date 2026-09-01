@@ -121,3 +121,43 @@ def test_draw_bridge_rejects_document_without_draw_page():
 
     with pytest.raises(RuntimeError, match="no draw page"):
         DrawBridge(Empty())
+
+
+def test_get_slide_for_tool_returns_resolved_slide():
+    from plugin.draw.bridge import DrawBridge
+
+    slide = object()
+    with patch.object(DrawBridge, "resolve_slide", return_value=slide) as resolve:
+        out = DrawBridge.get_slide_for_tool("doc", 1)
+    assert out is slide
+    resolve.assert_called_once_with("doc", 1)
+
+
+def test_get_slide_for_tool_index_error_is_tool_error():
+    from plugin.draw.bridge import DrawBridge
+    from plugin.framework.errors import ToolExecutionError
+
+    with patch.object(DrawBridge, "resolve_slide", side_effect=IndexError("Page index 9 out of range.")):
+        with pytest.raises(ToolExecutionError, match="Page index 9 out of range"):
+            DrawBridge.get_slide_for_tool("doc", 9)
+
+
+def test_get_slide_for_tool_reraises_disposed():
+    from plugin.draw.bridge import DrawBridge
+
+    class DisposedException(Exception):
+        pass
+
+    boom = DisposedException("Binary URP bridge disposed during call")
+    with patch.object(DrawBridge, "resolve_slide", side_effect=boom):
+        with pytest.raises(DisposedException, match="URP"):
+            DrawBridge.get_slide_for_tool("doc", 0)
+
+
+def test_get_slide_for_tool_wraps_other_errors():
+    from plugin.draw.bridge import DrawBridge
+    from plugin.framework.errors import ToolExecutionError
+
+    with patch.object(DrawBridge, "resolve_slide", side_effect=RuntimeError("No draw page available.")):
+        with pytest.raises(ToolExecutionError, match="No draw page available"):
+            DrawBridge.get_slide_for_tool("doc")

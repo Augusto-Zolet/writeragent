@@ -9,19 +9,8 @@ import logging
 
 from plugin.draw.base import ToolDrawSlideLayoutBase, ToolDrawSlideTransitionsBase
 from plugin.draw.bridge import DrawBridge
-from plugin.framework.errors import ToolExecutionError
 
 log = logging.getLogger("nelson.draw")
-
-
-def _get_slide(doc, page_index=None):
-    """Resolve a slide by index or active."""
-    try:
-        return DrawBridge.resolve_slide(doc, page_index)
-    except IndexError:
-        raise ToolExecutionError("Page index %d out of range." % page_index)
-    except Exception as e:
-        raise ToolExecutionError(str(e))
 
 
 # Named FadeEffect values for agent convenience.
@@ -102,7 +91,7 @@ class GetSlideTransition(ToolDrawSlideTransitionsBase):
 
     def execute(self, ctx, **kwargs):
         page_idx = kwargs.get("page")
-        page = _get_slide(ctx.doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
 
         # FadeEffect
         effect = "none"
@@ -176,7 +165,7 @@ class SetSlideTransition(ToolDrawSlideTransitionsBase):
 
     def execute(self, ctx, **kwargs):
         page_idx = kwargs.get("page")
-        page = _get_slide(ctx.doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         updated = []
 
         # Effect
@@ -294,7 +283,7 @@ class GetSlideLayout(ToolDrawSlideLayoutBase):
 
     def execute(self, ctx, **kwargs):
         page_idx = kwargs.get("page")
-        page = _get_slide(ctx.doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         layout_id = page.Layout
         layout_name = _LAYOUT_NAMES.get(layout_id, "unknown_%d" % layout_id)
         return {"status": "ok", "page": page_idx, "layout_id": layout_id, "layout_name": layout_name, "available_layouts": sorted(_LAYOUTS.keys())}
@@ -317,6 +306,6 @@ class SetSlideLayout(ToolDrawSlideLayoutBase):
         if layout_name not in _LAYOUTS:
             return self._tool_error("Unknown layout: %s" % layout_name, available=sorted(_LAYOUTS.keys()))
         page_idx = kwargs.get("page")
-        page = _get_slide(ctx.doc, page_idx)
+        page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         page.Layout = _LAYOUTS[layout_name]
         return {"status": "ok", "page": page_idx, "layout": layout_name}
