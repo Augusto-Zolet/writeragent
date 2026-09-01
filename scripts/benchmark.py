@@ -7,9 +7,9 @@ Run WriterAgent benchmarks from the repository root.
 
 Usage:
     export OPENROUTER_API_KEY=sk-…
-    python scripts/benchmark.py --model qwen/qwen3-coder-next -n 2
+    python scripts/benchmark.py --model openai/gpt-oss-120b:nitro -n 2
     python scripts/benchmark.py --endpoint http://127.0.0.1:11434/v1 --model llama3.2 --allow-unknown-model -n 1
-    make run_eval EVAL_ARGS="--models qwen/qwen3-coder-next -n 1 -j 1"
+    make run_eval EVAL_ARGS="--models openai/gpt-oss-120b:nitro -n 1 -j 1"
 """
 from __future__ import annotations
 

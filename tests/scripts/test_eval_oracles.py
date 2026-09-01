@@ -17,6 +17,7 @@ if str(_PO) not in sys.path:
 
 from oracles import (  # noqa: E402
     check_oracle,
+    haystack_has,
     uses_llm_judge,
 )
 from scripted_student import (  # noqa: E402
@@ -184,7 +185,7 @@ def test_good_fixtures_pass(task_id: str, doc: str) -> None:
         ("data_sorting", _SORT_BAD, "sort order"),
         ("tax_column", _TAX_BAD, "8%"),
         ("logical_rewriting", _LOGICAL_REWRITING.replace("WriterAgent", "LocalWriter"), "LocalWriter"),
-        ("flowchart_gen", json.dumps({"status": "ok", "tree": [{"text": "Start"}]}), "Process"),
+        ("flowchart_gen", json.dumps({"status": "ok", "tree": [{"text": "Start"}]}), "login"),
         (
             "flowchart_gen",
             json.dumps(
@@ -222,7 +223,9 @@ def test_good_fixtures_pass(task_id: str, doc: str) -> None:
         ),
         (
             "table_engineering",
-            _TABLE_ENGINEERING.replace("<td>6</td>", "<td>[note]</td>", 1),
+            _TABLE_ENGINEERING.replace(
+                '<td align="right">6</td>', '<td align="right">[note]</td>', 1
+            ),
             "[note]",
         ),
         ("py_refuse_overlap", _PY_BAD, "inside"),
@@ -283,10 +286,113 @@ def test_py_dest_i1_document_oracle() -> None:
     assert check_oracle("py_refuse_overlap", _PY_GOOD.replace("J1", "I1")) == []
 
 
+def test_resume_nnbsp_matches_100k_oracle() -> None:
+    doc = (
+        "<h1>John Doe</h1><p>WORK HISTORY</p><p>EDUCATION</p><p>SKILLS</p>"
+        "<p>Acme Corp</p><p>TechStart</p>"
+        "<p>Scaled to 100\u202fK users and 100\u202fM requests per month.</p>"
+    )
+    assert check_oracle("reformat_resume", doc) == []
+    assert haystack_has(doc, "100K")
+    assert haystack_has(doc, "100M")
+
+
+def test_summary_nnbsp_matches_45ms_oracle() -> None:
+    doc = (
+        "<h1>Findings</h1><p>stats</p>"
+        "<h1>Executive Summary</h1>"
+        "<ul><li>99.9%</li><li>45\u202fms</li><li>0.01%</li>"
+        "<li>10k RPS</li><li>40%</li></ul>"
+    )
+    fails = check_oracle("smart_summarization", doc)
+    assert not any("45ms" in f for f in fails), fails
+
+
+def test_flowchart_login_labels_pass_without_process_decision_words() -> None:
+    doc = json.dumps(
+        {
+            "status": "ok",
+            "tree": [
+                {
+                    "type": "ellipse",
+                    "text": "Start",
+                    "connected_end": {"name": "shape_1", "text": "User Login"},
+                },
+                {
+                    "type": "rectangle",
+                    "text": "User Login",
+                    "connected_end": {"name": "shape_2", "text": "Credentials valid?"},
+                    "connected_start": {"name": "shape_0", "text": "Start"},
+                },
+                {
+                    "type": "diamond",
+                    "text": "Credentials valid?",
+                    "connected_end": {"name": "shape_3", "text": "End"},
+                    "connected_start": {"name": "shape_1", "text": "User Login"},
+                },
+                {
+                    "type": "ellipse",
+                    "text": "End",
+                    "connected_start": {"name": "shape_2", "text": "Credentials valid?"},
+                },
+            ],
+            "connections": [
+                {"from_index": 0, "to_index": 1},
+                {"from_index": 1, "to_index": 2},
+                {"from_index": 2, "to_index": 3},
+                {"from_index": 2, "to_index": 1},
+            ],
+        }
+    )
+    assert check_oracle("flowchart_gen", doc) == []
+
+
 def test_golds_pass_oracles() -> None:
     golds = json.loads((_PO / "gold_standards.json").read_text(encoding="utf-8"))
     for task_id, doc in golds.items():
         assert check_oracle(task_id, doc) == [], task_id
+
+
+def test_table_golds_match_scripted_and_align_numerics() -> None:
+    golds = json.loads((_PO / "gold_standards.json").read_text(encoding="utf-8"))
+    assert golds["table_from_mess"] == _TABLE_FROM_MESS
+    assert golds["table_engineering"] == _TABLE_ENGINEERING
+    assert 'align="right"' in golds["table_engineering"]
+    assert "Ubiquiti" in golds["table_from_mess"]
+
+
+def test_table_engineering_oracle_does_not_require_align() -> None:
+    """Right-align is a judge gold, not a hard-gate requirement."""
+    bare = (
+        "<table><thead><tr><th>Item</th><th>Price</th><th>Quantity</th></tr></thead>"
+        "<tbody>"
+        "<tr><td>Apple</td><td>1.20</td><td>12</td></tr>"
+        "<tr><td>Banana</td><td>0.50</td><td>24</td></tr>"
+        "<tr><td>Orange</td><td>0.80</td><td>0</td></tr>"
+        "<tr><td>Grape</td><td>2.00</td><td>8</td></tr>"
+        "<tr><td>Mango</td><td>1.50</td><td>6</td></tr>"
+        "<tr><td>Kiwi</td><td>1.75</td><td>0</td></tr>"
+        "<tr><td>Total</td><td>51.40</td><td>50</td></tr>"
+        "</tbody></table>"
+    )
+    assert check_oracle("table_engineering", bare) == []
+
+
+def test_nnbsp_100k_counts_as_expected_contains() -> None:
+    from eval_core import _correctness_breakdown
+    from types import SimpleNamespace
+
+    ex = SimpleNamespace(
+        task_id="reformat_resume",
+        expected_contains=["100K", "100M"],
+        reject_contains=[],
+    )
+    doc = "Scaled to 100\u202fK users and 100\u202fM requests."
+    score, missing, found_reject, oracle_failures = _correctness_breakdown(ex, doc)
+    assert "100K" not in missing
+    assert "100M" not in missing
+    unused = (score, found_reject, oracle_failures)
+    del unused
 
 
 def test_whitespace_needles_are_ignored() -> None:

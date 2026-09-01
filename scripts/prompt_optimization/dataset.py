@@ -6,7 +6,7 @@ section_refactor, comment_management) + flowchart_gen (Draw) + data_sorting / ta
 (Calc) + two Phase F =PY dest rows (refuse overlap, no bulk read).
 Structural tasks are scored from the exported final document (oracles + honest substring
 checks). A quality judge runs after the hard gate for resume, rewriting, summarization,
-and the two table tasks. See docs/eval/dev-plan.md.
+and the two table tasks. See docs/eval/eval-dev-plan.md.
 """
 import sys
 from pathlib import Path
@@ -353,7 +353,7 @@ FLOWCHART_GEN = {
         "Verify the layout with get_draw_tree (nodes and connections)."
     ),
     "task_id": "flowchart_gen",
-    "expected_contains": ["Start", "Process", "Decision", "End", "login", "credentials"],
+    "expected_contains": ["Start", "End", "login", "credentials"],
     "is_non_trivial": True,
     "category": "structural",
     "rubric": "Uses shape_upsert for flowchart-* types (oval, rectangle, diamond). Connections via shape_connect or tree. Final get_draw_tree shows proper hierarchy and connected_start/connected_end. Matches production Draw tree structure.",

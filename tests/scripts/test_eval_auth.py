@@ -14,6 +14,7 @@ from eval_auth import (  # noqa: E402
     OPENROUTER_DEFAULT_JUDGE,
     build_eval_api_config,
     is_openrouter_endpoint,
+    require_api_key,
     resolve_api_base,
     resolve_api_key,
     resolve_judge_model,
@@ -37,7 +38,7 @@ def test_resolve_api_base_defaults() -> None:
 
 
 def test_openrouter_default_judge_is_gpt_oss_120b() -> None:
-    assert OPENROUTER_DEFAULT_JUDGE == "openai/gpt-oss-120b"
+    assert OPENROUTER_DEFAULT_JUDGE == "openai/gpt-oss-120b:nitro"
 
 
 def test_resolve_judge_openrouter_default() -> None:
@@ -45,7 +46,7 @@ def test_resolve_judge_openrouter_default() -> None:
         resolve_judge_model(
             cli_judge=None,
             endpoint="https://openrouter.ai/api/v1",
-            model_ids=["qwen/qwen3-coder-next"],
+            model_ids=["qwen/qwen3.8-flash"],
         )
         == OPENROUTER_DEFAULT_JUDGE
     )
@@ -76,3 +77,12 @@ def test_build_eval_api_config_openrouter_flag() -> None:
 def test_is_openrouter_endpoint() -> None:
     assert is_openrouter_endpoint("https://openrouter.ai/api/v1")
     assert not is_openrouter_endpoint("http://127.0.0.1:11434/v1")
+
+
+def test_require_api_key_openrouter_empty_exits() -> None:
+    with pytest.raises(SystemExit):
+        require_api_key("", "https://openrouter.ai/api/v1")
+
+
+def test_require_api_key_openrouter_accepts_key() -> None:
+    require_api_key("sk-test", "https://openrouter.ai/api/v1")

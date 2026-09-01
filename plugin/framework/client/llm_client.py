@@ -1019,7 +1019,7 @@ class LlmClient:
                     if response.status != 200:
                         try:
                             redacted_msgs = redact_sensitive_payload_for_log(messages)
-                            log.error("request_with_tools outgoing messages (redacted): %s", json.dumps(redacted_msgs, indent=2, ensure_ascii=False))
+                            log.debug("request_with_tools outgoing messages (redacted): %s", json.dumps(redacted_msgs, indent=2, ensure_ascii=False))
                         except Exception as log_exc:
                             log.warning("Could not log redacted outgoing messages: %s", log_exc)
                         sends_left -= 1

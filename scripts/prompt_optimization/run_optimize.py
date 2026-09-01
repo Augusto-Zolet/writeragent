@@ -3,7 +3,7 @@
 Run DSPy MIPROv2 to optimize the Writer system prompt.
 Uses mock tools and fixed examples; 0-shot instruction-only.
 
-Defaults to OpenRouter with qwen/qwen3-coder-next (cheap and fast).
+Defaults to OpenRouter with openai/gpt-oss-120b:nitro.
 Override model or endpoint via env or CLI.
 
 Usage:
@@ -11,8 +11,8 @@ Usage:
   pip install dspy-ai
   export OPENROUTER_API_KEY="<your_api_key_here>"   # or OPENAI_API_KEY
   python run_optimize.py
-  python run_optimize.py --model google/gemini-3.1-flash-lite-preview
-  python run_optimize.py --model qwen/qwen3-coder-next --api-base https://openrouter.ai/api/v1
+  python run_optimize.py --model google/gemini-3.5-flash-lite
+  python run_optimize.py --model openai/gpt-oss-120b:nitro --api-base https://openrouter.ai/api/v1
 """
 from __future__ import annotations
 
@@ -34,12 +34,13 @@ from dspy.teleprompt import MIPROv2
 
 from dataset import ALL_EXAMPLES, get_trainset_valset, to_dspy_examples
 from eval_auth import OPENROUTER_DEFAULT_JUDGE
+from model_configs import DEFAULT_EVAL_STUDENT_MODEL
 from program import build_program
 from metric import make_judge_metric
 
 # OpenRouter defaults
 DEFAULT_API_BASE = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "qwen/qwen3-coder-next"
+DEFAULT_MODEL = DEFAULT_EVAL_STUDENT_MODEL
 
 
 def _make_lm(model_id: str, api_base: str, api_key: str) -> dspy.LM:
@@ -56,7 +57,7 @@ def _make_lm(model_id: str, api_base: str, api_key: str) -> dspy.LM:
 def parse_args():
     p = argparse.ArgumentParser(description="Optimize Writer system prompt with DSPy MIPROv2 (OpenRouter by default).")
     p.add_argument("--model", "-m", default=os.environ.get("OPENAI_MODEL", DEFAULT_MODEL),
-                   help=f"Model id (default: {DEFAULT_MODEL}). OpenRouter model e.g. qwen/qwen3-coder-next, google/gemini-3.1-flash-lite-preview.")
+                   help=f"Model id (default: {DEFAULT_MODEL}). OpenRouter model e.g. openai/gpt-oss-120b:nitro, google/gemini-3.5-flash-lite.")
     p.add_argument("--judge", "-J", default=os.environ.get("WRITERAGENT_JUDGE_MODEL", OPENROUTER_DEFAULT_JUDGE),
                    help=f"Judge model for grading (default: {OPENROUTER_DEFAULT_JUDGE}). Same as run_eval_multi.")
     p.add_argument("--api-base", default=os.environ.get("OPENAI_API_BASE", DEFAULT_API_BASE),

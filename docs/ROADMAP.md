@@ -54,7 +54,7 @@ Open work already has a topic doc. Do not copy those Open lists here.
 | [chat/multi-document-dev-plan.md](chat/multi-document-dev-plan.md) | Prompt integration, hidden-open hardening, `@` mentions |
 | [chat/responses-api-plan.md](chat/responses-api-plan.md) | Opt-in Responses API + `previous_response_id` (unstarted) |
 | [scripting/monaco-editor-dev-plan.md](scripting/monaco-editor-dev-plan.md) | Syntax squiggles, range picker, Flatpak extra windows |
-| [eval/dev-plan.md](eval/dev-plan.md) | DrawJSON backend, multimodal eval, Calc `=PY()` dest rows |
+| [eval/eval-dev-plan.md](eval/eval-dev-plan.md) | Live 17-task ranking run; multimodal eval; LO ranking still out of scope |
 | [eval/benchmark-cli-dev-plan.md](eval/benchmark-cli-dev-plan.md) | Ad-hoc `--task` / `--document` examples |
 | [eval/dspy-prompt-optimization-plan.md](eval/dspy-prompt-optimization-plan.md) | Run MIPROv2; apply winning instruction |
 | [writer/grammar-checker-plan.md](writer/grammar-checker-plan.md) | Invalidation, non-English locales, logging leftovers |

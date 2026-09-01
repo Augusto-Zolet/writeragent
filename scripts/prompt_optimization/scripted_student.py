@@ -53,7 +53,7 @@ _TABLE_FROM_MESS = (
     "<tr><td>USB Charger</td><td>Blue Sea Systems 1045 (4.8A)</td><td>$43.00</td>"
     "<td>Industrial grade. Accepts 24V input directly.</td></tr>"
     "<tr><td>PoE Converter</td><td>Tycon TP-DCDC-1224G-4P</td><td>$66.00</td>"
-    "<td>Critical: Stabilizes 24V battery voltage to a clean 24V PoE.</td></tr>"
+    "<td>Critical: Stabilizes 24V battery voltage (which swings 20V-29V) to a clean 24V PoE for the Ubiquiti.</td></tr>"
     "<tr><td>Enclosure</td><td>Saginaw SCE-202010ELJ</td><td>$215.31</td>"
     "<td>20x20x10 NEMA 4 steel box.</td></tr>"
     "<tr><td>Total</td><td></td><td>$1458.46</td><td></td></tr>"
@@ -77,13 +77,13 @@ _REFORMAT_RESUME = (
 
 _TABLE_ENGINEERING = (
     "<table><thead><tr><th>Item</th><th>Price</th><th>Quantity</th></tr></thead><tbody>"
-    "<tr><td>Apple</td><td>1.20</td><td>12</td></tr>"
-    "<tr><td>Banana</td><td>0.50</td><td>24</td></tr>"
-    "<tr><td>Orange</td><td>0.80</td><td>0</td></tr>"
-    "<tr><td>Grape</td><td>2.00</td><td>8</td></tr>"
-    "<tr><td>Mango</td><td>1.50</td><td>6</td></tr>"
-    "<tr><td>Kiwi</td><td>1.75</td><td>0</td></tr>"
-    "<tr><td>Total</td><td>51.40</td><td>50</td></tr>"
+    '<tr><td>Apple</td><td align="right">1.20</td><td align="right">12</td></tr>'
+    '<tr><td>Banana</td><td align="right">0.50</td><td align="right">24</td></tr>'
+    '<tr><td>Orange</td><td align="right">0.80</td><td align="right">0</td></tr>'
+    '<tr><td>Grape</td><td align="right">2.00</td><td align="right">8</td></tr>'
+    '<tr><td>Mango</td><td align="right">1.50</td><td align="right">6</td></tr>'
+    '<tr><td>Kiwi</td><td align="right">1.75</td><td align="right">0</td></tr>'
+    '<tr><td>Total</td><td align="right">51.40</td><td align="right">50</td></tr>'
     "</tbody></table>"
 )
 

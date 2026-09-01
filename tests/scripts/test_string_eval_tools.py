@@ -30,6 +30,22 @@ def test_get_full_and_range():
     assert r2["content"] == "<p>H"
 
 
+def test_get_document_content_returns_resume_fixture() -> None:
+    from dataset import REFORMAT_RESUME
+
+    raw = REFORMAT_RESUME["document_content"]
+    s = WriterWorld(raw)
+    r = s.get_document_content(scope="full")
+    assert r["status"] == "ok"
+    assert r["content"] == raw
+    assert "john doe" in r["content"]
+    assert "100K users" in r["content"]
+    via_dispatch = json.loads(
+        dispatch_string_tool(s, "get_document_content", json.dumps({"scope": "full"}))
+    )
+    assert via_dispatch["content"] == raw
+
+
 def test_apply_search_replace():
     s = StringDocState("foo bar foo")
     r = s.apply_document_content(

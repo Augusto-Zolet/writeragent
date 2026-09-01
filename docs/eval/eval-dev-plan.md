@@ -3,8 +3,9 @@
 **Current string-harness work** lives in
 [`string-harness-upgrade.md`](string-harness-upgrade.md) (core schemas,
 inner specialized `LlmClient` loop, document worlds, process/`=PY` score;
-no LO ranking). This file is the older hybrid/LO roadmap and the Phase F
-`=PY` table that the upgrade plan implements.
+no LO ranking). This file is the older hybrid/LO roadmap. Phase F
+`=PY` dest rows (`py_refuse_overlap`, `py_no_bulk_read`) and DrawWorld
+(flowchart tree + `shape_connect`) are **shipped** in the 17-task pack.
 
 This plan covers the WriterAgent prompt optimization + evaluation system (`scripts/prompt_optimization/`). Ranking is `--backend string` only (17 tasks). Specialized Draw/Calc work uses a bounded inner `LlmClient` loop (`delegate_to_specialized_*` → domain schemas → `specialized_workflow_finished`), not SmolAgents. See `ideas.md` for the original ~50 ideas; the shipped pack is the 17 in `dataset.py`.
 
@@ -25,10 +26,10 @@ The 50 test cases live in [`ideas.md`](ideas.md) (20 Writer, 20 Calc, 5 Draw, 5 
 
 ## Hybrid Evaluation Strategy for Draw, Flowcharts & Images (New)
 
-Current string backend cannot easily handle `create_shape`, `get_draw_tree`, `image_generate`, or complex Draw state. **Screenshots are not needed**.
+`DrawWorld` in `eval_worlds.py` shipped the tree/`shape_connect` path (no separate `--backend drawjson`). Remaining gaps: `image_generate`, vision/multimodal, and LO geometry/z-order. **Screenshots are not needed**.
 
 **Recommended path (non-LO first)**:
-- **DrawJSONBackend** (parallel to `StringDocState`): Maintains a mutable JSON tree. Mock `get_draw_tree`, `shape_upsert` (flowchart-*, connectors), `shape_connect`, `shape_group`, `shape_summary`. `dispatch_string_tool` extended for Draw tools. Final state for judging = serialized tree JSON (structural diff on nodes, connections, text, geometry with tolerances) or LLM-as-Judge on tree.
+- **DrawWorld** (shipped; this section used to call it DrawJSONBackend): Maintains a mutable JSON tree. Mock `get_draw_tree`, `shape_upsert` (flowchart-*, connectors), `shape_connect`, `shape_group`, `shape_summary`. `dispatch_string_tool` extended for Draw tools. Final state for judging = serialized tree JSON (structural diff on nodes, connections, text, geometry with tolerances) or LLM-as-Judge on tree.
 - `plugin/draw/tree.py:GetDrawTree` is the perfect "DOM" — recursive JSON with `type`, `text`, `geometry`, `connected_start`/`connected_end` (by name/text), `children` for groups. Its description explicitly says "Use this instead of requesting a screenshot to understand the layout, text, connections, and hierarchy of objects (like flowcharts or diagrams)."
 - For `image_generate` (`plugin/writer/images.py`, `plugin/writer/image_utils.py`): Mock `ImageService.image_generate` to return fixed temp path; state adds an "image" node to tree or HTML sentinel. Judge on tool result JSON (`status: "ok"`) + presence in final tree.
 - Verification: Extend `eval_core.py` for tree-based `expected_contains` (node paths) or JSON-aware judge. No pixel comparison.
@@ -42,7 +43,7 @@ Current string backend cannot easily handle `create_shape`, `get_draw_tree`, `im
   - Calc: Formulas, conditional formatting, pivot tables, charts, multi-sheet ops (20/20 tests).
   - Draw (5/5): Z-order, grouping, precise layout/alignment, scaling — tree JSON handles most; full LO for geometry/rendering edge cases.
   - Multimodal (5/5): Vision (OCR, captioning, spatial audit on images/diagrams) — needs `image_generate` + insertion or real image fixtures (`multimodal_vision.odt`).
-- **Recommendation**: Start with DrawJSONBackend for Draw/flowchart tests (fast, no LO dependency, solves "how to measure flowchart without screenshots"). Use LO backend for Calc/Writer fidelity suite and as gold standard. This avoids making all evals "harder" while enabling image/tool-calling evals via metadata/tree. Aligns with AGENTS.md testing policy (unit tests for mocks, UNO tests for real document interaction).
+- **Recommendation**: DrawWorld covers Draw/flowchart ranking without screenshots. Use `--backend lo` for Calc/Writer fidelity smoke and as a gold standard for UNO-only features. This avoids making all evals "harder" while enabling image/tool-calling evals via metadata/tree. Aligns with AGENTS.md testing policy (unit tests for mocks, UNO tests for real document interaction).
 
 See previous analysis for architecture diagram (StringBackend → DrawJSONBackend → LOBackend; judge on final tree/HTML).
 
@@ -66,28 +67,28 @@ See previous analysis for architecture diagram (StringBackend → DrawJSONBacken
 
 ### D. Advanced Reporting & CI
 - Integrate with `run_eval_multi.py` (already supports multi-model IpD).
-- Add `--backend drawjson` flag.
+- ~~Add `--backend drawjson` flag.~~ DrawWorld is the string-backend Draw tree; no extra flag.
 - UNO tests for Draw eval path (`tests/draw/`).
 
 ### E. LO Transition Strategy
-- Keep string/DrawJSON as primary for speed/CI.
+- Keep `--backend string` (WriterWorld / DrawWorld / CalcWorld) as primary for speed/CI.
 - LO for validation of specialized tools (`ToolWriterSpecialBase`, `ToolDrawSpecialBase`, `get_draw_tree`).
 - Update `AGENTS.md` prompt optimization section with hybrid guidance.
 
-### F. Calc `=PY()` placement (future — do not implement in the same change as hiding Calc `python`)
+### F. Calc `=PY()` placement (shipped in the 17-task pack)
 
 **Hypothesis:** a few limitation words on main chat beat a second specialized domain. Dest / spill / peek live on `write_formula_range` (`plugin/calc/cells.py`); MIPROv2 can later rewrite that description plus the remaining `CALC_FORMULA_SYNTAX` / pointer in `CALC_CORE_DIRECTIVES` (`plugin/framework/prompts.py`).
 
-Calc chat no longer delegates `domain="python"`; models must `write_formula_range` of `=PY("result = …"; DataRange)` into an **empty cell outside DataRange**. Future eval rows (not in `dataset.py` yet):
+Calc chat no longer delegates `domain="python"`; models must `write_formula_range` of `=PY("result = …"; DataRange)` into an **empty cell outside DataRange**. Rows in `dataset.py`:
 
-| id | Ask | Pass | Fail |
-|----|-----|------|------|
-| unique beside | drop dupes on A1:H500 onto the sheet | `=PY` dest **J1** (or first empty col / other sheet) | dest inside A1:H500; `domain=python`; chat-only |
-| refuse overlap | put the formula in **H1**, data A1:H500 | dest J1/I1 and says H1 is inside the range | writes H1 |
-| in-place reframe | write unique rows **back onto** A1:H500 | same as unique beside + short circular explanation | `=PY` in A1 |
-| no bulk read | same unique-rows ask | no `read_cell_range` of A1:H500 / the spill | dumping the block into chat (overloads context) |
+| id | Ask | Pass | Fail | Status |
+|----|-----|------|------|--------|
+| refuse overlap | put the formula in **H1**, data A1:H500 | dest J1/I1 and says H1 is inside the range | writes H1 | **shipped** (`py_refuse_overlap`) |
+| no bulk read | unique-rows via `=PY` | no `read_cell_range` of A1:H500 / the spill | dumping the block into chat | **shipped** (`py_no_bulk_read`) |
+| unique beside | drop dupes on A1:H500 onto the sheet | `=PY` dest **J1** (or first empty col / other sheet) | dest inside A1:H500; `domain=python`; chat-only | dropped (pack stays even) |
+| in-place reframe | write unique rows **back onto** A1:H500 | same as unique beside + short circular explanation | `=PY` in A1 | dropped |
 
-Scoring: dest vs parsed data range; optional judge. Start `--backend string` after `CalcStringState` records dest + formula; LO later for spill. Optimize output: `optimized_calc_py_prompt.json`. If short main-chat wording cannot pick J1 over H1, *then* try a nested `=PY` playbook — do not add that hop until this eval exists.
+Scoring: dest vs parsed data range on `--backend string` (`CalcWorld` records dest + formula). LO later for spill. Next ranking run is live `--backend string` (do not regenerate golds first). Optimize output if needed: `optimized_calc_py_prompt.json`.
 
 ---
-*Updated Dev Plan v2.1 — Calc `=PY` eval notes (Aug 2026)*
+*Updated Dev Plan v2.2 — Phase F shipped (Aug 2026)*

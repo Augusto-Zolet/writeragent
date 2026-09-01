@@ -13,10 +13,11 @@ import os
 import sys
 from typing import Any, Sequence
 
+from model_configs import DEFAULT_EVAL_STUDENT_MODEL
+
 DEFAULT_API_BASE = "https://openrouter.ai/api/v1"
-# Retired default x-ai/grok-4.1-fast 404s on OpenRouter. gpt-oss-120b is
-# already in MODELS / get_default_models() (~$0.037 / $0.17 per 1M).
-OPENROUTER_DEFAULT_JUDGE = "openai/gpt-oss-120b"
+# Same OpenRouter :nitro routing as the default student (retired grok-4.1-fast 404s).
+OPENROUTER_DEFAULT_JUDGE = DEFAULT_EVAL_STUDENT_MODEL
 
 
 def is_openrouter_endpoint(endpoint: str) -> bool:
@@ -47,7 +48,7 @@ def resolve_api_base(*, cli_base: str | None = None) -> str:
 
 def require_api_key(api_key: str, endpoint: str) -> None:
     """Exit with a clear message if the endpoint requires auth and no key was given."""
-    from plugin.framework.client.auth import AuthError, resolve_auth
+    from plugin.framework.client.auth import AuthError, resolve_auth_for_config
 
     cfg: dict[str, Any] = {
         "endpoint": endpoint,
@@ -55,7 +56,7 @@ def require_api_key(api_key: str, endpoint: str) -> None:
         "is_openrouter": is_openrouter_endpoint(endpoint),
     }
     try:
-        resolve_auth(cfg)
+        resolve_auth_for_config(cfg)
     except AuthError as exc:
         print(
             f"Error: {exc}\n"

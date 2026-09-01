@@ -35,10 +35,11 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from dataset import ALL_EXAMPLES, to_eval_examples
 from eval_core import example_passed, run_eval_on_examples_llm, summarize_results
+from model_configs import DEFAULT_EVAL_STUDENT_MODEL
 import tools_lo
 
 DEFAULT_API_BASE = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "nvidia/llama-3.3-nemotron-super-49b-v1.5"
+DEFAULT_MODEL = DEFAULT_EVAL_STUDENT_MODEL
 
 
 def _load_prompt_from_json(path: Path) -> str:

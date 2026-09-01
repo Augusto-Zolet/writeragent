@@ -68,6 +68,33 @@ def text_without_tags(doc: str) -> str:
     return html.unescape(text).replace("\xa0", " ")
 
 
+# NBSP / NNBSP / thin spaces. Models often write ``100 K`` / ``45 ms``.
+_UNICODE_SPACE_RE = re.compile(r"[\xa0\u202f\u2007\u2008\u2009\u200a]")
+
+
+def fold_eval_text(text: str) -> str:
+    """Fold unicode spaces so ``100 K`` / ``45 ms`` match ``100K`` / ``45ms`` needles."""
+    s = _UNICODE_SPACE_RE.sub(" ", text or "")
+    s = re.sub(r"(\d)\s+([KMkm])\b", r"\1\2", s)
+    # No trailing \\b: tag-stripped HTML can glue ``45 ms`` to the next token.
+    s = re.sub(r"(\d)\s+ms", r"\1ms", s, flags=re.I)
+    return s
+
+
+def haystack_has(doc: str, token: str) -> bool:
+    """True if *token* is in *doc*, after unicode-space fold (case-insensitive)."""
+    if not token:
+        return True
+    raw = doc or ""
+    if token in raw:
+        return True
+    folded_tok = fold_eval_text(token)
+    folded_doc = fold_eval_text(raw)
+    if folded_tok in folded_doc:
+        return True
+    return folded_tok.casefold() in folded_doc.casefold()
+
+
 def _norm_ws(text: str) -> str:
     return " ".join((text or "").split())
 
@@ -184,6 +211,19 @@ def _has_total_label(doc: str, text: str) -> bool:
     return bool(re.search(r"(?i)>Total<", doc or ""))
 
 
+def _html_table_data_rows(doc: str) -> list[list[str]]:
+    """Visible text of ``<td>`` cells per row. Attributes on ``<td>`` are ignored."""
+    rows: list[list[str]] = []
+    for tr in re.finditer(r"(?is)<tr\b[^>]*>(.*?)</tr>", doc or ""):
+        cells = [
+            _inner_text(m.group(1))
+            for m in re.finditer(r"(?is)<td\b[^>]*>(.*?)</td>", tr.group(1))
+        ]
+        if cells:
+            rows.append(cells)
+    return rows
+
+
 def oracle_table_engineering(doc: str) -> list[str]:
     fails: list[str] = []
     if not _TABLE_RE.search(doc or ""):
@@ -199,26 +239,21 @@ def oracle_table_engineering(doc: str) -> list[str]:
         fails.append(f"extended Total is not {_TABLE_ENGINEERING_EXT_TOTAL}")
     # Orange had no qty — inventing Banana's 24 is the easy cheat.
     if re.search(r"Orange[^<]{0,40}24", text) or re.search(
-        r"Orange</td><td>0\.80</td><td>24", doc or "", re.I
+        r"Orange</td><td[^>]*>0\.80</td><td[^>]*>24", doc or "", re.I
     ):
         fails.append("Orange quantity was invented")
     vis = " ".join(text.split())
-    orange_qty = re.search(
-        r"(?is)<td>\s*Orange\s*</td>\s*<td>[^<]*</td>\s*<td>\s*([^<]+)",
-        doc or "",
-    )
-    kiwi_qty = re.search(
-        r"(?is)<td>\s*Kiwi\s*</td>\s*<td>[^<]*</td>\s*<td>\s*([^<]+)",
-        doc or "",
-    )
-    if orange_qty:
-        qty = _as_float(orange_qty.group(1))
-        if qty is None or not _near(qty, 0.0, 0.01):
-            fails.append("Orange quantity is not 0")
-    if kiwi_qty:
-        qty = _as_float(kiwi_qty.group(1))
-        if qty is None or not _near(qty, 0.0, 0.01):
-            fails.append("Kiwi quantity is not 0")
+    # Bare ``<td>`` used to miss align="right" golds and fail honest students.
+    qty_by_item = {
+        (row[0] or "").casefold(): _as_float(row[2]) if len(row) >= 3 else None
+        for row in _html_table_data_rows(doc)
+    }
+    orange_qty = qty_by_item.get("orange")
+    kiwi_qty = qty_by_item.get("kiwi")
+    if orange_qty is None or not _near(orange_qty, 0.0, 0.01):
+        fails.append("Orange quantity is not 0")
+    if kiwi_qty is None or not _near(kiwi_qty, 0.0, 0.01):
+        fails.append("Kiwi quantity is not 0")
     if re.search(r"(?i)\[note\]", vis):
         fails.append("[note] was kept as a quantity")
     return fails
@@ -367,8 +402,10 @@ def oracle_flowchart_gen(doc: str) -> list[str]:
     if data:
         _collect_texts(data, texts)
     blob = " ".join(texts) if texts else visible_text(doc)
-    for token in ("Start", "Process", "Decision", "End", "login", "credentials"):
-        if token.casefold() not in blob.casefold():
+    # Task asks for a Process *box for user login* and a Decision *'credentials valid?'*.
+    # Do not require the jargon words Process/Decision in the shape text.
+    for token in ("Start", "End", "login", "credentials"):
+        if token.casefold() not in fold_eval_text(blob).casefold():
             fails.append(f"flowchart missing {token!r}")
     type_blob = json.dumps(data).casefold() if data else (doc or "").casefold()
     has_start_type = any(t in type_blob for t in ("ellipse", "oval", "terminator"))
@@ -532,9 +569,9 @@ def oracle_reformat_resume(doc: str) -> list[str]:
     for token in ("John Doe", "WORK HISTORY", "EDUCATION", "SKILLS", "Acme Corp", "TechStart"):
         if token not in blob:
             fails.append(f"missing {token!r}")
-    if "100K" not in blob and "100,000" not in blob:
+    if not haystack_has(blob, "100K") and not haystack_has(blob, "100,000"):
         fails.append("missing 100K users achievement")
-    if "100M" not in blob and "100,000,000" not in blob:
+    if not haystack_has(blob, "100M") and not haystack_has(blob, "100,000,000"):
         fails.append("missing 100M requests achievement")
     return fails
 
@@ -574,7 +611,7 @@ def oracle_smart_summarization(doc: str) -> list[str]:
     if later > 20:
         summary = summary[:later]
     for token in ("99.9%", "45ms", "0.01%", "10k RPS", "40%"):
-        if token not in summary:
+        if not haystack_has(summary, token):
             fails.append(f"summary missing {token!r}")
     for junk in ("9001ms", "12%", "canary", "intern"):
         if junk.casefold() in summary.casefold():

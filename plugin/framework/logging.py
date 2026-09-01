@@ -191,9 +191,12 @@ def init_logging(ctx=None):
             if ctx is not None:
                 config.init_config(ctx)
             udir = config.user_config_dir()
-            if udir:
+            # Eval uses MagicMock ctx; skip file logging unless the dir is real.
+            if udir and os.path.isdir(udir):
                 _debug_log_path = os.path.join(udir, DEBUG_LOG_FILENAME)
                 _enable_agent_log = config.get_config_bool("enable_agent_log")
+            else:
+                _debug_log_path = None
         except (OSError, ImportError, ValueError, ConfigError) as exc:
             if first_init:
                 print(f"WriterAgent: init_logging config unavailable: {exc}", file=sys.stderr)

@@ -81,6 +81,20 @@ class TestInitLogging(unittest.TestCase):
         for h in self._saved_root_handlers:
             root.addHandler(h)
 
+    def test_init_logging_skips_missing_config_dir(self):
+        mock_ctx = MagicMock()
+        with (
+            patch(
+                "plugin.framework.config.user_config_dir",
+                return_value="/no/such/MagicMock/user/config",
+            ),
+            patch("sys.stderr", new_callable=io.StringIO) as err,
+        ):
+            init_logging(mock_ctx)
+        self.assertIsNone(get_debug_log_path())
+        self.assertNotIn("file handler failed", err.getvalue())
+        self.assertNotIn("MagicMock", err.getvalue())
+
     def test_init_logging_uses_ctx_config_dir(self):
         # Windows can keep the FileHandler lock briefly after close(); ignore cleanup then.
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:

@@ -16,7 +16,7 @@ from benchmark import build_eval_argv  # noqa: E402
 
 def test_build_eval_argv_single_model() -> None:
     argv = build_eval_argv(
-        model="qwen/qwen3-coder-next",
+        model="openai/gpt-oss-120b:nitro",
         api_key="sk-test",
         endpoint="https://openrouter.ai/api/v1",
         output="out.json",
@@ -25,7 +25,7 @@ def test_build_eval_argv_single_model() -> None:
         verbose=True,
     )
     assert "run_eval_multi.py" in argv[1]
-    assert "--models" in argv and "qwen/qwen3-coder-next" in argv
+    assert "--models" in argv and "openai/gpt-oss-120b:nitro" in argv
     assert "--api-key" in argv and "sk-test" in argv
     assert "--api-base" in argv
     assert "-n" in argv and "2" in argv
@@ -50,7 +50,7 @@ def test_build_eval_argv_allow_unknown() -> None:
 
 def test_build_eval_argv_repeats_and_yes_all_models() -> None:
     argv = build_eval_argv(
-        model="qwen/qwen3-coder-next",
+        model="openai/gpt-oss-120b:nitro",
         repeats=3,
         yes_all_models=True,
     )

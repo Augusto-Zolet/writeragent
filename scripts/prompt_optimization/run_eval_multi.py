@@ -25,7 +25,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-from dataset import ALL_EXAMPLES, to_dspy_examples
+from dataset import ALL_EXAMPLES, to_dspy_examples, to_eval_examples
 from eval_auth import (
     require_api_key,
     resolve_api_base,
@@ -33,7 +33,13 @@ from eval_auth import (
     resolve_judge_model,
 )
 from eval_core import ExampleEval, example_passed, run_eval_on_examples_llm
-from model_configs import MODEL_BY_ID, ModelConfig, get_default_models
+from plugin.framework.openrouter_model_id import resolve_openrouter_catalog_id
+from model_configs import (
+    DEFAULT_GOLD_MODEL,
+    MODEL_BY_ID,
+    ModelConfig,
+    get_default_models,
+)
 import tools_lo as _tools_lo
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -61,6 +67,20 @@ def _model_id_for_llm_client(model_id: str) -> str:
 def _model_config_for_id(model_id: str, *, allow_unknown: bool) -> ModelConfig:
     if model_id in MODEL_BY_ID:
         return MODEL_BY_ID[model_id]
+    resolved = resolve_openrouter_catalog_id(model_id, set(MODEL_BY_ID))
+    if resolved in MODEL_BY_ID:
+        base = MODEL_BY_ID[resolved]
+        if model_id == resolved:
+            return base
+        suffix = model_id.rsplit(":", 1)[-1]
+        return ModelConfig(
+            openrouter_id=model_id,
+            display_name=f"{base.display_name} ({suffix})",
+            context_window_tokens=base.context_window_tokens,
+            input_cost_per_million=base.input_cost_per_million,
+            output_cost_per_million=base.output_cost_per_million,
+            notes=base.notes,
+        )
     if allow_unknown:
         return ModelConfig(
             openrouter_id=model_id,
@@ -133,7 +153,7 @@ def _out_path(args: argparse.Namespace) -> Path | None:
     if not args.out:
         return None
     p = Path(args.out)
-    return p if p.is_absolute() else (SCRIPT_DIR / p)
+    return p if p.is_absolute() else (Path.cwd() / p)
 
 
 def _run_one_model(
@@ -348,7 +368,7 @@ def main() -> int:
         "-J",
         metavar="ID",
         default=None,
-        help="Judge model id (default: openai/gpt-oss-120b on OpenRouter; else first --models id on other endpoints).",
+        help="Judge model id (default: openai/gpt-oss-120b:nitro on OpenRouter; else first --models id on other endpoints).",
     )
     p.add_argument(
         "--no-judge",
@@ -358,14 +378,14 @@ def main() -> int:
     p.add_argument(
         "--gold-model",
         metavar="ID",
-        default="anthropic/claude-sonnet-4.6",
-        help="Model id for --generate-golds only (default: anthropic/claude-sonnet-4.6). Not used during ranking.",
+        default=DEFAULT_GOLD_MODEL,
+        help=f"Model id for --generate-golds only (default: {DEFAULT_GOLD_MODEL}). Not used during ranking.",
     )
     p.add_argument(
         "--generate-golds",
         action="store_true",
         help=(
-            "Generate gold answers with --gold-model (default Sonnet; costly with tool-calling). "
+            "Generate gold answers with --gold-model (default GPT-5.6 Luna). "
             "Writes/merges gold_standards.json. By default only one example per run — use -e TASK_ID or -n 1; "
             "for several in one invocation pass --yes-multi-gold."
         ),
@@ -418,7 +438,12 @@ def main() -> int:
             file=sys.stderr,
         )
         return 1
-    unknown = [mid for mid in model_ids if mid not in MODEL_BY_ID]
+    unknown = [
+        mid
+        for mid in model_ids
+        if mid not in MODEL_BY_ID
+        and resolve_openrouter_catalog_id(mid, set(MODEL_BY_ID)) not in MODEL_BY_ID
+    ]
     if unknown and not args.allow_unknown_model:
         print(f"Unknown model id(s): {unknown}", file=sys.stderr)
         print(f"Known ids: {sorted(MODEL_BY_ID.keys())}", file=sys.stderr)
@@ -434,8 +459,11 @@ def main() -> int:
         )
         print(f"Judge model: {judge_model_id} @ {api_base}")
 
-    # Dataset selection
-    examples = to_dspy_examples(ALL_EXAMPLES, with_inputs=True)
+    # Dataset selection. Gold generation must not import dspy.
+    if args.generate_golds:
+        examples = to_eval_examples(ALL_EXAMPLES)
+    else:
+        examples = to_dspy_examples(ALL_EXAMPLES, with_inputs=True)
     if args.example:
         examples = [
             ex
@@ -445,7 +473,7 @@ def main() -> int:
         if not examples:
             print(
                 f"No example with task_id={args.example!r}. "
-                f"Valid: {[getattr(e, 'task_id', '') for e in to_dspy_examples(ALL_EXAMPLES)]}",
+                f"Valid: {[getattr(e, 'task_id', '') for e in to_eval_examples(ALL_EXAMPLES)]}",
                 file=sys.stderr,
             )
             return 1
@@ -459,7 +487,9 @@ def main() -> int:
         import json
 
         from llm_chat_eval import run_llm_chat_eval
-        from eval_prompts import get_writer_eval_chat_system_prompt
+        from eval_prompts import get_eval_system_prompt
+        from oracles import check_oracle
+        from process_oracles import check_process
 
         if len(examples) > 1 and not args.yes_multi_gold:
             print(
@@ -470,17 +500,17 @@ def main() -> int:
             return 1
         print(f"Generating gold standards for {len(examples)} examples using {args.gold_model}...")
         gm = _model_id_for_llm_client(args.gold_model)
-        inst = get_writer_eval_chat_system_prompt()
 
         gold_map: dict[str, str] = {}
+        details: list[dict[str, Any]] = []
         if args.backend == "lo":
             _tools_lo.LOBackend.start()
         try:
             for i, ex in enumerate(examples):
                 tid = getattr(ex, "task_id", f"example_{i}")
                 print(f"  [{i+1}/{len(examples)}] Generating gold for {tid}...")
-                html, _, gerr, _gtrace = run_llm_chat_eval(
-                    system_prompt=inst,
+                html, usage, gerr, gtrace = run_llm_chat_eval(
+                    system_prompt=get_eval_system_prompt(tid),
                     document_content=ex.document_content,
                     user_question=ex.user_question,
                     endpoint=api_base,
@@ -488,10 +518,29 @@ def main() -> int:
                     model=gm,
                     backend=args.backend,
                     verbose=args.verbose,
+                    task_id=tid,
                 )
                 if gerr:
                     print(f"  Warning: gold error for {tid}: {gerr}", file=sys.stderr)
                 gold_map[tid] = html
+                oracle_failures = check_oracle(tid, html)
+                process_failures = check_process(tid, gtrace)
+                details.append(
+                    {
+                        "task_id": tid,
+                        "error": gerr,
+                        "oracle_failures": oracle_failures,
+                        "process_failures": process_failures,
+                        "chars": len(html or ""),
+                        "total_tokens": int((usage or {}).get("total_tokens") or 0),
+                        "trace_names": [str(t.get("name") or "") for t in (gtrace or [])],
+                    }
+                )
+                print(
+                    f"    oracle={oracle_failures or []} process={process_failures or []} "
+                    f"chars={len(html or '')} err={gerr!r}",
+                    flush=True,
+                )
         finally:
             if args.backend == "lo":
                 _tools_lo.LOBackend.stop()
@@ -505,7 +554,13 @@ def main() -> int:
                 merged = {}
         merged.update(gold_map)
         out_p.write_text(json.dumps(merged, indent=2), encoding="utf-8")
+        gen_p = SCRIPT_DIR / "gold_standards.generated.json"
+        gen_p.write_text(json.dumps(gold_map, indent=2), encoding="utf-8")
+        details_p = SCRIPT_DIR / "gold_generation_details.json"
+        details_p.write_text(json.dumps(details, indent=2), encoding="utf-8")
         print(f"\nDone! Saved {len(gold_map)} gold standard(s) to {out_p} (merged with existing keys).")
+        print(f"This run only: {gen_p}")
+        print(f"Per-task oracle/process/trace: {details_p}")
         return 0
 
     jobs = max(1, args.jobs)

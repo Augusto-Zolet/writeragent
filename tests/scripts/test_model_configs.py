@@ -9,6 +9,8 @@ if str(_PO) not in sys.path:
     sys.path.insert(0, str(_PO))
 
 from model_configs import (  # noqa: E402
+    DEFAULT_EVAL_STUDENT_MODEL,
+    DEFAULT_GOLD_MODEL,
     GOLD_ONLY_MODEL_IDS,
     MODEL_BY_ID,
     MODELS,
@@ -63,6 +65,7 @@ DROPPED_SLUGS = [
     "qwen/qwen3.5-122b-a10b",
     "qwen/qwen3.7-flash",
     "qwen/qwen3-30b-a3b-instruct-2507",
+    "qwen/qwen3-coder-next",
     "anthropic/claude-sonnet-4.6",
     "anthropic/claude-sonnet-5",
 ]
@@ -80,6 +83,17 @@ def test_models_catalog_matches_defaults_plus_gold() -> None:
     for slug in DROPPED_SLUGS:
         assert slug not in MODEL_BY_ID
 
+
+
+def test_default_eval_student_model_is_in_catalog() -> None:
+    from plugin.framework.openrouter_model_id import resolve_openrouter_catalog_id
+
+    assert DEFAULT_EVAL_STUDENT_MODEL == "openai/gpt-oss-120b:nitro"
+    resolved = resolve_openrouter_catalog_id(DEFAULT_EVAL_STUDENT_MODEL, set(MODEL_BY_ID))
+    assert resolved in MODEL_BY_ID
+    assert resolved not in GOLD_ONLY_MODEL_IDS
+    assert DEFAULT_GOLD_MODEL in MODEL_BY_ID
+    assert DEFAULT_GOLD_MODEL == "openai/gpt-5.6-luna"
 
 
 def test_model_config_fields_are_populated() -> None:

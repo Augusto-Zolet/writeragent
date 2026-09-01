@@ -16,8 +16,8 @@ scope.** Multi-turn chat (refresh `[DOCUMENT CONTENT]` after each user
 turn) is **saved for later**; worlds should export state so that hook
 is cheap when we want it.
 
-Related: [dev-plan.md](dev-plan.md) (older roadmap; Phase F `=PY` rows
-land here), [ideas.md](ideas.md) (task ideas),
+Related: [eval-dev-plan.md](eval-dev-plan.md) (older hybrid/LO roadmap;
+Phase F `=PY` rows live here), [ideas.md](ideas.md) (task ideas),
 [scripts/prompt_optimization/README.md](../../scripts/prompt_optimization/README.md).
 
 ## Why
@@ -273,7 +273,7 @@ oracle. The document oracle is enough.
 
 ### New tasks (the point of this axis)
 
-Two Phase F rows from [dev-plan.md](dev-plan.md) (the unique-beside and
+Two Phase F rows from [eval-dev-plan.md](eval-dev-plan.md) (the unique-beside and
 in-place clones were dropped so the pack stays even):
 
 | id | Ask | Pass | Fail |
@@ -302,13 +302,21 @@ Scripted student: one `write_formula_range` to `J1` with
 
 | Step | What | Done when |
 |------|------|-----------|
-| A | Writer/Draw/Calc worlds + export-compatible oracles | Scripted 15 green; new world unit tests |
-| B | Production core schemas + `unsupported_in_eval` + prompt pins | Schema tests; scripted still green |
-| C | Trace + process oracles + two `=PY` rows + report columns | Process unit tests; scripted 17 green |
+| A | Writer/Draw/Calc worlds + export-compatible oracles | **Shipped.** Scripted 15 green; new world unit tests |
+| B | Production core schemas + `unsupported_in_eval` + prompt pins | **Shipped.** Schema tests; scripted still green |
+| C | Trace + process oracles + two `=PY` rows + report columns | **Shipped.** Process unit tests; scripted 17 green |
 
-Do not start a live LLM run until C is merged. Then one
-`--backend string` multi-model run; compare `correctness` to the last
-CSV and treat `agent_score` as the new signal.
+C is merged. Live `--backend string` ranking uses
+`openai/gpt-oss-120b:nitro` (student and judge). Relative `--out` is
+cwd-relative (repo root from `make run_eval`), not
+`scripts/prompt_optimization/`. Scoring folds NBSP/NNBSP so ``100 K`` /
+``45 ms`` match ``100K`` / ``45ms``. Flowchart oracles require Start/End,
+login/credentials, shape types, and edges — not the words Process/Decision.
+
+Do **not** compare scores to the Apr 2026 8-task CSV
+(`eval_results.csv`); treat that as history. Rank by hard pass /
+`agent_score` / quality. Keep the hand-written `gold_standards.json`
+(do not bulk `--generate-golds`).
 
 Typecheck and targeted pytest after each step (`test_string_eval_tools`,
 `test_eval_oracles`, `test_scripted_eval_pack`, `test_eval_prompts`).

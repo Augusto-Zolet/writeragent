@@ -14,7 +14,7 @@ uv sync
 make eval-deps
 export OPENROUTER_API_KEY=sk-…
 make run_eval-smoke
-make run_eval EVAL_ARGS="--models qwen/qwen3-coder-next -n 2 -j 1"
+make run_eval EVAL_ARGS="--models openai/gpt-oss-120b:nitro -n 2 -j 1"
 ```
 
 ## What exists

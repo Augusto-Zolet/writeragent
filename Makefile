@@ -249,7 +249,7 @@ help:
 	@echo "Benchmarks (prompt optimization / eval):"
 	@echo "  make eval-deps              uv pip install dspy-ai (after uv sync)"
 	@echo "  make run_eval               Run benchmark CLI (pass EVAL_ARGS=...)"
-	@echo "  make run_eval-smoke         Quick smoke: one model, one example (live Qwen; needs a key)"
+	@echo "  make run_eval-smoke         Quick smoke: one model, one example (gpt-oss-120b:nitro; needs a key)"
 	@echo "  make run_eval-lo-scripted   Headless LO + scripted student (no API key)"
 	@echo "  make test-run               make pytest, then serial UNO via testing_runner (no typecheck/bandit)"
 	@echo "  make test-durations         Same filters as make pytest with --durations=40 (profile hotspots)"
@@ -926,7 +926,7 @@ run_eval:
 	"$(PYTHON)" scripts/benchmark.py $(EVAL_ARGS)
 
 run_eval-smoke:
-	$(MAKE) run_eval EVAL_ARGS="--models qwen/qwen3-coder-next -n 1 -j 1"
+	$(MAKE) run_eval EVAL_ARGS="--models openai/gpt-oss-120b:nitro -n 1 -j 1"
 
 run_eval-lo-scripted:
 	"$(PYTHON)" scripts/prompt_optimization/run_eval.py --backend lo --student scripted --no-bust-cache -v

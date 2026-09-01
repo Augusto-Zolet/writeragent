@@ -1,0 +1,235 @@
+[
+  {
+    "task_id": "table_from_mess",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 927,
+    "total_tokens": 11503,
+    "trace_names": [
+      "apply_document_content"
+    ]
+  },
+  {
+    "task_id": "reformat_resume",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 1128,
+    "total_tokens": 11693,
+    "trace_names": [
+      "apply_document_content"
+    ]
+  },
+  {
+    "task_id": "table_engineering",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 870,
+    "total_tokens": 11314,
+    "trace_names": [
+      "apply_document_content"
+    ]
+  },
+  {
+    "task_id": "bulk_cleanup",
+    "error": null,
+    "oracle_failures": [
+      "missing 'Quoted text'",
+      "visible double space"
+    ],
+    "process_failures": [],
+    "chars": 396,
+    "total_tokens": 16891,
+    "trace_names": [
+      "get_document_content",
+      "apply_document_content"
+    ]
+  },
+  {
+    "task_id": "logical_rewriting",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 420,
+    "total_tokens": 11029,
+    "trace_names": [
+      "apply_document_content"
+    ]
+  },
+  {
+    "task_id": "format_preservation",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 115,
+    "total_tokens": 10493,
+    "trace_names": [
+      "apply_document_content"
+    ]
+  },
+  {
+    "task_id": "style_application",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 226,
+    "total_tokens": 10492,
+    "trace_names": [
+      "apply_style"
+    ]
+  },
+  {
+    "task_id": "bullet_consistency",
+    "error": null,
+    "oracle_failures": [
+      "missing hyphen+period or <li> bullet 'Fifth item'"
+    ],
+    "process_failures": [],
+    "chars": 223,
+    "total_tokens": 10805,
+    "trace_names": [
+      "apply_document_content"
+    ]
+  },
+  {
+    "task_id": "style_consistency",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 248,
+    "total_tokens": 10719,
+    "trace_names": [
+      "apply_document_content"
+    ]
+  },
+  {
+    "task_id": "smart_summarization",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 568,
+    "total_tokens": 10824,
+    "trace_names": [
+      "apply_document_content"
+    ]
+  },
+  {
+    "task_id": "section_refactor",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 180,
+    "total_tokens": 16038,
+    "trace_names": [
+      "get_document_content",
+      "apply_document_content"
+    ]
+  },
+  {
+    "task_id": "comment_management",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 138,
+    "total_tokens": 10361,
+    "trace_names": [
+      "add_comment"
+    ]
+  },
+  {
+    "task_id": "flowchart_gen",
+    "error": null,
+    "oracle_failures": [
+      "flowchart missing 'Process'",
+      "flowchart missing 'Decision'"
+    ],
+    "process_failures": [],
+    "chars": 2068,
+    "total_tokens": 41444,
+    "trace_names": [
+      "get_presentation_info",
+      "shape_summary",
+      "create_diagram",
+      "shape_upsert",
+      "shape_upsert",
+      "shape_upsert",
+      "shape_upsert",
+      "shape_connect",
+      "shape_connect",
+      "shape_connect",
+      "shape_connect",
+      "shape_upsert",
+      "shape_upsert",
+      "delegate_to_specialized_draw_toolset",
+      "get_draw_tree"
+    ]
+  },
+  {
+    "task_id": "data_sorting",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 1432,
+    "total_tokens": 49801,
+    "trace_names": [
+      "get_sheet_summary",
+      "read_cell_range",
+      "sort_range",
+      "sort_range",
+      "read_cell_range",
+      "sort_range",
+      "specialized_workflow_finished",
+      "delegate_to_specialized_calc_toolset",
+      "read_cell_range",
+      "write_formula_range",
+      "read_cell_range",
+      "write_formula_range",
+      "read_cell_range"
+    ]
+  },
+  {
+    "task_id": "tax_column",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 1990,
+    "total_tokens": 49019,
+    "trace_names": [
+      "get_sheet_summary",
+      "write_formula_range",
+      "write_formula_range",
+      "write_formula_range",
+      "write_formula_range",
+      "get_sheet_summary",
+      "write_formula_range",
+      "get_sheet_summary",
+      "write_formula_range",
+      "get_sheet_summary"
+    ]
+  },
+  {
+    "task_id": "py_refuse_overlap",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 1711,
+    "total_tokens": 8165,
+    "trace_names": [
+      "write_formula_range"
+    ]
+  },
+  {
+    "task_id": "py_no_bulk_read",
+    "error": null,
+    "oracle_failures": [],
+    "process_failures": [],
+    "chars": 1711,
+    "total_tokens": 12344,
+    "trace_names": [
+      "get_sheet_summary",
+      "write_formula_range"
+    ]
+  }
+]

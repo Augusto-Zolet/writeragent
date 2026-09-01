@@ -1333,6 +1333,37 @@ def test_sync_request_with_tools_tracks_used_model(client, caplog):
         assert any("LLM sync response received" in rec.message and "deepseek/deepseek-r1:free" in rec.message for rec in caplog.records)
 
 
+def test_sync_request_with_tools_429_does_not_error_log_prompt(client, caplog, _fast_retry_waits):
+    import logging
+    busy = create_mock_http_response(
+        429, json_data={"error": {"message": "overloaded"}}, reason="Too Many Requests"
+    )
+    ok_json = json.dumps(
+        {
+            "choices": [
+                {"message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}
+            ],
+            "usage": {},
+        }
+    ).encode("utf-8")
+    ok = MagicMock()
+    ok.status = 200
+    ok.read.return_value = ok_json
+    secret = "UNIQUE_PROMPT_BLOB_FOR_429_TEST"
+    with patch("http.client.HTTPSConnection") as mock_https:
+        _https_steps(mock_https, busy, ok)
+        with caplog.at_level(logging.ERROR):
+            result = client.request_with_tools(
+                messages=[{"role": "user", "content": secret}],
+                max_tokens=10,
+                stream=False,
+            )
+    assert result["content"] == "ok"
+    joined = " ".join(r.getMessage() for r in caplog.records)
+    assert secret not in joined
+    assert "outgoing messages" not in joined
+
+
 def _sse_content_lines(*parts: str) -> list[bytes]:
     lines = [f'data: {json.dumps({"choices": [{"delta": {"content": p}}]})}'.encode() for p in parts]
     lines.append(b"data: [DONE]")

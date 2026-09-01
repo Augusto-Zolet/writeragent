@@ -328,7 +328,7 @@ def _correctness_breakdown(
     Substring checks stay honest (no lone-space junk). Structural result oracles
     inspect the exported final document and zero the score when the doc is wrong.
     """
-    from oracles import check_oracle
+    from oracles import check_oracle, haystack_has
 
     expected = getattr(example, "expected_contains", []) or []
     reject = getattr(example, "reject_contains", []) or []
@@ -338,14 +338,14 @@ def _correctness_breakdown(
         if not s or not str(s).strip():
             # A lone space / empty needle matches every document.
             continue
-        if s not in (final_document or ""):
+        if not haystack_has(final_document or "", s):
             score -= 0.2
             missing.append(s)
     found_reject: list[str] = []
     for s in reject:
         if not s or not str(s).strip():
             continue
-        if s in (final_document or ""):
+        if haystack_has(final_document or "", s):
             score -= 0.3
             found_reject.append(s)
     task_id = getattr(example, "task_id", "") or ""

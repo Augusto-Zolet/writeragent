@@ -223,6 +223,12 @@ MODELS: list[ModelConfig] = [
     ),
 ]
 
+# Smoke / optimize / run_eval.py student. :nitro is OpenRouter routing
+# (same slug as plugin.framework.default_models); pricing uses gpt-oss-120b.
+DEFAULT_EVAL_STUDENT_MODEL = "openai/gpt-oss-120b:nitro"
+# Teacher for --generate-golds (catalog model; not Sonnet).
+DEFAULT_GOLD_MODEL = "openai/gpt-5.6-luna"
+
 # Model IDs that are only used for gold generation, not in default multi-eval sweep.
 GOLD_ONLY_MODEL_IDS: frozenset[str] = frozenset()
 

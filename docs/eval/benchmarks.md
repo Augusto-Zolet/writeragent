@@ -2,11 +2,11 @@
 
 WriterAgent includes an in-LibreOffice **LLM Evaluation Suite** for real-world tasks in Writer, Calc, and Draw. Runs track accuracy and **Intelligence-per-Dollar**: **Value (C²/$)** = average correctness squared ÷ average dollars per run (higher is better), using live OpenRouter pricing where available.
 
-How to run evals from the repo: [scripts/prompt_optimization/README.md](../../scripts/prompt_optimization/README.md). Broader plan notes: [dev-plan.md](dev-plan.md). Next string-harness work (no LO): [string-harness-upgrade.md](string-harness-upgrade.md).
+How to run evals from the repo: [scripts/prompt_optimization/README.md](../../scripts/prompt_optimization/README.md). Broader plan notes: [eval-dev-plan.md](eval-dev-plan.md). String harness (no LO ranking): [string-harness-upgrade.md](string-harness-upgrade.md).
 
 ## Snapshot ranking (Apr 2026)
 
-Apr 2026 snapshot — slugs and prices may be stale. Current default eval models live in [`scripts/prompt_optimization/model_configs.py`](../../scripts/prompt_optimization/model_configs.py).
+Apr 2026 snapshot on the **old 8-task Writer pack** — slugs, prices, and scores are not a baseline for the current 17-task harness. Current default eval models live in [`scripts/prompt_optimization/model_configs.py`](../../scripts/prompt_optimization/model_configs.py).
 
 | Rank | Model | Avg correctness | Avg score | Avg tokens | Avg cost ($) | Value (C²/$) |
 | ---- | -------------------------------------- | --------------- | --------- | ---------- | ------------ | ------------ |
@@ -35,6 +35,6 @@ Apr 2026 snapshot — slugs and prices may be stale. Current default eval models
 
 ## Scoring approach
 
-Structural tasks are scored from the **exported final document** (HTML / Draw tree / Calc grid) via result oracles — not tool-name traces. Creative tasks (resume, logical rewriting, summarization) still use an LLM judge (default `openai/gpt-oss-120b`; the retired `x-ai/grok-4.1-fast` 404s) plus gold references in `gold_standards.json` (hand-written from the rubrics). That separates fast “Flash” models from frontier models with better taste for professional documents.
+Structural tasks are scored from the **exported final document** (HTML / Draw tree / Calc grid) via result oracles — not tool-name traces. Creative tasks (resume, logical rewriting, summarization) still use an LLM judge (default `openai/gpt-oss-120b:nitro`; the retired `x-ai/grok-4.1-fast` 404s) plus gold references in `gold_standards.json` (hand-written from the rubrics). That separates fast “Flash” models from frontier models with better taste for professional documents.
 
 **Fine-tuning direction:** the same eval signal (correct vs incorrect tool use, minimal vs verbose traces) could train a smaller specialist for this tool distribution—fewer tokens at similar correctness, better Value (C²/$).

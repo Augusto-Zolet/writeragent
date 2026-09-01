@@ -10,7 +10,7 @@ uv sync
 make eval-deps                    # uv pip install dspy-ai (eval + optimize only)
 export OPENROUTER_API_KEY=sk-…   # or OPENAI_API_KEY / WRITERAGENT_API_KEY
 make run_eval-smoke               # one model, one example
-make run_eval EVAL_ARGS="--models qwen/qwen3-coder-next -n 2 -j 1"
+make run_eval EVAL_ARGS="--models openai/gpt-oss-120b:nitro -n 2 -j 1"
 ```
 
 Local OpenAI-compatible (Ollama, vLLM, etc.):
@@ -29,7 +29,7 @@ Wrapper: [`scripts/benchmark.py`](../benchmark.py). Credentials: [`eval_auth.py`
 uv pip install -r requirements.txt   # or: make eval-deps from repo root
 ```
 
-**Defaults: OpenRouter** with **qwen/qwen3-coder-next** (cheap and fast). API key (first match wins):
+**Defaults: OpenRouter** with **openai/gpt-oss-120b:nitro** (see `DEFAULT_EVAL_STUDENT_MODEL` in `model_configs.py`; `:nitro` is OpenRouter routing, same prices as `openai/gpt-oss-120b`). API key (first match wins):
 
 - `--api-key` / `-k`, then `WRITERAGENT_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`
 
@@ -39,12 +39,12 @@ Endpoint:
 
 Judge model (`run_eval_multi.py`):
 
-- `--judge` / `WRITERAGENT_JUDGE_MODEL`, then `openai/gpt-oss-120b` on OpenRouter, else first `--models` id on other endpoints
+- `--judge` / `WRITERAGENT_JUDGE_MODEL`, then `openai/gpt-oss-120b:nitro` on OpenRouter, else first `--models` id on other endpoints
 - `--no-judge` — substring checks only
 
 Override model for optimize:
 
-- `python run_optimize.py --model google/gemini-2.0-flash-001` / `--api-base ...` / `--api-key ...`
+- `python run_optimize.py --model google/gemini-3.5-flash-lite` / `--api-base ...` / `--api-key ...`
 
 ## Run
 
@@ -75,24 +75,25 @@ python run_optimize.py
 Pick a different model:
 
 ```bash
-python run_optimize.py --model google/gemini-2.0-flash-001
-python run_optimize.py -m qwen/qwen3-coder-next -k sk-...
+python run_optimize.py --model google/gemini-3.5-flash-lite
+python run_optimize.py -m openai/gpt-oss-120b:nitro -k sk-...
 ```
 
 This runs MIPROv2 in **0-shot instruction-only** mode: it proposes alternative system prompts and keeps the one that scores best on the **judge-based metric** (same LLM-as-a-Judge as `run_eval_multi`, plus token penalty). Output is saved to `optimized_writer_prompt.json`.
 
-- **`--judge`** / **`-J`**: Judge model for grading (default `openai/gpt-oss-120b`). Same dataset and optional `gold_standards.json` as run_eval_multi; run `run_eval_multi.py --generate-golds` once to populate gold for better judge reference.
+- **`--judge`** / **`-J`**: Judge model for grading (default `openai/gpt-oss-120b:nitro`). Same dataset and `gold_standards.json` as run_eval_multi. Golds are hand-written from the rubrics; `--generate-golds` is an optional teacher merge, not a ranking prerequisite.
 - **`-j N`** / **`--jobs N`**: parallel evals (default 4).
 - **`--auto light|medium|heavy`**: exploration level (default `light`). Use `medium` or `heavy` for more tries when your prompt is complicated.
 - **`-t N`** / **`--trials N`**: explicit number of Bayesian optimization trials (overrides `--auto`; uses more exploration).
 
 ## Metric
 
-Optimization and multi-model eval use **result oracles** for structural tasks (`oracles.py` on the exported final document). **LLM-as-a-Judge** (default **`openai/gpt-oss-120b`**) is for creative tasks only.
+Optimization and multi-model eval use **result oracles** for structural tasks (`oracles.py` on the exported final document). **LLM-as-a-Judge** (default **`openai/gpt-oss-120b:nitro`**) is for quality after the hard gate.
 
-- **Dual-Mode Scoring**: The judge applies weighted criteria based on the task category:
-    - **Structural** (Tables, Cleanup): result oracles + substring checks (no judge).
-    - **Creative** (Editing, Resumes): 30% Accuracy, 20% Formatting, 50% **Naturalness**.
+- **Dual-Mode Scoring**: Hard gate first (substring + result oracles + process oracles). A quality judge runs after that gate for resume, rewriting, summarization, and the two table tasks:
+    - **Creative** (resume, rewriting, summarization): 50% accuracy, 20% formatting, 30% naturalness.
+    - **Tables** (`table_from_mess`, `table_engineering`): 20% accuracy, 80% formatting.
+    - Other structural tasks stay oracle-only (no judge).
 - **Chain-of-Thought**: Judges output a `thought_process` before assigning 1-5 sub-scores for each dimension.
 - **Internal Normalization**: Sub-scores are normalized and weighted into a final 0.0–1.0 score.
 - **Token penalty**: `score -= 0.01 * (total_tokens / 1000)` so fewer tokens improve the score.
@@ -130,10 +131,10 @@ export OPENROUTER_API_KEY="your-key"
 python run_eval_multi.py --models openai/gpt-oss-120b,openai/gpt-4o-mini
 
 # Fewer examples (faster, cheaper)
-python run_eval_multi.py --models qwen/qwen3-coder-next -n 2
+python run_eval_multi.py --models openai/gpt-oss-120b:nitro -n 2
 
 # Selection runs: three repeats
-python run_eval_multi.py --models qwen/qwen3-coder-next --repeats 3
+python run_eval_multi.py --models openai/gpt-oss-120b:nitro --repeats 3
 
 # 8 models in parallel (default); use -j 1 for sequential with verbose output
 python run_eval_multi.py --models openai/gpt-oss-120b,openai/gpt-4o-mini -j 8
@@ -147,16 +148,16 @@ Use `--out path.json` or `--out path.csv` to write results (format by extension)
 
 - **Dataset** (`dataset.py`): 17 fixed tasks (12 Writer + Draw flowchart + 2 Calc + 2 `=PY` dest) with assigned `category` (structural or creative).
 - **Result oracles** (`oracles.py`): Structural correctness from the exported final doc (table Total, 8% tax, Revenue desc, heading order, …). Not tool-name traces.
-- **Gold Standards** (`gold_standards.json`): Hand-written references matching current rubrics. `--generate-golds` can still merge a teacher run if you have a key (not used during ranking).
+- **Gold Standards** (`gold_standards.json`): Hand-written references matching current rubrics. Used only as the quality-judge reference for resume / rewrite / summary / tables. `--generate-golds` can merge a teacher run with `--gold-model` (default `openai/gpt-5.6-luna`; not used during ranking).
 - **Program** (`program.py`): DSPy `WriterAssistant` (ReAct) with mock environment.
 - **Metric**: Hard gate (document + process); quality judge after the gate for resume/rewrite/summary/tables. Shared via `eval_core` for `run_optimize` (MIPROv2) and `run_eval_multi`.
 - **Multi-model**: `run_eval_multi.py` ranks by hard pass / agent / quality; C²/$ is secondary. `--models` is required.
 
 ### Benchmark results (best models, combined runs)
 
-Apr 2026 snapshot — slugs and prices may be stale. Current default eval models live in `model_configs.py`.
+Apr 2026 snapshot on the **old 8-task Writer pack** — slugs, prices, and scores are not a baseline for the current 17-task worlds/process harness. Current default eval models live in `model_configs.py`. Re-run `--backend string` with `--models` for a new ranking.
 
-From multi-model runs on the default 8-evaluation Writer set, ranked by **Corr/USD** (avg correctness ÷ total cost; higher = better value) and/or **correctness**:
+From those historical 8-task runs, ranked by **Corr/USD** (avg correctness ÷ total cost; higher = better value) and/or **correctness**:
 
 - **openai/gpt-oss-120b** — Top value in run 1 (346.8 Corr/USD, 1.0 correctness, ~$0.003 total).
 - **google/gemini-3-flash-preview** — Strong value (161.7 Corr/USD, 0.925 correctness).
