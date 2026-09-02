@@ -410,6 +410,14 @@ def _get_tokens_from_pred(pred: Any, debug_usage: bool = False) -> Tuple[int, in
     return 0, 0, 0
 
 
+def _eval_task_banner(i: int, n: int, task_id: str, model: str | None) -> str:
+    """Per-task progress line; include model so interleaved -j workers are readable."""
+    mid = (model or "").strip()
+    if mid:
+        return f"--- [{i + 1}/{n}] {task_id}  model={mid} ---"
+    return f"--- [{i + 1}/{n}] {task_id} ---"
+
+
 def run_eval_on_examples(
     program: Any,
     examples: Iterable[Any],
@@ -450,7 +458,13 @@ def run_eval_on_examples(
             gold = getattr(ex, "gold_document", "")
 
             if not quiet:
-                print(f"--- [{i+1}/{n}] {task_id} ---")
+                dspy_model = ""
+                try:
+                    lm = getattr(dspy.settings, "lm", None) if dspy is not None else None
+                    dspy_model = str(getattr(lm, "model", "") or "")
+                except Exception:
+                    dspy_model = ""
+                print(_eval_task_banner(i, n, task_id, dspy_model), flush=True)
                 print(f"  Q: {question[:80]}{'...' if len(question) > 80 else ''}")
                 print("  Calling model (may take 15–60s)...", flush=True)
 
@@ -635,7 +649,7 @@ def run_eval_on_examples_llm(
         gold = getattr(ex, "gold_document", "")
 
         if not quiet:
-            print(f"--- [{i+1}/{n}] {task_id} ---")
+            print(_eval_task_banner(i, n, task_id, model), flush=True)
             print(f"  Q: {question[:80]}{'...' if len(question) > 80 else ''}")
             if student == "scripted":
                 print("  Scripted student (no API)...", flush=True)

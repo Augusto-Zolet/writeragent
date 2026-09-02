@@ -32,7 +32,7 @@ def build_eval_argv(
     output: str | None = None,
     backend: str = "string",
     examples: int | None = None,
-    parallel: int = 4,
+    parallel: int = 20,
     verbose: bool = False,
     allow_unknown_model: bool = False,
     no_judge: bool = False,
@@ -96,7 +96,13 @@ def main() -> int:
     parser.add_argument("--output", "-o", default="benchmark_results.json", help="Output .json or .csv")
     parser.add_argument("--backend", choices=["string", "lo"], default="string")
     parser.add_argument("--examples", "-n", type=int, default=None, help="Number of examples")
-    parser.add_argument("--parallel", "-j", type=int, default=4, help="Parallel model jobs")
+    parser.add_argument(
+        "--parallel",
+        "-j",
+        type=int,
+        default=20,
+        help="Parallel model jobs (default: 20)",
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
     parser.add_argument("--allow-unknown-model", action="store_true")
     parser.add_argument("--no-judge", action="store_true", help="Skip LLM judge")

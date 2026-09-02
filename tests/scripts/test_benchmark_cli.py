@@ -33,6 +33,11 @@ def test_build_eval_argv_single_model() -> None:
     assert "-j" in argv and "1" in argv
 
 
+def test_build_eval_argv_default_parallel_is_20() -> None:
+    argv = build_eval_argv(model="openai/gpt-oss-120b")
+    assert argv[argv.index("-j") + 1] == "20"
+
+
 def test_build_eval_argv_passthrough_extra() -> None:
     argv = build_eval_argv(
         models="a,b",

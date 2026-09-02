@@ -110,7 +110,7 @@ Hard pass is the **exported final document** plus process oracles (`oracles.py` 
 
 `--student scripted` replays `scripted_student.SCRIPTS` (no `LlmClient`, no API key, result oracles + honest substring checks). `--student llm` (default) uses a live model and still needs a key. `--no-judge` skips the quality judge.
 
-`-j N` in `run_eval_multi.py` is **ThreadPoolExecutor** (parallel models in one process). UNO is already serialized on `_lo_thread`. Do **not** `ProcessPoolExecutor` against one soffice. Scripted green runs use `-j 1`.
+`-j N` in `run_eval_multi.py` is **ThreadPoolExecutor** over **models** (default **20**; each model still runs its 17 tasks serially). UNO is already serialized on `_lo_thread`. Do **not** `ProcessPoolExecutor` against one soffice. Scripted green runs use `-j 1`. Per-task banners include `model=` so interleaved workers are readable.
 
 DSPy `build_program()` can still pass `tool_names` to restrict which tools the model sees (for “how many tools is too many” sweeps).
 
@@ -136,8 +136,8 @@ python run_eval_multi.py --models openai/gpt-oss-120b:nitro -n 2
 # Selection runs: three repeats
 python run_eval_multi.py --models openai/gpt-oss-120b:nitro --repeats 3
 
-# 8 models in parallel (default); use -j 1 for sequential with verbose output
-python run_eval_multi.py --models openai/gpt-oss-120b,openai/gpt-4o-mini -j 8
+# 20 models in parallel (default); use -j 1 for sequential
+python run_eval_multi.py --models openai/gpt-oss-120b,openai/gpt-4o-mini -j 20
 ```
 
 For each model, `run_eval_multi.py` reports **hard pass %**, **agent score**, **quality** (among judged passes), then historical avg correctness / cost / C²/$. Rank is hard pass, then agent, then quality; C²/$ is secondary.
@@ -155,7 +155,7 @@ Use `--out path.json` or `--out path.csv` to write results (format by extension)
 
 ### Benchmark results (2026-09-01, 17-task string harness)
 
-First ranking pass on the **17-task** pack (`--backend string`, OpenRouter, LLM judge on resume/rewrite/summary/tables). Artifacts: `benchmark_results.json`, `benchmark_results_details.json`. Triage: [`docs/eval/benchmark-failure-analysis-2026-09-01.md`](../../docs/eval/benchmark-failure-analysis-2026-09-01.md).
+First ranking pass on the **17-task** pack (`--backend string`, OpenRouter, LLM judge on resume/rewrite/summary/tables). Artifacts: `benchmark_results.json`, `benchmark_results_details.json`. Cost–quality charts: [`docs/eval/pareto-fronts.svg`](../../docs/eval/pareto-fronts.svg) (successive fronts) and [`docs/eval/pareto-distance.svg`](../../docs/eval/pareto-distance.svg) (distance to F1); regenerate with `python scripts/prompt_optimization/plot_pareto.py`. Triage: [`docs/eval/benchmark-failure-analysis-2026-09-01.md`](../../docs/eval/benchmark-failure-analysis-2026-09-01.md).
 
 **Excluded from this table (20 of 23 models):**
 
@@ -190,4 +190,4 @@ Ranked by **hard pass → agent score → metric**. **C²/$** = metric score squ
 | 19 | z-ai/glm-5.3 | 0.647 | 0.647 | 0.702 | 0.97 | 33578 | 0.06972 | 3.4 | 3 |
 | 20 | mistralai/mistral-small-2603 | 0.588 | 0.588 | 0.571 | 0.85 | 13614 | 0.00214 | 111.4 | 0 |
 
-Re-run: `make run_eval EVAL_ARGS="--models … -j 4"` or edit `model_configs.py`. User-facing summary: [`docs/eval/benchmarks.md`](../../docs/eval/benchmarks.md).
+Re-run: `make run_eval EVAL_ARGS="--models … -j 20"` or edit `model_configs.py`. User-facing summary: [`docs/eval/benchmarks.md`](../../docs/eval/benchmarks.md).

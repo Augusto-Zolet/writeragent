@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Run the Writer assistant across multiple models and compare intelligence per dollar.
+Run the Writer assistant across multiple models and mark the cost-quality Pareto frontier.
 
 This reuses the same dataset and metric as run_eval.py (LlmClient tool loop;
 default in-memory `--backend string`), but iterates over model configurations
 (see model_configs.py) and estimates cost using list prices (USD per 1M tokens).
+Recommendation is maximize ``avg_correctness`` and minimize ``avg_cost_per_example``.
 
 Usage:
   export OPENROUTER_API_KEY="your-key"   # or OPENAI_API_KEY / WRITERAGENT_API_KEY
@@ -13,7 +14,7 @@ Usage:
   python run_eval_multi.py --backend lo  # LibreOffice instead of string simulator
   python run_eval_multi.py --models openai/gpt-oss-120b,openai/gpt-4o-mini
   python run_eval_multi.py -n 2
-  python run_eval_multi.py -j 8   # 8 models in parallel (default)
+  python run_eval_multi.py -j 20  # 20 models in parallel (default)
   python run_eval_multi.py -j 1   # sequential, verbose per-example output
   python run_eval_multi.py --allow-unknown-model --models llama3.2
 """
@@ -106,6 +107,154 @@ def _estimate_cost_usd(
             + (r.completion_tokens / 1_000_000.0) * cfg.output_cost_per_million
         )
     return total_cost
+
+
+PARETO_FRONTIER = "frontier"
+PARETO_DOMINATED = "dominated"
+PARETO_UNAVAILABLE = "unavailable"
+_PARETO_ORDER = {PARETO_FRONTIER: 0, PARETO_DOMINATED: 1, PARETO_UNAVAILABLE: 2}
+
+
+def _pareto_eligible(summary: dict[str, Any]) -> bool:
+    """True when the model produced at least one scored task with known positive cost."""
+    n = int(summary.get("n_examples") or 0)
+    n_error = int(summary.get("n_error") or 0)
+    if n <= 0 or n_error >= n:
+        return False
+    if not summary.get("pricing_known"):
+        return False
+    return float(summary.get("avg_cost_per_example") or 0.0) > 0.0
+
+
+def _pareto_dominates(left: dict[str, Any], right: dict[str, Any]) -> bool:
+    """True when left is at least as correct and no more expensive, with one strict gain."""
+    left_q = float(left.get("avg_correctness") or 0.0)
+    right_q = float(right.get("avg_correctness") or 0.0)
+    left_c = float(left.get("avg_cost_per_example") or 0.0)
+    right_c = float(right.get("avg_cost_per_example") or 0.0)
+    return (left_q >= right_q and left_c <= right_c) and (left_q > right_q or left_c < right_c)
+
+
+def annotate_pareto_fronts(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Peel successive Pareto fronts; set ``pareto_front`` (1-based) and ``pareto_status``."""
+    remaining = [row for row in summaries if _pareto_eligible(row)]
+    front_num = 1
+    while remaining:
+        current_front = [
+            row
+            for row in remaining
+            if not any(
+                other is not row and _pareto_dominates(other, row) for other in remaining
+            )
+        ]
+        for row in current_front:
+            row["pareto_front"] = front_num
+            remaining.remove(row)
+        front_num += 1
+    for row in summaries:
+        if not _pareto_eligible(row):
+            row["pareto_front"] = None
+            row["pareto_status"] = PARETO_UNAVAILABLE
+            continue
+        front = int(row.get("pareto_front") or 0)
+        row["pareto_status"] = PARETO_FRONTIER if front == 1 else PARETO_DOMINATED
+    return summaries
+
+
+def annotate_pareto_status(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Set ``pareto_status`` (and ``pareto_front``) from the current completed set."""
+    return annotate_pareto_fronts(summaries)
+
+
+def _pareto_min_max_norm(values: list[float]) -> tuple[list[float], float]:
+    """Map *values* to [0, 1]; return unit list and span (1.0 when flat)."""
+    if not values:
+        return [], 1.0
+    lo = min(values)
+    hi = max(values)
+    span = hi - lo if hi > lo else 1.0
+    return [(value - lo) / span for value in values], span
+
+
+def _pareto_point_to_segment_dist(
+    px: float,
+    py: float,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+) -> float:
+    dx = x2 - x1
+    dy = y2 - y1
+    if dx == 0.0 and dy == 0.0:
+        return ((px - x1) ** 2 + (py - y1) ** 2) ** 0.5
+    t = max(0.0, min(1.0, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)))
+    proj_x = x1 + t * dx
+    proj_y = y1 + t * dy
+    return ((px - proj_x) ** 2 + (py - proj_y) ** 2) ** 0.5
+
+
+def _pareto_distance_to_polyline(
+    px: float,
+    py: float,
+    polyline: list[tuple[float, float]],
+) -> float:
+    if not polyline:
+        return float("inf")
+    if len(polyline) == 1:
+        x0, y0 = polyline[0]
+        return ((px - x0) ** 2 + (py - y0) ** 2) ** 0.5
+    best = float("inf")
+    for idx in range(len(polyline) - 1):
+        x1, y1 = polyline[idx]
+        x2, y2 = polyline[idx + 1]
+        best = min(best, _pareto_point_to_segment_dist(px, py, x1, y1, x2, y2))
+    return best
+
+
+def pareto_f1_distances(summaries: list[dict[str, Any]]) -> dict[int, float]:
+    """Distance from each eligible row to the F1 polyline in normalized plot space."""
+    import math
+
+    eligible = [row for row in summaries if _pareto_eligible(row)]
+    if not eligible:
+        return {}
+    log_costs = [math.log10(float(row["avg_cost_per_example"])) for row in eligible]
+    correctness = [float(row["avg_correctness"]) for row in eligible]
+    norm_x, _ = _pareto_min_max_norm(log_costs)
+    norm_y, _ = _pareto_min_max_norm(correctness)
+    unit_by_id = {
+        id(row): (norm_x[idx], norm_y[idx]) for idx, row in enumerate(eligible)
+    }
+    f1 = sorted(
+        (row for row in eligible if int(row.get("pareto_front") or 0) == 1),
+        key=lambda row: float(row["avg_cost_per_example"]),
+    )
+    if not f1:
+        return {}
+    polyline = [unit_by_id[id(row)] for row in f1]
+    f1_ids = {id(row) for row in f1}
+    distances: dict[int, float] = {}
+    for row in eligible:
+        px, py = unit_by_id[id(row)]
+        if id(row) in f1_ids:
+            distances[id(row)] = 0.0
+        else:
+            distances[id(row)] = _pareto_distance_to_polyline(px, py, polyline)
+    return distances
+
+
+def _sort_pareto_display(summaries: list[dict[str, Any]]) -> None:
+    """Frontier first, then dominated, then unavailable; cheaper then more correct."""
+    summaries.sort(
+        key=lambda row: (
+            _PARETO_ORDER.get(str(row.get("pareto_status") or ""), 3),
+            float(row.get("avg_cost_per_example") or 0.0)
+            if row.get("pareto_status") != PARETO_UNAVAILABLE
+            else float("inf"),
+            -float(row.get("avg_correctness") or 0.0),
+        )
+    )
 
 
 def _write_details(out_path: Path, all_details: list[dict[str, Any]]) -> None:
@@ -276,6 +425,7 @@ def _run_one_model(
             "avg_quality": summary.get("avg_quality", 0.0),
             "n_judged": summary.get("n_judged", 0),
             "n_error": summary.get("n_error", 0),
+            "n_examples": len(results),
             "avg_metric_score": summary["avg_metric_score"],
             "total_tokens": summary["total_tokens"],
             "total_cost_usd": total_cost,
@@ -402,8 +552,8 @@ def main() -> int:
         "--jobs",
         "-j",
         type=int,
-        default=8,
-        help="Number of models to run in parallel (default: 8). Use 1 for sequential (verbose) run.",
+        default=20,
+        help="Number of models to run in parallel (default: 20). Use 1 for sequential.",
     )
     p.add_argument(
         "--backend",
@@ -613,6 +763,7 @@ def main() -> int:
 
                 out_path = _out_path(args)
                 if out_path:
+                    annotate_pareto_status(model_summaries)
                     _write_results(out_path, model_summaries)
                     _write_details(out_path, all_details)
 
@@ -638,6 +789,7 @@ def main() -> int:
                             d["model_id"] = model_id
                         all_details.extend(res["details"])
                         if out_path:
+                            annotate_pareto_status(model_summaries)
                             _write_results(out_path, model_summaries)
                             _write_details(out_path, all_details)
                         m = res["summary"]
@@ -674,6 +826,7 @@ def main() -> int:
                             "avg_quality": 0.0,
                             "n_judged": 0,
                             "n_error": 1,
+                            "n_examples": 0,
                             "avg_metric_score": 0.0,
                             "total_tokens": 0,
                             "total_cost_usd": 0.0,
@@ -682,6 +835,7 @@ def main() -> int:
                             "intelligence_per_dollar_metric": 0.0,
                         })
                         if out_path:
+                            annotate_pareto_status(model_summaries)
                             _write_results(out_path, model_summaries)
     finally:
         if args.backend == "lo":
@@ -691,38 +845,29 @@ def main() -> int:
         print("No models were evaluated.")
         return 0
 
-    model_summaries.sort(
-        key=lambda m: (
-            m.get("hard_pass_rate", 0.0),
-            m.get("avg_agent_score", 0.0),
-            m.get("avg_quality", 0.0),
-            m.get("intelligence_per_dollar_correctness", 0.0),
-        ),
-        reverse=True,
-    )
+    annotate_pareto_status(model_summaries)
+    _sort_pareto_display(model_summaries)
 
     print("=" * 60)
-    print("RESULTS (sorted by hard pass, then agent score, then quality; C²/$ is secondary)")
+    print("RESULTS (Pareto: maximize avg correctness, minimize avg $/task)")
     print("=" * 60)
     print(
-        f"{'Rank':<4}  {'Model':<32}  {'Hard%':>6}  {'Agent':>6}  {'Qual':>6}  "
-        f"{'AvgCorr':>7}  {'AvgCost($)':>11}  {'Value(C²/$)':>11}"
+        f"{'Status':<12}  {'Model':<32}  {'Hard%':>6}  {'Agent':>6}  {'Qual':>6}  "
+        f"{'AvgCorr':>7}  {'AvgCost($)':>11}"
     )
-    for idx, m in enumerate(model_summaries, start=1):
-        if m.get("pricing_known"):
+    for m in model_summaries:
+        if m.get("pricing_known") and float(m.get("avg_cost_per_example") or 0.0) > 0:
             cost_col = f"{m['avg_cost_per_example']:>11.5f}"
-            ipd_col = f"{m['intelligence_per_dollar_correctness']:>11.3f}"
         else:
             cost_col = f"{'n/a':>11}"
-            ipd_col = f"{'n/a':>11}"
         print(
-            f"{idx:<4}  {m['openrouter_id']:<32}  "
+            f"{str(m.get('pareto_status') or PARETO_UNAVAILABLE):<12}  "
+            f"{m['openrouter_id']:<32}  "
             f"{m.get('hard_pass_rate', 0.0):>6.3f}  "
             f"{m.get('avg_agent_score', 0.0):>6.3f}  "
             f"{m.get('avg_quality', 0.0):>6.3f}  "
             f"{m['avg_correctness']:>7.3f}  "
-            f"{cost_col}  "
-            f"{ipd_col}"
+            f"{cost_col}"
         )
 
     out_path = _out_path(args)
