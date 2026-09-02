@@ -223,20 +223,21 @@ _DEAL_CALL_VAL_LEN = 4 if UNDER_CROSSHAIR else DEAL_MAX_SOURCE
 def _deal_call_tool_params_ok(params: object) -> bool:
     # cover-all 33180040863: unbounded params → 3400 examples on from_params.
     # check-all 33668189572: missing/empty name → ValueError CHECK FAIL on {}.
-    # ty: Top[dict] keys are Never, so __getitem__ with Literal name/arguments is invalid.
     if type(params) is not dict:
         return False
-    if len(params) > _DEAL_CALL_DICT_LEN:
+    # type() is dict narrows to Top[dict] (keys Never); ty then rejects Literal lookups.
+    raw = cast("dict[str, Any]", params)
+    if len(raw) > _DEAL_CALL_DICT_LEN:
         return False
-    name = params.get("name")
+    name = raw.get("name")
     if not isinstance(name, str) or not ascii_bounded(name, _DEAL_CALL_VAL_LEN, min_len=1):
         return False
-    arguments = params.get("arguments")
+    arguments = raw.get("arguments")
     if arguments is not None and type(arguments) is not dict:
         return False
-    if not all(type(k) is str and ascii_bounded(k, _DEAL_CALL_KEY_LEN) for k in params):
+    if not all(type(k) is str and ascii_bounded(k, _DEAL_CALL_KEY_LEN) for k in raw):
         return False
-    for v in params.values():
+    for v in raw.values():
         if v is None:
             continue
         if isinstance(v, str) and ascii_bounded(v, _DEAL_CALL_VAL_LEN):
