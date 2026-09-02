@@ -32,18 +32,12 @@ from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-try:
-    from huggingface_hub import (
-        CommitOperationAdd,
-        create_commit,
-        create_repo,
-        get_collection,
-        hf_hub_download,
-        metadata_update,
-    )
-except ImportError:
-    CommitOperationAdd = create_commit = create_repo = get_collection = None  # type: ignore[assignment]
-    hf_hub_download = metadata_update = None  # type: ignore[assignment]
+# WriterAgent: do not import huggingface_hub at module load. A try/except still
+# ran the import and printed onto compute-worker stdout:
+#   Error importing huggingface_hub.hf_api: No module named 'envwrap'
+# Hub push/from_hub is unused here; the methods are kept as commented-out text.
+CommitOperationAdd = create_commit = create_repo = get_collection = None  # type: ignore[assignment]
+hf_hub_download = metadata_update = None  # type: ignore[assignment]
 
 from ._function_type_hints_utils import (
     TypeHintParsingException,
@@ -423,6 +417,7 @@ class Tool(BaseTool):
         """Writes content to a file with UTF-8 encoding."""
         file_path.write_text(content, encoding="utf-8")
 
+    '''WriterAgent: unused HuggingFace Hub API (not called).
     def push_to_hub(
         self,
         repo_id: str,
@@ -497,6 +492,8 @@ class Tool(BaseTool):
         ]
         return additions
 
+    '''
+
     def _get_tool_code(self) -> str:
         """Get the tool's code."""
         return self.to_dict()["code"]
@@ -518,6 +515,7 @@ class Tool(BaseTool):
         """Get the requirements."""
         return "\n".join(self.to_dict()["requirements"])
 
+    '''WriterAgent: unused HuggingFace Hub API (not called).
     @classmethod
     def from_hub(
         cls,
@@ -573,6 +571,8 @@ class Tool(BaseTool):
         tool_code = Path(tool_file).read_text()
         return Tool.from_code(tool_code, **kwargs)
 
+    '''
+
     @classmethod
     def from_code(cls, tool_code: str, **kwargs):
         module = types.ModuleType("dynamic_tool")
@@ -601,6 +601,7 @@ class Tool(BaseTool):
 
         return tool_class(**kwargs)
 
+    '''WriterAgent: unused HuggingFace Hub API (not called).
     @staticmethod
     def from_space(
         space_id: str,
@@ -796,6 +797,9 @@ class Tool(BaseTool):
         return LangChainToolWrapper(langchain_tool)
 
 
+    '''
+
+'''WriterAgent: unused HuggingFace Hub API (not called).
 def launch_gradio_demo(tool: Tool):
     """
     Launches a gradio demo for a tool. The corresponding tool class needs to properly implement the class attributes
@@ -842,6 +846,9 @@ def launch_gradio_demo(tool: Tool):
     ).launch()
 
 
+'''
+
+'''WriterAgent: unused HuggingFace Hub API (not called).
 def load_tool(
     repo_id,
     model_repo_id: str | None = None,
@@ -882,6 +889,8 @@ def load_tool(
         trust_remote_code=trust_remote_code,
         **kwargs,
     )
+'''
+
 
 
 def add_description(description):
@@ -911,6 +920,7 @@ class ToolCollection:
     def __init__(self, tools: list[Tool]):
         self.tools = tools
 
+    '''WriterAgent: unused HuggingFace Hub API (not called).
     @classmethod
     def from_hub(
         cls,
@@ -951,6 +961,9 @@ class ToolCollection:
 
         return cls(tools)
 
+    '''
+
+    '''WriterAgent: unused HuggingFace Hub API (not called).
     @classmethod
     @contextmanager
     def from_mcp(
@@ -1063,6 +1076,8 @@ class ToolCollection:
             yield cls(tools)
 
 
+    '''
+
 def tool(tool_function: Callable) -> Tool:
     """
     Convert a function into an instance of a dynamically created Tool subclass.
@@ -1173,6 +1188,7 @@ def tool(tool_function: Callable) -> Tool:
     return simple_tool
 
 
+'''WriterAgent: unused HuggingFace Hub API (not called).
 class PipelineTool(Tool):
     """
     A [`Tool`] tailored towards Transformer models. On top of the class attributes of the base class [`Tool`], you will
@@ -1337,6 +1353,8 @@ class PipelineTool(Tool):
         return decoded_outputs
 
 
+'''
+
 def get_tools_definition_code(tools: dict[str, Tool]) -> str:
     tool_codes = []
     for tool in tools.values():
@@ -1421,7 +1439,5 @@ __all__ = [
     "AUTHORIZED_TYPES",
     "Tool",
     "tool",
-    "load_tool",
-    "launch_gradio_demo",
     "ToolCollection",
 ]
