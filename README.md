@@ -104,7 +104,7 @@ For detailed setup instructions, see the **[Install and Troubleshooting Guide](d
 
 ## Benchmarks & Evaluation
 
-An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer, Calc, and Draw tasks. The **2026-09-01 snapshot** (17-task string harness) ranks models by **Value** — correctness² ÷ average $/task (higher is better). **Correctness** is task accuracy (0–1). Methodology and cost–quality charts: [docs/eval/benchmarks.md](docs/eval/benchmarks.md).
+WriterAgent's **LLM Evaluation Suite** benchmarks models on Writer, Calc, and Draw tasks. The **2026-09-01 snapshot** uses the **17-task string harness** — it emulates document and tool behavior without running LibreOffice (OpenRouter, live token pricing). Full methodology: [docs/eval/benchmarks.md](docs/eval/benchmarks.md).
 
 **Excluded (3 of 23 models):** `nvidia/nemotron-3.5-lightning` and `qwen/qwen3.8-flash` (429 rate limits); `minimax/minimax-m3` (harness issue — [stream-normalizer-delta-crash.md](docs/eval/stream-normalizer-delta-crash.md), re-run later).
 
@@ -112,8 +112,8 @@ An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer, Cal
 
 Distance-to-frontier view: [docs/eval/pareto-distance.svg](docs/eval/pareto-distance.svg).
 
-| Model | Correctness | Value |
-| ----- | ----------- | ----- |
+| Model | Correctness<br>avg task score (0–1) | Value<br>Correctness² ÷ $/task |
+| ----- | ----- | ----- |
 | openai/gpt-oss-120b | 0.971 | 1755 |
 | openai/gpt-oss-20b | 0.687 | 725 |
 | upstage/solar-pro4 | 0.682 | 719 |
