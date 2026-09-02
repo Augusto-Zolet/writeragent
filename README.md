@@ -104,36 +104,36 @@ For detailed setup instructions, see the **[Install and Troubleshooting Guide](d
 
 ## Benchmarks & Evaluation
 
-An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer, Calc, and Draw tasks and ranks them by **Value (C²/$)** — metric score squared ÷ average dollars per task, using live OpenRouter pricing.
-
-**2026-09-01 snapshot** — 17-task string harness (not LO). Methodology and insights: [docs/eval/benchmarks.md](docs/eval/benchmarks.md).
+An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer, Calc, and Draw tasks. The **2026-09-01 snapshot** compares models on **correctness vs cost** (Pareto), not a single composite score. **Frontier** means no other model is both cheaper and at least as correct. Methodology: [docs/eval/benchmarks.md](docs/eval/benchmarks.md).
 
 **Excluded (3 of 23 models):** `nvidia/nemotron-3.5-lightning` and `qwen/qwen3.8-flash` (429 rate limits); `minimax/minimax-m3` (harness issue — [stream-normalizer-delta-crash.md](docs/eval/stream-normalizer-delta-crash.md), re-run later).
 
-Ranked by **Value (C²/$)** (higher is better). See [docs/eval/benchmarks.md](docs/eval/benchmarks.md) for methodology.
+![Cost–quality Pareto fronts](docs/eval/pareto-fronts.svg)
 
-| Rank | Model | Avg correctness | Avg score | Avg tokens | Avg cost ($) | Value (C²/$) |
-| ---- | ----- | --------------- | --------- | ---------- | ------------ | ------------ |
-| 1 | openai/gpt-oss-120b | 0.971 | 0.848 | 12263.3 | 0.00054 | 1339.539 |
-| 2 | openai/gpt-oss-20b | 0.687 | 0.591 | 16062.0 | 0.00065 | 537.400 |
-| 3 | upstage/solar-pro4 | 0.682 | 0.534 | 20429.4 | 0.00065 | 440.358 |
-| 4 | google/gemma-4-31b-it | 0.918 | 0.781 | 16843.9 | 0.00162 | 376.198 |
-| 5 | poolside/laguna-xs-2.1 | 0.767 | 0.591 | 35088.2 | 0.00216 | 161.883 |
-| 6 | google/gemma-4-26b-a4b-it | 0.621 | 0.489 | 19991.9 | 0.00151 | 157.877 |
-| 7 | meta/muse-spark-1.2-contributor | 0.874 | 0.664 | 29419.4 | 0.00330 | 133.604 |
-| 8 | poolside/laguna-s-2.1 | 0.700 | 0.531 | 21250.2 | 0.00216 | 130.187 |
-| 9 | deepseek/deepseek-v4-flash-0731 | 0.928 | 0.699 | 48581.5 | 0.00389 | 125.545 |
-| 10 | inception/mercury-2 | 0.814 | 0.704 | 14266.7 | 0.00397 | 124.642 |
-| 11 | z-ai/glm-5.3-flash | 0.913 | 0.701 | 40360.6 | 0.00412 | 119.269 |
-| 12 | mistralai/mistral-small-2603 | 0.571 | 0.489 | 13613.7 | 0.00214 | 111.388 |
-| 13 | openai/gpt-5.6-luna | 0.922 | 0.743 | 21376.4 | 0.00512 | 107.743 |
-| 14 | google/gemini-3.5-flash-lite | 0.688 | 0.576 | 14129.9 | 0.00495 | 67.007 |
-| 15 | bytedance-seed/seed-2.0-mini | 0.800 | 0.604 | 37491.4 | 0.00601 | 60.748 |
-| 16 | meta/muse-glimmer-30b | 0.928 | 0.668 | 27899.5 | 0.01078 | 41.370 |
-| 17 | ibm-granite/granite-4.2-8b | 0.802 | 0.437 | 66636.2 | 0.00735 | 26.019 |
-| 18 | qwen/qwen3.8-27b | 0.922 | 0.601 | 41808.8 | 0.02460 | 14.677 |
-| 19 | x-ai/grok-4.6 | 0.982 | 0.776 | 20646.8 | 0.04653 | 12.938 |
-| 20 | z-ai/glm-5.3 | 0.702 | 0.486 | 33577.5 | 0.06972 | 3.394 |
+Distance-to-frontier view: [docs/eval/pareto-distance.svg](docs/eval/pareto-distance.svg).
+
+| Pareto | Model | Correctness | Score | Tokens | $/task |
+| ------ | ----- | ----------- | ----- | ------ | ------ |
+| Frontier | openai/gpt-oss-120b | 0.971 | 0.848 | 12263 | 0.00054 |
+| Frontier | x-ai/grok-4.6 | 0.982 | 0.776 | 20647 | 0.04653 |
+| Dominated | upstage/solar-pro4 | 0.682 | 0.534 | 20429 | 0.00065 |
+| Dominated | openai/gpt-oss-20b | 0.687 | 0.591 | 16062 | 0.00065 |
+| Dominated | google/gemma-4-26b-a4b-it | 0.621 | 0.489 | 19992 | 0.00152 |
+| Dominated | google/gemma-4-31b-it | 0.918 | 0.781 | 16844 | 0.00162 |
+| Dominated | mistralai/mistral-small-2603 | 0.571 | 0.489 | 13614 | 0.00214 |
+| Dominated | poolside/laguna-xs-2.1 | 0.767 | 0.591 | 35088 | 0.00216 |
+| Dominated | poolside/laguna-s-2.1 | 0.700 | 0.531 | 21250 | 0.00216 |
+| Dominated | meta/muse-spark-1.2-contributor | 0.874 | 0.664 | 29419 | 0.00330 |
+| Dominated | deepseek/deepseek-v4-flash-0731 | 0.928 | 0.699 | 48581 | 0.00389 |
+| Dominated | inception/mercury-2 | 0.814 | 0.704 | 14267 | 0.00397 |
+| Dominated | z-ai/glm-5.3-flash | 0.913 | 0.701 | 40361 | 0.00412 |
+| Dominated | google/gemini-3.5-flash-lite | 0.688 | 0.576 | 14130 | 0.00495 |
+| Dominated | openai/gpt-5.6-luna | 0.922 | 0.743 | 21376 | 0.00512 |
+| Dominated | bytedance-seed/seed-2.0-mini | 0.800 | 0.604 | 37491 | 0.00601 |
+| Dominated | ibm-granite/granite-4.2-8b | 0.802 | 0.437 | 66636 | 0.00735 |
+| Dominated | meta/muse-glimmer-30b | 0.928 | 0.668 | 27899 | 0.01078 |
+| Dominated | qwen/qwen3.8-27b | 0.922 | 0.601 | 41809 | 0.02460 |
+| Dominated | z-ai/glm-5.3 | 0.702 | 0.486 | 33578 | 0.06972 |
 
 ---
 
