@@ -110,30 +110,30 @@ An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer, Cal
 
 **Excluded (3 of 23 models):** `nvidia/nemotron-3.5-lightning` and `qwen/qwen3.8-flash` (429 rate limits); `minimax/minimax-m3` (harness issue — [stream-normalizer-delta-crash.md](docs/eval/stream-normalizer-delta-crash.md), re-run later).
 
-Ranked by **hard pass → agent score → metric**. **Quality** = LLM judge average among creative/table passes only.
+Ranked by hard pass, then agent score, then metric. See [docs/eval/benchmarks.md](docs/eval/benchmarks.md) for methodology.
 
-| Rank | Model | Hard pass | Agent | Correctness | Quality | Tokens/task | $/task | C²/$ | n_err |
-| ---- | ----- | --------- | ----- | ----------- | ------- | ----------- | ------ | ---- | ----- |
-| 1 | openai/gpt-oss-120b | 1.000 | 1.000 | 0.971 | 0.90 | 12263 | 0.00054 | 1339.5 | 0 |
-| 2 | x-ai/grok-4.6 | 1.000 | 1.000 | 0.982 | 0.94 | 20647 | 0.04653 | 12.9 | 0 |
-| 3 | google/gemma-4-31b-it | 0.941 | 0.941 | 0.918 | 0.90 | 16844 | 0.00162 | 376.2 | 0 |
-| 4 | openai/gpt-5.6-luna | 0.941 | 0.941 | 0.922 | 0.94 | 21376 | 0.00512 | 107.7 | 0 |
-| 5 | z-ai/glm-5.3-flash | 0.941 | 0.941 | 0.913 | 0.90 | 40361 | 0.00412 | 119.3 | 0 |
-| 6 | deepseek/deepseek-v4-flash-0731 | 0.941 | 0.941 | 0.928 | 0.96 | 48581 | 0.00389 | 125.5 | 0 |
-| 7 | meta/muse-glimmer-30b | 0.941 | 0.941 | 0.928 | 0.96 | 27899 | 0.01078 | 41.4 | 0 |
-| 8 | meta/muse-spark-1.2-contributor | 0.882 | 0.882 | 0.874 | 0.96 | 29419 | 0.00330 | 133.6 | 0 |
-| 9 | qwen/qwen3.8-27b | 0.882 | 0.882 | 0.922 | 0.92 | 41809 | 0.02460 | 14.7 | 1 |
-| 10 | inception/mercury-2 | 0.824 | 0.824 | 0.814 | 0.97 | 14267 | 0.00397 | 124.6 | 0 |
-| 11 | bytedance-seed/seed-2.0-mini | 0.824 | 0.824 | 0.800 | 0.90 | 37491 | 0.00601 | 60.7 | 0 |
-| 12 | poolside/laguna-xs-2.1 | 0.824 | 0.824 | 0.767 | 0.81 | 35088 | 0.00216 | 161.9 | 1 |
-| 13 | ibm-granite/granite-4.2-8b | 0.765 | 0.765 | 0.802 | 0.93 | 66636 | 0.00735 | 26.0 | 1 |
-| 14 | openai/gpt-oss-20b | 0.706 | 0.706 | 0.687 | 0.89 | 16062 | 0.00065 | 537.4 | 0 |
-| 15 | upstage/solar-pro4 | 0.706 | 0.706 | 0.682 | 0.90 | 20429 | 0.00065 | 440.4 | 0 |
-| 16 | google/gemini-3.5-flash-lite | 0.647 | 0.647 | 0.688 | 0.93 | 14130 | 0.00495 | 67.0 | 0 |
-| 17 | poolside/laguna-s-2.1 | 0.647 | 0.647 | 0.700 | 0.90 | 21250 | 0.00216 | 130.2 | 2 |
-| 18 | google/gemma-4-26b-a4b-it | 0.647 | 0.647 | 0.621 | 0.89 | 19992 | 0.00151 | 157.9 | 0 |
-| 19 | z-ai/glm-5.3 | 0.647 | 0.647 | 0.702 | 0.97 | 33578 | 0.06972 | 3.4 | 3 |
-| 20 | mistralai/mistral-small-2603 | 0.588 | 0.588 | 0.571 | 0.85 | 13614 | 0.00214 | 111.4 | 0 |
+| Rank | Model | Avg correctness | Avg score | Avg tokens | Avg cost ($) | Value (C²/$) |
+| ---- | ----- | --------------- | --------- | ---------- | ------------ | ------------ |
+| 1 | openai/gpt-oss-120b | 0.971 | 0.848 | 12263.3 | 0.00054 | 1339.539 |
+| 2 | x-ai/grok-4.6 | 0.982 | 0.776 | 20646.8 | 0.04653 | 12.938 |
+| 3 | google/gemma-4-31b-it | 0.918 | 0.781 | 16843.9 | 0.00162 | 376.198 |
+| 4 | openai/gpt-5.6-luna | 0.922 | 0.743 | 21376.4 | 0.00512 | 107.743 |
+| 5 | z-ai/glm-5.3-flash | 0.913 | 0.701 | 40360.6 | 0.00412 | 119.269 |
+| 6 | deepseek/deepseek-v4-flash-0731 | 0.928 | 0.699 | 48581.5 | 0.00389 | 125.545 |
+| 7 | meta/muse-glimmer-30b | 0.928 | 0.668 | 27899.5 | 0.01078 | 41.370 |
+| 8 | meta/muse-spark-1.2-contributor | 0.874 | 0.664 | 29419.4 | 0.00330 | 133.604 |
+| 9 | qwen/qwen3.8-27b | 0.922 | 0.601 | 41808.8 | 0.02460 | 14.677 |
+| 10 | inception/mercury-2 | 0.814 | 0.704 | 14266.7 | 0.00397 | 124.642 |
+| 11 | bytedance-seed/seed-2.0-mini | 0.800 | 0.604 | 37491.4 | 0.00601 | 60.748 |
+| 12 | poolside/laguna-xs-2.1 | 0.767 | 0.591 | 35088.2 | 0.00216 | 161.883 |
+| 13 | ibm-granite/granite-4.2-8b | 0.802 | 0.437 | 66636.2 | 0.00735 | 26.019 |
+| 14 | openai/gpt-oss-20b | 0.687 | 0.591 | 16062.0 | 0.00065 | 537.400 |
+| 15 | upstage/solar-pro4 | 0.682 | 0.534 | 20429.4 | 0.00065 | 440.358 |
+| 16 | google/gemini-3.5-flash-lite | 0.688 | 0.576 | 14129.9 | 0.00495 | 67.007 |
+| 17 | poolside/laguna-s-2.1 | 0.700 | 0.531 | 21250.2 | 0.00216 | 130.187 |
+| 18 | google/gemma-4-26b-a4b-it | 0.621 | 0.489 | 19991.9 | 0.00151 | 157.877 |
+| 19 | z-ai/glm-5.3 | 0.702 | 0.486 | 33577.5 | 0.06972 | 3.394 |
+| 20 | mistralai/mistral-small-2603 | 0.571 | 0.489 | 13613.7 | 0.00214 | 111.388 |
 
 ---
 
