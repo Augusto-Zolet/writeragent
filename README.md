@@ -106,22 +106,34 @@ For detailed setup instructions, see the **[Install and Troubleshooting Guide](d
 
 An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer, Calc, and Draw tasks and ranks them by **Value (C²/$)** — metric score squared ÷ average dollars per task, using live OpenRouter pricing.
 
-**2026-09-01 snapshot** — 17-task string harness (not LO). Full table and methodology: [docs/eval/benchmarks.md](docs/eval/benchmarks.md). Excluded: `nemotron-3.5-lightning`, `qwen3.8-flash` (429 rate limits); `minimax/minimax-m3` (harness issue — re-run later).
+**2026-09-01 snapshot** — 17-task string harness (not LO). Methodology and insights: [docs/eval/benchmarks.md](docs/eval/benchmarks.md).
 
-| Rank | Model | Hard pass | Correctness | C²/$ |
-| ---- | ----- | --------- | ----------- | ---- |
-| 1 | openai/gpt-oss-120b | 1.000 | 0.971 | 1339.5 |
-| 2 | x-ai/grok-4.6 | 1.000 | 0.982 | 12.9 |
-| 3 | google/gemma-4-31b-it | 0.941 | 0.918 | 376.2 |
-| 4 | openai/gpt-5.6-luna | 0.941 | 0.922 | 107.7 |
-| 5 | z-ai/glm-5.3-flash | 0.941 | 0.913 | 119.3 |
-| 6 | deepseek/deepseek-v4-flash-0731 | 0.941 | 0.928 | 125.5 |
-| 7 | meta/muse-glimmer-30b | 0.941 | 0.928 | 41.4 |
-| 8 | meta/muse-spark-1.2-contributor | 0.882 | 0.874 | 133.6 |
-| 9 | qwen/qwen3.8-27b | 0.882 | 0.922 | 14.7 |
-| 10 | inception/mercury-2 | 0.824 | 0.814 | 124.6 |
+**Excluded (3 of 23 models):** `nvidia/nemotron-3.5-lightning` and `qwen/qwen3.8-flash` (429 rate limits); `minimax/minimax-m3` (harness issue — [stream-normalizer-delta-crash.md](docs/eval/stream-normalizer-delta-crash.md), re-run later).
 
-See [docs/eval/benchmarks.md](docs/eval/benchmarks.md) for the full 20-model ranking and scoring details.
+Ranked by **hard pass → agent score → metric**. **Quality** = LLM judge average among creative/table passes only.
+
+| Rank | Model | Hard pass | Agent | Correctness | Quality | Tokens/task | $/task | C²/$ | n_err |
+| ---- | ----- | --------- | ----- | ----------- | ------- | ----------- | ------ | ---- | ----- |
+| 1 | openai/gpt-oss-120b | 1.000 | 1.000 | 0.971 | 0.90 | 12263 | 0.00054 | 1339.5 | 0 |
+| 2 | x-ai/grok-4.6 | 1.000 | 1.000 | 0.982 | 0.94 | 20647 | 0.04653 | 12.9 | 0 |
+| 3 | google/gemma-4-31b-it | 0.941 | 0.941 | 0.918 | 0.90 | 16844 | 0.00162 | 376.2 | 0 |
+| 4 | openai/gpt-5.6-luna | 0.941 | 0.941 | 0.922 | 0.94 | 21376 | 0.00512 | 107.7 | 0 |
+| 5 | z-ai/glm-5.3-flash | 0.941 | 0.941 | 0.913 | 0.90 | 40361 | 0.00412 | 119.3 | 0 |
+| 6 | deepseek/deepseek-v4-flash-0731 | 0.941 | 0.941 | 0.928 | 0.96 | 48581 | 0.00389 | 125.5 | 0 |
+| 7 | meta/muse-glimmer-30b | 0.941 | 0.941 | 0.928 | 0.96 | 27899 | 0.01078 | 41.4 | 0 |
+| 8 | meta/muse-spark-1.2-contributor | 0.882 | 0.882 | 0.874 | 0.96 | 29419 | 0.00330 | 133.6 | 0 |
+| 9 | qwen/qwen3.8-27b | 0.882 | 0.882 | 0.922 | 0.92 | 41809 | 0.02460 | 14.7 | 1 |
+| 10 | inception/mercury-2 | 0.824 | 0.824 | 0.814 | 0.97 | 14267 | 0.00397 | 124.6 | 0 |
+| 11 | bytedance-seed/seed-2.0-mini | 0.824 | 0.824 | 0.800 | 0.90 | 37491 | 0.00601 | 60.7 | 0 |
+| 12 | poolside/laguna-xs-2.1 | 0.824 | 0.824 | 0.767 | 0.81 | 35088 | 0.00216 | 161.9 | 1 |
+| 13 | ibm-granite/granite-4.2-8b | 0.765 | 0.765 | 0.802 | 0.93 | 66636 | 0.00735 | 26.0 | 1 |
+| 14 | openai/gpt-oss-20b | 0.706 | 0.706 | 0.687 | 0.89 | 16062 | 0.00065 | 537.4 | 0 |
+| 15 | upstage/solar-pro4 | 0.706 | 0.706 | 0.682 | 0.90 | 20429 | 0.00065 | 440.4 | 0 |
+| 16 | google/gemini-3.5-flash-lite | 0.647 | 0.647 | 0.688 | 0.93 | 14130 | 0.00495 | 67.0 | 0 |
+| 17 | poolside/laguna-s-2.1 | 0.647 | 0.647 | 0.700 | 0.90 | 21250 | 0.00216 | 130.2 | 2 |
+| 18 | google/gemma-4-26b-a4b-it | 0.647 | 0.647 | 0.621 | 0.89 | 19992 | 0.00151 | 157.9 | 0 |
+| 19 | z-ai/glm-5.3 | 0.647 | 0.647 | 0.702 | 0.97 | 33578 | 0.06972 | 3.4 | 3 |
+| 20 | mistralai/mistral-small-2603 | 0.588 | 0.588 | 0.571 | 0.85 | 13614 | 0.00214 | 111.4 | 0 |
 
 ---
 
