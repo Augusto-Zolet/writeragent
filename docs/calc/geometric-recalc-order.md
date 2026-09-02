@@ -1,6 +1,6 @@
 # Geometric Recalc Order — PM / Senior Dev Review
 
-**Status:** Proposal only. Not implemented. Review before scheduling.
+**Status:** Proposal only. Not implemented. Open questions below are **decided** (2026-09-01 review); remaining work is scheduling.
 
 **Audience:** Product, senior engineers, and a future implementer. This is the design to accept, reject, or narrow — not a coding checklist.
 
@@ -20,7 +20,7 @@ This is **not** Excel co-volatility (re-run every Python cell when any one is di
 
 **Difficulty:** medium for someone who already knows the spill / formula-edit path — on the order of **one careful week**, not a core-Calc project. The risk is semantic (`data` arity, insert/delete, undo), not “can we write cells after recalc.”
 
-**Recommendation:** accept the flag as an **opt-in Shared-kernel companion**, default **off**. Gate implementation on the two decisions in [Open questions](#open-questions): whether the geometric arg is precedent-only, and whether the list is per-sheet row-major or per-column runs.
+**Recommendation:** accept the flag as an **opt-in Shared-kernel companion**, default **off**. The two gates that blocked implementation are locked: the geometric arg is **precedent-only** (stripped before packing worker `data`), and the list is **all PY cells on the sheet, row-major**. See [§9 Decisions](#9-decisions).
 
 ---
 
@@ -64,9 +64,9 @@ Do **not** implement Excel co-volatility. That needs a workbook-global PY barrie
 3. Leave user-authored ranges alone (see [§4 Data binding](#4-data-binding--do-not-shadow-data)).
 4. On insert / delete / move that changes who “previous” is, **rewrite** the affected successor formulas — **deferred**, not during add-in evaluation.
 
-**When off:** no attach, no rewrite. Existing user-written `data` args stay. Optional one-shot strip of *our* geometric args on disable — [open question](#open-questions).
+**When off:** no attach, no rewrite. Existing user-written `data` args stay. Geometric refs already attached **stay** (they are valid DAG edges). No strip-on-disable for MVP.
 
-**Most valuable with Shared kernel.** Isolated cells do not share names, so order-only precedents do nothing useful unless we also pass the previous *value* into `data` (usually the wrong default). Treat Isolated + this flag as a no-op or a settings warning, not a second product.
+**Most valuable with Shared kernel.** Isolated cells do not share names, so order-only precedents do nothing useful for Python globals. Isolated + this flag is a **no-op** for Python semantics (the checkbox stays visible; helper text says it is used with Shared kernel). Do not hide the checkbox when Isolated is selected.
 
 ---
 
@@ -76,9 +76,11 @@ Do **not** implement Excel co-volatility. That needs a workbook-global PY barrie
 
 `list_python_cells_on_sheet` already returns `PythonCellInfo` sorted by `(row, column)`. That **is** the geometric list.
 
-**MVP list (recommended):** all PY cells on the **active sheet**, row-major. Cross-sheet predecessors are out of scope (sheet-qualified refs + sheet insert/rename). Workbook-global order (Sheet1 then Sheet2) is a later option, not required to prove the idea.
+**MVP list:** all PY cells on **each sheet**, row-major, each sheet chained **independently**. Flag-on / document-open reconcile every sheet (`list_python_cells_in_doc(..., active_sheet_only=False)`). Insert/delete repair only the **modified** sheet. Cross-sheet predecessors are out of scope (sheet-qualified refs + sheet insert/rename). Workbook-global order (Sheet1 then Sheet2) is a later option, not required to prove the idea.
 
-**Cap:** discovery stops at 100 PY cells / 50k scanned (`_MAX_PYTHON_CELLS_FOUND`). Geometric order must honor the same cap or raise it deliberately — do not silently chain a truncated list.
+**Cross-cluster chaining (accepted for MVP):** two independent PY clusters on one sheet (A1:A5 and D1:D5) become one chain — D1 waits on A5. That slightly over-dirties the D column when A3 changes. Correctness is fine; users who care can turn the flag off and write explicit `data` refs. Do not invent spatial clustering for MVP.
+
+**Cap:** discovery stops at 100 PY cells / 50k scanned (`_MAX_PYTHON_CELLS_FOUND`). Geometric order must honor the same cap or raise it deliberately — do not silently chain a truncated list. A 100-cell chain is serial (venv IPC per dirty cell); that is the price of order, not a new cliff. Document the cap; do not raise it in this feature.
 
 ### 3.2 Auto-attach is a formula field, not a Python parse
 
@@ -137,10 +139,10 @@ Yellow recalc / off-main formula groups: same contract as spill and session look
 
 | Trigger | Why |
 |---------|-----|
-| Flag turned **on** | One-shot attach for the current sheet (or all sheets — [open question](#open-questions)) |
-| Flag turned **off** | Optional strip of geometric fields only |
+| Flag turned **on** | One-shot attach for **all sheets**, each chained independently |
+| Flag turned **off** | Stop maintaining refs; **leave** existing geometric fields |
 | Monaco / native **Save** of a PY cell | New or edited formula may need a predecessor; neighbors may need retarget |
-| `XModifyListener` on sheets that already have PY cells | Insert/delete/clear; **reuse** the spill listener pattern (`CalcSpillModifyListener`) or a sibling listener — do not register a third sheet-wide listener if one can dispatch both jobs |
+| `XModifyListener` on sheets that already have PY cells | Insert/delete/clear. Prefer a **sibling** `CalcGeometricModifyListener` (spill listener is tightly coupled to `SPILL_REGISTRY`). If a third `addModifyListener` is undesirable, factor a one-sheet dispatcher that fans out to spill cleanup and geometric repair — do not merge the two jobs into one class. |
 | Document open | Cheap: if flag on, reconcile once so files authored with the flag stay consistent |
 
 Do **not** rewrite from inside the add-in just because this cell is evaluating.
@@ -149,24 +151,20 @@ Do **not** rewrite from inside the add-in just because this cell is evaluating.
 
 ## 4. Data binding — do not shadow `data`
 
-**This is the highest-risk product decision.**
+**This is the highest-risk product decision. Locked: precedent-only.**
 
 Today ([data shapes](py-data-shapes.md)):
 
 - One trailing arg → Python `data` is that `CalcRange`.
 - Two or more → `data` is the **list** (same as `ranges`).
 
-If A2 is `=PY("np.mean(data)"; B1:B10)` and we append `;A1`, then `data` suddenly becomes a list and `np.mean(data)` breaks.
+`calc_addin_args_from_split` in [`calc_addin_data.py`](../../plugin/calc/calc_addin_data.py) is the flip: `len(args) == 1` returns one 2D grid; `len(args) >= 2` returns a **list** of grids. If A2 is `=PY("np.mean(data)"; B1:B10)` and we append `;A1`, then `data` suddenly becomes a list and `np.mean(data)` breaks. That is the common case, not a corner.
 
-**Recommended contract (for review):**
+**Contract:**
 
-The geometric predecessor is a **Calc-only ordering token**. The add-in **strips it** before packing worker `data` / `ranges`. User-authored args keep today’s arity.
+The geometric predecessor is a **Calc-only ordering token**. The add-in **strips it** before packing worker `data` / `ranges`. User-authored args keep today’s arity. Isolated and Shared both see the same `data` they wrote.
 
-Implementation sketch (not for this review to implement):
-
-- Mark the last trailing arg as geometric when it is a **single cell** that is the previous PY address in the current list (or store a reserved suffix — avoid a new IDL argument).
-- `function.py` drops that arg from the payload sent to the venv.
-- Isolated/Shared both see the same `data` they wrote.
+**Where to strip:** after `split_python_addin_data_args` and **before** `calc_addin_args_from_split` / `pack_calc_data_for_wire` in `_execute_python_addin_impl` ([`function.py`](../../plugin/calc/python/function.py)). The geometric token is the last trailing arg when it is a **single cell** that matches the computed previous PY address (or, at eval time, a 1×1 last arg that is itself a PY cell — see [§9.5](#95-how-we-recognize-our-field)). Do not invent a reserved formula suffix or a third IDL argument.
 
 **Rejected for MVP:** injecting the previous cell’s *value* into `data` / `data[-1]`. That changes Python semantics and fights existing scripts.
 
@@ -184,7 +182,7 @@ Code-in-cell form (`=PY($A$1; B1:B10)`) must keep `$A$1` as the code arg and sti
 
 **LibrePy sidebar:** the existing cell list is already geometric. A later UX nicety (not MVP) is a small “depends on A1” hint. Do not block the flag on sidebar chrome.
 
-**Excel import:** the OOXML rewriter must **not** invent geometric edges ([ms-py already says this](../scripting/ms-py-compatibility.md)). If the user turns the flag on after import, the deferred pass attaches them. Export should strip geometric-only args or leave them as extra `_xlws.PY` deps — decide at implement time; default to **leave them** (they are valid precedents).
+**Excel import:** the OOXML rewriter must **not** invent geometric edges ([ms-py already says this](../scripting/ms-py-compatibility.md)). If the user turns the flag on after import, the deferred pass attaches them. Export **leaves** geometric-only args as extra `_xlws.PY` deps (they are valid precedents). Do not special-case strip on export for MVP.
 
 ---
 
@@ -193,17 +191,17 @@ Code-in-cell form (`=PY($A$1; B1:B10)`) must keep `$A$1` as the code arg and sti
 | Piece | New? | Reuse |
 |-------|------|--------|
 | Settings checkbox | Small | `module.yaml` + existing Settings dialog |
-| Discover PY cells in order | None | `cell_discovery.list_python_cells_on_sheet` |
+| Discover PY cells in order | None | `cell_discovery.list_python_cells_on_sheet` / `list_python_cells_in_doc` |
 | Parse / rebuild `=PY(code; args)` | Small helper to splice one address | `formula_edit.py` |
 | Deferred UI-thread writes + undo hide | Small | `perform_deferred_spill`, `_undo_lock`, Timer 0.1s |
-| Sheet modify | Small | `CalcSpillModifyListener` or sibling |
-| Strip geometric arg from worker `data` | Medium | `function.py` / `calc_addin_data.py` |
+| Sheet modify | Small | Sibling `CalcGeometricModifyListener`; optional one-sheet dispatcher shared with spill |
+| Strip geometric arg from worker `data` | Medium | `function.py` / `calc_addin_data.py` — strip **before** `calc_addin_args_from_split` |
 | Insert-in-middle repair | Medium | Pure list-diff + `setFormula` |
 | Tests | Required | pytest on list-diff + formula splice; UNO for insert-row + deferred rewrite |
 
 **Not required:** LibreOffice core patches, co-volatility, IDL change, venv protocol change, chat tools.
 
-**Rough effort:** 3–5 days for the happy path (flag + attach + deferred repair on one sheet) if the `data`-strip rule is agreed first; another 2–3 days for insert/delete/undo/flag-toggle edges and tests. Slips if we argue `data` arity in code instead of in this review.
+**Rough effort:** 3–5 days for the happy path (flag + attach + deferred repair on one sheet) now that the `data`-strip rule is locked; another 2–3 days for insert/delete/undo/flag-toggle edges and tests.
 
 Compare to **full Excel co-volatility:** multiple engineer-months in `sc/`, high regression risk. This flag is the cheap 80%.
 
@@ -215,44 +213,85 @@ Compare to **full Excel co-volatility:** multiple engineer-months in `sc/`, high
 |------|------------|
 | Shadowing `data` (arity flip) | Precedent-only strip ([§4](#4-data-binding--do-not-shadow-data)) |
 | Rewrite during recalc | Same ban as spill; deferred only |
-| Undo fragmentation | `_undo_lock` / hidden undo, same as spill |
+| Undo fragmentation | `_undo_lock` / hidden undo, same as spill (`test_calc_spill_undo_lock`) |
 | Infinite rewrite loop | Idempotent desired-vs-actual; skip if already correct |
 | Calc already adjusted refs on row insert | Repair pass compares desired predecessor, does not blindly rewrite |
-| User already passed the previous cell | No duplicate field |
-| User passed a **different** single-cell last arg (real data) | Must not treat every last cell-ref as geometric — only when it matches the computed previous PY address, or when we wrote a marker we can recognize |
+| User already passed the previous cell | No duplicate field ([§9.5](#95-how-we-recognize-our-field)) |
+| User passed a **different** single-cell last arg (real data) | Append, do not replace, unless that last arg is a **stale** geometric predecessor |
+| Two independent PY clusters on one sheet | Accepted: one row-major chain; slightly over-dirties the later cluster |
 | Circular refs from user forward-refs | Calc reports circular; we never attach a later cell |
-| 100-cell discovery cap | Document or raise; never chain a partial list as if complete |
-| Shared + Isolated confusion | Flag helper: “Used with Shared kernel”; Isolated no-op |
+| 100-cell discovery cap | Honor it; never chain a partial list as if complete |
+| Shared + Isolated confusion | Checkbox always visible; helper: “Used with Shared kernel”; Isolated is a no-op |
 | Collabora Online | Desktop LibrePy first. Online has no deferred UNO spill-style writes in the same way; do not promise this flag in jail-safe compute until desktop is boring |
 
 ---
 
 ## 8. Suggested phases (when scheduled)
 
-**Phase 0 — Review (this doc).** Lock [open questions](#open-questions). No code.
+**Phase 0 — Review (this doc).** Decisions in [§9](#9-decisions) are locked. No code.
 
-**Phase 1 — Pure list + formula splice.** Unit tests only: given a list of addresses + current formulas, compute the patch. No UNO. This is the whole algorithm.
+**Phase 1 — Pure list + formula splice.** Unit tests only: given a list of addresses + current formulas, compute the patch. No UNO. This is the whole algorithm. Encode the [§9.5](#95-how-we-recognize-our-field) table.
 
-**Phase 2 — Flag + attach on save / flag-on.** Monaco and native cell save call the splicer; apply on the UI thread after save (save is already outside recalc). Settings default off.
+**Phase 2 — Flag + attach on save / flag-on.** Monaco and native cell save call the splicer; apply on the UI thread after save (save is already outside recalc). Settings default off. Flag-on walks **all sheets**.
 
-**Phase 3 — Deferred repair on insert/delete.** Modify listener + spill-like timer. UNO tests: three-cell column, insert PY in the middle, successor’s field updates; delete; undo.
+**Phase 3 — Deferred repair on insert/delete.** Sibling modify listener + spill-like timer. UNO tests: three-cell column, insert PY in the middle, successor’s field updates; delete; undo.
 
 **Phase 4 — Strip geometric arg from worker ingress.** Tests that `=PY("np.mean(data)"; B1:B10)` still sees a single `CalcRange` after attach.
 
-**Non-goals until someone asks:** cross-sheet chains, workbook-global order, Isolated value-piping, sidebar annotations, Excel export special-case, raising the 100-cell cap.
+**Non-goals until someone asks:** cross-sheet chains, workbook-global order, Isolated value-piping, sidebar annotations, Excel export special-case, raising the 100-cell cap, strip-on-disable, spatial clustering of independent PY groups.
 
 ---
 
-## 9. Open questions
+## 9. Decisions
 
-Reviewers should answer these explicitly. Implementation should not guess.
+Locked 2026-09-01. Implementation should not re-open these without a product reason.
 
-1. **Precedent-only vs value-in-`data`?** Recommendation: precedent-only. Confirm.
-2. **List scope:** all PY cells on the sheet (row-major), or only **contiguous runs** in one column? Recommendation: all PY cells on the sheet — matches “the list” and the sidebar. Contiguous-column-only is smaller but surprises users who put the next step in C1.
-3. **Isolated mode:** no-op + helper text, or hide the checkbox unless Shared is selected?
-4. **Flag off:** leave attached refs (they are harmless DAG edges) or strip the ones we added? Recommendation: **leave them** (simplest; file stays valid). Strip only if we have a reliable marker.
-5. **How we recognize “our” field** vs a user-typed last cell-ref that happens to be the previous PY cell. Recommendation: if it already *is* the correct predecessor, treat as satisfied (no rewrite). If the last arg is some other single cell, **append** the predecessor rather than replacing — unless that last arg *is* an *old* predecessor after insert, in which case **replace**. Phase 1 tests should encode this table.
-6. **All sheets vs active sheet** on flag-on. Recommendation: all sheets in the workbook, each chained independently.
+### 9.1 Precedent-only vs value-in-`data`
+
+**Precedent-only.** The geometric arg is a Calc DAG token. Strip it before packing worker `data` / `ranges`. Do not inject the previous cell’s value.
+
+`calc_addin_args_from_split` flips arity at two args. Value-in-`data` would break `np.mean(data)` on every cell that already passes one range — the common case.
+
+### 9.2 List scope
+
+**All PY cells on the sheet, row-major.** Matches `list_python_cells_on_sheet` and the sidebar. Contiguous-column-only would surprise authors who put the next step in C1.
+
+Two independent clusters on one sheet become one chain (D1 waits on A5). Accepted for MVP; do not add proximity clustering.
+
+### 9.3 Isolated mode
+
+**No-op + helper text. Do not hide the checkbox.** Hiding it when Isolated is selected couples two settings and looks like a bug when the box disappears. Isolated cells have independent namespaces, so order-only precedents do nothing useful for Python globals. Precedent-only strip means Isolated `data` is unchanged.
+
+Helper: “Ensures PY cells evaluate in sheet order. Most useful with Shared kernel.”
+
+### 9.4 Flag off
+
+**Leave attached refs.** They are valid DAG edges and do not change Python behavior after the strip. Strip-on-disable needs a reliable “ours vs user-typed” marker; do not build that for MVP. Off means: stop attaching and stop repairing.
+
+### 9.5 How we recognize “our” field
+
+Match the **computed predecessor**. No reserved suffix and no document UDProp for MVP.
+
+Desired predecessor for a cell is the previous entry in the sheet’s row-major PY list (or none if first). Compare the last trailing arg:
+
+| Scenario | Last arg | Desired predecessor | Action |
+|----------|----------|---------------------|--------|
+| No args | — | A1 | Append `;A1` |
+| User range `B1:B10` | range | A1 | Append (`;B1:B10;A1`) |
+| Already correct | single cell = desired | A1 | No-op |
+| Stale predecessor after insert | single cell ≠ desired, and last arg **was** the old geometric predecessor | A2 | Replace `;A1` → `;A2` |
+| User single-cell data `C5` (not a PY cell, not the old predecessor) | single cell ≠ desired | A1 | Append (`;C5;A1`) — do not overwrite user data |
+| User already passed the previous PY cell as real data | single cell = desired | A1 | No-op (satisfied either way) |
+
+**Eval-time strip** can be slightly looser than the rewrite heuristic: if the last split arg is a 1×1 cell that is itself a PY cell, drop it before packing. False positive (user passed a PY cell as real `data`) is the same case as the last row above — accepted.
+
+A later strip-on-disable can add a workbook UDProp listing cells we attached. Do not add that until someone asks.
+
+Phase 1 tests encode this table.
+
+### 9.6 All sheets vs active sheet on flag-on
+
+**All sheets, each chained independently.** Opening a workbook with the flag on should order every tab, not whichever sheet happens to be active. `list_python_cells_in_doc(..., active_sheet_only=False)` already walks `doc.getSheets()`. Modify-listener repair stays per-sheet.
 
 ---
 
@@ -261,15 +300,15 @@ Reviewers should answer these explicitly. Implementation should not guess.
 **Unit (`tests/calc/python/`, match the new module name):**
 
 - List-diff: empty, one cell, two cells, insert in middle, delete middle, delete first, reorder.
-- Formula splice: no args; existing range args preserved; code-in-cell `$A$1`; already-correct predecessor; stale predecessor replaced; user extra cell-ref appended not overwritten when it is not the old predecessor.
+- Formula splice: no args; existing range args preserved; code-in-cell `$A$1`; already-correct predecessor; stale predecessor replaced; user extra cell-ref appended not overwritten when it is not the old predecessor. Encode the [§9.5](#95-how-we-recognize-our-field) table.
 - `data` strip: host payload arity unchanged when a geometric token is present.
 
 **UNO (`test_*_uno.py`):**
 
 - Shared kernel, flag on: A3 reads a name assigned in A1 without a user-typed `data` ref; result is stable across F9.
 - Insert a PY row between two chained cells; after the deferred pass, successor formula names the new cell; values update on next recalc.
-- Flag off: no new attaches (existing refs stay if we chose “leave”).
-- Isolated + flag on: documented no-op (or warning), no `data` breakage.
+- Flag off: no new attaches; existing refs stay.
+- Isolated + flag on: no-op for Python semantics; no `data` breakage.
 - Undo: user types a new PY cell, geometric rewrite does not add a second undo step (hidden context).
 - `#SPILL!` / auto-spill still works on a chained origin cell.
 
@@ -282,6 +321,6 @@ Do not run the full suite until this is implemented. Phase 1 is mockable without
 - Hub [session modes](../enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics): one short subsection + Settings table row.
 - [ms-py-compatibility](../scripting/ms-py-compatibility.md): pointer — “opt-in geometric *chain*, still not co-volatility.”
 - Settings helper in `module.yaml`.
-- This file: flip Status to shipped and drop open questions that were decided.
+- This file: flip Status to shipped.
 
 Do not touch `AGENTS.md` unless the rewrite-outside-recalc rule needs to become a global invariant (it is already implied by the spill / `=PY()` contract).
