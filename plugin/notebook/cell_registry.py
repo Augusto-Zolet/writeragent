@@ -13,7 +13,7 @@ import json
 import logging
 import uuid
 from dataclasses import asdict, dataclass, field
-from typing import Any, Literal
+from typing import Any, Literal, Optional
 
 from plugin.doc.udprops import get_document_property, set_document_property
 from plugin.framework.json_utils import safe_json_loads
@@ -24,7 +24,10 @@ NOTEBOOK_REGISTRY_UDPROP = "WriterAgentNotebookJson"
 NOTEBOOK_SOURCE_PATH_UDPROP = "WriterAgentNotebookSourcePath"
 _REGISTRY_VERSION = 1
 
-LastRunStatus = Literal["ok", "error"] | None
+# Module-level alias is evaluated at import. PEP 604 ``X | None`` needs 3.10+;
+# LibreOffice's embedded Python is often older. ``from __future__ import annotations``
+# does not postpone this assignment.
+LastRunStatus = Optional[Literal["ok", "error"]]
 
 
 @dataclass

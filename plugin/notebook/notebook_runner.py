@@ -47,6 +47,11 @@ log = logging.getLogger("writeragent.notebook")
 
 NOTEBOOK_RUN_CELL_URL_PREFIX = f"{EXTENSION_ID_WRITERAGENT}:notebook.run_cell."
 
+# Per-document re-entrancy guard. Shared ``notebook:…`` kernel must not run two
+# cells at once; a second ▶ used to interleave registry/output mutation when
+# execute_code pumped VCL. Keyed like notebook_controls._doc_key (RuntimeUID).
+_running_docs: set[str] = set()
+
 
 @dataclass
 class RunResult:
@@ -104,7 +109,13 @@ def read_code_from_field(doc: Any, field_name: str) -> str:
 
 
 def execute_code(ctx: Any, doc: Any, code: str) -> dict[str, Any]:
-    """Run *code* in the notebook kernel; always pumps the UI via ``run_blocking_in_thread``."""
+    """Run *code* in the notebook kernel off the UI thread without a VCL pump.
+
+    ``pump_idle=False``: ``processEventsToIdle`` waits for ``LayoutIdle``, which
+    livelocks (92% CPU, never returns) on notebooks with many in-flow form
+    controls — the same bug ``flush_ui_idle`` documents after import. Phase 1
+    has no Stop button; Phase 2 should drain *between* cells, not during execute.
+    """
     session_id = notebook_session_id(ctx, doc)
     if not session_id:
         return {"status": "error", "message": "Could not resolve notebook Python session."}
@@ -112,7 +123,17 @@ def execute_code(ctx: Any, doc: Any, code: str) -> dict[str, Any]:
     def _run() -> dict[str, Any]:
         return run_code_in_user_venv(ctx, code, session_id=session_id)
 
-    return run_blocking_in_thread(ctx, _run)
+    return run_blocking_in_thread(ctx, _run, pump_idle=False)
+
+
+def _doc_busy_key(doc: Any) -> str:
+    """Stable per-document key for the run-cell re-entrancy guard."""
+    from plugin.framework.uno_context import get_runtime_uid
+
+    uid = get_runtime_uid(doc)
+    if uid:
+        return f"uid:{uid}"
+    return f"id:{id(doc)}"
 
 
 def _plain_text(value: Any) -> str:
@@ -1005,7 +1026,7 @@ def _restore_view_to_cell(doc: Any, cell: NotebookCodeCell, saved: Any | None = 
 
 
 def run_cell(ctx: Any, doc: Any, cell_id: str) -> RunResult:
-    """Execute one code cell on the main thread (venv work uses blocking pump)."""
+    """Execute one code cell on the main thread (venv work blocks without a VCL pump)."""
     state = load_registry(doc)
     if state is None:
         return RunResult("error", None, "No notebook registry on document.")
@@ -1017,37 +1038,48 @@ def run_cell(ctx: Any, doc: Any, cell_id: str) -> RunResult:
     if not (code or "").strip():
         return RunResult("error", None, "Code cell is empty.")
 
-    saved_view = _save_view_cursor(doc)
-    result = execute_code(ctx, doc, code)
-    # After execute so live smoke can tell ok from a sandbox dunder deny.
-    log.info(
-        "notebook run cell index=%d field=%s status=%s",
-        cell.index,
-        cell.code_field_name,
-        result.get("status"),
-    )
-    execution_count: int | None = None
-    if result.get("status") == "ok":
-        cell.last_run_status = "ok"
-    else:
-        cell.last_run_status = "error"
+    # Shared kernel: one run per document. Without this, a second ▶ (or the
+    # leftover double-wire we already hit on two PyUNO wrappers) interleaved
+    # next_execution_count / clear_cell_output / apply_run_result.
+    busy_key = _doc_busy_key(doc)
+    if busy_key in _running_docs:
+        log.info("notebook run skipped: a cell is already running on this document")
+        return RunResult("busy", None, "A cell is already running.")
+    _running_docs.add(busy_key)
+    try:
+        saved_view = _save_view_cursor(doc)
+        result = execute_code(ctx, doc, code)
+        # After execute so live smoke can tell ok from a sandbox dunder deny.
+        log.info(
+            "notebook run cell index=%d field=%s status=%s",
+            cell.index,
+            cell.code_field_name,
+            result.get("status"),
+        )
+        execution_count: int | None = None
+        if result.get("status") == "ok":
+            cell.last_run_status = "ok"
+        else:
+            cell.last_run_status = "error"
 
-    execution_count = state.next_execution_count
-    cell.execution_count = execution_count
-    state.next_execution_count = execution_count + 1
+        execution_count = state.next_execution_count
+        cell.execution_count = execution_count
+        state.next_execution_count = execution_count + 1
 
-    clear_cell_output(doc, cell)
-    apply_run_result(doc, cell, result, ctx=ctx)
-    update_in_prompt(doc, cell, execution_count)
-    save_registry(doc, state)
-    # Skip processEventsToIdle: same LayoutIdle livelock as post-import flush
-    # on notebooks with many in-flow form controls.
-    _restore_view_to_cell(doc, cell, saved_view)
+        clear_cell_output(doc, cell)
+        apply_run_result(doc, cell, result, ctx=ctx)
+        update_in_prompt(doc, cell, execution_count)
+        save_registry(doc, state)
+        # Skip processEventsToIdle: same LayoutIdle livelock as post-import flush
+        # on notebooks with many in-flow form controls.
+        _restore_view_to_cell(doc, cell, saved_view)
 
-    if result.get("status") != "ok":
-        msg = result.get("message") or _("Cell execution failed.")
-        return RunResult("error", execution_count, str(msg))
-    return RunResult("ok", execution_count)
+        if result.get("status") != "ok":
+            msg = result.get("message") or _("Cell execution failed.")
+            return RunResult("error", execution_count, str(msg))
+        return RunResult("ok", execution_count)
+    finally:
+        _running_docs.discard(busy_key)
 
 
 def run_cell_for_doc_hex(ctx: Any, doc: Any, hex_id: str) -> None:

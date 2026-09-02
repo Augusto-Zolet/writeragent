@@ -50,8 +50,10 @@ _RUN_PREFIX = "nb_run_"
 # filter returns. Listener methods stay undecorated (LO already invokes those
 # on the UI thread; docs/framework/uno-thread-safety.md §A4). Release OXT still
 # strips remaining decorators. Keep @main_thread_only on getControl /
-# per-button wire / bootstrap install. _lock only serializes the one-shot
-# global _doc_listener install.
+# per-button wire / bootstrap install. _lock serializes _listener_refs /
+# _wired_keys / _wired_form_docs mutations (Dummy-2 XFilter and Dummy-3
+# OnViewCreated can overlap) and the one-shot global _doc_listener install.
+# Do not hold it across UNO (getFormController, addActionListener).
 _listener_refs: list[Any] = []
 _wired_keys: set[tuple[str, str]] = set()
 _wired_form_docs: set[str] = set()
@@ -187,26 +189,54 @@ def get_control_view_for_model(doc: Any, model: Any) -> Any | None:
         return None
 
 
+def _record_listener_keys(
+    lis: Any,
+    survivor_keys: set[tuple[str, str]],
+    survivor_forms: set[str],
+) -> None:
+    """Classify a live listener into form-doc vs per-button key sets.
+
+    ``NotebookFormContainerListener`` is not form-level (that flag would
+    double-count in ``wired_run_listener_count``) and has ``_hex_id is None``.
+    """
+    if getattr(lis, "_form_level", False):
+        survivor_forms.add(lis._doc_key_val)
+        return
+    hex_id = getattr(lis, "_hex_id", None)
+    if hex_id:
+        survivor_keys.add((lis._doc_key_val, hex_id))
+
+
 def prune_dead_listeners() -> None:
     """Remove listeners whose target document is closed/gone."""
     global _listener_refs, _wired_keys, _wired_form_docs
+    with _lock:
+        refs = list(_listener_refs)
     survivors: list[Any] = []
     survivor_keys: set[tuple[str, str]] = set()
     survivor_forms: set[str] = set()
-    for lis in _listener_refs:
+    for lis in refs:
         try:
             doc = lis._resolve_doc()
-            if doc is not None:
-                survivors.append(lis)
-                if getattr(lis, "_form_level", False):
-                    survivor_forms.add(lis._doc_key_val)
-                else:
-                    survivor_keys.add((lis._doc_key_val, lis._hex_id))
         except Exception:
-            pass
-    _listener_refs = survivors
-    _wired_keys = survivor_keys
-    _wired_form_docs = survivor_forms
+            # Was ``except Exception: pass`` after survivors.append, which hid
+            # AttributeError on the container listener's missing ``_hex_id``
+            # and any real ``_resolve_doc`` failure.
+            log.debug("notebook controls: prune resolve failed", exc_info=True)
+            continue
+        if doc is None:
+            continue
+        survivors.append(lis)
+        _record_listener_keys(lis, survivor_keys, survivor_forms)
+    with _lock:
+        # Dummy-2 prune must not drop a Dummy-3 wire_all append that landed
+        # after the snapshot.
+        added = [lis for lis in _listener_refs if lis not in refs]
+        _listener_refs = survivors + added
+        _wired_keys = survivor_keys
+        _wired_form_docs = survivor_forms
+        for lis in added:
+            _record_listener_keys(lis, _wired_keys, _wired_form_docs)
 
 
 class NotebookRunButtonListener(BaseActionListener):
@@ -298,6 +328,9 @@ class NotebookFormContainerListener(BaseContainerListener):
         self._form_listener = form_listener
         self._doc_key_val = form_listener._doc_key_val
         self._form_level = False
+        # Not a per-button listener. prune_dead_listeners used to treat the
+        # missing attribute as a button key and raise AttributeError.
+        self._hex_id: str | None = None
 
     def _resolve_doc(self) -> Any | None:
         return self._form_listener._resolve_doc()
@@ -375,10 +408,14 @@ def wire_run_button_listener(ctx: Any, doc: Any, model: Any, hex_id: str) -> boo
     """
     prune_dead_listeners()
     key = (_doc_key(doc), hex_id)
-    if key in _wired_keys:
-        return True
+    with _lock:
+        if key in _wired_keys:
+            return True
+        _wired_keys.add(key)
     control = get_control_view_for_model(doc, model)
     if control is None:
+        with _lock:
+            _wired_keys.discard(key)
         log.debug("notebook controls: no view for button nb_run_%s", hex_id)
         return False
     try:
@@ -390,12 +427,16 @@ def wire_run_button_listener(ctx: Any, doc: Any, model: Any, hex_id: str) -> boo
             control.addActionListener(listener)
         else:
             log.warning("notebook controls: control has no addActionListener for nb_run_%s", hex_id)
+            with _lock:
+                _wired_keys.discard(key)
             return False
-        _listener_refs.append(listener)
-        _wired_keys.add(key)
+        with _lock:
+            _listener_refs.append(listener)
         log.debug("notebook controls: wired nb_run_%s", hex_id)
         return True
     except Exception:
+        with _lock:
+            _wired_keys.discard(key)
         log.exception("notebook controls: wire failed for nb_run_%s", hex_id)
         return False
 
@@ -413,13 +454,17 @@ def wire_all_notebook_run_buttons(ctx: Any, doc: Any) -> int:
     prune_dead_listeners()
     doc_key = _doc_key(doc)
     ensure_form_design_mode_off(doc)
-    if doc_key in _wired_form_docs:
-        log.debug("notebook controls: form listener already attached doc=%s", doc_key)
-        return 1
+    with _lock:
+        if doc_key in _wired_form_docs:
+            log.debug("notebook controls: form listener already attached doc=%s", doc_key)
+            return 1
+        _wired_form_docs.add(doc_key)
 
     t0 = time.monotonic()
     _fc, container = _form_and_container(doc)
     if container is None:
+        with _lock:
+            _wired_form_docs.discard(doc_key)
         log.warning(
             "notebook controls: no form controller container; ▶ clicks will not run (%d code cells)",
             len(state.code_cells),
@@ -443,10 +488,10 @@ def wire_all_notebook_run_buttons(ctx: Any, doc: Any) -> int:
         log.debug("notebook controls: addContainerListener failed", exc_info=True)
         container_lis = None
 
-    _listener_refs.append(listener)
-    if container_lis is not None:
-        _listener_refs.append(container_lis)
-    _wired_form_docs.add(doc_key)
+    with _lock:
+        _listener_refs.append(listener)
+        if container_lis is not None:
+            _listener_refs.append(container_lis)
     elapsed_ms = int((time.monotonic() - t0) * 1000)
     log.info(
         "notebook import attach_form_listener elapsed_ms=%d attached_views=%d code_cells=%d",

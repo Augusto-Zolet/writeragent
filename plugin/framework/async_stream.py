@@ -754,10 +754,12 @@ def run_blocking_in_thread(ctx, func, *args, pump_idle: bool = True, **kwargs):
     Run a blocking function in a background thread.
 
     When *pump_idle* is True (default), pump UNO events on the caller thread so
-    the UI stays responsive (STT, notebook). When False, wait without
+    the UI stays responsive (STT). When False, wait without
     ``processEventsToIdle`` — required for Calc ``=PROMPT()`` because pumping
-    inside recalc re-enters the formula engine (``#VALUE!``). ``=PY()`` already
-    avoids this helper for the same reason.
+    inside recalc re-enters the formula engine (``#VALUE!``), and for notebook
+    cell execute because ``LayoutIdle`` livelocks on documents with many
+    in-flow form controls. ``=PY()`` already avoids this helper for the recalc
+    reason.
 
     Never runs *func* on the caller thread: a missing Toolkit used to fall back
     to a synchronous call, which blocked recalc with no worker isolation.

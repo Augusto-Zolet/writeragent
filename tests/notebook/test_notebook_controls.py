@@ -8,9 +8,11 @@ from unittest.mock import MagicMock, patch
 import plugin.notebook.notebook_controls as notebook_controls
 import plugin.framework.thread_guard as tg
 from plugin.notebook.notebook_controls import (
+    NotebookFormContainerListener,
     NotebookFormRunListener,
     NotebookRunButtonListener,
     get_control_view_for_model,
+    prune_dead_listeners,
     wire_all_notebook_run_buttons,
     wire_run_button_listener,
 )
@@ -310,3 +312,31 @@ def test_wire_all_attaches_one_form_listener_without_getcontrol():
     container.addContainerListener.assert_called_once()
     form_lis = [lis for lis in notebook_controls._listener_refs if getattr(lis, "_form_level", False)]
     assert len(form_lis) == 1
+
+
+def test_prune_keeps_container_listener():
+    """Container listener has no _hex_id; prune must keep it and not raise."""
+    ctx = MagicMock()
+    doc = MagicMock()
+    doc.getURL.return_value = "file:///tmp/nb.odt"
+    doc.getRuntimeUID.return_value = "uid-prune-container"
+
+    form = NotebookFormRunListener(ctx, doc)
+    container = NotebookFormContainerListener(form)
+    assert container._hex_id is None
+    assert container._form_level is False
+
+    notebook_controls._listener_refs = [form, container]
+    notebook_controls._wired_form_docs = {form._doc_key_val}
+    notebook_controls._wired_keys = set()
+
+    with patch(
+        "plugin.framework.uno_context.resolve_document_by_url",
+        return_value=(doc, "writer"),
+    ):
+        prune_dead_listeners()
+
+    assert form in notebook_controls._listener_refs
+    assert container in notebook_controls._listener_refs
+    assert form._doc_key_val in notebook_controls._wired_form_docs
+    assert notebook_controls._wired_keys == set()

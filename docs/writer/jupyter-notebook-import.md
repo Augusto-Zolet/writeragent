@@ -43,7 +43,7 @@ WriterAgent and LibrePy can **read** Jupyter notebooks (nbformat v4) and **impor
 | **File → Open** — native `.ipynb` import filter ([`import_filter.py`](../../plugin/notebook/import_filter.py)); TypeDetection registry | Run All / Stop (Phase 2 roadmap); append-into-open-document menu |
 | **Import engine** — [`writer_importer.py`](../../plugin/notebook/writer_importer.py): ATX `#`/`##` headings, `* `/`- ` lists (nested + `<ol start=N>`), `>` blockquotes, `**bold**` / `*italic*`, `[text](url)` hyperlinks, HTML `<img>`/`<a>`, in-flow code fields, output text + images; `zxx` spellcheck-off locale | GFM tables, hover-only play, collapsible cells |
 | **Notebook registry (Phase 0)** — [`cell_registry.py`](../../plugin/notebook/cell_registry.py): `WriterAgentNotebookJson`, stable `cell_id` (UUID), output bookmarks `nb_out_*`, `WriterAgentNotebookSourcePath` | Export back to `.ipynb` (Phase 5 roadmap) |
-| **Run code cell (Phase 1)** — in-flow ▶ **push** button + [`notebook_controls.py`](../../plugin/notebook/notebook_controls.py) + [`notebook_runner.py`](../../plugin/notebook/notebook_runner.py); shared `notebook:…` kernel; re-run **replaces** output (`setString("")`); UI drain on every run | Cell CRUD, sidebar (Phases 3–4 roadmap) |
+| **Run code cell (Phase 1)** — in-flow ▶ **push** button + [`notebook_controls.py`](../../plugin/notebook/notebook_controls.py) + [`notebook_runner.py`](../../plugin/notebook/notebook_runner.py); shared `notebook:…` kernel; re-run **replaces** output (`setString("")`); no VCL pump during execute (LayoutIdle livelock) | Cell CRUD, sidebar (Phases 3–4 roadmap) |
 | **Control lookup** — [`form_lookup.py`](../../plugin/notebook/form_lookup.py) indexes `ControlShape` models on the document draw page (required for wiring ▶ buttons) | Batched background image decode |
 | **Reset Python Session** — clears `notebook:…` kernel for Writer docs with a registry ([`session_manager.py`](../../plugin/scripting/session_manager.py)) | `notebook.enable_interactive` / Settings UI keys |
 | **Output images** — `image/png`, `image/jpeg` in `display_data` / `execute_result` | JSON schema validation (`fastjsonschema`), `traitlets`, `jupyter_core` |
@@ -126,17 +126,19 @@ flowchart TB
 
 ### Phase 1: Single Cell Execution — **Shipped**
 - In-flow ▶ push buttons (`nb_run_{hex}`) with `XActionListener` attached via form controller.
-- Code field retrieval (`read_code_from_field`), execution via `run_blocking_in_thread`.
+- Code field retrieval (`read_code_from_field`), execution via `run_blocking_in_thread(..., pump_idle=False)` (no `processEventsToIdle` during the wait — LayoutIdle livelock).
+- Per-document re-entrancy guard so a second ▶ cannot interleave registry/output mutation.
 - In-place output clearing (`clear_cell_output`) and replacement without paragraph leakage.
 
 ### Phase 2: Run All, Run From Here, Stop — **Planned**
-- **Run All** menu/toolbar action to execute code cells in sequence with UI event drains between cells.
+- **Run All** menu/toolbar action to execute code cells in sequence with UI event drains **between** cells — never `processEventsToIdle` during `execute_code` (same `LayoutIdle` livelock as post-import flush on notebooks with many in-flow form controls).
 - **Run From Here** execution from current selection.
 - **Stop** execution controller with interruption signal to worker thread.
 
 ### Phase 3: Cell CRUD & Re-import Merge — **Planned**
 - Interactive addition, deletion, and reordering of code and markdown cells.
 - Re-import dialog offering overwrite vs. merge choices.
+- Do **not** mutate Standard / Heading 1/2 to `zxx` on append/merge — use notebook-owned styles so the user's document keeps spellcheck. (`_apply_no_spellcheck_for_import` is safe only because File → Open targets a fresh doc.)
 
 ### Phase 4: Notebook Sidebar & Controls — **Planned**
 - Dedicated sidebar panel listing notebook outline, cell status, clear outputs, and kernel status.
@@ -157,6 +159,7 @@ flowchart TB
 | Max outputs per code cell | 200 outputs |
 | Max embedded image size | 8 MB base64 |
 | Execution timeout | `scripting.python_exec_timeout` (default 10s) |
+| Markdown remote images | http(s) `![](url)` fetched at import (2s timeout, 8 MB). No kill-switch yet — see future-work note in [`writer_importer.py`](../../plugin/notebook/writer_importer.py). |
 
 ---
 

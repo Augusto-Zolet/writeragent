@@ -5,7 +5,32 @@
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-"""Import a Jupyter .ipynb into Writer: body text for display, form fields for editable code."""
+"""Import a Jupyter .ipynb into Writer: body text for display, form fields for editable code.
+
+Future work (do not forget — leave these until the matching phase, not drive-bys):
+
+- Markdown ``![](http(s):…)`` is fetched at File → Open (2s timeout, 8MB cap) in
+  ``_fetch_remote_image``. Useful, but opening an untrusted notebook is an
+  attacker-controlled GET. Add a config kill-switch when notebook Settings
+  keys land (Phase 4 ``notebook.enable_interactive``).
+- ``_apply_no_spellcheck_for_import`` sets ``zxx`` on Standard / Heading 1/2.
+  Safe today because File → Open always targets a fresh doc. Phase 3
+  append/merge must use notebook-owned styles so a user's styles keep
+  spellcheck.
+- Code-cell outputs append all text then all images, so a cell whose outputs
+  are ``[display image, print(...)]`` renders out of order. Interleave per
+  output when rewriting ``_import_cells``.
+- ``stats["outputs"]`` calls ``format_output_text`` a second time; derive the
+  count from ``_format_outputs_for_body`` instead.
+- ``_text_area_width_units`` / ``_max_field_height_units`` duplicate page-style
+  lookup — extract a small ``_page_style(doc)`` helper.
+- ``notebook_controls._form_and_container`` uses ``forms.getByIndex(0)``. Fine
+  while import owns the first form; iterate forms (or find ``nb_run_*``) if
+  the document can already have other forms.
+- Phase 2 Run All / Stop: drain **between** cells, never
+  ``processEventsToIdle`` during ``execute_code`` (LayoutIdle livelock on
+  notebooks with many in-flow form controls).
+"""
 
 from __future__ import annotations
 

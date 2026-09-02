@@ -97,7 +97,7 @@ def test_init_registry_execution_counter():
     assert state.next_execution_count == 1
 
 
-def test_execute_code_uses_blocking_pump():
+def test_execute_code_does_not_pump_idle():
     ctx = MagicMock()
     doc = MagicMock()
     worker_result = {"status": "ok", "result": 1, "stdout": ""}
@@ -110,6 +110,7 @@ def test_execute_code_uses_blocking_pump():
         out = execute_code(ctx, doc, "x = 1")
         assert out == worker_result
         pump.assert_called_once()
+        assert pump.call_args.kwargs.get("pump_idle") is False
         run_venv.assert_not_called()
 
 
@@ -153,6 +154,38 @@ def test_run_cell_restores_view_to_cell():
     src = inspect.getsource(run_cell)
     assert "_restore_view_to_cell" in src
     assert src.find("apply_run_result") < src.find("_restore_view_to_cell")
+
+
+def test_run_cell_rejects_reentrant_call():
+    """A nested run_cell (second ▶ while the first is in execute_code) must not
+    increment the execution counter or clobber output."""
+    ctx = MagicMock()
+    cell = new_code_cell_entry(0, None, "nb_cell_0_code")
+    state = NotebookDocState(code_cells=[cell], next_execution_count=5)
+    doc = MagicMock()
+    nested: list[object] = []
+
+    def _reenter(*_a: object, **_k: object) -> dict[str, object]:
+        nested.append(run_cell(ctx, doc, cell.cell_id))
+        return {"status": "ok", "result": None, "stdout": "1\n"}
+
+    with (
+        patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
+        patch("plugin.notebook.notebook_runner.read_code_from_field", return_value="print(1)"),
+        patch("plugin.notebook.notebook_runner.execute_code", side_effect=_reenter),
+        patch("plugin.notebook.notebook_runner.clear_cell_output"),
+        patch("plugin.notebook.notebook_runner.apply_run_result"),
+        patch("plugin.notebook.notebook_runner.update_in_prompt"),
+        patch("plugin.notebook.notebook_runner.save_registry") as save_reg,
+    ):
+        result = run_cell(ctx, doc, cell.cell_id)
+
+    assert result.status == "ok"
+    assert result.execution_count == 5
+    assert len(nested) == 1
+    assert getattr(nested[0], "status") == "busy"
+    assert state.next_execution_count == 6
+    save_reg.assert_called_once_with(doc, state)
 
 
 def test_run_cell_empty_code():
