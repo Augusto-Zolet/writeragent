@@ -236,14 +236,12 @@ def write_all_pareto_svgs(
     *,
     docs_eval_dir: Path,
 ) -> list[Path]:
-    """Write fronts, distance, and legacy pareto-frontier SVGs."""
+    """Write fronts and distance SVGs."""
     fronts_path = docs_eval_dir / "pareto-fronts.svg"
     distance_path = docs_eval_dir / "pareto-distance.svg"
-    legacy_path = docs_eval_dir / "pareto-frontier.svg"
     write_pareto_fronts_svg(summaries, fronts_path)
     write_pareto_distance_svg(summaries, distance_path)
-    write_pareto_fronts_svg(summaries, legacy_path)
-    return [fronts_path, distance_path, legacy_path]
+    return [fronts_path, distance_path]
 
 
 def main(argv: list[str] | None = None) -> int:

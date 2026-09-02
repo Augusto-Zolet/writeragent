@@ -244,6 +244,27 @@ def pareto_f1_distances(summaries: list[dict[str, Any]]) -> dict[int, float]:
     return distances
 
 
+def pareto_tradeoff_scores(summaries: list[dict[str, Any]]) -> dict[int, float]:
+    """Inverted F1 distance in normalized plot space (1.0 = on frontier, lower = worse tradeoff)."""
+    return {
+        row_id: max(0.0, 1.0 - dist) for row_id, dist in pareto_f1_distances(summaries).items()
+    }
+
+
+def _sort_tradeoff_display(
+    summaries: list[dict[str, Any]],
+    scores: dict[int, float],
+) -> None:
+    """Eligible rows by descending tradeoff score, then cost, then correctness."""
+    summaries.sort(
+        key=lambda row: (
+            -scores.get(id(row), -1.0),
+            float(row.get("avg_cost_per_example") or 0.0),
+            -float(row.get("avg_correctness") or 0.0),
+        )
+    )
+
+
 def _sort_pareto_display(summaries: list[dict[str, Any]]) -> None:
     """Frontier first, then dominated, then unavailable; cheaper then more correct."""
     summaries.sort(

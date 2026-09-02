@@ -195,3 +195,27 @@ def test_pareto_f1_distance_zero_and_ordering() -> None:
     assert distances[id(cheap)] == 0.0
     assert distances[id(better)] == 0.0
     assert distances[id(near)] < distances[id(far)]
+
+
+def test_pareto_tradeoff_score_f1_is_one() -> None:
+    cheap = _pareto_row(openrouter_id="oss", avg_correctness=0.971, avg_cost_per_example=0.00054)
+    better = _pareto_row(openrouter_id="grok", avg_correctness=0.982, avg_cost_per_example=0.04653)
+    summaries = [cheap, better]
+    run_eval_multi.annotate_pareto_fronts(summaries)
+    scores = run_eval_multi.pareto_tradeoff_scores(summaries)
+    assert scores[id(cheap)] == 1.0
+    assert scores[id(better)] == 1.0
+
+
+def test_pareto_tradeoff_score_decreases_with_distance() -> None:
+    cheap = _pareto_row(openrouter_id="oss", avg_correctness=0.971, avg_cost_per_example=0.00054)
+    better = _pareto_row(openrouter_id="grok", avg_correctness=0.982, avg_cost_per_example=0.04653)
+    near = _pareto_row(openrouter_id="near", avg_correctness=0.90, avg_cost_per_example=0.002)
+    far = _pareto_row(openrouter_id="far", avg_correctness=0.60, avg_cost_per_example=0.02)
+    summaries = [cheap, better, near, far]
+    run_eval_multi.annotate_pareto_fronts(summaries)
+    distances = run_eval_multi.pareto_f1_distances(summaries)
+    scores = run_eval_multi.pareto_tradeoff_scores(summaries)
+    assert scores[id(near)] > scores[id(far)]
+    for row_id, dist in distances.items():
+        assert scores[row_id] == max(0.0, 1.0 - dist)

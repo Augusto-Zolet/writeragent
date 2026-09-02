@@ -96,7 +96,7 @@ def test_plot_writes_fronts_and_distance_svgs(tmp_path: Path) -> None:
     summaries = plot_pareto.load_eligible_summaries(src)
     out_dir = tmp_path / "eval"
     written = plot_pareto.write_all_pareto_svgs(summaries, docs_eval_dir=out_dir)
-    assert len(written) == 3
+    assert len(written) == 2
     for path in written:
         assert path.exists()
         assert path.read_text(encoding="utf-8").startswith("<?xml")
