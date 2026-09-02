@@ -104,36 +104,36 @@ For detailed setup instructions, see the **[Install and Troubleshooting Guide](d
 
 ## Benchmarks & Evaluation
 
-An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer, Calc, and Draw tasks. The **2026-09-01 snapshot** compares models on **correctness vs cost** (Pareto), not a single composite score. **Tradeoff** (0–1) measures how close a model is to the best cost–quality frontier (1.0 = optimal; lower = paying too much and/or getting too little). Methodology: [docs/eval/benchmarks.md](docs/eval/benchmarks.md).
+An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer, Calc, and Draw tasks. The **2026-09-01 snapshot** (17-task string harness) ranks models by **Value** — correctness² ÷ average $/task (higher is better). **Correctness** is task accuracy (0–1). Methodology and cost–quality charts: [docs/eval/benchmarks.md](docs/eval/benchmarks.md).
 
 **Excluded (3 of 23 models):** `nvidia/nemotron-3.5-lightning` and `qwen/qwen3.8-flash` (429 rate limits); `minimax/minimax-m3` (harness issue — [stream-normalizer-delta-crash.md](docs/eval/stream-normalizer-delta-crash.md), re-run later).
 
 ![Cost–quality Pareto fronts](docs/eval/pareto-fronts.svg)
 
-Distance-to-frontier view: [docs/eval/pareto-distance.svg](docs/eval/pareto-distance.svg) (color = slack from F1, i.e. 1 − Tradeoff).
+Distance-to-frontier view: [docs/eval/pareto-distance.svg](docs/eval/pareto-distance.svg).
 
-| Tradeoff | Model | Correctness | Score | Tokens | $/task |
-| -------- | ----- | ----------- | ----- | ------ | ------ |
-| 1.000 | openai/gpt-oss-120b | 0.971 | 0.848 | 12263 | 0.00054 |
-| 1.000 | x-ai/grok-4.6 | 0.982 | 0.776 | 20647 | 0.04653 |
-| 0.885 | deepseek/deepseek-v4-flash-0731 | 0.928 | 0.699 | 48581 | 0.00389 |
-| 0.878 | meta/muse-glimmer-30b | 0.928 | 0.668 | 27899 | 0.01078 |
-| 0.868 | openai/gpt-5.6-luna | 0.922 | 0.743 | 21376 | 0.00512 |
-| 0.864 | google/gemma-4-31b-it | 0.918 | 0.781 | 16844 | 0.00162 |
-| 0.858 | qwen/qwen3.8-27b | 0.922 | 0.601 | 41809 | 0.02460 |
-| 0.847 | z-ai/glm-5.3-flash | 0.913 | 0.701 | 40361 | 0.00412 |
-| 0.753 | meta/muse-spark-1.2-contributor | 0.874 | 0.664 | 29419 | 0.00330 |
-| 0.607 | inception/mercury-2 | 0.814 | 0.704 | 14267 | 0.00397 |
-| 0.575 | ibm-granite/granite-4.2-8b | 0.802 | 0.437 | 66636 | 0.00735 |
-| 0.570 | bytedance-seed/seed-2.0-mini | 0.800 | 0.604 | 37491 | 0.00601 |
-| 0.497 | poolside/laguna-xs-2.1 | 0.767 | 0.591 | 35088 | 0.00216 |
-| 0.334 | poolside/laguna-s-2.1 | 0.700 | 0.531 | 21250 | 0.00216 |
-| 0.315 | z-ai/glm-5.3 | 0.702 | 0.486 | 33578 | 0.06972 |
-| 0.311 | openai/gpt-oss-20b | 0.687 | 0.591 | 16062 | 0.00065 |
-| 0.300 | google/gemini-3.5-flash-lite | 0.688 | 0.576 | 14130 | 0.00495 |
-| 0.299 | upstage/solar-pro4 | 0.682 | 0.534 | 20429 | 0.00065 |
-| 0.145 | google/gemma-4-26b-a4b-it | 0.621 | 0.489 | 19992 | 0.00152 |
-| 0.020 | mistralai/mistral-small-2603 | 0.571 | 0.489 | 13614 | 0.00214 |
+| Model | Correctness | Value |
+| ----- | ----------- | ----- |
+| openai/gpt-oss-120b | 0.971 | 1755 |
+| openai/gpt-oss-20b | 0.687 | 725 |
+| upstage/solar-pro4 | 0.682 | 719 |
+| google/gemma-4-31b-it | 0.918 | 520 |
+| poolside/laguna-xs-2.1 | 0.767 | 272 |
+| google/gemma-4-26b-a4b-it | 0.621 | 255 |
+| meta/muse-spark-1.2-contributor | 0.874 | 231 |
+| poolside/laguna-s-2.1 | 0.700 | 227 |
+| deepseek/deepseek-v4-flash-0731 | 0.928 | 221 |
+| z-ai/glm-5.3-flash | 0.913 | 202 |
+| inception/mercury-2 | 0.814 | 167 |
+| openai/gpt-5.6-luna | 0.922 | 166 |
+| mistralai/mistral-small-2603 | 0.571 | 152 |
+| bytedance-seed/seed-2.0-mini | 0.800 | 107 |
+| google/gemini-3.5-flash-lite | 0.688 | 96 |
+| ibm-granite/granite-4.2-8b | 0.802 | 88 |
+| meta/muse-glimmer-30b | 0.928 | 80 |
+| qwen/qwen3.8-27b | 0.922 | 35 |
+| x-ai/grok-4.6 | 0.982 | 21 |
+| z-ai/glm-5.3 | 0.702 | 7 |
 
 ---
 
