@@ -126,6 +126,21 @@ def test_transport_connection_retry_stop_during_wait():
     assert action == "stop"
 
 
+def test_transport_send_uses_free_pacing_key_for_openrouter_free():
+    transport = LlmHttpTransport(lambda: "https://openrouter.ai/api/v1", lambda: 60)
+    mock_conn = MagicMock()
+    with patch("plugin.framework.client.http_transport.wait_host_gap", return_value=True) as wait:
+        transport.send(
+            "POST",
+            "/api/v1/chat/completions",
+            b'{"model": "openrouter/free"}',
+            headers={"Content-Type": "application/json"},
+            connection_getter=lambda: mock_conn,
+        )
+    wait.assert_called_once()
+    assert wait.call_args[0][0] == "openrouter.ai:free"
+
+
 def test_transport_send_stop_during_host_gap_raises_stopped():
     transport = LlmHttpTransport(lambda: "https://api.openai.com", lambda: 60)
     with patch("plugin.framework.client.http_transport.wait_host_gap", return_value=False):

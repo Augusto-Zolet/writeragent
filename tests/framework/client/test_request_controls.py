@@ -3,16 +3,21 @@ import email.utils
 import ssl
 
 from plugin.framework.client.request_controls import (
+    OPENROUTER_FREE_MIN_GAP_SEC,
     LocalHttpsCertificateFallback,
     RequestPacer,
     backoff_delay_sec,
     clear_host_gap,
     emit_retry_status,
+    ensure_free_model_pacing,
     format_retry_wait_status,
+    is_openrouter_free_model,
     mark_host_sent,
+    pacing_key,
     parse_retry_after,
     remaining_host_gap,
     remember_host_gap,
+    request_model_from_body,
     reset_host_pacing_for_tests,
     wait_abortable,
 )
@@ -116,6 +121,40 @@ def test_wait_abortable_stops_without_sleeping_remainder():
 def test_format_retry_wait_status_rounds_seconds():
     assert "0.3s" in format_retry_wait_status(0.3)
     assert "2s" in format_retry_wait_status(1.6)
+
+
+def test_openrouter_free_pacing_key_covers_suffix_and_auto_router():
+    assert is_openrouter_free_model("deepseek/deepseek-r1:free")
+    assert is_openrouter_free_model("openrouter/free")
+    assert not is_openrouter_free_model("openai/gpt-oss-120b")
+    assert pacing_key("openrouter.ai", "deepseek/deepseek-r1:free") == "openrouter.ai:free"
+    assert pacing_key("openrouter.ai", "openrouter/free") == "openrouter.ai:free"
+    assert pacing_key("openrouter.ai", "openai/gpt-oss-120b") == "openrouter.ai"
+
+
+def test_openrouter_free_floor_survives_clear_and_yields_to_larger_429():
+    clock = {"t": 100.0}
+
+    def now() -> float:
+        return clock["t"]
+
+    key = ensure_free_model_pacing("openrouter.ai", "openrouter/free")
+    assert key == "openrouter.ai:free"
+    mark_host_sent(key, monotonic=now)
+    clock["t"] = 101.0
+    assert remaining_host_gap(key, monotonic=now) == OPENROUTER_FREE_MIN_GAP_SEC - 1.0
+    remember_host_gap(key, 10.0)
+    assert remaining_host_gap(key, monotonic=now) == 9.0
+    clear_host_gap(key)
+    assert remaining_host_gap(key, monotonic=now) == OPENROUTER_FREE_MIN_GAP_SEC - 1.0
+    clear_host_gap("openrouter.ai")
+    assert remaining_host_gap("openrouter.ai", monotonic=now) == 0.0
+
+
+def test_request_model_from_body_reads_model_field():
+    assert request_model_from_body(b'{"model": "openrouter/free"}') == "openrouter/free"
+    assert request_model_from_body('{"model": "foo:free"}') == "foo:free"
+    assert request_model_from_body(b"not-json") is None
 
 
 def test_host_gap_is_sticky_until_first_try_success():

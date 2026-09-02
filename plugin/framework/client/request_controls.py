@@ -21,6 +21,7 @@ re-hitting a busy local server. OpenClaw does not persist the gap; we do.
 
 import datetime
 import email.utils
+import json
 import logging
 import math
 import random
@@ -157,9 +158,53 @@ def wait_abortable(
 # Process-wide spacing after a retry: keyed by host so chat, grammar, and
 # Calc =PROMPT() share one cooldown. last_sent starts unset so the first
 # request of a session is never delayed by a stale epoch of 0.
+# OpenRouter :free / openrouter/free are 20 rpm; those jobs use ``{host}:free``
+# so paid OpenRouter traffic is not slowed.
+OPENROUTER_FREE_MIN_GAP_SEC = 3.0
 _host_gap_lock = threading.Lock()
 _host_gap_sec: dict[str, float] = {}
 _host_last_sent: dict[str, float] = {}
+
+
+def is_openrouter_free_model(model: str | None) -> bool:
+    mid = str(model or "").strip()
+    # Catalog auto-router is ``openrouter/free``; per-model free variants end in ``:free``.
+    return bool(mid) and (mid.endswith(":free") or mid == "openrouter/free")
+
+
+def pacing_key(host: str, model: str | None = None) -> str:
+    """Host key for gap maps; ``{host}:free`` for OpenRouter free models."""
+    if host and is_openrouter_free_model(model):
+        return f"{host}:free"
+    return host
+
+
+def request_model_from_body(body: object) -> str | None:
+    """Read the chat ``model`` field from a JSON request body."""
+    if isinstance(body, bytes):
+        raw: str | bytes = body
+    elif isinstance(body, str):
+        raw = body
+    else:
+        return None
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except (ValueError, TypeError, UnicodeDecodeError):
+        return None
+    if isinstance(payload, dict):
+        model = payload.get("model")
+        return model if isinstance(model, str) else None
+    return None
+
+
+def ensure_free_model_pacing(host: str, model: str | None) -> str:
+    """Return the pacing key and seed the 3s :free floor when applicable."""
+    key = pacing_key(host, model)
+    if is_openrouter_free_model(model):
+        remember_host_gap(key, OPENROUTER_FREE_MIN_GAP_SEC)
+    return key
 
 
 def reset_host_pacing_for_tests() -> None:
@@ -184,11 +229,17 @@ def remember_host_gap(host: str, delay_sec: float) -> None:
 
 
 def clear_host_gap(host: str) -> None:
-    """Drop a learned gap after a first-try success (server is no longer busy)."""
+    """Drop a learned gap after a first-try success (server is no longer busy).
+
+    ``:free`` keys keep the 20 rpm floor so a 200 does not return to bursting.
+    """
     if not host:
         return
     with _host_gap_lock:
-        _host_gap_sec.pop(host, None)
+        if host.endswith(":free"):
+            _host_gap_sec[host] = OPENROUTER_FREE_MIN_GAP_SEC
+        else:
+            _host_gap_sec.pop(host, None)
 
 
 def mark_host_sent(host: str, *, monotonic: Callable[[], float] | None = None) -> None:

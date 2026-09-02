@@ -101,6 +101,7 @@ from .request_controls import (
     backoff_delay_sec,
     clear_host_gap,
     emit_retry_status,
+    pacing_key,
     parse_retry_after,
     remember_host_gap,
     wait_abortable,
@@ -254,7 +255,7 @@ class LlmClient:
         if response.status in RETRYABLE_HTTP_STATUS and retries_left > 0 and not emitted_any:
             retry_after = parse_retry_after(response.getheader("Retry-After"))
             delay = backoff_delay_sec(attempt=attempt, retry_after_sec=retry_after)
-            remember_host_gap(self._current_host(), delay)
+            remember_host_gap(pacing_key(self._current_host(), request_model), delay)
             log.warning(
                 "Retrying HTTP %s after %.3fs (Retry-After=%s attempt=%s left=%s)",
                 response.status,
@@ -645,7 +646,7 @@ class LlmClient:
                     continue
 
                 if wait_index == 0:
-                    clear_host_gap(self._current_host())
+                    clear_host_gap(pacing_key(self._current_host(), _request_model_from_body(body)))
 
                 try:
                     # Use a flag to stop logical processing but keep reading to exhaust the stream
@@ -1046,7 +1047,7 @@ class LlmClient:
                             }
                         continue
                     if wait_index == 0:
-                        clear_host_gap(self._current_host())
+                        clear_host_gap(pacing_key(self._current_host(), _request_model_from_body(body)))
                     from plugin.framework.errors import safe_json_loads
 
                     result = safe_json_loads(response.read().decode("utf-8"))

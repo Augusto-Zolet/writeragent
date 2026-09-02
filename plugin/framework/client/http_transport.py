@@ -32,8 +32,10 @@ from .request_controls import (
     RequestPacer,
     backoff_delay_sec,
     emit_retry_status,
+    ensure_free_model_pacing,
     mark_host_sent,
     remember_host_gap,
+    request_model_from_body,
     wait_abortable,
     wait_host_gap,
 )
@@ -137,7 +139,8 @@ class LlmHttpTransport:
     ) -> http.client.HTTPResponse:
         """Send one request on the persistent connection and return its response."""
         host = self.current_host()
-        if not wait_host_gap(host, stop_checker, status_callback):
+        key = ensure_free_model_pacing(host, request_model_from_body(body))
+        if not wait_host_gap(key, stop_checker, status_callback):
             raise NetworkError("LLM request aborted by Stop", code="STOPPED")
         conn = connection_getter() if connection_getter is not None else self.get_connection()
         self._pacer.wait_before_send()
@@ -147,7 +150,7 @@ class LlmHttpTransport:
             headers["User-Agent"] = USER_AGENT
         conn.request(method, path, body=body, headers=headers)
         self._pacer.mark_sent()
-        mark_host_sent(host)
+        mark_host_sent(key)
         return conn.getresponse()
 
     def enable_local_ssl_fallback(self, err: Exception) -> bool:
