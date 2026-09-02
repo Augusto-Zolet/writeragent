@@ -1,40 +1,52 @@
 # LLM Evaluation Suite & Benchmarks
 
-WriterAgent includes an in-LibreOffice **LLM Evaluation Suite** for real-world tasks in Writer, Calc, and Draw. Runs track accuracy and **Intelligence-per-Dollar**: **Value (C²/$)** = average correctness squared ÷ average dollars per run (higher is better), using live OpenRouter pricing where available.
+WriterAgent includes an in-LibreOffice **LLM Evaluation Suite** for real-world tasks in Writer, Calc, and Draw. Runs track accuracy and **Intelligence-per-Dollar**: **Value (C²/$)** = average metric score squared ÷ average dollars per task (higher is better), using live OpenRouter pricing where available.
 
 How to run evals from the repo: [scripts/prompt_optimization/README.md](../../scripts/prompt_optimization/README.md). Broader plan notes: [eval-dev-plan.md](eval-dev-plan.md). String harness (no LO ranking): [string-harness-upgrade.md](string-harness-upgrade.md).
 
-## Snapshot ranking (Apr 2026)
+## Snapshot ranking (2026-09-01)
 
-Apr 2026 snapshot on the **old 8-task Writer pack** — slugs, prices, and scores are not a baseline for the current 17-task harness. Current default eval models live in [`scripts/prompt_optimization/model_configs.py`](../../scripts/prompt_optimization/model_configs.py).
+**17-task string harness** (`--backend string`, OpenRouter). First pass on the hardened pack (Writer + Draw flowchart + Calc sort/tax + two `=PY` dest rows). Not LO-backed — fidelity smoke only.
 
-| Rank | Model | Avg correctness | Avg score | Avg tokens | Avg cost ($) | Value (C²/$) |
-| ---- | -------------------------------------- | --------------- | --------- | ---------- | ------------ | ------------ |
-| 1 | openai/gpt-oss-120b | 0.980 | 0.942 | 3767.1 | 0.00025 | 3827.240 |
-| 2 | google/gemini-3-flash-preview | 0.890 | 0.860 | 2957.2 | 0.00035 | 2234.257 |
-| 3 | qwen/qwen3.5-9b | 0.730 | 0.691 | 4645.0 | 0.00050 | 1068.806 |
-| 4 | nvidia/nemotron-3-nano-30b-a3b | 0.922 | 0.851 | 7195.5 | 0.00082 | 1037.536 |
-| 5 | mistralai/devstral-2512 | 0.980 | 0.950 | 3000.8 | 0.00154 | 623.434 |
-| 6 | inception/mercury-2 | 0.948 | 0.896 | 5150.9 | 0.00160 | 562.405 |
-| 7 | minimax/minimax-m2.7 | 0.990 | 0.943 | 4671.9 | 0.00191 | 512.581 |
-| 8 | deepseek/deepseek-v3.2 | 0.985 | 0.909 | 7575.4 | 0.00206 | 470.222 |
-| 9 | qwen/qwen3.5-35b-a3b | 0.990 | 0.933 | 5671.1 | 0.00220 | 445.760 |
-| 10 | x-ai/grok-4.1-fast | 0.950 | 0.886 | 6431.9 | 0.00204 | 442.733 |
-| 11 | qwen/qwen3.5-27b | 0.993 | 0.942 | 5049.9 | 0.00259 | 380.538 |
-| 12 | qwen/qwen3.5-122b-a10b | 0.990 | 0.950 | 3958.8 | 0.00308 | 318.312 |
-| 13 | nvidia/nemotron-3-super-120b-a12b:free | 0.757 | 0.696 | 6388.4 | 0.00181 | 317.859 |
-| 14 | allenai/olmo-3.1-32b-instruct | 0.323 | 0.306 | 1912.4 | 0.00046 | 226.704 |
-| 15 | z-ai/glm-5.1 | 0.890 | 0.843 | 4677.8 | 0.00524 | 151.141 |
+Artifacts: [`scripts/prompt_optimization/benchmark_results.json`](../../scripts/prompt_optimization/benchmark_results.json) and `benchmark_results_details.json`. Failure triage: [benchmark-failure-analysis-2026-09-01.md](benchmark-failure-analysis-2026-09-01.md).
 
-## Key insights from that snapshot
+**Excluded (3 of 23 models):** `nvidia/nemotron-3.5-lightning` and `qwen/qwen3.8-flash` (429 rate limits on all tasks); `minimax/minimax-m3` (harness crash on `format_preservation` — [stream-normalizer-delta-crash.md](stream-normalizer-delta-crash.md), re-run after fix).
 
-1. **Verbosity vs cost**: Qwen 3.5-35B-A3B used more tokens than Qwen 3.5-122B-A10B but still scored higher Value (C²/$) because average $/run was lower. Token count alone does not determine dollar efficiency.
-2. **C² punishes unreliable cheap runs**: Low correctness (e.g. OLMo ~0.32) collapses value even at low cost; “free” models with middling correctness also underperform on this metric.
-3. **Value leader**: `openai/gpt-oss-120b` paired high correctness (~0.98) with very low average cost (~$0.00025). Gemini 3 Flash was a strong second.
-4. **Near-ceiling mid-pack**: Qwen 3.5-27B (~0.993 correctness) and Grok 4.1 Fast (~0.95) remain useful accuracy-first picks when cheaper high-Value models dominate the ranking.
+Ranked by **hard pass → agent score → metric**. **Hard pass** = document substring + result oracles + process oracles, no API error. **Agent** = same gate including tool-process checks. **Quality** = LLM judge among creative/table passes only.
+
+| Rank | Model | Hard pass | Agent | Correctness | Quality | Tokens/task | $/task | C²/$ |
+| ---- | ----- | --------- | ----- | ----------- | ------- | ----------- | ------ | ---- |
+| 1 | openai/gpt-oss-120b | 1.000 | 1.000 | 0.971 | 0.90 | 12263 | 0.00054 | 1339.5 |
+| 2 | x-ai/grok-4.6 | 1.000 | 1.000 | 0.982 | 0.94 | 20647 | 0.04653 | 12.9 |
+| 3 | google/gemma-4-31b-it | 0.941 | 0.941 | 0.918 | 0.90 | 16844 | 0.00162 | 376.2 |
+| 4 | openai/gpt-5.6-luna | 0.941 | 0.941 | 0.922 | 0.94 | 21376 | 0.00512 | 107.7 |
+| 5 | z-ai/glm-5.3-flash | 0.941 | 0.941 | 0.913 | 0.90 | 40361 | 0.00412 | 119.3 |
+| 6 | deepseek/deepseek-v4-flash-0731 | 0.941 | 0.941 | 0.928 | 0.96 | 48581 | 0.00389 | 125.5 |
+| 7 | meta/muse-glimmer-30b | 0.941 | 0.941 | 0.928 | 0.96 | 27899 | 0.01078 | 41.4 |
+| 8 | meta/muse-spark-1.2-contributor | 0.882 | 0.882 | 0.874 | 0.96 | 29419 | 0.00330 | 133.6 |
+| 9 | qwen/qwen3.8-27b | 0.882 | 0.882 | 0.922 | 0.92 | 41809 | 0.02460 | 14.7 |
+| 10 | inception/mercury-2 | 0.824 | 0.824 | 0.814 | 0.97 | 14267 | 0.00397 | 124.6 |
+| 11 | bytedance-seed/seed-2.0-mini | 0.824 | 0.824 | 0.800 | 0.90 | 37491 | 0.00601 | 60.7 |
+| 12 | poolside/laguna-xs-2.1 | 0.824 | 0.824 | 0.767 | 0.81 | 35088 | 0.00216 | 161.9 |
+| 13 | ibm-granite/granite-4.2-8b | 0.765 | 0.765 | 0.802 | 0.93 | 66636 | 0.00735 | 26.0 |
+| 14 | openai/gpt-oss-20b | 0.706 | 0.706 | 0.687 | 0.89 | 16062 | 0.00065 | 537.4 |
+| 15 | upstage/solar-pro4 | 0.706 | 0.706 | 0.682 | 0.90 | 20429 | 0.00065 | 440.4 |
+| 16 | google/gemini-3.5-flash-lite | 0.647 | 0.647 | 0.688 | 0.93 | 14130 | 0.00495 | 67.0 |
+| 17 | poolside/laguna-s-2.1 | 0.647 | 0.647 | 0.700 | 0.90 | 21250 | 0.00216 | 130.2 |
+| 18 | google/gemma-4-26b-a4b-it | 0.647 | 0.647 | 0.621 | 0.89 | 19992 | 0.00151 | 157.9 |
+| 19 | z-ai/glm-5.3 | 0.647 | 0.647 | 0.702 | 0.97 | 33578 | 0.06972 | 3.4 |
+| 20 | mistralai/mistral-small-2603 | 0.588 | 0.588 | 0.571 | 0.85 | 13614 | 0.00214 | 111.4 |
+
+## Key insights
+
+1. **Perfect hard pass:** `openai/gpt-oss-120b` and `x-ai/grok-4.6` cleared every task on the hard gate. Grok leads on raw correctness; gpt-oss-120b dominates **C²/$** (~$0.0005/task).
+2. **Mid-tier cluster:** Gemma 4 31B, GPT-5.6 Luna, GLM 5.3 Flash, DeepSeek V4 Flash, and Muse Glimmer sit at ~94% hard pass — strong cost/quality tradeoffs below the top two.
+3. **Calc/oracle hotspots:** `tax_column`, `data_sorting`, and `flowchart_gen` separated the middle from the bottom; most failures are model-side (wrong formulas, incomplete diagrams), not harness bugs.
+4. **Do not read 429 zeros:** Nemotron 3.5 Lightning and Qwen3.8 Flash scored 0% only because OpenRouter rate-limited every task — excluded above.
+5. **MiniMax M3 held out:** One task hit a streaming normalizer contract bug; re-run after [stream-normalizer-delta-crash.md](stream-normalizer-delta-crash.md) is fixed.
 
 ## Scoring approach
 
-Structural tasks are scored from the **exported final document** (HTML / Draw tree / Calc grid) via result oracles — not tool-name traces. Creative tasks (resume, logical rewriting, summarization) still use an LLM judge (default `openai/gpt-oss-120b:nitro`; the retired `x-ai/grok-4.1-fast` 404s) plus gold references in `gold_standards.json` (hand-written from the rubrics). That separates fast “Flash” models from frontier models with better taste for professional documents.
+Structural tasks are scored from the **exported final document** (HTML / Draw tree / Calc grid) via result oracles — not tool-name traces. Creative tasks (resume, logical rewriting, summarization) and the two table tasks use an LLM judge (default `openai/gpt-oss-120b:nitro`) plus gold references in `gold_standards.json` (hand-written from the rubrics).
 
 **Fine-tuning direction:** the same eval signal (correct vs incorrect tool use, minimal vs verbose traces) could train a smaller specialist for this tool distribution—fewer tokens at similar correctness, better Value (C²/$).

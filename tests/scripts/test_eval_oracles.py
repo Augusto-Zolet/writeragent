@@ -69,12 +69,18 @@ _TAX_GOOD = json.dumps(
         "status": "ok",
         "snapshot": True,
         "headers": ["Item", "Price", "Tax"],
+        "formulas": {
+            "C2": "=B2*0.08",
+            "C3": "=B3*0.08",
+            "C4": "=B4*0.08",
+            "C5": "=B5*0.08",
+        },
         "grid": [
             ["Item", "Price", "Tax"],
-            ["Apple", 10, 0.8],
-            ["Banana", 5, 0.4],
-            ["Orange", 8, 0.64],
-            ["Pear", 12.5, 1.0],
+            ["Apple", 10, "=B2*0.08"],
+            ["Banana", 5, "=B3*0.08"],
+            ["Orange", 8, "=B4*0.08"],
+            ["Pear", 12.5, "=B5*0.08"],
             ["Note", "n/a", ""],
             ["Total", "?", ""],
         ],
@@ -87,10 +93,10 @@ _TAX_BAD = json.dumps(
         "headers": ["Item", "Price", "Tax"],
         "grid": [
             ["Item", "Price", "Tax"],
-            ["Apple", 10, 1.0],
-            ["Banana", 5, 0.5],
-            ["Orange", 8, 0.8],
-            ["Pear", 12.5, 1.25],
+            ["Apple", 10, 0.99],
+            ["Banana", 5, 0.99],
+            ["Orange", 8, 0.99],
+            ["Pear", 12.5, 0.99],
         ],
     }
 )
@@ -174,8 +180,8 @@ def test_good_fixtures_pass(task_id: str, doc: str) -> None:
         ),
         (
             "bullet_consistency",
-            _BULLET_CONSISTENCY.replace("- First thing.", "* First thing"),
-            "hyphen+period or <li>",
+            _BULLET_CONSISTENCY.replace("Pack the crate.", "Skip the crate."),
+            "Pack the crate",
         ),
         (
             "section_refactor",
@@ -183,7 +189,7 @@ def test_good_fixtures_pass(task_id: str, doc: str) -> None:
             "Conclusion",
         ),
         ("data_sorting", _SORT_BAD, "sort order"),
-        ("tax_column", _TAX_BAD, "8%"),
+        ("tax_column", _TAX_BAD, "wrong Tax"),
         ("logical_rewriting", _LOGICAL_REWRITING.replace("WriterAgent", "LocalWriter"), "LocalWriter"),
         ("flowchart_gen", json.dumps({"status": "ok", "tree": [{"text": "Start"}]}), "login"),
         (
@@ -228,7 +234,7 @@ def test_good_fixtures_pass(task_id: str, doc: str) -> None:
             ),
             "[note]",
         ),
-        ("py_refuse_overlap", _PY_BAD, "inside"),
+        ("py_refuse_overlap", _PY_BAD, "overlap"),
         (
             "style_consistency",
             _STYLE_CONSISTENCY.replace("data-lo-style=\"Quotations\"", ""),
@@ -282,8 +288,127 @@ def test_empty_doc_fails_structural() -> None:
     assert check_oracle("bulk_cleanup", "hello")
 
 
+def test_section_refactor_accepts_heading1_paragraph() -> None:
+    doc = (
+        '<p data-lo-style="Heading1">Introduction</p>'
+        "<p>Background info here.</p>"
+        '<p data-lo-style="Heading1">Goal</p>'
+        "<p>Final thoughts and call to action.</p>"
+        '<p data-lo-style="Heading1">Body</p>'
+        "<p>Main content goes here. See the Goal for next steps.</p>"
+    )
+    assert check_oracle("section_refactor", doc) == []
+
+
+def test_logical_rewriting_accepts_unicode_hyphen() -> None:
+    doc = "<p>WriterAgent 2.0 Dual-Mode uses G\u2011Eval and Prometheus.</p>"
+    assert check_oracle("logical_rewriting", doc) == []
+
+
+def test_tax_numeric_values_fail() -> None:
+    fails = check_oracle("tax_column", _TAX_BAD)
+    assert any("wrong" in f.lower() for f in fails)
+
+
+def test_bullet_consistency_accepts_unicode_bullet() -> None:
+    doc = (
+        "<p>• Pack the crate.</p>"
+        "<p>• Ship to Oslo.</p>"
+        "<p>• Call the depot.</p>"
+        "<p>• Label the pallet.</p>"
+        "<p>• Sweep the bay.</p>"
+        "<p>• File the docket.</p>"
+        "<p>• Seal the hatch.</p>"
+        "<p>Note: do not bullet this line</p>"
+    )
+    assert check_oracle("bullet_consistency", doc) == []
+
+
+def test_bullet_consistency_accepts_asterisk_list() -> None:
+    doc = (
+        "<p>* Pack the crate.</p>"
+        "<p>* Ship to Oslo.</p>"
+        "<p>* Call the depot.</p>"
+        "<p>* Label the pallet.</p>"
+        "<p>* Sweep the bay.</p>"
+        "<p>* File the docket.</p>"
+        "<p>* Seal the hatch.</p>"
+        "<p>Note: do not bullet this line</p>"
+    )
+    assert check_oracle("bullet_consistency", doc) == []
+    from dataset import ALL_EXAMPLES
+    from eval_core import _correctness_breakdown
+    from types import SimpleNamespace
+
+    ex = next(e for e in ALL_EXAMPLES if e["task_id"] == "bullet_consistency")
+    example = SimpleNamespace(**ex)
+    score, missing, found_reject, oracle_failures = _correctness_breakdown(example, doc)
+    assert oracle_failures == []
+    assert found_reject == []
+    assert score == 1.0
+
+
+def test_bulk_cleanup_quoted_inner_space_is_cleaned() -> None:
+    doc = (
+        "<p>This sentence has extra spaces. So does this one.</p>"
+        "<p>Another paragraph here, with spaces before commas. "
+        "Fix all double spaces and ensure one space after sentences.</p>"
+        '<p>https://example.com/test with URL. "Quoted text" should stay intact.</p>'
+        "<p>Too many line breaks above. Normalize to single paragraph breaks. "
+        "Also fix this one with trailing period.</p>"
+        "<p>CMD: git  log  --oneline</p>"
+    )
+    assert check_oracle("bulk_cleanup", doc) == []
+
+
 def test_py_dest_i1_document_oracle() -> None:
     assert check_oracle("py_refuse_overlap", _PY_GOOD.replace("J1", "I1")) == []
+
+
+def test_py_dest_accepts_fixture_a1_c8() -> None:
+    doc = _PY_GOOD.replace("A1:H500", "A1:C8")
+    assert check_oracle("py_no_bulk_read", doc) == []
+
+
+def test_py_dest_d1_with_a1_c8() -> None:
+    doc = (
+        _PY_GOOD.replace("J1", "D1")
+        .replace("A1:H500", "A1:C8")
+    )
+    assert check_oracle("py_no_bulk_read", doc) == []
+
+
+def test_tax_fill_down_blob_passes() -> None:
+    blob = "=B2*0.08\n=B3*0.08\n=B4*0.08\n=B5*0.08"
+    doc = json.dumps(
+        {
+            "status": "ok",
+            "snapshot": True,
+            "headers": ["Item", "Price", "Tax"],
+            "formulas": {"C2": blob, "C3": blob, "C4": blob, "C5": blob},
+            "grid": [
+                ["Item", "Price", "Tax"],
+                ["Apple", 10, blob],
+                ["Banana", 5, blob],
+                ["Orange", 8, blob],
+                ["Pear", 12.5, blob],
+                ["Note", "n/a", ""],
+                ["Total", "?", ""],
+            ],
+        }
+    )
+    assert check_oracle("tax_column", doc) == []
+
+
+def test_summary_accepts_10k_without_rps() -> None:
+    doc = (
+        "<h1>Findings</h1><p>stats</p>"
+        "<h1>Executive Summary</h1>"
+        "<ul><li>99.9%</li><li>45ms</li><li>0.01%</li>"
+        "<li>10 k requests per second</li><li>40%</li></ul>"
+    )
+    fails = check_oracle("smart_summarization", doc)
+    assert not any("10k" in f for f in fails), fails
 
 
 def test_resume_nnbsp_matches_100k_oracle() -> None:

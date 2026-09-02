@@ -153,17 +153,41 @@ Use `--out path.json` or `--out path.csv` to write results (format by extension)
 - **Metric**: Hard gate (document + process); quality judge after the gate for resume/rewrite/summary/tables. Shared via `eval_core` for `run_optimize` (MIPROv2) and `run_eval_multi`.
 - **Multi-model**: `run_eval_multi.py` ranks by hard pass / agent / quality; C²/$ is secondary. `--models` is required.
 
-### Benchmark results (best models, combined runs)
+### Benchmark results (2026-09-01, 17-task string harness)
 
-Apr 2026 snapshot on the **old 8-task Writer pack** — slugs, prices, and scores are not a baseline for the current 17-task worlds/process harness. Current default eval models live in `model_configs.py`. Re-run `--backend string` with `--models` for a new ranking.
+First ranking pass on the **17-task** pack (`--backend string`, OpenRouter, LLM judge on resume/rewrite/summary/tables). Artifacts: `benchmark_results.json`, `benchmark_results_details.json`. Triage: [`docs/eval/benchmark-failure-analysis-2026-09-01.md`](../../docs/eval/benchmark-failure-analysis-2026-09-01.md).
 
-From those historical 8-task runs, ranked by **Corr/USD** (avg correctness ÷ total cost; higher = better value) and/or **correctness**:
+**Excluded from this table (20 of 23 models):**
 
-- **openai/gpt-oss-120b** — Top value in run 1 (346.8 Corr/USD, 1.0 correctness, ~$0.003 total).
-- **google/gemini-3-flash-preview** — Strong value (161.7 Corr/USD, 0.925 correctness).
-- **nvidia/nemotron-3-nano-30b-a3b** — Best value in run 2 (131.2 Corr/USD; 0.725 correctness, very cheap).
-- **allenai/olmo-3.1-32b-instruct** — High correctness (0.963) and good value (84.1 Corr/USD).
-- **openai/gpt-4o-mini** — Good balance (98.8 Corr/USD, 0.938 correctness).
-- **nex-agi/deepseek-v3.1-nex-n1** — Solid (58.9 Corr/USD, 0.925 correctness).
+| Model | Reason |
+|-------|--------|
+| `nvidia/nemotron-3.5-lightning` | Infra: OpenRouter 429 on all 17 tasks |
+| `qwen/qwen3.8-flash` | Infra: OpenRouter 429 on all 17 tasks |
+| `minimax/minimax-m3` | Harness: `_normalize_delta` deal crash on `format_preservation` — pending fix + re-run ([`stream-normalizer-delta-crash.md`](../../docs/eval/stream-normalizer-delta-crash.md)) |
 
-Re-run with different model sets by editing `model_configs.py` (and uncommenting the block you want). Failed runs (0 tokens) usually mean a wrong OpenRouter id or API error; check stderr or logs.
+Ranked by **hard pass → agent score → metric**. **C²/$** = metric score squared ÷ avg $/task (`intelligence_per_dollar_metric`). **Quality** = LLM judge average among judged creative/table passes only (`—` if none judged). Models with `n_err` > 0 kept when errors are model-side (empty response, tool-loop limit), not infra/harness.
+
+| Rank | Model | Hard pass | Agent | Correctness | Quality | Tokens/task | $/task | C²/$ | n_err |
+| ---- | ----- | --------- | ----- | ----------- | ------- | ----------- | ------ | ---- | ----- |
+| 1 | openai/gpt-oss-120b | 1.000 | 1.000 | 0.971 | 0.90 | 12263 | 0.00054 | 1339.5 | 0 |
+| 2 | x-ai/grok-4.6 | 1.000 | 1.000 | 0.982 | 0.94 | 20647 | 0.04653 | 12.9 | 0 |
+| 3 | google/gemma-4-31b-it | 0.941 | 0.941 | 0.918 | 0.90 | 16844 | 0.00162 | 376.2 | 0 |
+| 4 | openai/gpt-5.6-luna | 0.941 | 0.941 | 0.922 | 0.94 | 21376 | 0.00512 | 107.7 | 0 |
+| 5 | z-ai/glm-5.3-flash | 0.941 | 0.941 | 0.913 | 0.90 | 40361 | 0.00412 | 119.3 | 0 |
+| 6 | deepseek/deepseek-v4-flash-0731 | 0.941 | 0.941 | 0.928 | 0.96 | 48581 | 0.00389 | 125.5 | 0 |
+| 7 | meta/muse-glimmer-30b | 0.941 | 0.941 | 0.928 | 0.96 | 27899 | 0.01078 | 41.4 | 0 |
+| 8 | meta/muse-spark-1.2-contributor | 0.882 | 0.882 | 0.874 | 0.96 | 29419 | 0.00330 | 133.6 | 0 |
+| 9 | qwen/qwen3.8-27b | 0.882 | 0.882 | 0.922 | 0.92 | 41809 | 0.02460 | 14.7 | 1 |
+| 10 | inception/mercury-2 | 0.824 | 0.824 | 0.814 | 0.97 | 14267 | 0.00397 | 124.6 | 0 |
+| 11 | bytedance-seed/seed-2.0-mini | 0.824 | 0.824 | 0.800 | 0.90 | 37491 | 0.00601 | 60.7 | 0 |
+| 12 | poolside/laguna-xs-2.1 | 0.824 | 0.824 | 0.767 | 0.81 | 35088 | 0.00216 | 161.9 | 1 |
+| 13 | ibm-granite/granite-4.2-8b | 0.765 | 0.765 | 0.802 | 0.93 | 66636 | 0.00735 | 26.0 | 1 |
+| 14 | openai/gpt-oss-20b | 0.706 | 0.706 | 0.687 | 0.89 | 16062 | 0.00065 | 537.4 | 0 |
+| 15 | upstage/solar-pro4 | 0.706 | 0.706 | 0.682 | 0.90 | 20429 | 0.00065 | 440.4 | 0 |
+| 16 | google/gemini-3.5-flash-lite | 0.647 | 0.647 | 0.688 | 0.93 | 14130 | 0.00495 | 67.0 | 0 |
+| 17 | poolside/laguna-s-2.1 | 0.647 | 0.647 | 0.700 | 0.90 | 21250 | 0.00216 | 130.2 | 2 |
+| 18 | google/gemma-4-26b-a4b-it | 0.647 | 0.647 | 0.621 | 0.89 | 19992 | 0.00151 | 157.9 | 0 |
+| 19 | z-ai/glm-5.3 | 0.647 | 0.647 | 0.702 | 0.97 | 33578 | 0.06972 | 3.4 | 3 |
+| 20 | mistralai/mistral-small-2603 | 0.588 | 0.588 | 0.571 | 0.85 | 13614 | 0.00214 | 111.4 | 0 |
+
+Re-run: `make run_eval EVAL_ARGS="--models … -j 4"` or edit `model_configs.py`. User-facing summary: [`docs/eval/benchmarks.md`](../../docs/eval/benchmarks.md).

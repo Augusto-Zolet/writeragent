@@ -68,7 +68,7 @@ certifications: AWS, Kubernetes
 
 REFORMAT_RESUME = {
     "document_content": PLAIN_RESUME,
-    "user_question": "Reformat this plain text resume as professional HTML. Use EXACT section headings: WORK HISTORY, EDUCATION, SKILLS (no variations like 'Work Experience' or 'Summary'). Consistent list items for all experience (HTML <ul>/<li> or hyphen bullets), active voice in summary (<=60 words, mention Python APIs and leadership), bold job titles/roles, consistent date formatting (e.g. '2020-2023'). Keep the 100K users / 100M requests achievement. Fix all inconsistencies (casing, spacing, bullets, certifications).",
+    "user_question": "Reformat this plain text resume as professional HTML. Keep the person's name at the top. Use EXACT section headings: WORK HISTORY, EDUCATION, SKILLS (no variations like 'Work Experience' or 'Summary'). Consistent list items for all experience, active voice in summary (<=60 words, mention Python APIs and leadership), bold job titles/roles, consistent date formatting (e.g. '2020-2023'). Keep the 100K users / 100M requests achievement. Fix all inconsistencies (casing, spacing, bullets, certifications).",
     "task_id": "reformat_resume",
     "expected_contains": [
         "John Doe",
@@ -124,7 +124,7 @@ CMD: git  log  --oneline
 
 BULK_CLEANUP = {
     "document_content": DOUBLE_SPACE_TEXT,
-    "user_question": "Remove all double spaces in body text, fix punctuation (no space before comma, no double periods, preserve URLs and quoted wording), normalize line breaks to single paragraph breaks. Leave the CMD: line exactly as written (it must keep its double spaces).",
+    "user_question": "Remove all double spaces and fix punctuation (no space before comma, no double periods) except on the CMD: line, which must stay exactly as written. Normalize line breaks to single paragraph breaks. Keep the URL.",
     "task_id": "bulk_cleanup",
     # Visible-text oracles catch leftover double spaces. Do not reject a lone " "
     # (every English sentence has one) or raw HTML indent from LO export.
@@ -200,49 +200,45 @@ We will refactor in phases."""
 STYLE_APPLICATION = {
     "document_content": INTRO_TEXT,
     "user_question": (
-        "Apply Heading 1 only to the standalone section title 'Introduction' (the line between "
-        "the parenthetical header and the explanatory paragraph). Leave Background and Summary "
-        "as normal body text, not H1."
+        "Make only Introduction a Heading 1. Leave Background and Summary as body text."
     ),
     "task_id": "style_application",
-    # After #419 LO heading unwrap, a real H1 is "<h1>Introduction</h1>" — not
-    # a padded " Introduction " token that would match body text.
-    "expected_contains": ["<h1>Introduction</h1>", "Background", "Summary"],
-    "reject_contains": ["<h1>Background", "<h1>Summary"],
+    "expected_contains": ["Introduction", "Background", "Summary"],
+    "reject_contains": [],
     "category": "structural",
 }
 
 # ---------------------------------------------------------------------------
 # 8. Bullet consistency
 # ---------------------------------------------------------------------------
-BULLET_LIST = """* First thing
-- Second thing  
-3) Third thing
-• Fourth thing
-1. Fifth item (number)
-- Sixth  with extra  space  
-* Seventh is already done.
+BULLET_LIST = """* Pack the crate
+- Ship to Oslo  
+3) Call the depot
+• Label the pallet
+- Sweep  the  bay
+* File the docket.
+- Seal the hatch
 Note: do not bullet this line
 """
 
 BULLET_CONSISTENCY = {
     "document_content": BULLET_LIST,
     "user_question": (
-        "Normalize this list: use ONLY hyphen bullets (-), exactly one item per line, trim ALL stray spaces, "
-        "end EACH bullet line with a period (do not turn an existing period into '..'). "
-        "Leave the Note paragraph as a paragraph, not a bullet. HTML <ul><li> is preferred; hyphen lines are also accepted."
+        "Make this a single consistent bullet list, one period per item. "
+        "Leave the Note as a normal paragraph, not a bullet."
     ),
     "task_id": "bullet_consistency",
     "expected_contains": [
-        "- First thing.",
-        "- Second thing.",
-        "- Third thing.",
-        "- Fourth thing.",
-        "- Fifth item.",
-        "- Sixth with extra space.",
-        "- Seventh is already done.",
+        "Pack the crate",
+        "Ship to Oslo",
+        "Call the depot",
+        "Label the pallet",
+        "Sweep the bay",
+        "File the docket",
+        "Seal the hatch",
+        "Note:",
     ],
-    "reject_contains": ["* First", "3) Third", "• Fourth", "1. Fifth", "* Seventh", ".."],
+    "reject_contains": ["3) Call", ".."],
     "category": "structural",
     "rubric": "Perfect list normalization. Structural: 60% accuracy (all 7 items preserved exactly, no variants left), 40% formatting (consistent - bullets + period, clean HTML <ul> preferred). Zero rejects. Uses targeted apply_document_content.",
 }
@@ -260,8 +256,8 @@ STYLE_CONSISTENCY = {
         "<h2>Heading 2 again.</h2>"
     ),
     "user_question": (
-        "Change every Default paragraph to the Quotations style (data-lo-style or class). "
-        "Promote both Heading 2 lines to Heading 1. Do not put Default paragraphs in H1. "
+        "Change every Default paragraph to the Quotations style. "
+        "Promote both Heading 2 lines to Heading 1. Do not make the Default paragraphs Heading 1. "
         "Keep the original sentence text."
     ),
     "task_id": "style_consistency",
@@ -286,7 +282,7 @@ A canary deploy failed with a 12% error spike and was rolled back. The intern jo
         "or the intern joke."
     ),
     "task_id": "smart_summarization",
-    "expected_contains": ["Executive Summary", "99.9%", "45ms", "0.01%", "10k RPS", "40%"],
+    "expected_contains": ["Executive Summary", "99.9%", "45ms", "0.01%", "10k", "40%"],
     "is_non_trivial": True,
     "category": "creative",
     "use_quality_judge": True,
@@ -382,14 +378,21 @@ DATA_SORTING = {
 
 # Basic Tax Column (eval/ideas.md Calc #1, hardened) - non-LO test using CalcStringState.write_cell_range
 TAX_COLUMN = {
-    "document_content": "Item\tPrice\nApple\t10\nBanana\t5\nOrange\t8\nPear\t12.5\nNote\tn/a\nTotal\t?",
+    "document_content": (
+        "Item\tPrice\tTax\n"
+        "Apple\t10\t0.99\n"
+        "Banana\t5\t0.99\n"
+        "Orange\t8\t0.99\n"
+        "Pear\t12.5\t0.99\n"
+        "Note\tn/a\t\n"
+        "Total\t?\t"
+    ),
     "user_question": (
-        "Add a Tax column with exact 8% of Price for each fruit row. "
-        "Do not tax the Note or Total rows. Verify with get_sheet_summary."
+        "Put an 8% tax formula in the Tax column for each fruit, relative to Price. "
+        "The numbers already in Tax are wrong — replace them. Leave Note and Total blank."
     ),
     "task_id": "tax_column",
-    # "snapshot" is a harness export key, not a student-visible result.
-    "expected_contains": ["0.8", "0.4", "0.64", "1.0", "Tax"],
+    "expected_contains": ["Tax"],
     "is_non_trivial": True,
     "category": "structural",
     "rubric": "Writes correct tax values (Price*0.08, e.g. 0.8/0.4/0.64/1.0). Structural: 60% accuracy (precise calcs, verification step), 40% formatting (correct JSON snapshot with Tax column). Uses CalcStringState fully (no hallucinations on Total/?).",

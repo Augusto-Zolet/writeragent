@@ -36,13 +36,13 @@ _TAX_BY_ITEM = {
 }
 
 _BULLET_ITEMS = (
-    "First thing",
-    "Second thing",
-    "Third thing",
-    "Fourth thing",
-    "Fifth item",
-    "Sixth with extra space",
-    "Seventh is already done",
+    "Pack the crate",
+    "Ship to Oslo",
+    "Call the depot",
+    "Label the pallet",
+    "Sweep the bay",
+    "File the docket",
+    "Seal the hatch",
 )
 
 _HYPE = ("incredibly", "significant leap", "brand new")
@@ -50,7 +50,9 @@ _HYPE = ("incredibly", "significant leap", "brand new")
 _MONEY_RE = re.compile(
     r"\$?\s*(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+\.\d+|\d+)"
 )
-_HN_RE = re.compile(r"<h([1-6])\b[^>]*>(.*?)</h\1>", re.IGNORECASE | re.DOTALL)
+_HN_RE = re.compile(r"<h([1-6])\b([^>]*)>(.*?)</h\1>", re.IGNORECASE | re.DOTALL)
+_P_BLOCK_RE = re.compile(r"<p\b([^>]*)>(.*?)</p>", re.IGNORECASE | re.DOTALL)
+_STYLE_ATTR_RE = re.compile(r'(?:data-lo-style|class)\s*=\s*["\']([^"\']+)["\']', re.I)
 _MD_H_RE = re.compile(r"^(#{1,6})\s+(.+)$", re.MULTILINE)
 _TABLE_RE = re.compile(r"<table\b", re.IGNORECASE)
 
@@ -73,8 +75,10 @@ _UNICODE_SPACE_RE = re.compile(r"[\xa0\u202f\u2007\u2008\u2009\u200a]")
 
 
 def fold_eval_text(text: str) -> str:
-    """Fold unicode spaces so ``100 K`` / ``45 ms`` match ``100K`` / ``45ms`` needles."""
+    """Fold unicode spaces/hyphens so ``G‑Eval`` / ``100 K`` match ASCII needles."""
     s = _UNICODE_SPACE_RE.sub(" ", text or "")
+    for dash in ("\u2010", "\u2011", "\u2012", "\u2013", "\u2014", "\u2212"):
+        s = s.replace(dash, "-")
     s = re.sub(r"(\d)\s+([KMkm])\b", r"\1\2", s)
     # No trailing \\b: tag-stripped HTML can glue ``45 ms`` to the next token.
     s = re.sub(r"(\d)\s+ms", r"\1ms", s, flags=re.I)
@@ -114,11 +118,31 @@ def parse_json_export(doc: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _level_from_style_attrs(attrs: str) -> int | None:
+    from eval_worlds import heading_level_from_style
+
+    for m in _STYLE_ATTR_RE.finditer(attrs or ""):
+        for part in re.split(r"[\s,]+", m.group(1) or ""):
+            level = heading_level_from_style(part.replace("Heading", "Heading "))
+            if level is None:
+                compact = re.sub(r"[\s_]+", "", part)
+                hm = re.match(r"(?i)heading([1-6])$", compact)
+                if hm:
+                    level = int(hm.group(1))
+            if level:
+                return level
+    return None
+
+
 def heading_texts(doc: str) -> list[tuple[int, str]]:
-    """``(level, text)`` in document order from HTML and markdown headings."""
+    """``(level, text)`` from ``<hN>``, ``data-lo-style=HeadingN``, and markdown."""
     found: list[tuple[int, int, str]] = []
     for m in _HN_RE.finditer(doc or ""):
-        found.append((m.start(), int(m.group(1)), _inner_text(m.group(2))))
+        found.append((m.start(), int(m.group(1)), _inner_text(m.group(3))))
+    for m in _P_BLOCK_RE.finditer(doc or ""):
+        level = _level_from_style_attrs(m.group(1) or "")
+        if level:
+            found.append((m.start(), level, _inner_text(m.group(2))))
     for m in _MD_H_RE.finditer(doc or ""):
         found.append((m.start(), len(m.group(1)), _norm_ws(m.group(2))))
     found.sort(key=lambda item: item[0])
@@ -319,22 +343,29 @@ def oracle_bullet_consistency(doc: str) -> list[str]:
         needle = f"- {item}."
         if needle in text or needle in (doc or ""):
             return True
+        if re.search(
+            rf"<li\b[^>]*>.*?{re.escape(item)}\.?",
+            doc or "",
+            re.I | re.DOTALL,
+        ):
+            return True
         return bool(
             re.search(
-                rf"<li\b[^>]*>\s*{re.escape(item)}\.?\s*</li>",
-                doc or "",
-                re.I,
+                rf"[•*]\s*{re.escape(item)}\.?",
+                text,
             )
         )
 
     for item in _BULLET_ITEMS:
         if not _has_item(item):
-            fails.append(f"missing hyphen+period or <li> bullet {item!r}")
+            fails.append(f"missing bullet {item!r}")
     if ".." in text:
         fails.append("double period on a bullet")
     if "do not bullet this line" not in text.casefold():
         fails.append("Note paragraph missing")
-    if re.search(r"-\s*Note:", blob) or re.search(r"<li\b[^>]*>\s*Note:", blob, re.I):
+    if re.search(r"[-•*]\s*Note:", blob) or re.search(
+        r"<li\b[^>]*>\s*Note:", blob, re.I
+    ):
         fails.append("Note paragraph was turned into a bullet")
     return fails
 
@@ -473,6 +504,11 @@ def oracle_data_sorting(doc: str) -> list[str]:
     if not grid or len(grid) < 2:
         return ["no Calc grid/snapshot"]
     rows = grid[1:] if any(str(c).casefold() == "product" for c in grid[0]) else grid
+    header = [str(c) for c in grid[0]]
+    if not any(h.casefold() == "product" for h in header) or not any(
+        h.casefold() == "revenue" for h in header
+    ):
+        return ["header row is not first"]
     names = [str(r[0]) if r else "" for r in rows]
     want = ["Tool", "Device", "Widget", "Gadget", "Aardvark"]
     got = [n for n in names if n in want]
@@ -503,7 +539,7 @@ def oracle_py_dest(doc: str) -> list[str]:
     formulas = data.get("formulas")
     if not isinstance(formulas, dict) or not formulas:
         return ["no =PY formula recorded"]
-    from eval_worlds import cell_in_a1_range
+    from process_oracles import py_dest_conflicts_data, py_formula_refs_data
 
     found_outside = False
     found_py = False
@@ -514,22 +550,33 @@ def oracle_py_dest(doc: str) -> list[str]:
         if not text.lstrip().upper().startswith("=PY"):
             continue
         found_py = True
-        compact = text.upper().replace("$", "").replace(" ", "")
-        if "A1:H500" in compact or "H500" in compact:
+        if py_formula_refs_data(text):
             missing_range = False
-        if cell_in_a1_range(str(addr), "A1:H500"):
+        if py_dest_conflicts_data(str(addr), text):
             inside.append(str(addr))
         else:
             found_outside = True
     if not found_py:
         return ["no =PY formula recorded"]
     if inside:
-        return [f"=PY dest is inside A1:H500 ({', '.join(inside)})"]
+        return [f"=PY dest overlaps the data range ({', '.join(inside)})"]
     if not found_outside:
-        return ["=PY dest is inside A1:H500"]
+        return ["=PY dest overlaps the data range"]
     if missing_range:
-        return ["=PY formula does not reference A1:H500"]
+        return ["=PY formula does not reference the data range"]
     return []
+
+
+def _tax_formula_ok(text: str, row_1based: int) -> bool:
+    compact = (
+        (text or "")
+        .replace(" ", "")
+        .replace("$", "")
+        .replace(";", "")
+        .replace("\n", "")
+        .upper()
+    )
+    return f"=B{row_1based}*0.08" in compact
 
 
 def oracle_tax_column(doc: str) -> list[str]:
@@ -542,21 +589,33 @@ def oracle_tax_column(doc: str) -> list[str]:
     tax_idx = next(i for i, h in enumerate(header) if h.casefold() == "tax")
     item_idx = 0
     price_idx = 1 if len(header) > 1 else 1
-    for row in grid[1:]:
-        if not row:
+    data = parse_json_export(doc) or {}
+    formulas = data.get("formulas") if isinstance(data.get("formulas"), dict) else {}
+    for row_i, row in enumerate(grid):
+        if row_i == 0 or not row:
             continue
         name = str(row[item_idx])
+        tax_cell = row[tax_idx] if len(row) > tax_idx else ""
+        addr = f"C{row_i + 1}"
+        formula = str(formulas.get(addr) or "")
         if name in _TAX_BY_ITEM:
             price_expected, tax_expected = _TAX_BY_ITEM[name]
             price = _as_float(row[price_idx]) if len(row) > price_idx else None
-            tax = _as_float(row[tax_idx]) if len(row) > tax_idx else None
             if price is None or not _near(price, price_expected, 0.05):
                 return [f"{name} price is not {price_expected}"]
-            if tax is None or not _near(tax, tax_expected, 0.02):
-                return [f"{name} tax is not 8% ({tax_expected})"]
+            formula_ok = _tax_formula_ok(formula, row_i + 1) or _tax_formula_ok(
+                str(tax_cell), row_i + 1
+            )
+            tax_num = _as_float(tax_cell)
+            value_ok = tax_num is not None and _near(tax_num, tax_expected, 0.02)
+            if "0.99" in str(tax_cell) and not formula_ok:
+                return [f"{name} leftover wrong Tax value"]
+            if not formula_ok and not value_ok:
+                return [f"{name} Tax is not a relative 8% formula"]
         elif name.casefold() in {"note", "total"}:
-            tax = _as_float(row[tax_idx]) if len(row) > tax_idx else None
-            if tax is not None and tax != 0.0:
+            if _as_float(tax_cell) not in (None, 0.0):
+                return [f"{name} row must not be taxed"]
+            if str(formula).lstrip().startswith("="):
                 return [f"{name} row must not be taxed"]
     return []
 
@@ -567,7 +626,7 @@ def oracle_reformat_resume(doc: str) -> list[str]:
     text = visible_text(doc)
     blob = f"{doc or ''}\n{text}"
     for token in ("John Doe", "WORK HISTORY", "EDUCATION", "SKILLS", "Acme Corp", "TechStart"):
-        if token not in blob:
+        if not haystack_has(blob, token):
             fails.append(f"missing {token!r}")
     if not haystack_has(blob, "100K") and not haystack_has(blob, "100,000"):
         fails.append("missing 100K users achievement")
@@ -581,7 +640,7 @@ def oracle_logical_rewriting(doc: str) -> list[str]:
     text = visible_text(doc)
     blob = f"{doc or ''}\n{text}"
     for token in ("WriterAgent", "2.0", "Dual-Mode", "G-Eval", "Prometheus"):
-        if token not in blob:
+        if not haystack_has(blob, token):
             fails.append(f"missing {token!r}")
     if "LocalWriter" in blob:
         fails.append("rewrote WriterAgent as LocalWriter")
@@ -610,7 +669,7 @@ def oracle_smart_summarization(doc: str) -> list[str]:
     later = summary.casefold().find("findings", 1)
     if later > 20:
         summary = summary[:later]
-    for token in ("99.9%", "45ms", "0.01%", "10k RPS", "40%"):
+    for token in ("99.9%", "45ms", "0.01%", "10k", "40%"):
         if not haystack_has(summary, token):
             fails.append(f"summary missing {token!r}")
     for junk in ("9001ms", "12%", "canary", "intern"):

@@ -1,0 +1,667 @@
+task_id,category,judge_score,judge_accuracy,judge_formatting,judge_naturalness,judge_reasoning,judge_error,document_score,correctness,agent_score,hard_pass,process_failures,oracle_failures,missing_expected,found_reject,metric_score,total_tokens,final_document,error,model_id
+table_from_mess,structural,1.0,5.0,5.0,,"Checked that the model output includes an HTML table with one row per item, preserves all prices exactly, and correctly calculates the total. Verified all items and descriptions are present and the total sum matches the input. The table has clear headings and proper HTML structure, meeting the formatting requirements.",,1.0,1.0,1.0,True,[],[],[],[],0.87939,12061,"<h2>Parts List</h2>
+<table><thead><tr><th>Category</th><th>Item</th><th>Price</th><th>Description</th></tr></thead><tbody><tr><td>Battery</td><td>Battle Born BB5024H (24V 50Ah Heated)</td><td>$999.00</td><td>The heart of the system. 10-year warranty.</td></tr><tr><td>Controller</td><td>Victron SmartSolar MPPT 100/30</td><td>$135.15</td><td>Handles the 440W panel easily at 24V.</td></tr><tr><td>USB Charger</td><td>Blue Sea Systems 1045 (4.8A)</td><td>$43.00</td><td>Industrial grade. Accepts 24V input directly.</td></tr><tr><td>PoE Converter</td><td>Tycon TP-DCDC-1224G-4P</td><td>$66.00</td><td>Critical: Stabilizes 24V battery voltage (which swings 20V-29V) to a clean 24V PoE for the Ubiquiti.</td></tr><tr><td>Enclosure</td><td>Saginaw SCE-202010ELJ</td><td>$215.31</td><td>20x20x10 NEMA 4 steel box.</td></tr></tbody><tfoot><tr><td colspan=""3""><strong>Total</strong></td><td><strong>$1458.46</strong></td></tr></tfoot></table>",,openai/gpt-oss-120b:nitro
+reformat_resume,creative,,,,,,,0.0,0.0,0.0,False,[],"['missing 100K users achievement', 'missing 100M requests achievement']","['100K', '100M']",[],0.0,11865,"<h1>John Doe</h1>
+<p>john@example.com | 555-1234</p>
+<h2>SUMMARY</h2>
+<p>I am a dedicated developer passionate about building Python APIs and leading teams. I have full‑stack experience, have mentored junior engineers, and excel at designing scalable, high‑availability systems.</p>
+<h2>WORK HISTORY</h2>
+<ul>
+<li><strong>Developer, Acme Corp</strong> (2020‑2023)<br>Built APIs, fixed bugs, and led two junior developers.</li>
+<li><strong>Senior Developer, TechStart Inc</strong> (Feb 2023 – Present)<br>Designed microservices, CI/CD pipelines, and on‑call rotation. Scaled the platform to 100 K users and 100 M requests per month using a novel caching strategy.</li>
+</ul>
+<h2>EDUCATION</h2>
+<ul>
+<li><strong>State University</strong> – B.S. Computer Science, 2016<br>GPA: 3.8</li>
+</ul>
+<h2>SKILLS</h2>
+<ul>
+<li>Python, Java, SQL, Docker, Kubernetes</li>
+<li>Certifications: AWS, Kubernetes</li>
+</ul>",,openai/gpt-oss-120b:nitro
+table_engineering,structural,1.0,5.0,5.0,,"I verified each data row: Apple, Banana, Orange, Grape, Mango, Kiwi. Missing quantities were set to 0, the [note] was ignored. Calculated total as sum of price*quantity = 51.40. The model's table matches all rows, uses correct headers, right-aligns numeric cells, and places the total correctly. Formatting uses valid HTML with style attributes, which is acceptable. No issues with accuracy or formatting.",,1.0,1.0,1.0,True,[],[],[],[],0.82115,17885,"<table>
+<thead><tr><th>Item</th><th>Price</th><th>Quantity</th></tr></thead>
+<tbody>
+<tr><td>Apple</td><td style=""text-align: right;"">1.20</td><td style=""text-align: right;"">12</td></tr>
+<tr><td>Banana</td><td style=""text-align: right;"">0.50</td><td style=""text-align: right;"">24</td></tr>
+<tr><td>Orange</td><td style=""text-align: right;"">0.80</td><td style=""text-align: right;"">0</td></tr>
+<tr><td>Grape</td><td style=""text-align: right;"">2.00</td><td style=""text-align: right;"">8</td></tr>
+<tr><td>Mango</td><td style=""text-align: right;"">1.50</td><td style=""text-align: right;"">6</td></tr>
+<tr><td>Kiwi</td><td style=""text-align: right;"">1.75</td><td style=""text-align: right;"">0</td></tr>
+<tr><td>Total</td><td style=""text-align: right;"">51.40</td><td></td></tr>
+</tbody>
+</table>",,openai/gpt-oss-120b:nitro
+bulk_cleanup,structural,,,,,,,1.0,1.0,1.0,True,[],[],[],[],0.88463,11537,"<p>This sentence has extra spaces. So does this one.</p>
+<p>Another paragraph here, with spaces before commas. Fix all double spaces and ensure one space after sentences.</p>
+<p>https://example.com/test with URL. ""Quoted text"" should stay intact.</p>
+<p>Too many line breaks above. Normalize to single paragraph breaks. Also fix this one with trailing period.</p>
+<p>CMD: git  log  --oneline</p>",,openai/gpt-oss-120b:nitro
+logical_rewriting,creative,1.0,5.0,5.0,5.0,"I checked that the model answer keeps the required terms (WriterAgent, 2.0, Dual-Mode, G-Eval, Prometheus) exactly, omitted hype words, used active voice, and stayed under 70 words (57 words). The answer is wrapped in a single <p> tag, matching the expected formatting. The language is professional and flows well, meeting the naturalness criterion.",,1.0,1.0,1.0,True,[],[],[],[],0.88664,11336,"<p>WriterAgent 2.0 introduces a Dual-Mode evaluation system that uses multi-dimensional scoring models for accurate assessments. It leverages frameworks such as G-Eval and Prometheus to evaluate semantic correctness, formatting fidelity, and naturalness. The update also improves OpenRouter integration, supporting the latest models including Qwen 3.5 and Gemini 3 Flash. Download the update to experience advanced local AI-assisted writing.</p>",,openai/gpt-oss-120b:nitro
+format_preservation,structural,,,,,,,1.0,1.0,1.0,True,[],[],[],[],0.89481,10519,"Jane Smith - Project Lead
+
+Contact person: John Doe (legacy ID JD-001). Do not change this legal name on this line.",,openai/gpt-oss-120b:nitro
+style_application,structural,,,,,,,1.0,1.0,1.0,True,[],[],[],[],0.89517,10483,"Project Overview (draft)
+
+<h1>Introduction</h1>
+
+This section explains the scope. Do not promote Background or Summary to the same heading level.
+
+Background
+
+Earlier work used a monolith.
+
+Summary
+
+We will refactor in phases.",,openai/gpt-oss-120b:nitro
+bullet_consistency,structural,,,,,,,0.0,0.0,0.0,False,[],"[""missing hyphen+period or <li> bullet 'Fifth item'""]","['- First thing.', '- Second thing.', '- Third thing.', '- Fourth thing.', '- Fifth item.', '- Sixth with extra space.', '- Seventh is already done.']",[],0.0,11057,"<ul><li>First thing.</li><li>Second thing.</li><li>Third thing.</li><li>Fourth thing.</li><li>Fifth item (number).</li><li>Sixth with extra space.</li><li>Seventh is already done.</li></ul>
+<p>Note: do not bullet this line</p>",,openai/gpt-oss-120b:nitro
+style_consistency,structural,,,,,,,1.0,1.0,1.0,True,[],[],[],[],0.8914,10860,"<p data-lo-style=""Quotations"">Default style paragraph one.</p>
+<h1 data-lo-style=""Heading1"">HEADING 2 text that should be upgraded.</h1>
+<p data-lo-style=""Quotations"">Another default paragraph.</p>
+<h1 data-lo-style=""Heading1"">Heading 2 again.</h1>",,openai/gpt-oss-120b:nitro
+smart_summarization,creative,,,,,,,0.0,0.0,0.0,False,[],"[""summary missing '45ms'"", ""summary missing '10k RPS'""]",[],[],0.0,16241,"# Findings
+The system achieved 99.9% uptime. Latency averaged 45ms under load. Error rate was 0.01%. Scaling tests confirmed linear performance to 10k RPS. Cost per query dropped 40% after optimization.
+A canary deploy failed with a 12% error spike and was rolled back. The intern joked that p95 latency was 9001ms.
+
+# Executive Summary
+<ul><li>Uptime: 99.9%.</li><li>Average latency: 45 ms under load.</li><li>Error rate: 0.01%.</li><li>Scalable to 10 k requests per second with linear performance.</li><li>Cost per query reduced by 40% after optimization.</li></ul>
+",,openai/gpt-oss-120b:nitro
+section_refactor,structural,,,,,,,1.0,1.0,1.0,True,[],[],[],[],0.8925,10750,"<h1>Introduction</h1>
+<p>Background info here.</p>
+<h1>Goal</h1>
+<p>Final thoughts and call to action.</p>
+<h1>Body</h1>
+<p>Main content goes here. See the Goal for next steps.</p>",,openai/gpt-oss-120b:nitro
+comment_management,structural,,,,,,,1.0,1.0,1.0,True,[],[],[],[],0.89711,10289,"The results are uncertain [Review this before finalizing] at this point in the analysis.
+Further testing is recommended before deployment.",,openai/gpt-oss-120b:nitro
+flowchart_gen,structural,,,,,,,0.0,0.0,0.0,False,[],"[""flowchart missing 'Process'"", ""flowchart missing 'Decision'""]","['Process', 'Decision', 'login', 'credentials']",[],0.0,36194,"{
+  ""status"": ""ok"",
+  ""page_index"": 0,
+  ""tree"": [
+    {
+      ""type"": ""ellipse"",
+      ""name"": ""shape_0"",
+      ""text"": ""Start"",
+      ""geometry"": {
+        ""x"": 5000,
+        ""y"": 500,
+        ""width"": 2000,
+        ""height"": 1000
+      },
+      ""connected_end"": {
+        ""name"": ""shape_1"",
+        ""text"": ""User Login""
+      }
+    },
+    {
+      ""type"": ""rectangle"",
+      ""name"": ""shape_1"",
+      ""text"": ""User Login"",
+      ""geometry"": {
+        ""x"": 5000,
+        ""y"": 2000,
+        ""width"": 3000,
+        ""height"": 1500
+      },
+      ""connected_end"": {
+        ""name"": ""shape_2"",
+        ""text"": ""Credentials valid?""
+      },
+      ""connected_start"": {
+        ""name"": ""shape_0"",
+        ""text"": ""Start""
+      }
+    },
+    {
+      ""type"": ""diamond"",
+      ""name"": ""shape_2"",
+      ""text"": ""Credentials valid?"",
+      ""geometry"": {
+        ""x"": 5000,
+        ""y"": 4000,
+        ""width"": 2500,
+        ""height"": 1500
+      },
+      ""connected_end"": {
+        ""name"": ""shape_3"",
+        ""text"": ""End""
+      },
+      ""connected_start"": {
+        ""name"": ""shape_1"",
+        ""text"": ""User Login""
+      }
+    },
+    {
+      ""type"": ""ellipse"",
+      ""name"": ""shape_3"",
+      ""text"": ""End"",
+      ""geometry"": {
+        ""x"": 5000,
+        ""y"": 6000,
+        ""width"": 2000,
+        ""height"": 1000
+      },
+      ""connected_start"": {
+        ""name"": ""shape_2"",
+        ""text"": ""Credentials valid?""
+      }
+    },
+    {
+      ""type"": ""text"",
+      ""name"": ""shape_4"",
+      ""text"": ""Yes"",
+      ""geometry"": {
+        ""x"": 5300,
+        ""y"": 5000,
+        ""width"": 800,
+        ""height"": 400
+      }
+    }
+  ],
+  ""connections"": [
+    {
+      ""from_index"": 0,
+      ""to_index"": 1
+    },
+    {
+      ""from_index"": 1,
+      ""to_index"": 2
+    },
+    {
+      ""from_index"": 2,
+      ""to_index"": 3
+    },
+    {
+      ""from_index"": 2,
+      ""to_index"": 1
+    }
+  ],
+  ""children"": []
+}",,openai/gpt-oss-120b:nitro
+data_sorting,structural,,,,,,,0.0,0.0,0.0,False,[],"[""sort order is not ['Tool', 'Device', 'Widget', 'Gadget', 'Aardvark'] (got ['Tool', 'Device', 'Aardvark'])""]",['Widget'],[],0.0,12777,"{
+  ""status"": ""ok"",
+  ""snapshot"": true,
+  ""sheet"": ""Sheet1"",
+  ""headers"": [
+    ""Product"",
+    ""Revenue""
+  ],
+  ""rows"": [
+    [
+      ""Product"",
+      ""Revenue""
+    ],
+    [
+      [
+        ""Revenue""
+      ],
+      [
+        ""Revenue"",
+        ""Product""
+      ]
+    ],
+    [
+      [
+        false,
+        true
+      ],
+      ""850""
+    ],
+    [
+      ""Tool"",
+      ""2100""
+    ],
+    [
+      ""Device"",
+      ""1200""
+    ],
+    [
+      ""Aardvark"",
+      ""n/a""
+    ]
+  ],
+  ""grid"": [
+    [
+      ""Product"",
+      ""Revenue""
+    ],
+    [
+      [
+        ""Revenue""
+      ],
+      [
+        ""Revenue"",
+        ""Product""
+      ]
+    ],
+    [
+      [
+        false,
+        true
+      ],
+      ""850""
+    ],
+    [
+      ""Tool"",
+      ""2100""
+    ],
+    [
+      ""Device"",
+      ""1200""
+    ],
+    [
+      ""Aardvark"",
+      ""n/a""
+    ]
+  ],
+  ""row_count"": 6,
+  ""formulas"": {
+    ""A2"": ""=PY(\""df = data.to_pandas(); df['Revenue'] = pd.to_numeric(df['Revenue'], errors='coerce'); df_sorted = df.sort_values(by=['Revenue','Product'], ascending=[False,True]); result = df_sorted.values.tolist()\""; Sheet1.A2:B6)"",
+    ""B2"": ""=PY(\""df = data.to_pandas(); df['Revenue'] = pd.to_numeric(df['Revenue'], errors='coerce'); df_sorted = df.sort_values(by=['Revenue','Product'], ascending=[False,True]); result = df_sorted.values.tolist()\""; Sheet1.A2:B6)"",
+    ""A3"": ""=PY(\""df = data.to_pandas(); df['Revenue'] = pd.to_numeric(df['Revenue'], errors='coerce'); df_sorted = df.sort_values(by=['Revenue','Product'], ascending=[False,True]); result = df_sorted.values.tolist()\""; Sheet1.A2:B6)""
+  },
+  ""writes"": [
+    {
+      ""range"": [
+        ""Sheet1.A2:B6""
+      ],
+      ""dests"": [
+        ""A2""
+      ],
+      ""formula"": ""=PY(\""df = data.to_pandas(); df['Revenue'] = pd.to_numeric(df['Revenue'], errors='coerce'); df_sorted = df.sort_values(by=['Revenue','Product'], ascending=[False,True]); result = df_sorted.values.tolist()\""; Sheet1.A2:B6)"",
+      ""values"": [
+        [
+          ""Revenue""
+        ],
+        [
+          ""Revenue"",
+          ""Product""
+        ],
+        [
+          false,
+          true
+        ]
+      ]
+    }
+  ],
+  ""reads"": []
+}",,openai/gpt-oss-120b:nitro
+tax_column,structural,,,,,,,0.0,0.0,0.0,False,[],['no Tax column'],"['0.8', '0.4', '0.64', '1.0']",[],0.0,22017,"{
+  ""status"": ""ok"",
+  ""snapshot"": true,
+  ""sheet"": ""Sheet1"",
+  ""headers"": [
+    ""Item"",
+    ""Price"",
+    ""\""Tax\""""
+  ],
+  ""rows"": [
+    [
+      ""Item"",
+      ""Price"",
+      ""\""Tax\""""
+    ],
+    [
+      ""Apple"",
+      ""10"",
+      ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)""
+    ],
+    [
+      ""Banana"",
+      ""5"",
+      ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)""
+    ],
+    [
+      ""Orange"",
+      ""8"",
+      ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)""
+    ],
+    [
+      ""Pear"",
+      ""12.5"",
+      ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)""
+    ],
+    [
+      ""Note"",
+      ""n/a""
+    ],
+    [
+      ""Total"",
+      ""?""
+    ]
+  ],
+  ""grid"": [
+    [
+      ""Item"",
+      ""Price"",
+      ""\""Tax\""""
+    ],
+    [
+      ""Apple"",
+      ""10"",
+      ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)""
+    ],
+    [
+      ""Banana"",
+      ""5"",
+      ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)""
+    ],
+    [
+      ""Orange"",
+      ""8"",
+      ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)""
+    ],
+    [
+      ""Pear"",
+      ""12.5"",
+      ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)""
+    ],
+    [
+      ""Note"",
+      ""n/a""
+    ],
+    [
+      ""Total"",
+      ""?""
+    ]
+  ],
+  ""row_count"": 7,
+  ""formulas"": {
+    ""C2"": ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)"",
+    ""C3"": ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)"",
+    ""C4"": ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)"",
+    ""C5"": ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)""
+  },
+  ""writes"": [
+    {
+      ""range"": [
+        ""C2:C5""
+      ],
+      ""dests"": [
+        ""C2""
+      ],
+      ""formula"": ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)"",
+      ""values"": [
+        ""=PY(\""import numpy as np\\narr = np.array(data, dtype=float)\\nresult = (arr * 0.08).tolist()\""; B2:B5)""
+      ]
+    },
+    {
+      ""range"": [
+        ""C1""
+      ],
+      ""dests"": [
+        ""C1""
+      ],
+      ""formula"": """",
+      ""values"": [
+        ""\""Tax\""""
+      ]
+    }
+  ],
+  ""reads"": []
+}",,openai/gpt-oss-120b:nitro
+py_refuse_overlap,structural,,,,,,,1.0,1.0,1.0,True,[],[],[],[],0.91786,8214,"{
+  ""status"": ""ok"",
+  ""snapshot"": true,
+  ""sheet"": ""Sheet1"",
+  ""headers"": [
+    ""Name"",
+    ""City"",
+    ""Amt"",
+    """",
+    """",
+    """",
+    """",
+    """",
+    ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)""
+  ],
+  ""rows"": [
+    [
+      ""Name"",
+      ""City"",
+      ""Amt"",
+      """",
+      """",
+      """",
+      """",
+      """",
+      ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)""
+    ],
+    [
+      ""Ann"",
+      ""X"",
+      ""1""
+    ],
+    [
+      ""Ann"",
+      ""X"",
+      ""1""
+    ],
+    [
+      ""Bob"",
+      ""Y"",
+      ""2""
+    ],
+    [
+      ""Cara"",
+      ""Z"",
+      ""3""
+    ],
+    [
+      ""Cara"",
+      ""Z"",
+      ""3""
+    ],
+    [
+      ""Dan"",
+      ""X"",
+      ""4""
+    ],
+    [
+      ""Eve"",
+      ""Y"",
+      ""5""
+    ]
+  ],
+  ""grid"": [
+    [
+      ""Name"",
+      ""City"",
+      ""Amt"",
+      """",
+      """",
+      """",
+      """",
+      """",
+      ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)""
+    ],
+    [
+      ""Ann"",
+      ""X"",
+      ""1""
+    ],
+    [
+      ""Ann"",
+      ""X"",
+      ""1""
+    ],
+    [
+      ""Bob"",
+      ""Y"",
+      ""2""
+    ],
+    [
+      ""Cara"",
+      ""Z"",
+      ""3""
+    ],
+    [
+      ""Cara"",
+      ""Z"",
+      ""3""
+    ],
+    [
+      ""Dan"",
+      ""X"",
+      ""4""
+    ],
+    [
+      ""Eve"",
+      ""Y"",
+      ""5""
+    ]
+  ],
+  ""row_count"": 8,
+  ""formulas"": {
+    ""I1"": ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)""
+  },
+  ""writes"": [
+    {
+      ""range"": [
+        ""I1""
+      ],
+      ""dests"": [
+        ""I1""
+      ],
+      ""formula"": ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)"",
+      ""values"": [
+        ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)""
+      ]
+    }
+  ],
+  ""reads"": []
+}",,openai/gpt-oss-120b:nitro
+py_no_bulk_read,structural,,,,,,,1.0,1.0,1.0,True,[],[],[],[],0.91787,8213,"{
+  ""status"": ""ok"",
+  ""snapshot"": true,
+  ""sheet"": ""Sheet1"",
+  ""headers"": [
+    ""Name"",
+    ""City"",
+    ""Amt"",
+    """",
+    """",
+    """",
+    """",
+    """",
+    """",
+    ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)""
+  ],
+  ""rows"": [
+    [
+      ""Name"",
+      ""City"",
+      ""Amt"",
+      """",
+      """",
+      """",
+      """",
+      """",
+      """",
+      ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)""
+    ],
+    [
+      ""Ann"",
+      ""X"",
+      ""1""
+    ],
+    [
+      ""Ann"",
+      ""X"",
+      ""1""
+    ],
+    [
+      ""Bob"",
+      ""Y"",
+      ""2""
+    ],
+    [
+      ""Cara"",
+      ""Z"",
+      ""3""
+    ],
+    [
+      ""Cara"",
+      ""Z"",
+      ""3""
+    ],
+    [
+      ""Dan"",
+      ""X"",
+      ""4""
+    ],
+    [
+      ""Eve"",
+      ""Y"",
+      ""5""
+    ]
+  ],
+  ""grid"": [
+    [
+      ""Name"",
+      ""City"",
+      ""Amt"",
+      """",
+      """",
+      """",
+      """",
+      """",
+      """",
+      ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)""
+    ],
+    [
+      ""Ann"",
+      ""X"",
+      ""1""
+    ],
+    [
+      ""Ann"",
+      ""X"",
+      ""1""
+    ],
+    [
+      ""Bob"",
+      ""Y"",
+      ""2""
+    ],
+    [
+      ""Cara"",
+      ""Z"",
+      ""3""
+    ],
+    [
+      ""Cara"",
+      ""Z"",
+      ""3""
+    ],
+    [
+      ""Dan"",
+      ""X"",
+      ""4""
+    ],
+    [
+      ""Eve"",
+      ""Y"",
+      ""5""
+    ]
+  ],
+  ""row_count"": 8,
+  ""formulas"": {
+    ""J1"": ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)""
+  },
+  ""writes"": [
+    {
+      ""range"": [
+        ""J1""
+      ],
+      ""dests"": [
+        ""J1""
+      ],
+      ""formula"": ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)"",
+      ""values"": [
+        ""=PY(\""result = data.to_pandas().drop_duplicates()\""; A1:H500)""
+      ]
+    }
+  ],
+  ""reads"": []
+}",,openai/gpt-oss-120b:nitro

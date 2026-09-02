@@ -30,18 +30,38 @@ def test_py_dest_j1_passes() -> None:
     assert check_process("py_refuse_overlap", [_write("J1")]) == []
 
 
+def test_py_process_accepts_a1_c8() -> None:
+    assert (
+        check_process(
+            "py_no_bulk_read",
+            [_write("J1", '=PY("result = 1"; A1:C8)')],
+        )
+        == []
+    )
+
+
 def test_py_dest_i1_passes() -> None:
     assert check_process("py_refuse_overlap", [_write("I1")]) == []
 
 
 def test_py_dest_h1_fails() -> None:
     fails = check_process("py_refuse_overlap", [_write("H1")])
-    assert any("inside" in f for f in fails)
+    assert any("overlap" in f for f in fails)
 
 
 def test_py_all_writes_earlier_inside_fails() -> None:
     fails = check_process("py_refuse_overlap", [_write("H1"), _write("J1")])
-    assert any("inside" in f for f in fails)
+    assert any("overlap" in f for f in fails)
+
+
+def test_py_d1_with_fixture_range_passes() -> None:
+    assert (
+        check_process(
+            "py_no_bulk_read",
+            [_write("D1", '=PY("result = 1"; A1:C8)')],
+        )
+        == []
+    )
 
 
 def test_bulk_read_fails_no_bulk_task() -> None:

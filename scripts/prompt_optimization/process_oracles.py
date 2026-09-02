@@ -25,6 +25,24 @@ PY_TASK_IDS = frozenset(
 
 # Production wording in the user question; the world fixture is smaller.
 DEFAULT_DATA_RANGE = "A1:H500"
+FIXTURE_DATA_RANGE = "A1:C8"
+# Accept the asked range or the actual fixture (A1:C8).
+_PY_DATA_MARKERS = ("H500", "A1:C8")
+
+
+def py_formula_refs_data(formula: str) -> bool:
+    compact = (formula or "").upper().replace("$", "").replace(" ", "")
+    return any(m in compact for m in _PY_DATA_MARKERS)
+
+
+def py_dest_conflicts_data(dest: str, formula: str) -> bool:
+    """True when dest sits on real data, or on A1:H500 while the formula uses H500."""
+    if cell_in_a1_range(dest, FIXTURE_DATA_RANGE):
+        return True
+    compact = (formula or "").upper().replace("$", "").replace(" ", "")
+    if "H500" in compact and cell_in_a1_range(dest, DEFAULT_DATA_RANGE):
+        return True
+    return False
 # A1:H500 is 4000 cells; anything this large is a dump.
 _BULK_CELL_FLOOR = 100
 
@@ -108,21 +126,17 @@ def check_process(
     any_py_outside = False
     for dest, formula in writes:
         is_py = formula.lstrip().upper().startswith("=PY")
-        if is_py and cell_in_a1_range(dest, data_range):
-            fails.append(f"dest {dest} is inside {data_range}")
-        if is_py and not cell_in_a1_range(dest, data_range):
+        if is_py and py_dest_conflicts_data(dest, formula):
+            fails.append(f"dest {dest} overlaps the data range")
+        if is_py and not py_dest_conflicts_data(dest, formula):
             any_py_outside = True
-        if is_py:
-            compact = formula.upper().replace("$", "").replace(" ", "")
-            if "A1:H500" not in compact and "H500" not in compact:
-                fails.append("formula does not reference A1:H500")
-    if not any_py_outside and not any(
-        f.startswith("dest ") for f in fails
-    ):
+        if is_py and not py_formula_refs_data(formula):
+            fails.append("formula does not reference the data range")
+    if not any_py_outside and not any("overlaps the data range" in f for f in fails):
         if not any(formula.lstrip().upper().startswith("=PY") for _d, formula in writes):
             fails.append("formula is not =PY(...)")
         else:
-            fails.append(f"no =PY dest outside {data_range}")
+            fails.append("no =PY dest outside the data range")
 
     if task_id == "py_no_bulk_read":
         for item in items:

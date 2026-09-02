@@ -104,29 +104,24 @@ For detailed setup instructions, see the **[Install and Troubleshooting Guide](d
 
 ## Benchmarks & Evaluation
 
-An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer, Calc, and Draw tasks and ranks them by **Value (C²/$)** — average correctness squared ÷ average dollars per run, using live OpenRouter pricing.
+An in-LibreOffice **LLM Evaluation Suite** benchmarks models on real Writer, Calc, and Draw tasks and ranks them by **Value (C²/$)** — metric score squared ÷ average dollars per task, using live OpenRouter pricing.
 
-Apr 2026 snapshot — slugs and prices may be stale. Current default eval models live in [`scripts/prompt_optimization/model_configs.py`](scripts/prompt_optimization/model_configs.py).
+**2026-09-01 snapshot** — 17-task string harness (not LO). Full table and methodology: [docs/eval/benchmarks.md](docs/eval/benchmarks.md). Excluded: `nemotron-3.5-lightning`, `qwen3.8-flash` (429 rate limits); `minimax/minimax-m3` (harness issue — re-run later).
 
-| Rank | Model                                  | Avg correctness | Avg score | Avg tokens | Avg cost ($) | Value (C²/$) |
-| ---- | -------------------------------------- | --------------- | --------- | ---------- | ------------ | ------------ |
-| 1    | openai/gpt-oss-120b                    | 0.980           | 0.942     | 3767.1     | 0.00025      | 3827.240     |
-| 2    | google/gemini-3-flash-preview          | 0.890           | 0.860     | 2957.2     | 0.00035      | 2234.257     |
-| 3    | qwen/qwen3.5-9b                        | 0.730           | 0.691     | 4645.0     | 0.00050      | 1068.806     |
-| 4    | nvidia/nemotron-3-nano-30b-a3b         | 0.922           | 0.851     | 7195.5     | 0.00082      | 1037.536     |
-| 5    | mistralai/devstral-2512                | 0.980           | 0.950     | 3000.8     | 0.00154      | 623.434      |
-| 6    | inception/mercury-2                    | 0.948           | 0.896     | 5150.9     | 0.00160      | 562.405      |
-| 7    | minimax/minimax-m2.7                   | 0.990           | 0.943     | 4671.9     | 0.00191      | 512.581      |
-| 8    | deepseek/deepseek-v3.2                 | 0.985           | 0.909     | 7575.4     | 0.00206      | 470.222      |
-| 9    | qwen/qwen3.5-35b-a3b                   | 0.990           | 0.933     | 5671.1     | 0.00220      | 445.760      |
-| 10   | x-ai/grok-4.1-fast                     | 0.950           | 0.886     | 6431.9     | 0.00204      | 442.733      |
-| 11   | qwen/qwen3.5-27b                       | 0.993           | 0.942     | 5049.9     | 0.00259      | 380.538      |
-| 12   | qwen/qwen3.5-122b-a10b                 | 0.990           | 0.950     | 3958.8     | 0.00308      | 318.312      |
-| 13   | nvidia/nemotron-3-super-120b-a12b:free | 0.757           | 0.696     | 6388.4     | 0.00181      | 317.859      |
-| 14   | allenai/olmo-3.1-32b-instruct          | 0.323           | 0.306     | 1912.4     | 0.00046      | 226.704      |
-| 15   | z-ai/glm-5.1                           | 0.890           | 0.843     | 4677.8     | 0.00524      | 151.141      |
+| Rank | Model | Hard pass | Correctness | C²/$ |
+| ---- | ----- | --------- | ----------- | ---- |
+| 1 | openai/gpt-oss-120b | 1.000 | 0.971 | 1339.5 |
+| 2 | x-ai/grok-4.6 | 1.000 | 0.982 | 12.9 |
+| 3 | google/gemma-4-31b-it | 0.941 | 0.918 | 376.2 |
+| 4 | openai/gpt-5.6-luna | 0.941 | 0.922 | 107.7 |
+| 5 | z-ai/glm-5.3-flash | 0.941 | 0.913 | 119.3 |
+| 6 | deepseek/deepseek-v4-flash-0731 | 0.941 | 0.928 | 125.5 |
+| 7 | meta/muse-glimmer-30b | 0.941 | 0.928 | 41.4 |
+| 8 | meta/muse-spark-1.2-contributor | 0.882 | 0.874 | 133.6 |
+| 9 | qwen/qwen3.8-27b | 0.882 | 0.922 | 14.7 |
+| 10 | inception/mercury-2 | 0.824 | 0.814 | 124.6 |
 
-See [docs/eval/benchmarks.md](docs/eval/benchmarks.md) for scoring methodology and insights.
+See [docs/eval/benchmarks.md](docs/eval/benchmarks.md) for the full 20-model ranking and scoring details.
 
 ---
 

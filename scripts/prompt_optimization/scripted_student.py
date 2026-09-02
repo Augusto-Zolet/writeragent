@@ -116,13 +116,15 @@ _STYLE_APPLICATION = (
 )
 
 _BULLET_CONSISTENCY = (
-    "<p>- First thing.</p>"
-    "<p>- Second thing.</p>"
-    "<p>- Third thing.</p>"
-    "<p>- Fourth thing.</p>"
-    "<p>- Fifth item.</p>"
-    "<p>- Sixth with extra space.</p>"
-    "<p>- Seventh is already done.</p>"
+    "<ul>"
+    "<li>Pack the crate.</li>"
+    "<li>Ship to Oslo.</li>"
+    "<li>Call the depot.</li>"
+    "<li>Label the pallet.</li>"
+    "<li>Sweep the bay.</li>"
+    "<li>File the docket.</li>"
+    "<li>Seal the hatch.</li>"
+    "</ul>"
     "<p>Note: do not bullet this line</p>"
 )
 
@@ -332,7 +334,10 @@ SCRIPTS: dict[str, list[dict[str, Any]]] = {
             ),
             _tc(
                 "write_formula_range",
-                {"range": ["C2:C5"], "values": "[0.8, 0.4, 0.64, 1.0]"},
+                {
+                    "range": ["C2:C5"],
+                    "values": '["=B2*0.08","=B3*0.08","=B4*0.08","=B5*0.08"]',
+                },
                 "tax_vals",
             ),
             _tc(
