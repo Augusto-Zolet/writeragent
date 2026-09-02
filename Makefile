@@ -251,7 +251,7 @@ help:
 	@echo "  make run_eval               Run benchmark CLI (pass EVAL_ARGS=...)"
 	@echo "  make run_eval-smoke         Quick smoke: one model, one example (gpt-oss-120b:nitro; needs a key)"
 	@echo "  make run_eval-lo-scripted   Headless LO + scripted student (no API key)"
-	@echo "  make test-run               make pytest, then serial UNO via testing_runner (no typecheck/bandit)"
+	@echo "  make test-run               make pytest with 6 xdist workers, then serial UNO (no typecheck/bandit)"
 	@echo "  make test-durations         Same filters as make pytest with --durations=40 (profile hotspots)"
 	@echo "  make slowtests              Slow serialization once each: A/B fixtures, contracts/CrossHair, Hypothesis (vhs)"
 	@echo "  make vhs                    Hypothesis serialization fuzz with verbose output (Hypothesis step of slowtests)"
@@ -766,8 +766,10 @@ test-mock-sidebar: _check-lo-python
 	@$(MAKE) -C "$(PROJECT_ROOT)" lo-kill
 	PYTHONUNBUFFERED=1 "$(LO_PYTHON)" -u -m plugin.testing_runner --user-profile tests/chatbot/test_mock_llm_sidebar_uno.py $(FILTER); EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
 
+# Cap xdist at 6 so subprocess-heavy compute_service / venv worker tests
+# do not starve handshake timeouts on an 8-core box (PYTEST_WORKERS=auto).
 test-run:
-	@$(MAKE) pytest
+	@$(MAKE) pytest PYTEST_WORKERS=6
 	@$(MAKE) test-uno
 
 test-durations:
