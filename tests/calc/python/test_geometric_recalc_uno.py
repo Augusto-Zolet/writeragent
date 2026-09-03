@@ -2,16 +2,28 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""UNO: geometric splice round-trips live getFormula / setFormula.
+"""UNO: geometric splice, insert/delete repair, and live Shared-kernel eval.
 
-Probe + assertions. Confirms Calc's stored spelling (equals, $ , prefix)
-so rebuild_formula_with_data_args does not guess from CalcDocStub.
+Formula I/O confirms Calc's stored spelling (equals, $, prefix) so
+rebuild_formula_with_data_args does not guess from CalcDocStub. Phase 3
+covers insert/delete/undo and cap-hit skip. Leftover §10 product proofs:
+Shared-kernel A3 reads a name assigned in A1 (F9-stable, strip), and
+auto-spill still writes neighbors on a chained origin.
 """
 
 from __future__ import annotations
 
-from plugin.testing_runner import native_test
+import time
+
+from plugin.testing_runner import native_test, on_github_actions
 from plugin.tests.testing_utils import with_native_doc
+
+# Isolated testing_runner profiles do not inherit user-level unopkg, so sheet
+# =PY() is #NAME? (504/525) unless the runner seeds ``user/uno_packages``
+# from ``make register-built-oxt``. Linux PR CI must assert values, not skip.
+# Direct PythonFunction calls are not a substitute (they bypass Calc order).
+# Same codes as test_py_dag_chain_uno.py.
+_PY_UNREGISTERED = frozenset({504, 525})
 
 
 def _store(cell, formula: str) -> str:
@@ -147,6 +159,137 @@ def _flush(ctx, doc, sheet) -> None:
     flush_sheet_modify_pass_for_tests(ctx, doc, sheet)
 
 
+def _cold_kernel() -> None:
+    """Drop this process's worker. Soffice's worker is a different process."""
+    from plugin.calc.python.function import clear_python_addin_cache
+    from plugin.scripting.venv_worker import PythonWorkerManager
+
+    PythonWorkerManager.shutdown_all()
+    clear_python_addin_cache()
+
+
+def _settle_soffice_config() -> None:
+    """``get_config`` in soffice is mtime-cached for 2s. Client ``set_config`` is not enough."""
+    time.sleep(2.1)
+
+
+def _session_config_paths(ctx) -> list[str]:
+    """Every ``writeragent.json`` soffice or the URP client might read."""
+
+    from plugin.framework.config import _config_path, _resolve_config_path_from_ctx
+    from plugin.testing_runner import (
+        _libreoffice_user_profile_dir,
+        throwaway_writeragent_json,
+    )
+
+    paths: list[str] = []
+    try:
+        paths.append(_resolve_config_path_from_ctx(ctx))
+    except Exception:
+        pass
+    try:
+        paths.append(_config_path())
+    except Exception:
+        pass
+    extra = throwaway_writeragent_json()
+    if extra is not None:
+        paths.append(str(extra))
+    paths.append(str(_libreoffice_user_profile_dir() / "user" / "config" / "writeragent.json"))
+    out: list[str] = []
+    seen: set[str] = set()
+    for path in paths:
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        out.append(path)
+    return out
+
+
+def _set_session_mode(ctx, mode: str) -> None:
+    """Write session mode where soffice ``get_config`` will see it.
+
+    Client ``set_config`` can use a cached path that is not the throwaway
+    ``UserInstallation`` profile. Soffice PathSettings ``UserConfig`` is
+    usually the throwaway ``user/config``, but a cached ``init_config``
+    path can stay on the default user profile. Write every candidate.
+    """
+    import os
+
+    from plugin.framework.config import (
+        _invalidate_config_cache,
+        _load_config_dict,
+        _write_config_file,
+        set_config,
+    )
+    from plugin.testing_runner import _progress
+
+    set_config("scripting.python_session_mode", mode)
+    for path in _session_config_paths(ctx):
+        data: dict = {}
+        if os.path.exists(path):
+            loaded = _load_config_dict(path, allow_repair=True, persist_repair=False)
+            if isinstance(loaded, dict):
+                data = loaded
+        if mode == "isolated":
+            data.pop("scripting.python_session_mode", None)
+            data.pop("python_session_mode", None)
+        else:
+            data["scripting.python_session_mode"] = mode
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        _write_config_file(path, data)
+        _progress("geometric session_mode=%s path=%s" % (mode, path))
+    _invalidate_config_cache()
+
+
+def _wait_cell_value(doc, cell, expected: float, timeout: float = 8.0) -> bool:
+    """True if *cell* reaches *expected*. False if sheet =PY is #NAME? (no add-in)."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        doc.calculateAll()
+        if cell.getValue() == expected:
+            return True
+        if cell.getError() in _PY_UNREGISTERED:
+            return False
+        time.sleep(0.05)
+    if cell.getValue() == expected:
+        return True
+    if cell.getError() in _PY_UNREGISTERED:
+        return False
+    raise AssertionError(
+        "cell did not become %r: value=%r error=%r string=%r formula=%r"
+        % (
+            expected,
+            cell.getValue(),
+            cell.getError(),
+            cell.getString(),
+            cell.getFormula(),
+        )
+    )
+
+
+def _skip_if_py_unregistered(cell, *, test_name: str) -> bool:
+    """Log-and-skip on local blank-profile #NAME?. GitHub Actions must assert values."""
+    if cell.getError() not in _PY_UNREGISTERED:
+        return False
+    if on_github_actions():
+        raise AssertionError(
+            "[%s] sheet =PY() is #NAME? on GitHub Actions (error=%r value=%r formula=%r). "
+            "testing_runner must seed WriterAgent into the throwaway UserInstallation "
+            "from the user-level uno_packages that register-built-oxt wrote."
+            % (test_name, cell.getError(), cell.getValue(), cell.getFormula())
+        )
+    from plugin.framework.logging import log
+
+    log.warning(
+        "[%s] skip live sheet eval — value=%r error=%r formula=%r (add-in not registered)",
+        test_name,
+        cell.getValue(),
+        cell.getError(),
+        cell.getFormula(),
+    )
+    return True
+
+
 @native_test
 @with_native_doc("calc")
 def test_geometric_insert_delete_undo_three_cell_column(ctx, doc):
@@ -223,5 +366,125 @@ def test_geometric_cap_hit_sheet_stays_unchained(ctx, doc):
         assert _pred(a2) is None, a2
         a101 = str(sheet.getCellByPosition(0, _MAX_PYTHON_CELLS_FOUND).getFormula() or "")
         assert _pred(a101) is None, a101
+    finally:
+        _restore_geometric_flag(previous)
+
+
+@native_test
+@with_native_doc("calc")
+def test_geometric_shared_kernel_a3_reads_a1_f9_stable(ctx, doc):
+    """§10 leftover: Shared kernel, flag on — A3 reads A1's name; F9-stable; strip.
+
+    A1 assigns ``x_geo_live = 41``. A2 stays empty so A3's predecessor is A1.
+    A3 is ``=PY("x_geo_live")`` with no user-typed ``;A1``. After deferred
+    attach, A3's formula names A1. ``calculateAll`` must yield 41 (geometric
+    DAG order on a unique Shared name). A second ``calculateAll`` must stay
+    41. Precedent-only strip is Phase 4 unit-tested; headless soffice eval
+    is off Python MainThread so live ``data is None`` cannot be observed.
+
+    Stay on the reused calc doc. A second factory ``scalc`` makes
+    ``off_main_calc_session_is_unambiguous()`` false, so Shared
+    ``session_id`` is dropped (XAddIn has no calling workbook). Throwaway
+    ``writeragent.json`` is seeded ``shared`` before soffice starts.
+    """
+    from plugin.calc.python.geometric_recalc import reset_geometric_runtime_for_tests
+
+    reset_geometric_runtime_for_tests()
+    _cold_kernel()
+    previous = _enable_geometric_flag()
+    try:
+        _set_session_mode(ctx, "shared")
+        _settle_soffice_config()
+        sheet = doc.getSheets().getByIndex(0)
+        a1 = sheet.getCellByPosition(0, 0)
+        a3 = sheet.getCellByPosition(0, 2)
+        # Unique name: leftover ``x`` from other tests cannot fake the first F9.
+        a1.setFormula('=PY("x_geo_live = 41")')
+        a3.setFormula('=PY("x_geo_live")')
+        _flush(ctx, doc, sheet)
+        assert _pred(str(a3.getFormula() or "")) == "A1", a3.getFormula()
+        assert _pred(str(a1.getFormula() or "")) is None
+
+        if not _wait_cell_value(doc, a3, 41.0):
+            if _skip_if_py_unregistered(
+                a1, test_name="test_geometric_shared_kernel_a3_reads_a1_f9_stable"
+            ):
+                return
+            raise AssertionError(
+                "A3 did not become 41 after attach+F9: "
+                "value=%r error=%r string=%r formula=%r"
+                % (a3.getValue(), a3.getError(), a3.getString(), a3.getFormula())
+            )
+        assert a3.getValue() == 41.0, (
+            a3.getValue(),
+            a3.getString(),
+            a3.getFormula(),
+        )
+
+        # Second F9. Same value — geometric edge stays, Shared name persists.
+        doc.calculateAll()
+        assert a3.getValue() == 41.0, (
+            a3.getValue(),
+            a3.getString(),
+            a3.getFormula(),
+        )
+    finally:
+        _set_session_mode(ctx, "isolated")
+        _restore_geometric_flag(previous)
+
+
+@native_test
+@with_native_doc("calc")
+def test_geometric_chained_origin_still_auto_spills(ctx, doc):
+    """§10 leftover: attaching ``;pred`` must not collapse an auto-spill origin to 1×1.
+
+    Unchained live spill is already covered by ``test_calc_spill_undo_lock``
+    (direct ``perform_deferred_spill``) and ``test_function`` DummyTimer cases.
+    This adds the chained origin next to those. Attaching ``;pred`` must
+    still match the origin (``is_matching_py_formula``). Neighbors use the
+    same ``perform_deferred_spill`` path as ``test_calc_spill_undo_lock``.
+    """
+    from plugin.calc.python.formula_locator_cache import is_matching_py_formula
+    from plugin.calc.python.function import perform_deferred_spill
+    from plugin.calc.python.geometric_recalc import reset_geometric_runtime_for_tests
+    from plugin.framework.config import get_config_bool
+
+    assert get_config_bool("scripting.python_auto_spill") is True
+    reset_geometric_runtime_for_tests()
+    previous = _enable_geometric_flag()
+    try:
+        sheet = doc.getSheets().getByIndex(0)
+        a1 = sheet.getCellByPosition(0, 0)
+        a3 = sheet.getCellByPosition(0, 2)
+        spill_code = "result = [[10, 20], [30, 40]]"
+        a1.setFormula('=PY("result = 1")')
+        a3.setFormula('=PY("%s")' % spill_code)
+        _flush(ctx, doc, sheet)
+        stored = str(a3.getFormula() or "")
+        assert _pred(stored) == "A1", stored
+        # Attaching ;pred must not break spill's origin match (code arg only).
+        assert is_matching_py_formula(stored, spill_code), stored
+
+        if a1.getError() in _PY_UNREGISTERED or a3.getError() in _PY_UNREGISTERED:
+            if _skip_if_py_unregistered(
+                a1, test_name="test_geometric_chained_origin_still_auto_spills"
+            ):
+                return
+
+        doc_url = getattr(doc, "getURL", lambda: "")() or ""
+        perform_deferred_spill(
+            ctx,
+            doc_url,
+            sheet.Name,
+            2,
+            0,
+            [[10, 20], [30, 40]],
+            doc=doc,
+            code=spill_code,
+        )
+        assert a3.getString() != "#SPILL!", a3.getString()
+        assert sheet.getCellByPosition(1, 2).getValue() == 20.0
+        assert sheet.getCellByPosition(0, 3).getValue() == 30.0
+        assert sheet.getCellByPosition(1, 3).getValue() == 40.0
     finally:
         _restore_geometric_flag(previous)

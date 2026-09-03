@@ -273,6 +273,104 @@ def _parse_cli_args(argv: Sequence[str]) -> list[str]:
     return filters
 
 
+# Headless throwaway UserInstallation created by ``_soffice_bootstrap_command``.
+# Leftover geometric UNO writes Shared-kernel config here so soffice ``get_config``
+# and the URP client are not looking at different ``writeragent.json`` files.
+_throwaway_profile_dir: Path | None = None
+
+
+def on_github_actions() -> bool:
+    """True inside GitHub Actions (``GITHUB_ACTIONS=true``)."""
+    return os.environ.get("GITHUB_ACTIONS") == "true"
+
+
+def throwaway_writeragent_json() -> Path | None:
+    """``user/config/writeragent.json`` under the headless throwaway profile, if any."""
+    if _throwaway_profile_dir is None:
+        return None
+    return _throwaway_profile_dir / "user" / "config" / "writeragent.json"
+
+
+def _libreoffice_user_profile_dir() -> Path:
+    """Default UserInstallation (the profile ``unopkg add`` / ``register-built-oxt`` writes)."""
+    return _libreoffice_user_lock_path().parent
+
+
+def _writeragent_oxt_in_uno_packages(root: Path) -> bool:
+    """True if *root* is a ``user/uno_packages`` tree that contains ``WriterAgent.oxt``."""
+    packages = root / "cache" / "uno_packages"
+    if not packages.is_dir():
+        return False
+    try:
+        children = list(packages.iterdir())
+    except OSError:
+        return False
+    for child in children:
+        if child.name.endswith(".tmp_") and (child / "WriterAgent.oxt").exists():
+            return True
+    return False
+
+
+def _user_writeragent_uno_packages() -> Path | None:
+    """User-level ``uno_packages`` that ``make register-built-oxt`` populated, if any."""
+    root = _libreoffice_user_profile_dir() / "user" / "uno_packages"
+    if _writeragent_oxt_in_uno_packages(root):
+        return root
+    return None
+
+
+def _seed_throwaway_profile_with_user_oxt(profile_dir: Path) -> None:
+    """Copy user-level WriterAgent into the throwaway ``UserInstallation``.
+
+    ``make register-built-oxt`` / ``unopkg add`` writes the default user
+    profile (``~/.config/libreoffice`` on Linux). ``testing_runner`` starts
+    soffice with ``-env:UserInstallation=<tmp>``, and that profile does
+    **not** inherit user-level unopkg. Sheet ``=PY()`` is then #NAME?
+    (504/525) — PR CI 33731677620 skipped leftover geometric eval.
+
+    ``unopkg -env:UserInstallation=<tmp> add`` cannot enable Python
+    components here (helper soffice pipe ``NoConnectException``). Copying
+    ``user/uno_packages`` works: ``$UNO_USER_PACKAGES_CACHE`` expands in
+    the throwaway. Direct ``PythonFunction.py`` is not a substitute
+    (bypasses Calc order).
+    """
+    src = _user_writeragent_uno_packages()
+    if src is None:
+        hint = _libreoffice_user_profile_dir() / "user" / "uno_packages"
+        _progress(
+            "BOOTSTRAP throwaway seed skip — no user-level WriterAgent.oxt under %s "
+            "(user unopkg is invisible to throwaway UserInstallation; "
+            "sheet =PY() will be #NAME? 504/525) GITHUB_ACTIONS=%s"
+            % (hint, on_github_actions())
+        )
+        if on_github_actions():
+            raise RuntimeError(
+                "GitHub Actions must seed the UNO throwaway profile from the "
+                "user-level WriterAgent install (make register-built-oxt). "
+                "Missing %s" % hint
+            )
+        return
+    dest = profile_dir / "user" / "uno_packages"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(src, dest)
+    _progress(
+        "BOOTSTRAP throwaway seeded uno_packages from %s -> %s GITHUB_ACTIONS=%s"
+        % (src, dest, on_github_actions())
+    )
+    # Shared-kernel leftover UNO needs soffice ``get_config`` to see ``shared``
+    # on first read (2s mtime cache + Isolated OnNew otherwise). Isolated
+    # tests that care must write Isolated after bootstrap.
+    cfg = profile_dir / "user" / "config"
+    cfg.mkdir(parents=True, exist_ok=True)
+    (cfg / "writeragent.json").write_text(
+        '{\n  "scripting.python_session_mode": "shared"\n}\n',
+        encoding="utf-8",
+    )
+    _progress("BOOTSTRAP throwaway writeragent.json session_mode=shared path=%s" % (cfg / "writeragent.json"))
+
+
 def _soffice_bootstrap_command(officehelper_module: Any) -> str | None:
     """Return a soffice command for native tests.
 
@@ -290,13 +388,19 @@ def _soffice_bootstrap_command(officehelper_module: Any) -> str | None:
             # Keep the developer's UserInstallation (extension + writeragent.json).
             # Actual GUI start is ``_user_profile_soffice_argv`` (adds --writer, no --nodefault).
             return "%s --norestore --nofirststartwizard --nocrashreport --writer" % quoted
-        profile_url = Path(tempfile.mkdtemp(prefix="writeragent-lo-test-profile-")).as_uri()
-        return (
-            "%s --headless --norestore --nofirststartwizard --nocrashreport "
-            "-env:UserInstallation=%s" % (quoted, profile_url)
-        )
+        profile_dir = Path(tempfile.mkdtemp(prefix="writeragent-lo-test-profile-"))
     except Exception:
         return None
+    # Seed after the lookup try so a missing user OXT on GitHub Actions
+    # raises instead of becoming a silent None command.
+    global _throwaway_profile_dir
+    _throwaway_profile_dir = profile_dir
+    _seed_throwaway_profile_with_user_oxt(profile_dir)
+    profile_url = profile_dir.as_uri()
+    return (
+        "%s --headless --norestore --nofirststartwizard --nocrashreport "
+        "-env:UserInstallation=%s" % (quoted, profile_url)
+    )
 
 
 # Inherited checkout / venv env makes soffice load mixed plugin sources; URP
@@ -486,9 +590,12 @@ def _bootstrap_user_profile_gui(officehelper_module: Any) -> Any:
 def _bootstrap_office(officehelper_module: Any) -> Any:
     """Start soffice without leaking the test runner's Python env into the child.
 
-    Visible user-profile soffice loads the installed WriterAgent OXT. If it
-    inherits the checkout ``PYTHONPATH``, the extension imports mixed sources
-    and can crash on startup (URP then reports the bridge disposed).
+    Visible user-profile soffice loads the installed WriterAgent OXT. Headless
+    throwaway profiles are seeded from that same user-level ``uno_packages``
+    cache when ``make register-built-oxt`` has run (GitHub Actions requires
+    it — user ``unopkg add`` is invisible to ``-env:UserInstallation=<tmp>``).
+    If it inherits the checkout ``PYTHONPATH``, the extension imports mixed
+    sources and can crash on startup (URP then reports the bridge disposed).
     """
     if use_user_profile:
         return _bootstrap_user_profile_gui(officehelper_module)

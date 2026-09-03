@@ -258,7 +258,7 @@ Compare to **full Excel co-volatility:** multiple engineer-months in `sc/`, high
 
 **Phase 3 — Deferred repair on insert/delete.** **Landed.** Shared trigger (`SheetModifyDispatcher` in `sheet_modify.py`) + spill-like 0.1s timer + re-entrancy flag. `CalcSpillModifyListener.modified` still walks `SPILL_REGISTRY` only; geometric repair runs its own `list_python_cells_on_sheet`. Insert/delete/clear retargets without waiting for save; a data-edit that changes the PY list rebuilds the strip-safe index. Discovery `truncated` flag: exact 100 is chained; #101 or the 50k scan cap skips the sheet. UNO tests: three-cell column, insert PY in the middle, successor’s field updates; delete (including successor-becomes-first → remove-field); undo. Cap-hit sheet is left unchained.
 
-**Phase 4 — Strip geometric arg from worker ingress.** **Landed on master** (with Phase 2 — attach without strip is the arity footgun), **without** an `args[:-1]` fingerprint. After `split_python_addin_data_args`, if the triple is strip-safe, drop `args[-1]` **before** the index heuristic and `calc_addin_args_from_split`. Eval identity is unanimous-ours on `(workbook_key, resolved_code, n_args)` only. Tests in [§10](#10-test-plan-when-implemented).
+**Phase 4 — Strip geometric arg from worker ingress.** **Landed on master** (with Phase 2 — attach without strip is the arity footgun), **without** an `args[:-1]` fingerprint. After `split_python_addin_data_args`, if the triple is strip-safe, drop `args[-1]` **before** the index heuristic and `calc_addin_args_from_split`. Eval identity is unanimous-ours on `(workbook_key, resolved_code, n_args)` only. UI-thread `=PY()` hydrates `_STRIP_SAFE` from UDProp when the evaluating process has an empty map (`ensure_geometric_strip_index_for_eval`) — attach may have run over URP, and `OnLoadFinished` can miss a later UDProp write. Tests in [§10](#10-test-plan-when-implemented).
 
 **Non-goals until someone asks:** cross-sheet chains, workbook-global order, Isolated value-piping, sidebar annotations, Excel export special-case, raising the 100-cell cap, strip-on-disable, spatial clustering of independent PY groups, a dedicated IDL arg.
 
@@ -402,13 +402,13 @@ Phase 4 — `data` strip (inject the in-memory map; no UNO):
 **UNO (`test_*_uno.py`):**
 
 - **Formula I/O (landed, `test_geometric_recalc_uno.py`):** live `getFormula()` / `setFormula()` on `=PY("y"; $C$5)` (absolute `$` survives attach), quoted `=PY("np.mean(data)"; B1:B10)` (splice still parses), and unquoted `=PY($A$1; …)` (code-in-cell stays unquoted). Flag can stay off — this is splice I/O, not eval strip. Do not mark win32-only.
-- Shared kernel, flag on: A3 reads a name assigned in A1 without a user-typed `data` ref; result is stable across F9.
+- **Shared kernel eval (landed, `test_geometric_shared_kernel_a3_reads_a1_f9_stable`):** flag on, A3 reads a name assigned in A1 without a user-typed `data` ref; result is 41 across two `calculateAll` (F9) passes. Precedent-only strip of the attached last arg is Phase 4 unit-tested (`data is None` / `np.mean(data)` / `ranges[-1]`). **GitHub Actions asserts the 41s** — `testing_runner` seeds the throwaway `UserInstallation` from the user-level `uno_packages` that `make register-built-oxt` wrote (user `unopkg add` is invisible to `-env:UserInstallation=<tmp>`; 525 is a hard fail, not a skip). Seed `writeragent.json` Shared before soffice starts (2s `get_config` cache) and stay on the `with_native_doc` reuse Calc — a second factory `scalc` makes `off_main_calc_session_is_unambiguous()` false, so Shared drops `session_id`. Local blank profiles may still skip.
 - Insert a PY row between two chained cells; after the deferred pass, successor formula names the new cell; values update on next recalc.
 - Delete middle cell: successor retargets or remove-field if it is now first.
 - Flag off: no new attaches; existing refs stay.
 - Isolated + flag on: no-op for Python **globals**; strip still runs when `workbook_key` is unambiguous (no `data` breakage).
 - Undo: user types a new PY cell, geometric rewrite does not add a second undo step when `isUndoPossible()` (hidden context). Flag-on reconcile with no prior edit is one locked unit (`test_calc_spill_undo_lock` is the spill analogue).
-- `#SPILL!` / auto-spill still works on a chained origin cell.
+- **`#SPILL!` / auto-spill on a chained origin (landed, `test_geometric_chained_origin_still_auto_spills`):** attaching `;pred` does not break origin match (`is_matching_py_formula`). Neighbors use the existing `perform_deferred_spill` path. **GitHub Actions must write those neighbors** (same throwaway seed as the Shared-kernel leftover; 525 is a hard fail). Local blank profiles may still skip.
 - Re-entrancy: repair `setFormula` does not nest a second repair.
 - Cap-hit sheet: no chain, log emitted, no strip-safe marks.
 
