@@ -133,6 +133,8 @@ _HTML_ATTR_RE = re.compile(
     r"""(?is)([a-z_:][-a-z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"""
 )
 _IN_PROMPT_RE = re.compile(r"^In \[[0-9 ]*\]:")
+# One-item resumed list: ``<ol start="3"><li>Ask for help…</li></ol>``.
+_OL_START_RE = re.compile(r"""(?is)<ol\b[^>]*\bstart\s*=\s*["']?(\d+)""")
 
 
 def _mono_ms(t0: float) -> int:
@@ -1052,6 +1054,22 @@ def _list_block_to_html(items: list[Any]) -> str:
     return html
 
 
+def _single_ol_start(html: str) -> int | None:
+    """Return *start* when *html* is a one-item ``<ol start="N">`` with N > 1.
+
+    Multi-item lists already get numbering from StarWriter. The 1-item
+    ``start=N`` fragment is the one that inherits leftover nested-ul level
+    or drops numbering entirely.
+    """
+    if (html or "").lower().count("<li") != 1:
+        return None
+    match = _OL_START_RE.search(html or "")
+    if not match:
+        return None
+    start = int(match.group(1))
+    return start if start > 1 else None
+
+
 def _iter_markdown_blocks(source: str) -> list[tuple[str, Any]]:
     """Split CommonMark source into ATX headings, lists, quotes, images, paragraphs.
 
@@ -1280,6 +1298,125 @@ def _anchor_control_as_character(shape: Any) -> None:
         log.debug("notebook import TextWrap not applied", exc_info=True)
 
 
+def _numbering_kind(name: str) -> str:
+    """``none`` / ``outline`` / ``list`` — Outline is heading chapter numbering."""
+    lowered = (name or "").strip().lower()
+    if not lowered:
+        return "none"
+    if lowered == "outline" or "outline" in lowered:
+        return "outline"
+    return "list"
+
+
+def _copy_previous_outer_list(cursor: Any) -> bool:
+    """Copy NumberingStyleName + NumberingRules from the nearest level-0 list para."""
+    try:
+        text_obj = cursor.getText()
+        prev = text_obj.createTextCursorByRange(cursor)
+    except Exception:
+        return False
+    steps = 0
+    while steps < 32:
+        steps += 1
+        try:
+            if not prev.gotoPreviousParagraph(False):
+                return False
+            style = str(prev.getPropertyValue("NumberingStyleName") or "")
+            if _numbering_kind(style) != "list":
+                continue
+            level = int(prev.getPropertyValue("NumberingLevel") or 0)
+            if level != 0:
+                continue
+            rules = prev.getPropertyValue("NumberingRules")
+            if rules is None:
+                continue
+            cursor.setPropertyValue("NumberingStyleName", style)
+            cursor.setPropertyValue("NumberingRules", rules)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+def _promote_para_to_outer_ol(cursor: Any, *, start: int) -> bool:
+    """Put *cursor*'s paragraph on the outer ordered list at *start*.
+
+    Skip-pre-clear left Ask for help on leftover nested-ul NumberingLevel=1
+    (same style as ChatGPT). Full pre-clear made insertDocumentFromURL drop
+    numbering on a 1-item ``<ol start=N>``. Keep the list style, force level 0,
+    restart at N.
+    """
+    try:
+        style = str(cursor.getPropertyValue("NumberingStyleName") or "")
+    except Exception:
+        style = ""
+    kind = _numbering_kind(style)
+    if kind == "outline":
+        return False
+    if kind == "none" and not _copy_previous_outer_list(cursor):
+        return False
+    try:
+        cursor.setPropertyValue("NumberingLevel", 0)
+        cursor.setPropertyValue("NumberingStartValue", int(start))
+        cursor.setPropertyValue("ParaIsNumberingRestart", True)
+        return True
+    except Exception:
+        log.debug("notebook import promote outer ol start=%s failed", start, exc_info=True)
+        return False
+
+
+def _last_nonempty_para_cursor(text: Any) -> Any | None:
+    try:
+        cursor = text.createTextCursor()
+        cursor.gotoEnd(False)
+    except Exception:
+        return None
+    steps = 0
+    while steps < 16:
+        steps += 1
+        if not _cursor_para_is_empty(cursor):
+            return cursor
+        try:
+            if not cursor.gotoPreviousParagraph(False):
+                return None
+        except Exception:
+            return None
+    return None
+
+
+def _cursor_para_is_empty(cursor: Any) -> bool:
+    """True when *cursor*'s paragraph has no visible text (trailing list leftover)."""
+    try:
+        text_obj = cursor.getText()
+        rng = text_obj.createTextCursorByRange(cursor)
+        rng.gotoStartOfParagraph(False)
+        rng.gotoEndOfParagraph(True)
+        raw = rng.getString()
+        if raw is None:
+            return True
+        if not isinstance(raw, str):
+            return False
+        return raw.strip() == ""
+    except Exception:
+        return False
+
+
+def _clear_para_numbering(cursor: Any) -> None:
+    """Drop inherited list numbering so the next block is not a leftover bullet."""
+    # StarWriter insertDocumentFromURL leaves NumberingRules on the last list
+    # item. A following paragraph break inherits that leftover. Clear both
+    # properties on heading/body/blockquote insertion cursors — not on the
+    # list fragment itself (see ``_insert_html_at_body_end``).
+    try:
+        cursor.setPropertyValue("NumberingStyleName", "")
+    except Exception:
+        log.debug("notebook import NumberingStyleName clear failed", exc_info=True)
+    try:
+        cursor.setPropertyValue("NumberingRules", None)
+    except Exception:
+        log.debug("notebook import NumberingRules clear failed", exc_info=True)
+
+
 def _append_body_paragraph(
     doc: Any,
     content: str,
@@ -1297,6 +1434,8 @@ def _append_body_paragraph(
     if lead_break and _doc_body_nonempty(doc):
         text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
         cursor.gotoEnd(False)
+    # Always: leftover empty list para must not infect h2/body.
+    _clear_para_numbering(cursor)
     resolved = _resolve_para_style(doc, para_style)
     if resolved:
         try:
@@ -1372,7 +1511,9 @@ def _trim_trailing_empty_paragraph(doc: Any) -> None:
         log.debug("notebook import: trim trailing empty paragraph failed", exc_info=True)
 
 
-def _insert_html_at_body_end(doc: Any, html: str, *, lead_break: bool) -> bool:
+def _insert_html_at_body_end(
+    doc: Any, html: str, *, lead_break: bool, exit_list: bool = False
+) -> bool:
     """Insert an HTML fragment at the document end. Returns False on failure."""
     text = doc.getText()
     cursor = text.createTextCursor()
@@ -1380,10 +1521,31 @@ def _insert_html_at_body_end(doc: Any, html: str, *, lead_break: bool) -> bool:
     if lead_break and _doc_body_nonempty(doc):
         text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
         cursor.gotoEnd(False)
+    # List HTML: do not pre-clear leftover NumberingRules (a 1-item
+    # ``<ol start="N">`` then imports as plain Text body). Do not leave
+    # leftover nested-ul NumberingLevel=1 either — that is the same style
+    # as ChatGPT bullets, not outer ol start=N. Promote that case to level 0
+    # and restart at N. Blockquotes still pre-clear.
+    ol_start = _single_ol_start(html or "")
+    if not exit_list:
+        _clear_para_numbering(cursor)
+    elif ol_start is not None:
+        _promote_para_to_outer_ol(cursor, start=ol_start)
     from plugin.writer.html_import import insert_html_fragment_at_cursor
 
     try:
         insert_html_fragment_at_cursor(cursor, _wrap_html_fragment(html), wrap=False)
+        if ol_start is not None:
+            target = _last_nonempty_para_cursor(text)
+            if target is not None:
+                _promote_para_to_outer_ol(target, start=ol_start)
+        if exit_list:
+            end = text.createTextCursor()
+            end.gotoEnd(False)
+            # Only the empty trailing para. Clearing the last <li> would
+            # un-number Ask for help when insertDocumentFromURL left no extra para.
+            if _cursor_para_is_empty(end):
+                _clear_para_numbering(end)
         _trim_trailing_empty_paragraph(doc)
         return True
     except Exception:
@@ -1426,7 +1588,7 @@ def _append_markdown_cell(
         elif kind in ("ul", "ol"):
             items = payload if isinstance(payload, list) else [payload]
             html = _list_block_to_html(items)
-            if not _insert_html_at_body_end(doc, html, lead_break=block_lead):
+            if not _insert_html_at_body_end(doc, html, lead_break=block_lead, exit_list=True):
                 for i, item in enumerate(items):
                     if isinstance(item, tuple) and len(item) >= 4:
                         text = str(item[3])

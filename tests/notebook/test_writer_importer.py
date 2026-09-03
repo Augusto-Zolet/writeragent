@@ -260,6 +260,84 @@ def test_insert_html_at_body_end_calls_trim(monkeypatch):
     assert trim_called is True
 
 
+def test_insert_html_list_skips_pre_clear_numbering(monkeypatch):
+    """List HTML must keep leftover NumberingRules on the insertion para.
+
+    StarWriter merges the first <li> into that para. Clearing NumberingStyleName
+    and NumberingRules first made a 1-item <ol start="3"> import as plain text
+    (Ask for help lost its list style).
+    """
+    doc, _body_text, body_cursor = _writer_doc_mock()
+    body_cursor.getString.return_value = ""
+    cleared: list[int] = []
+    promoted: list[int] = []
+
+    def fake_clear(cursor):
+        cleared.append(1)
+
+    def fake_promote(cursor, *, start):
+        promoted.append(start)
+        return True
+
+    monkeypatch.setattr("plugin.notebook.writer_importer._clear_para_numbering", fake_clear)
+    monkeypatch.setattr("plugin.notebook.writer_importer._promote_para_to_outer_ol", fake_promote)
+    monkeypatch.setattr("plugin.writer.html_import.insert_html_fragment_at_cursor", lambda *a, **k: None)
+    monkeypatch.setattr("plugin.notebook.writer_importer._trim_trailing_empty_paragraph", lambda _doc: None)
+    monkeypatch.setattr("plugin.notebook.writer_importer._cursor_para_is_empty", lambda _c: True)
+
+    import plugin.notebook.writer_importer as wi
+
+    wi._insert_html_at_body_end(
+        doc, '<ol start="3"><li>Ask for help</li></ol>', lead_break=False, exit_list=True
+    )
+    assert len(cleared) == 1
+    assert 3 in promoted
+
+
+def test_single_ol_start_only_one_item():
+    from plugin.notebook.writer_importer import _single_ol_start
+
+    assert _single_ol_start('<ol start="3"><li>Ask for help</li></ol>') == 3
+    assert _single_ol_start("<ol><li>cheat</li><li>search</li></ol>") is None
+    assert _single_ol_start('<ol start="3"><li>a</li><li>b</li></ol>') is None
+    assert _single_ol_start("<blockquote><p>Note</p></blockquote>") is None
+
+
+def test_promote_para_to_outer_ol_nested_level():
+    from plugin.notebook.writer_importer import _promote_para_to_outer_ol
+
+    cursor = MagicMock()
+    props = {
+        "NumberingStyleName": "1698400711",
+        "NumberingLevel": 1,
+        "NumberingRules": object(),
+    }
+    cursor.getPropertyValue.side_effect = lambda name: props[name]
+    assert _promote_para_to_outer_ol(cursor, start=3) is True
+    cursor.setPropertyValue.assert_any_call("NumberingLevel", 0)
+    cursor.setPropertyValue.assert_any_call("NumberingStartValue", 3)
+    cursor.setPropertyValue.assert_any_call("ParaIsNumberingRestart", True)
+
+
+def test_insert_html_blockquote_still_pre_clears(monkeypatch):
+    """Non-list HTML still pre-clears so a quote does not inherit leftover bullets."""
+    doc, _body_text, body_cursor = _writer_doc_mock()
+    body_cursor.getString.return_value = ""
+    cleared: list[int] = []
+
+    def fake_clear(cursor):
+        cleared.append(1)
+
+    monkeypatch.setattr("plugin.notebook.writer_importer._clear_para_numbering", fake_clear)
+    monkeypatch.setattr("plugin.writer.html_import.insert_html_fragment_at_cursor", lambda *a, **k: None)
+    monkeypatch.setattr("plugin.notebook.writer_importer._trim_trailing_empty_paragraph", lambda _doc: None)
+
+    import plugin.notebook.writer_importer as wi
+
+    wi._insert_html_at_body_end(doc, "<blockquote><p>Note</p></blockquote>", lead_break=False)
+    assert len(cleared) == 1
+
+
 def _writer_doc_mock(*, with_bookmarks: bool = False):
     body_cursor = MagicMock()
     body_text = MagicMock()
@@ -972,7 +1050,7 @@ def test_import_nested_lists_and_blockquotes_fixture(monkeypatch):
 
     monkeypatch.setattr("plugin.writer.html_import.insert_html_fragment_at_cursor", fake_insert_html)
     stats = import_ipynb_to_writer(doc, str(ipynb))
-    assert stats["markdown"] == 3
+    assert stats["markdown"] == 4
     joined = "\n".join(html_calls)
     assert "<ul>" in joined
     assert "<li>" in joined

@@ -60,6 +60,43 @@ def _paragraphs(doc) -> list[tuple[str, str]]:
     return out
 
 
+def _paragraphs_with_numbering(doc) -> list[tuple[str, str, str, int]]:
+    """(ParaStyleName, NumberingStyleName, text, NumberingLevel) for leftover-list leak checks."""
+    out: list[tuple[str, str, str, int]] = []
+    enum = doc.getText().createEnumeration()
+    while enum.hasMoreElements():
+        el = enum.nextElement()
+        try:
+            if hasattr(el, "supportsService") and not el.supportsService("com.sun.star.text.Paragraph"):
+                continue
+            style = str(el.getPropertyValue("ParaStyleName") or "")
+            numbering = str(el.getPropertyValue("NumberingStyleName") or "")
+            text = str(el.getString() or "")
+            try:
+                level = int(el.getPropertyValue("NumberingLevel") or 0)
+            except Exception:
+                level = 0
+        except Exception:
+            continue
+        out.append((style, numbering, text, level))
+    return out
+
+
+def _is_leftover_list_numbering(numbering: str) -> bool:
+    """True when NumberingStyleName is a list style, not heading Outline.
+
+    Heading 2 keeps chapter ``Outline`` from the paragraph style. That is not
+    leftover ``insertDocumentFromURL`` list NumberingRules.
+    """
+    name = (numbering or "").strip()
+    if not name:
+        return False
+    lowered = name.lower()
+    if lowered == "outline" or "outline" in lowered:
+        return False
+    return True
+
+
 def _style_is_heading(style: str, level: int) -> bool:
     compact = (style or "").lower().replace(" ", "")
     return compact == f"heading{level}"
@@ -884,6 +921,7 @@ def test_import_nested_lists_blockquotes_and_in_keep_style(ctx, doc):
     assert "NumPy documentation" in body
     assert "Note:" in body or "Important to remember" in body
     assert "how to find unique elements" in body
+    assert "After the list" in body
     # Literal markdown markers must not survive as body text.
     assert "* [NumPy" not in body
     assert "> **Note" not in body
@@ -894,6 +932,60 @@ def test_import_nested_lists_blockquotes_and_in_keep_style(ctx, doc):
     # Writer may show "3." or keep list numbering in Numbering; do not accept a
     # restarted "1. **Ask for help**" from a fresh <ol>.
     assert not any(t.lstrip().startswith("1.") and "Ask for help" in t for t in numbered)
+    numbered_paras = _paragraphs_with_numbering(doc)
+    help_heading = [
+        (style, numbering, text, level)
+        for style, numbering, text, level in numbered_paras
+        if "Where can I get help?" in text
+    ]
+    assert help_heading, f"help heading missing: {numbered_paras!r}"
+    assert not _is_leftover_list_numbering(help_heading[0][1]), (
+        f"help heading inherited leftover numbering: {help_heading!r}"
+    )
+    ask = [
+        (style, numbering, text, level)
+        for style, numbering, text, level in numbered_paras
+        if "Ask for help" in text
+    ]
+    assert ask, f"Ask for help missing from numbered paras: {numbered_paras!r}"
+    assert ask[0][1], f"Ask for help lost list numbering: {ask!r}"
+    assert ask[0][3] == 0, (
+        f"Ask for help is leftover nested-ul (level {ask[0][3]}), not outer ol: {ask!r}"
+    )
+    assert not any(t.lstrip().startswith("1.") for _s, _n, t, _lvl in ask), (
+        f"Ask for help restarted as literal 1.: {ask!r}"
+    )
+    after_list = [
+        (style, numbering, text, level)
+        for style, numbering, text, level in numbered_paras
+        if "After the list" in text
+    ]
+    assert after_list, f"After the list heading missing: {numbered_paras!r}"
+    assert not _is_leftover_list_numbering(after_list[0][1]), (
+        f"list-then-h2 leaked numbering onto After the list: {after_list!r}"
+    )
+    unique_quote = [
+        (style, numbering, text, level)
+        for style, numbering, text, level in numbered_paras
+        if "unique elements" in text
+    ]
+    assert unique_quote, f"unique-elements quote missing: {numbered_paras!r}"
+    unique_style = (unique_quote[0][0] or "").lower()
+    assert "block" in unique_style or "quot" in unique_style, (
+        f"unique-elements quote style is not block quotation: {unique_quote!r}"
+    )
+    assert unique_quote[0][1] == "", (
+        f"unique-elements quote inherited leftover numbering: {unique_quote!r}"
+    )
+    note_quote = [
+        (style, numbering, text, level)
+        for style, numbering, text, level in numbered_paras
+        if "ndarray" in text or "Note:" in text
+    ]
+    assert note_quote, f"Note/ndarray blockquote missing: {numbered_paras!r}"
+    assert all(numbering == "" for _s, numbering, _t, _lvl in note_quote), (
+        f"Note/ndarray blockquote inherited leftover numbering: {note_quote!r}"
+    )
     families = doc.getStyleFamilies()
     para_styles = families.getByName("ParagraphStyles")
     assert para_styles.hasByName(_STYLE_NOTEBOOK_IN)
