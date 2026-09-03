@@ -80,9 +80,38 @@ def load_eligible_summaries(
     return kept
 
 
+SHORT_NAMES: dict[str, str] = {
+    "openai/gpt-oss-120b": "GPT-OSS 120B",
+    "openai/gpt-oss-20b": "GPT-OSS 20B",
+    "openai/gpt-5.6-luna": "Luna 5.6",
+    "google/gemma-4-31b-it": "Gemma 31B",
+    "google/gemma-4-26b-a4b-it": "Gemma 26B",
+    "google/gemini-3.5-flash-lite": "Gemini 3.5 Lite",
+    "meta/muse-spark-1.3-contributor": "Spark 1.3",
+    "meta/muse-spark-1.2-contributor": "Spark 1.2",
+    "meta/muse-glimmer-30b": "Glimmer 30B",
+    "deepseek/deepseek-v4-flash-0731": "DeepSeek V4F",
+    "z-ai/glm-5.3-flash": "GLM 5.3F",
+    "z-ai/glm-5.3": "GLM 5.3",
+    "x-ai/grok-4.6": "Grok 4.6",
+    "inception/mercury-2.5-preview": "Mercury 2.5",
+    "inception/mercury-2": "Mercury 2",
+    "qwen/qwen3.8-27b": "Qwen 27B",
+    "qwen/qwen3.8-flash": "Qwen Flash",
+    "nvidia/nemotron-3.5-lightning": "Nemotron 3.5",
+    "minimax/minimax-m3": "MiniMax M3",
+    "poolside/laguna-s-2.1": "Laguna S",
+    "poolside/laguna-xs-2.1": "Laguna XS",
+    "ibm-granite/granite-4.2-8b": "Granite 8B",
+    "bytedance-seed/seed-2.0-mini": "Seed 2 Mini",
+    "upstage/solar-pro4": "Solar Pro 4",
+    "mistralai/mistral-small-2603": "Mistral Small",
+}
+
+
 def _short_label(row: dict[str, Any]) -> str:
     model_id = str(row.get("openrouter_id") or "")
-    name = model_id.rsplit("/", 1)[-1]
+    name = SHORT_NAMES.get(model_id) or model_id.rsplit("/", 1)[-1]
     return f"{name} {float(row['avg_correctness']):.3f}"
 
 
@@ -95,18 +124,54 @@ def _plotable_rows(summaries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+# Systematic alternating placements above and below points/curves to prevent collisions.
+MODEL_LABEL_CONFIG: dict[str, tuple[int, int, str, str]] = {
+    # Dense mid-tier cluster alternating above / below along the front:
+    "google/gemma-4-31b-it": (-6, 6, "right", "bottom"),
+    "meta/muse-spark-1.3-contributor": (0, 7, "center", "bottom"),
+    "z-ai/glm-5.3-flash": (-6, -9, "right", "top"),
+    "deepseek/deepseek-v4-flash-0731": (0, 7, "center", "bottom"),
+    "openai/gpt-5.6-luna": (6, -9, "left", "top"),
+    "meta/muse-glimmer-30b": (6, 4, "left", "bottom"),
+    "qwen/qwen3.8-27b": (6, 4, "left", "center"),
+    # Lower clusters:
+    "openai/gpt-oss-120b": (4, 4, "left", "bottom"),
+    "openai/gpt-oss-20b": (0, 7, "center", "bottom"),
+    "upstage/solar-pro4": (0, -10, "center", "top"),
+    "google/gemma-4-26b-a4b-it": (-6, -4, "right", "top"),
+    "poolside/laguna-s-2.1": (6, 0, "left", "center"),
+    "mistralai/mistral-small-2603": (6, 0, "left", "center"),
+    "poolside/laguna-xs-2.1": (6, 4, "left", "bottom"),
+    "bytedance-seed/seed-2.0-mini": (-4, 7, "right", "bottom"),
+    "ibm-granite/granite-4.2-8b": (6, -8, "left", "top"),
+    "inception/mercury-2.5-preview": (6, 6, "left", "bottom"),
+    "minimax/minimax-m3": (0, 7, "center", "bottom"),
+    "google/gemini-3.5-flash-lite": (6, 0, "left", "center"),
+    "x-ai/grok-4.6": (6, 0, "left", "center"),
+    "z-ai/glm-5.3": (0, 7, "center", "bottom"),
+}
+
+
 def _annotate_all_labels(ax: Any, rows: list[dict[str, Any]]) -> None:
     labeled = sorted(
         rows,
         key=lambda row: (float(row["avg_cost_per_example"]), float(row["avg_correctness"])),
     )
     for idx, row in enumerate(labeled):
-        dx, dy = LABEL_OFFSETS[idx % len(LABEL_OFFSETS)]
+        mid = str(row.get("openrouter_id") or "")
+        if mid in MODEL_LABEL_CONFIG:
+            dx, dy, ha, va = MODEL_LABEL_CONFIG[mid]
+        else:
+            dx, dy = LABEL_OFFSETS[idx % len(LABEL_OFFSETS)]
+            ha = "left" if dx >= 0 else "right"
+            va = "bottom" if dy >= 0 else "top"
         ax.annotate(
             _short_label(row),
             (float(row["avg_cost_per_example"]), float(row["avg_correctness"])),
             textcoords="offset points",
             xytext=(dx, dy),
+            ha=ha,
+            va=va,
             fontsize=7.5,
             fontweight="bold",
             color="#3c4043",
