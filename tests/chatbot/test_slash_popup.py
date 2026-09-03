@@ -9,6 +9,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from plugin.chatbot.slash_commands import KEY_ESCAPE, KEY_RETURN, KEY_TAB, KEY_UP
 from plugin.chatbot.slash_popup import (
     SlashPopupController,
@@ -18,6 +20,7 @@ from plugin.chatbot.slash_popup import (
     _is_combo_box,
     _overlay_height,
     _popup_bounds,
+    _printable_key_char,
     _row_index_at_y,
     uses_toolkit_overlay,
 )
@@ -71,6 +74,17 @@ class _Query:
 
     def getModel(self):
         return SimpleNamespace(Text=self.text)
+
+
+@pytest.fixture(autouse=True)
+def _inline_idle_overlay_show():
+    """CI has UNO AsyncCallback so post_to_main_thread queues; unit tests need inline."""
+
+    def _run(fn, *args, **kwargs):
+        fn(*args, **kwargs)
+
+    with patch("plugin.framework.queue_executor.post_to_main_thread", side_effect=_run):
+        yield
 
 
 def _controller(lru: list[str] | None = None) -> tuple[SlashPopupController, _ListBox]:
@@ -247,3 +261,30 @@ def test_click_row_accepts_command_chrome_does_not_dump_help():
             assert popup.accept_row_at_y(0) is True
     send._append_response.assert_called_once()
     assert "Slash commands:" in send._append_response.call_args[0][0]
+
+def test_printable_key_char_skips_controls():
+    assert _printable_key_char("h") == "h"
+    assert _printable_key_char("\n") is None
+    assert _printable_key_char(None) is None
+
+
+def test_overlay_printable_feeds_ask_and_filters_to_help():
+    popup, _box = _controller()
+    query = popup.query_control
+    query.text = "/"
+    with patch("plugin.chatbot.slash_popup.load_slash_lru", return_value=[]):
+        popup.on_query_text("/")
+        assert popup.handle_key(0, 0, "h", from_overlay=True) is True
+        assert popup.handle_key(0, 0, "e", from_overlay=True) is True
+    assert query.text == "/he"
+    assert popup.visible_names == ["help"]
+
+
+def test_ask_path_printable_does_not_insert():
+    popup, _box = _controller()
+    query = popup.query_control
+    query.text = "/"
+    with patch("plugin.chatbot.slash_popup.load_slash_lru", return_value=[]):
+        popup.on_query_text("/")
+        assert popup.handle_key(0, 0, "h") is False
+    assert query.text == "/"
