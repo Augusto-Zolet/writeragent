@@ -53,8 +53,7 @@ LABEL_OFFSETS = (
 
 FOOTNOTE = (
     "Source: OpenRouter string-harness run, 2026-09-01. "
-    "Each point is labeled with model slug and average correctness. "
-    "Excluded: two full 429 runs and minimax/minimax-m3 (harness crash)."
+    "Each point is labeled with model name and average correctness."
 )
 
 
@@ -84,28 +83,28 @@ SHORT_NAMES: dict[str, str] = {
     "openai/gpt-oss-120b": "GPT-OSS 120B",
     "openai/gpt-oss-20b": "GPT-OSS 20B",
     "openai/gpt-5.6-luna": "Luna 5.6",
-    "google/gemma-4-31b-it": "Gemma 31B",
-    "google/gemma-4-26b-a4b-it": "Gemma 26B",
+    "google/gemma-4-31b-it": "Gemma 4 31B",
+    "google/gemma-4-26b-a4b-it": "Gemma 4 26B",
     "google/gemini-3.5-flash-lite": "Gemini 3.5 Lite",
-    "meta/muse-spark-1.3-contributor": "Spark 1.3",
-    "meta/muse-spark-1.2-contributor": "Spark 1.2",
-    "meta/muse-glimmer-30b": "Glimmer 30B",
-    "deepseek/deepseek-v4-flash-0731": "DeepSeek V4F",
+    "meta/muse-spark-1.3-contributor": "Muse Spark 1.3",
+    "meta/muse-spark-1.2-contributor": "Muse Spark 1.2",
+    "meta/muse-glimmer-30b": "Muse Glimmer 30B 1.0",
+    "deepseek/deepseek-v4-flash-0731": "DeepSeek F 0731",
     "z-ai/glm-5.3-flash": "GLM 5.3F",
     "z-ai/glm-5.3": "GLM 5.3",
     "x-ai/grok-4.6": "Grok 4.6",
     "inception/mercury-2.5-preview": "Mercury 2.5",
     "inception/mercury-2": "Mercury 2",
-    "qwen/qwen3.8-27b": "Qwen 27B",
-    "qwen/qwen3.8-flash": "Qwen Flash",
+    "qwen/qwen3.8-27b": "Qwen 3.8 27B",
+    "qwen/qwen3.8-flash": "Qwen 3.8F",
     "nvidia/nemotron-3.5-lightning": "Nemotron 3.5",
     "minimax/minimax-m3": "MiniMax M3",
-    "poolside/laguna-s-2.1": "Laguna S",
-    "poolside/laguna-xs-2.1": "Laguna XS",
-    "ibm-granite/granite-4.2-8b": "Granite 8B",
+    "poolside/laguna-s-2.1": "Laguna S 2.1",
+    "poolside/laguna-xs-2.1": "Laguna XS 2.1",
+    "ibm-granite/granite-4.2-8b": "Granite 4.2 8B",
     "bytedance-seed/seed-2.0-mini": "Seed 2 Mini",
     "upstage/solar-pro4": "Solar Pro 4",
-    "mistralai/mistral-small-2603": "Mistral Small",
+    "mistralai/mistral-small-2603": "Mistral Small 2603",
 }
 
 
@@ -146,10 +145,18 @@ MODEL_LABEL_CONFIG: dict[str, tuple[int, int, str, str]] = {
     "ibm-granite/granite-4.2-8b": (6, -8, "left", "top"),
     "inception/mercury-2.5-preview": (6, 6, "left", "bottom"),
     "minimax/minimax-m3": (0, 7, "center", "bottom"),
+    "nvidia/nemotron-3.5-lightning": (6, 5, "left", "bottom"),
     "google/gemini-3.5-flash-lite": (6, 0, "left", "center"),
     "x-ai/grok-4.6": (6, 0, "left", "center"),
     "z-ai/glm-5.3": (0, 7, "center", "bottom"),
 }
+
+Y_AXIS_MIN = 0.52
+Y_OOB_CLAMP = 0.524  # Clamps models below the visible y-axis to the bottom baseline
+
+
+def _plot_y(row: dict[str, Any]) -> float:
+    return max(float(row["avg_correctness"]), Y_OOB_CLAMP)
 
 
 def _annotate_all_labels(ax: Any, rows: list[dict[str, Any]]) -> None:
@@ -167,7 +174,7 @@ def _annotate_all_labels(ax: Any, rows: list[dict[str, Any]]) -> None:
             va = "bottom" if dy >= 0 else "top"
         ax.annotate(
             _short_label(row),
-            (float(row["avg_cost_per_example"]), float(row["avg_correctness"])),
+            (float(row["avg_cost_per_example"]), _plot_y(row)),
             textcoords="offset points",
             xytext=(dx, dy),
             ha=ha,
@@ -202,7 +209,7 @@ def write_pareto_fronts_svg(summaries: list[dict[str, Any]], out_path: Path) -> 
         front_rows.sort(key=lambda row: float(row["avg_cost_per_example"]))
         color = OKABE_ITO[(front_num - 1) % len(OKABE_ITO)]
         costs = [float(row["avg_cost_per_example"]) for row in front_rows]
-        correctness = [float(row["avg_correctness"]) for row in front_rows]
+        correctness = [_plot_y(row) for row in front_rows]
         if len(front_rows) > 1:
             ax.plot(costs, correctness, color=color, linewidth=1.2, zorder=2 + front_num)
         ax.scatter(
@@ -247,7 +254,7 @@ def write_pareto_distance_svg(summaries: list[dict[str, Any]], out_path: Path) -
     fig, ax = plt.subplots(figsize=(11.2, 7.2), dpi=120)
     scatter = ax.scatter(
         [float(row["avg_cost_per_example"]) for row in rows],
-        [float(row["avg_correctness"]) for row in rows],
+        [_plot_y(row) for row in rows],
         s=52,
         c=dist_values,
         cmap="cividis",
@@ -256,7 +263,7 @@ def write_pareto_distance_svg(summaries: list[dict[str, Any]], out_path: Path) -
     if len(f1_rows) > 1:
         ax.plot(
             [float(row["avg_cost_per_example"]) for row in f1_rows],
-            [float(row["avg_correctness"]) for row in f1_rows],
+            [_plot_y(row) for row in f1_rows],
             color="#1a73e8",
             linewidth=1.4,
             zorder=4,
@@ -265,7 +272,7 @@ def write_pareto_distance_svg(summaries: list[dict[str, Any]], out_path: Path) -
     elif f1_rows:
         ax.scatter(
             [float(f1_rows[0]["avg_cost_per_example"])],
-            [float(f1_rows[0]["avg_correctness"])],
+            [_plot_y(f1_rows[0])],
             s=70,
             facecolors="none",
             edgecolors="#1a73e8",

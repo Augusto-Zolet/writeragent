@@ -109,8 +109,6 @@ For detailed setup instructions, see the **[Install and Troubleshooting Guide](d
 
 WriterAgent's **LLM Evaluation Suite** benchmarks models on Writer, Calc, and Draw tasks. The **2026-09-01 snapshot** uses the **17-task string harness** — it emulates document and tool behavior without running LibreOffice (OpenRouter, live token pricing). Full methodology: [docs/eval/benchmarks.md](docs/eval/benchmarks.md).
 
-**Excluded (1 of 23 models):** `qwen/qwen3.8-flash` (upstream OpenRouter 429 rate limits on all tasks). Re-runs resolved `minimax/minimax-m3` and `nvidia/nemotron-3.5-lightning`. `inception/mercury-2.5-preview` and `meta/muse-spark-1.3-contributor` supersede Mercury 2 and Muse 1.2.
-
 ![Cost–quality Pareto fronts](docs/eval/pareto-fronts.svg)
 
 Distance-to-frontier view: [docs/eval/pareto-distance.svg](docs/eval/pareto-distance.svg).

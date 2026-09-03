@@ -10,8 +10,6 @@ How to run evals from the repo: [scripts/prompt_optimization/README.md](../../sc
 
 Artifacts: [`scripts/prompt_optimization/benchmark_results.json`](../../scripts/prompt_optimization/benchmark_results.json) and `benchmark_results_details.json`. Failure triage: [benchmark-failure-analysis-2026-09-01.md](benchmark-failure-analysis-2026-09-01.md).
 
-**Excluded (1 of 23 models):** `qwen/qwen3.8-flash` (upstream OpenRouter 429 rate limits on all tasks). Re-runs resolved `minimax/minimax-m3` (stream-normalizer crash fixed) and `nvidia/nemotron-3.5-lightning`. `inception/mercury-2.5-preview` and `meta/muse-spark-1.3-contributor` supersede Mercury 2 and Muse 1.2.
-
 Ranked by **hard pass → agent score → metric**. **Hard pass** = document substring + result oracles + process oracles, no API error. **Agent** = same gate including tool-process checks. **Quality** = LLM judge among creative/table passes only.
 
 | Rank | Model | Hard pass | Agent | Correctness | Quality | Tokens/task | $/task | C²/$ |
