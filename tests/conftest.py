@@ -92,6 +92,18 @@ def _reset_calc_session_manager_state():
     clear_active_calc_session()
 
 
+@pytest.fixture(autouse=True)
+def _ensure_writeragent_logger_propagates():
+    """Ensure writeragent log records propagate to root logger for caplog fixtures."""
+    import logging
+
+    wa_logger = logging.getLogger("writeragent")
+    old_propagate = wa_logger.propagate
+    wa_logger.propagate = True
+    yield
+    wa_logger.propagate = old_propagate
+
+
 
 com = _create_mock_module("com")
 sun = _create_mock_module("com.sun")

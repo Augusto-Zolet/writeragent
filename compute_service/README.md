@@ -372,7 +372,7 @@ python compute_service/server.py --config compute_service/python-compute.example
 
 ### 1. Functional Tests
 ```bash
-pytest tests/compute_service/ tests/scripts/test_benchmark_compute_service.py
+pytest tests/compute_service/
 ```
 
 ### 2. Concurrency & Throughput Benchmarks

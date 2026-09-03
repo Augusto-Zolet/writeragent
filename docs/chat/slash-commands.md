@@ -108,6 +108,54 @@ Also skip: `/exit` `/quit` (no process to leave), `/editor-model` `/weak-model` 
 
 ---
 
+## Developer-focused prioritization & roadmap
+
+> [!NOTE]
+> **UI overlap rationale:** Model selection is already prominent and discoverable in the sidebar UI (status line + combobox). Modes (Chat, Image, Web Research, Deep Research, Brainstorming, Writing Plan, PPT-Master, Librarian) are cleanly managed by the mode dropdown. Consequently, `/model`, `/models`, and mode-switching commands (`/mode`, `/web`, `/deep`, etc.) are de-prioritized.
+>
+> Focus is instead placed on **keyboard-driven developer workflows**, **LibrePy / Python scripting**, and **context/mutation transparency**.
+
+### Tiered recommendations
+
+#### Tier 1: The Agentic Document Loop (Highest Impact)
+- **`/apply` `[selection | cursor | end]`**: Inserts the assistant's last proposed code, table, or draft directly into the active document (`apply_document_content` or `edit_review.py`). Avoids manual mouse copy-pasting when the model drafts in chat.
+- **`/undo`**: Reverts the agent's last document mutation or `/apply` via grouped LibreOffice undo (`model.getUndoManager().undo()`). Analogous to Aider's `/undo`, but for document state rather than git commits.
+- **`/diff`**: Previews proposed changes in the sidebar as a unified diff, or highlights redlines in the document before/after an agent edit.
+- **`/review` `[off | record | wait]`**: Fast keyboard toggle for `doc.agent_edit_review_mode` (tracked changes review).
+
+#### Tier 2: Developer & Scripting / LibrePy
+- **`/py` `[code | script]`**: Evaluates a Python snippet or named script directly inside the document venv / UNO session, printing output to the chat pane (Aider `/run` / `!` equivalent via `plugin/scripting/`).
+- **`/reset-py`**: Restarts/clears the Python kernel and venv session for this document (Calc `=PY()` cached namespaces, imports, and notebook state).
+- **`/cell`** (Calc): Grabs the active cell's formula / `=PY()` code into the Ask box, or shows evaluated cell payload/type diagnostics.
+
+#### Tier 3: Context & Token Transparency
+- **`/tokens`**: Displays a granular breakdown of context window usage (System prompt, `[DOCUMENT CONTENT]`, chat history, and remaining model headroom). Essential for debugging large documents or sheet context blowups.
+- **`/attach` `[doc_name | path]`**: Pins a second open LibreOffice document or a sibling file (CSV, reference markdown) as read-only context (reuses `list_open_documents` / MCP).
+- **`/ask` `[prompt]`**: Enforces a strict read-only chat turn barring any mutating tools.
+
+#### Tier 4: Fast Sidebar Utilities
+- **`/copy`**: Copies the last assistant response (or code block) to the clipboard.
+- **`/export` `[chat | doc]`**: Dumps the transcript to Markdown or scratch buffer.
+- **`/settings`**: Opens the WriterAgent Settings dialog via keyboard.
+
+### Implementation phases
+
+| Phase | Commands | Rationale |
+|---|---|---|
+| **Phase 1 (Quick Wins)** | `/tokens`, `/copy`, `/ask` | Pure read-only queries with immediate utility; zero document mutation risk. |
+| **Phase 2 (Doc Loop)** | `/apply`, `/undo`, `/review` | Completes the keyboard-driven drafting and editing workflow. |
+| **Phase 3 (Scripting / Dev)** | `/py`, `/reset-py` | Unlocks LibrePy and Calc power-user scripting directly from the sidebar. |
+| **Phase 4 (Multi-Doc Context)** | `/attach` | Expands prompt context across multiple open files. |
+
+### Ask-box UX & argument handling
+
+The current popup expects single-word completion (`accept_selected()` on Enter).
+For commands taking arguments (e.g. `/py <code>`, `/apply selection`, `/ask <query>`):
+- **Tab completion:** Completing a command that takes arguments should append a trailing space (e.g., `/py `) and keep keyboard focus in the Ask box so the user can type arguments.
+- **Send handler interception:** When Enter is pressed in the Ask box, the send listener should inspect whether the first token is a registered slash command. If so, parse arguments and route to `run_slash_command(name, host, args)` instead of submitting a normal chat turn to the LLM.
+
+---
+
 ## Do not
 
 - Skills / `SKILL.md` catalogs, user-defined `/` plugins, or a second prompt library.
@@ -123,3 +171,4 @@ Also skip: `/exit` `/quit` (no process to leave), `/editor-model` `/weak-model` 
 - Aider `aider/commands.py` (`cmd_*` docstrings; `get_help_md()`).
 - WriterAgent sidebar: `extension/Dialogs/ChatPanelDialog.xdl`, `plugin/chatbot/chat_sidebar_mode.py`, `plugin/chatbot/panel.py` (`ClearButtonListener`, `StopButtonListener`, model combobox, Record on Send).
 - Related: [sidebar-implementation.md](sidebar-implementation.md), [reviewable-agent-edits.md](../writer/reviewable-agent-edits.md), [multi-document-dev-plan.md](multi-document-dev-plan.md), [jupyter-notebook-import.md](../writer/jupyter-notebook-import.md), [audio-architecture.md](audio-architecture.md).
+

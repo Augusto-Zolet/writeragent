@@ -38,6 +38,7 @@ class TestInitLogging(unittest.TestCase):
         self._saved_hooks = logging_mod._exception_hooks_installed
         self._saved_root_handlers = list(logging.getLogger().handlers)
         self._saved_last_resort = logging.lastResort
+        self._saved_propagate = log.propagate
         config_mod.reset_config_for_tests()
         config_mod._resolved_config_path = None
         logging_mod._debug_log_path = None
@@ -65,6 +66,7 @@ class TestInitLogging(unittest.TestCase):
         logging_mod._debug_log_path = self._saved_debug_path
         logging_mod._exception_hooks_installed = self._saved_hooks
         logging.lastResort = self._saved_last_resort
+        log.propagate = self._saved_propagate
         for h in list(log.handlers):
             log.removeHandler(h)
             try:
