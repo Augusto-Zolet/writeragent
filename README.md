@@ -109,7 +109,7 @@ For detailed setup instructions, see the **[Install and Troubleshooting Guide](d
 
 WriterAgent's **LLM Evaluation Suite** benchmarks models on Writer, Calc, and Draw tasks. The **2026-09-01 snapshot** uses the **17-task string harness** — it emulates document and tool behavior without running LibreOffice (OpenRouter, live token pricing). Full methodology: [docs/eval/benchmarks.md](docs/eval/benchmarks.md).
 
-**Excluded (3 of 23 models):** `nvidia/nemotron-3.5-lightning` and `qwen/qwen3.8-flash` (429 rate limits); `minimax/minimax-m3` (harness issue — [stream-normalizer-delta-crash.md](docs/eval/stream-normalizer-delta-crash.md), re-run later).
+**Excluded (1 of 23 models):** `qwen/qwen3.8-flash` (upstream OpenRouter 429 rate limits on all tasks). Re-runs resolved `minimax/minimax-m3` and `nvidia/nemotron-3.5-lightning`. `inception/mercury-2.5-preview` and `meta/muse-spark-1.3-contributor` supersede Mercury 2 and Muse 1.2.
 
 ![Cost–quality Pareto fronts](docs/eval/pareto-fronts.svg)
 
@@ -120,23 +120,26 @@ Distance-to-frontier view: [docs/eval/pareto-distance.svg](docs/eval/pareto-dist
 | openai/gpt-oss-120b | 0.971 | 1755 |
 | openai/gpt-oss-20b | 0.687 | 725 |
 | upstage/solar-pro4 | 0.682 | 719 |
-| google/gemma-4-31b-it | 0.918 | 520 |
+| google/gemma-4-31b-it | 0.918 | 519 |
+| meta/muse-spark-1.3-contributor | 0.920 | 335 |
 | poolside/laguna-xs-2.1 | 0.767 | 272 |
 | google/gemma-4-26b-a4b-it | 0.621 | 255 |
-| meta/muse-spark-1.2-contributor | 0.874 | 231 |
 | poolside/laguna-s-2.1 | 0.700 | 227 |
 | deepseek/deepseek-v4-flash-0731 | 0.928 | 221 |
 | z-ai/glm-5.3-flash | 0.913 | 202 |
-| inception/mercury-2 | 0.814 | 167 |
 | openai/gpt-5.6-luna | 0.922 | 166 |
 | mistralai/mistral-small-2603 | 0.571 | 152 |
 | bytedance-seed/seed-2.0-mini | 0.800 | 107 |
 | google/gemini-3.5-flash-lite | 0.688 | 96 |
 | ibm-granite/granite-4.2-8b | 0.802 | 88 |
 | meta/muse-glimmer-30b | 0.928 | 80 |
+| inception/mercury-2.5-preview | 0.811 | 74 |
 | qwen/qwen3.8-27b | 0.922 | 35 |
+| minimax/minimax-m3 | 0.761 | 28 |
+| nvidia/nemotron-3.5-lightning | 0.315 | 23 |
 | x-ai/grok-4.6 | 0.982 | 21 |
 | z-ai/glm-5.3 | 0.702 | 7 |
+| qwen/qwen3.8-flash | 0.000 | 0 |
 
 ---
 

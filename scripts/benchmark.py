@@ -19,7 +19,12 @@ import sys
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+REPO_ROOT = SCRIPT_DIR.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 PO_DIR = SCRIPT_DIR / "prompt_optimization"
+if str(PO_DIR) not in sys.path:
+    sys.path.insert(0, str(PO_DIR))
 RUN_EVAL_MULTI = PO_DIR / "run_eval_multi.py"
 
 
@@ -47,7 +52,9 @@ def build_eval_argv(
     if task or document:
         raise ValueError("Custom --task/--document not implemented yet; use run_eval_multi -e TASK_ID")
 
-    cmd = [sys.executable, str(RUN_EVAL_MULTI)]
+    venv_py = REPO_ROOT / ".venv" / "bin" / "python"
+    py_bin = str(venv_py) if venv_py.exists() else sys.executable
+    cmd = [py_bin, str(RUN_EVAL_MULTI)]
     if model:
         cmd.extend(["--models", model])
     elif models:

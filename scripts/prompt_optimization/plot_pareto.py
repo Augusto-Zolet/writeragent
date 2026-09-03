@@ -258,8 +258,25 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=SCRIPT_DIR.parent.parent / "docs" / "eval",
     )
+    parser.add_argument(
+        "--include-all",
+        action="store_true",
+        help="Do not exclude previously failed models (e.g. after re-running them).",
+    )
+    parser.add_argument(
+        "--exclude",
+        help="Comma-separated model IDs to exclude (overrides DEFAULT_EXCLUDE).",
+    )
     args = parser.parse_args(argv)
-    summaries = load_eligible_summaries(args.in_path)
+
+    if args.include_all:
+        exclude: frozenset[str] = frozenset()
+    elif args.exclude is not None:
+        exclude = frozenset(s.strip() for s in args.exclude.split(",") if s.strip())
+    else:
+        exclude = DEFAULT_EXCLUDE
+
+    summaries = load_eligible_summaries(args.in_path, exclude=exclude)
     written = write_all_pareto_svgs(summaries, docs_eval_dir=args.out_dir)
     for path in written:
         print(f"Wrote {path}")

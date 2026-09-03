@@ -94,12 +94,12 @@ MODELS: list[ModelConfig] = [
         notes="NVIDIA 30B/3B-active MoE; paid replacement for the Super :free slot.",
     ),
     ModelConfig(
-        openrouter_id="inception/mercury-2",
-        display_name="Inception: Mercury 2",
-        context_window_tokens=128_000,
+        openrouter_id="inception/mercury-2.5-preview",
+        display_name="Inception: Mercury 2.5 Preview",
+        context_window_tokens=260_000,
         input_cost_per_million=0.25,
         output_cost_per_million=0.75,
-        notes="Inception reasoning diffusion LLM; native tools, very high throughput.",
+        notes="Inception reasoning diffusion LLM v2.5; standard pricing ($0.25/$0.75); replaces mercury-2.",
     ),
     ModelConfig(
         openrouter_id="x-ai/grok-4.6",
@@ -118,12 +118,12 @@ MODELS: list[ModelConfig] = [
         notes="Meta dense 30B multimodal; distilled Spark for consumer-hardware agents.",
     ),
     ModelConfig(
-        openrouter_id="meta/muse-spark-1.2-contributor",
-        display_name="Meta: Muse Spark 1.2 Contributor",
+        openrouter_id="meta/muse-spark-1.3-contributor",
+        display_name="Meta: Muse Spark 1.3 Contributor",
         context_window_tokens=1_048_576,
         input_cost_per_million=0.1,
         output_cost_per_million=0.2,
-        notes="Meta Spark 1.2 contributor tier; cheap 1M-context reasoning.",
+        notes="Meta Spark 1.3 contributor tier; replaces spark-1.2-contributor.",
     ),
     ModelConfig(
         openrouter_id="poolside/laguna-s-2.1",
@@ -234,6 +234,10 @@ GOLD_ONLY_MODEL_IDS: frozenset[str] = frozenset()
 
 
 MODEL_BY_ID: dict[str, ModelConfig] = {m.openrouter_id: m for m in MODELS}
+
+MODEL_ALIASES: dict[str, str] = {
+    "inception/mercury-2.5": "inception/mercury-2.5-preview",
+}
 
 
 def get_default_models() -> Sequence[ModelConfig]:

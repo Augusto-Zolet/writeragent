@@ -37,6 +37,7 @@ from eval_core import ExampleEval, example_passed, run_eval_on_examples_llm
 from plugin.framework.openrouter_model_id import resolve_openrouter_catalog_id
 from model_configs import (
     DEFAULT_GOLD_MODEL,
+    MODEL_ALIASES,
     MODEL_BY_ID,
     ModelConfig,
     get_default_models,
@@ -54,7 +55,7 @@ if str(SCRIPT_DIR) not in sys.path:
 def _parse_model_ids(arg: str | None) -> Sequence[str]:
     if not arg:
         return [m.openrouter_id for m in get_default_models()]
-    return [s.strip() for s in arg.split(",") if s.strip()]
+    return [MODEL_ALIASES.get(s.strip(), s.strip()) for s in arg.split(",") if s.strip()]
 
 
 def _model_id_for_llm_client(model_id: str) -> str:
@@ -66,6 +67,7 @@ def _model_id_for_llm_client(model_id: str) -> str:
 
 
 def _model_config_for_id(model_id: str, *, allow_unknown: bool) -> ModelConfig:
+    model_id = MODEL_ALIASES.get(model_id, model_id)
     if model_id in MODEL_BY_ID:
         return MODEL_BY_ID[model_id]
     resolved = resolve_openrouter_catalog_id(model_id, set(MODEL_BY_ID))

@@ -27,10 +27,10 @@ EXPECTED_DEFAULT_IDS = [
     "google/gemma-4-31b-it",
     "google/gemma-4-26b-a4b-it",
     "nvidia/nemotron-3.5-lightning",
-    "inception/mercury-2",
+    "inception/mercury-2.5-preview",
     "x-ai/grok-4.6",
     "meta/muse-glimmer-30b",
-    "meta/muse-spark-1.2-contributor",
+    "meta/muse-spark-1.3-contributor",
     "poolside/laguna-s-2.1",
     "poolside/laguna-xs-2.1",
     "qwen/qwen3.8-27b",
@@ -48,6 +48,8 @@ EXPECTED_DEFAULT_IDS = [
 EXPECTED_GOLD_ONLY_IDS: list[str] = []
 
 DROPPED_SLUGS = [
+    "inception/mercury-2",
+    "meta/muse-spark-1.2-contributor",
     "x-ai/grok-4.1-fast",
     "allenai/olmo-3.1-32b-instruct",
     "mistralai/devstral-2512",
