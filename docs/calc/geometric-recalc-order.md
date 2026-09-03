@@ -22,7 +22,7 @@ This is **not** Excel co-volatility (re-run every Python cell when any one is di
 
 **Difficulty:** medium for someone who already knows the spill / formula-edit path — on the order of **one careful week plus about a day** for the UDProp / in-memory map (the original happy-path week did not budget a marker). The risk is semantic (`data` arity, insert/delete, undo), not “can we write cells after recalc.”
 
-Collabora / LibreOffice core is a living sketch in [§12](#12-collabora--libreoffice-core-living-sketch-not-final) (pass 2: extra `StartListeningCell`, **not** trailing `;A1`); do not start until Tomaž’s `=PY()` lands.
+Collabora / LibreOffice core is specified in [§12](#12-collabora--libreoffice-core-living-sketch-not-final) (Pass 3: dual-layer engine DAG + in-process emit-gate, **not** trailing `;A1`). Ready for implementation.
 
 ---
 
@@ -246,7 +246,7 @@ Compare to **full Excel co-volatility:** multiple engineer-months in `sc/`, high
 | Circular refs from user forward-refs | Calc reports circular; we never attach a later cell |
 | 100-cell discovery cap | Skip the **whole** sheet; never chain a partial list |
 | Shared + Isolated confusion | Checkbox always visible; helper: “Used with Shared kernel”; Isolated is a no-op |
-| Collabora Online | Living sketch in [§12](#12-collabora--libreoffice-core-living-sketch-not-final) (pass 2: extra listen, **not** trailing `;A1`). Do not start until Tomaž’s `=PY()` lands. Desktop LibrePy first. |
+| Collabora Online | Concrete specification in [§12](#12-collabora--libreoffice-core-living-sketch-not-final) (Pass 3: dual-layer engine DAG + in-process emit-gate, **not** trailing `;A1`). |
 
 ---
 
@@ -429,165 +429,212 @@ Do not touch `AGENTS.md` unless the rewrite-outside-recalc rule needs to become 
 
 ---
 
-## 12. Collabora / LibreOffice core (living sketch, not final)
+## 12. Collabora / LibreOffice core engine specification (Pass 3) <a name="12-collabora--libreoffice-core-living-sketch-not-final"></a>
 
-**Status:** Research pass 2 against Keith’s Arch tree `~/Desktop/collabofficefull` (2026-09-02, flip 2026-09-03). Not implemented. **Pass 2 Collabora-native call is extra listen, not a trailing `;A1`.** Closed WriterAgent calls in [§9](#9-decisions) still stand (precedent-only trailing field, unanimous-ours if we strip by values, **no IDL pile-on**, cap-hit skip-sheet + a *user-visible* notice). WriterAgent [§9.1](#91-precedent-only-not-value-in-data-not-idl) stays trailing-field — LibrePy cannot add `sc/` listeners. This section is how the same *product* would attach if it had to live in Collabora Core / Online instead of LibrePy.
+**Status:** Upgraded to **Concrete Engine Specification (Pass 3)** based on review of Keith’s tree `~/Desktop/collabofficefull` (commits `3048e06f0d54` and `27355f078f2a`, spanning `scaddins/source/pythoncompute/`, `kit/`, `wsd/`, and `sc/source/core/`). Ready for implementation.
 
-**Do not start this** until Tomaž’s jail-safe `=PY()` Gerrit is reviewed/landed ([online#16010](https://github.com/CollaboraOnline/online/issues/16010), [Gerrit online/+/8122](https://gerrit.collaboraoffice.com/c/online/+/8122), forum [4844](https://forum.collaboraonline.com/t/py-numpy-inside-collabora/4844)). Geometric order is a follow-up in existing files, not a third IDL argument.
-
-### 12.1 What is different from WriterAgent (pass-2 flip)
-
-| | WriterAgent / LibrePy | Collabora Online / this tree |
-|--|----------------------|------------------------------|
-| Attach (the flip) | Trailing `;A1` formula field ([§9.1](#91-precedent-only-not-value-in-data-not-idl)) | **Path A:** extra `StartListeningCell(prevPY)` after the RPN walk. **Do not** land per-cell `;A1` as the default |
-| `=PY()` | Sync UNO add-in; `python()` blocks until the venv returns | Thin C++ AddIn returns `XVolatileResult` (`#BUSY!`), HTTP via kit→wsd→compute service, `complete_json` later |
-| Worker | `compute_service` / venv — **forbidden in kit jail** | Already out-of-kit; attach/strip must be **in-process Core** |
-| Calling address | `addin_impl.py` never sees it | `getPy(code, data)` never sees it either. Interpreter **does** have `pMyFormulaCell` during `ExecuteCall` |
-| Deferred rewrite | `threading.Timer(0.1)` → UNO `setFormula` on the UI thread | **Wrong default.** Pending `vcl::Timer` only finishes volatiles. Path A attach is Core listen / import (see [§12.4](#124-can-online-defer-formula-rewrites-like-the-spill-timer)) |
-| Session | Shared kernel optional | `buildExecuteRequestJson` **hard-codes** `"mode":"isolated"` today (jailsafe F5 is the shared-kernel follow-up) |
-| Discovery | `list_python_cells_on_sheet` | Walk `ScColumn::GetCellStore()` / `GetFormulaCell` (no Python helper) |
-| Shared formula groups | UNO `setFormula` on one cell | `CompileXML` groups consecutive identical formulas. A different `;A1` on each cell **breaks `mxGroup`** |
-
-**Headline:** a trailing `;A1` still makes Calc’s listener DAG dirty B when A changes (`StartListeningTo` walks `GetNextReferenceRPN`). That is how WriterAgent does it, and it is still true here — and it is the **wrong default in this tree**. `CompileXML` (`formulacell.cxx` ~L1345–1385) groups consecutive identical formulas into `mxGroup`. Fill-down of `=PY("df = clean(df)")` stays one group. A unique `;A1` / `;A2` / `;A3` on each successor **splits the group**. VARARGS then packs that ref as a value into `data` (`interpr4.cxx` ~L3197–3221) unless we strip — the same arity footgun as [§4](#4-data-binding--do-not-shadow-data), plus a JSON identity split in `buildExecuteRequestJson`. Extra listen needs **no strip, no JSON identity split, no IDL**.
-
-What WriterAgent gets “for free” from a **sync** add-in — Python in A **finishes** before B starts — Collabora does **not**. Both cells `getPy` → both emit HTTP → both `#BUSY!` in one pass. `ResultEvent` retriggers later. Extra listen (or a hand-typed `;A1`) without an **emit gate** (or a service-side ordered queue) is dirty-tracking, not A-before-B Python. Async race + emit-gate still stand.
-
-Isolated mode (today’s Online default) makes geometric order a **no-op for Python globals**, same as [§9.3](#93-isolated-mode--checkbox-visible-no-op). Path A has no arity/strip work even so. Do not promise this checkbox in Online until (1) desktop LibrePy geometric is boring and (2) F5 shared kernel exists, unless the only goal is dirty-subgraph.
-
-### 12.2 Where things live (this tree)
-
-Root: `~/Desktop/collabofficefull` (Online at repo root; LibreOffice Core under `engine/`).
-
-#### PY AddIn (Collabora scaddins)
-
-| Path | What |
-|------|------|
-| `engine/scaddins/idl/org/collaboraoffice/sheet/addin/XPythonComputeFunctions.idl` **L20–24** | `any getPy(string code, sequence<any> data)` and `getPython` alias. **Do not add a third argument.** |
-| `engine/scaddins/source/pythoncompute/addin.cxx` **L49–66** | `ScaPythonComputeAddIn::getPy` → `startCompute`; display names `PY` / `PYTHON` ~L93–167 |
-| `engine/scaddins/source/pythoncompute/anyjson.cxx` **L878–895** | `buildExecuteRequestJson` — Path B strip site only (drop last Any before JSON). **L885 hard-codes `mode=isolated`.** Path A does not touch this. |
-| `engine/scaddins/source/pythoncompute/bridge.cxx` **L68–75, L134–179, L344–417** | SolarMutex-only pending + param cache; `PendingTimeoutTimer`; `startCompute` emit |
-| `engine/scaddins/source/pythoncompute/volatile.*` | `XVolatileResult` / `ResultEvent` |
-| `engine/scaddins/source/pythoncompute/README.md` | Wire + identity + Solar 1+ε |
-| `engine/scaddins/qa/pythoncompute.cxx` | CppUnit (identity, timeout, JSON) |
-
-#### Formula compiler / DAG / precedents (stock Calc)
-
-| Path | What |
-|------|------|
-| `engine/sc/source/core/tool/compiler.cxx` | `CompileString`; AddIn name maps ~L292–545; a trailing cell ref in `=PY("…"; A1)` is a normal `svSingleRef` token (Path B only) |
-| `engine/sc/source/core/data/formulacell.cxx` **L1203** `Compile`; **L1251** `IsInsertingFromOtherDoc` **skips listen** — do not rely on first compile; **L1276** `CompileTokenArray`; **L1345–1385** `CompileXML` shared-formula groups (`mxGroup`); **L1443** `CalcAfterLoad`; **L2501–2507** matrix top-left only (F7); **L5855–5894** `StartListeningTo` — RPN `svSingleRef` → `StartListeningCell`; **this is Path A’s hook** (extra `StartListeningCell(prevPY)` **after** the RPN walk); **L5970–6012** `EndListeningTo` — **only walks RPN**. Extra listen **must** pair `End` or it leaks |
-| `engine/sc/source/core/data/documen2.cxx` **L1203–1220** | `ScDocument::SetFormula` / `SetFormulaCell` — Path B rewrite API (no UNO). Not the Path A attach |
-| `engine/sc/source/core/data/documen7.cxx` **~L591** | `StartAllListeners` — re-establish extra listen after import / listen-skip |
-| `engine/sc/source/core/data/document.cxx` **~L4257–4294** | Import-time listen restore. Pair with `CalcAfterLoad` / `StartAllListeners`, not first `Compile` |
-| `engine/sc/source/core/data/table2.cxx` **L1790** | `ScTable::SetFormulaCell` |
-| `engine/sc/inc/column.hxx` **L455–456**; `column3.cxx` **L3248** | `GetFormulaCell` — discovery walk |
-| `engine/sc/source/core/tool/interpr4.cxx` **L2991–3314** | `ScUnoAddInCall`; `NeedsCaller` is the **document** shell, not the cell (`addincol.cxx` **L1416–1432**). After `ExecuteCall`, `HasVarRes()` installs `ScAddInListener`. **`pMyFormulaCell` is the calling cell** (L3308) — Core already has the address WriterAgent lacks. **L3197–3221** VARARGS packs a trailing ref into `data` (Path B tax) |
-| `engine/sc/source/core/inc/interpre.hxx` **L241** | `ScAddress aPos` on the interpreter |
-| `engine/sc/source/core/tool/addinlis.cxx` **L104–118** | `ScAddInListener::modified` → `Broadcast` + `TrackFormulas` (SolarMutex) |
-| `engine/sc/source/core/tool/formuladepchain.cxx` | Online JSON inspector (caps at 10/50 cells) — **not** the recalc engine. Do not hook geometric order here |
-
-#### Online kit / wsd (jail)
-
-| Path | What |
-|------|------|
-| `kit/PythonComputeEmitter.cpp` **L55–108, L187–287** | `dlsym` `pythoncompute_set_emitter` / `complete_json` / `clear_caches`; `session->sendTextFrame("pythoncompute: " + payload)` |
-| `kit/ChildSession.cpp` **L1135–1137** | Spreadsheet-only `installEmitter` **on document load** (before status notify so on-load `=PY()` can emit). **L143** `clearEmitter`. **L3802** `completeFromJson` |
-| `kit/Kit.cpp` **L3246** | `kitPoll` — SalTimer / `vcl::Timer` Invoke land here |
-| `wsd/ClientSession.cpp` **L3021–3029, L3852+** | `handlePythonComputeFromKit` — jail cannot network; coolwsd POSTs. **No formula rewrite.** MOBILEAPP: ignored |
-| `coolwsd.xml.in` **L273–278**; `common/ConfigUtil.cpp` **L276–279** | `security.python_compute.enable` default **false**, url, api_key, timeout_secs |
-
-### 12.3 How hard is extra listen (path A) vs a trailing field (path B)?
-
-**Path A (Collabora default):** extra `StartListeningCell(prevPY)` after the RPN walk in `StartListeningTo`. Not a compiler rewrite. Formula string stays `=PY("df = clean(df)")`. `GetFormula()` will not show the edge. Dirty-tracking only — same DAG `Broadcast` / `TrackFormulas` as a real ref token.
-
-**Path B (WriterAgent; not the Collabora default):** if the formula string is `=PY("df = clean(df)"; A1)`, `CompileString` already emits a ref token and `StartListeningTo` already orders dirtying. Inserting the field is `ScDocument::SetFormula` (or splice then SetFormula), same product as [§3.2](#32-auto-attach-is-a-formula-field-not-a-python-parse). Do **not** land this as the Online default. Per-cell `;A1` is worse here than in LibrePy:
-
-1. **`mxGroup`.** `CompileXML` groups consecutive identical formulas. A different `;A1` on each cell breaks the group. Fill-down rewrites are scarier than LibrePy UNO `setFormula` on one cell (`StartListeningTo` L5857 already special-cases `mxGroup`).
-2. **VARARGS pack.** The ref becomes a `data` value (`interpr4.cxx` ~L3197–3221) unless we strip in `buildExecuteRequestJson` / `startCompute` before 1-vs-N packing (L886–892). Extra listen needs no strip, no param-cache identity split (`makeParamCacheKey` uses the JSON), no IDL.
-3. **Visible field + timer.** Path B needs a deferred `SetFormula` walk. That is the wrong default ([§12.4](#124-can-online-defer-formula-rewrites-like-the-spill-timer)).
-
-**Hard parts that remain on path A:**
-
-1. **Discover PY cells row-major per sheet** — walk formula cells, match AddIn original name `ORG.COLLABORAOFFICE.SHEET.ADDIN.PYTHONCOMPUTEFUNCTIONS.GETPY` / display `PY` / `PYTHON` (LibrePy uses a *different* UNO token; Online files won’t see WriterAgent names unless rewritten). Cap: pick a Core cap (100 is fine) and **skip the whole sheet**; Online has **no VCL message box** — need an infobar / view notification / cell-adjacent note, not `MessageBox`.
-2. **Pair End / re-establish.** `EndListeningTo` (~L5970–6012) only walks RPN. Extra listen **must** pair `End` or it leaks. `IsInsertingFromOtherDoc` skips listen (~L1251). Re-establish at `StartAllListeners` (`documen7.cxx` ~L591) / import (`document.cxx` ~L4257–4294) / `CalcAfterLoad` (formulacell L1443), **not** first compile. Flag-on reconcile all sheets at those hooks. Kit `installEmitter` (ChildSession L1135) is already the load-time emitter point — listen restore is Core, not kit.
-3. **Insert-in-middle** — same list-diff as [§3.4](#34-insert--delete--move--the-only-reason-this-is-not-a-one-liner), but the patch is “drop extra listen on old pred, add extra listen on new pred,” not a formula splice. Shared formula groups stay intact (`mxGroup` sees identical strings).
-4. **Calling address** — `getPy` still has only `(code, data)` values. Path A does not need unanimous-ours for strip. Emit-gate (if we want Python order) should use `pMyFormulaCell` in `interpr4.cxx` (see [§12.4](#124-can-online-defer-formula-rewrites-like-the-spill-timer)). Prefer that over copying the WriterAgent map hack into C++.
-5. **Flag** — not `security.python_compute.*` (admin jail switch). A Calc doc option / UDProp, default off. Isolated remains visible no-op for globals ([§9.3](#93-isolated-mode--checkbox-visible-no-op)).
-
-**Hidden opcode so it doesn’t round-trip: don’t.** Path A is an extra listen, not a synthetic token. Reviewers will read a hidden opcode as a recalc-engine side channel. Extra listen is already a side channel — own that, pair End, re-walk on load. Do not invent a third IDL argument to make it “visible.”
-
-### 12.4 Can Online defer formula rewrites like the spill timer?
-
-**Timer `SetFormula` is unproven and the wrong default.** Path A attach is Core listen / import. Do not schedule a LibrePy-shaped rewrite.
-
-| Path | Viable? |
-|------|---------|
-| WriterAgent `Timer` + UNO `setFormula` from a Python worker | **No** — jail, no LibrePy, no compute_service in kit |
-| `vcl::Timer` in `pythoncompute` / a small `sc/` helper, `Invoke` under `SolarMutexGuard`, `ScDocument::SetFormula` | **Wrong default.** Pending `vcl::Timer` (`bridge.cxx` L134–179, README “Unipoll feeds SalTimer into kitPoll”) only **finishes volatiles**. Kit `postUnoCommand` is **not** a `SetFormula` walk. Timer `SetFormula` would race Unipoll/Solar (sticky `#BUSY!` class). Do not copy the spill timer here |
-| Extra `StartListeningCell` after the RPN walk + re-establish at `StartAllListeners` / import / `CalcAfterLoad` | **Yes — Path A** |
-| Compile-time inject in `ScCompiler` | Unnecessary; more dangerous |
-| Import filter | Not needed for MVP; Excel rewriter already refuses synthetic prior-PY edges |
-| Document-open | **Yes** — `ChildSession` load already installs the emitter (L1135); `CalcAfterLoad` (formulacell L1443) + `StartAllListeners` are the Core hooks. Flag-on reconcile all sheets here. `IsInsertingFromOtherDoc` skipped first compile — this is the restore |
-| coolwsd rewriting formulas from HTTP | **No** — broker is document-blind by design |
-
-Re-entrancy flag + idempotent desired-vs-actual still required for any Path B experiment. Undo in Online is the kit undo stack, not `_undo_lock` / `enterHiddenUndoContext` — Path A avoids a formula rewrite, so undo is “the user’s edit,” not a hidden splice. Budget extra time if anyone later insists on Path B.
-
-**Emit gate (Collabora-native, if we want Python order, not just dirtying):** around `interpr4.cxx` `ExecuteCall` / `startCompute`, if `pMyFormulaCell`’s geometric predecessor is still in `g_aPending`, do not emit B’s HTTP yet (return the same `#BUSY!` volatile or a waiter). Resume emit from `complete_json` of the predecessor. That is **in-process**, Solar-only, no IDL, no worker. It *is* extra state machine on the pending map. Do not put this on Tomaž’s current patch. Extra listen alone does **not** serialize HTTP.
-
-### 12.5 Jail / Online constraints — what still works in-process
-
-**Cannot:** WriterAgent `compute_service`, venv worker, UNO-from-worker, pywebview, `processEventsToIdle`, Classic msgbox, per-user `~/.writeragent_venv`.
-
-**Can:** everything already in `pythoncompute` — SolarMutex maps, `vcl::Timer` (volatiles only), `XVolatileResult`, listener DAG, extra `StartListeningCell` / paired `End`, kit emitter, wsd HTTP. Discovery + listen restore is Core C++ on the kit side of the jail (same process as LOKit).
-
-**Must not:** `std::mutex` on AddIn state (Meeks 1+ε). Filename prefix `pythoncompute_` on sources. Runtime flag default on. Merge anyjson into jsuno. Pile IDL on `XPythonComputeFunctions`. Land per-cell `;A1` as the Online default. Emit from `complete_json` without re-acquiring Solar. Rewrite formulas from the wsd thread.
-
-MOBILEAPP: pythoncompute is compiled out — geometric Online is desktop/server Online only.
-
-### 12.6 Overlap with Tomaž’s in-review `=PY()`
-
-The in-review work **is** the AddIn + kit + wsd tip. Geometric **attaches after it**:
-
-- **IDL stays `getPy(code, data)`.** Path A never touches arity. Path B’s trailing A1 is already a legal varargs `data` element — still no `.rdb` bump, still not the default.
-- Extra listen + optional emit-gate land in `formulacell.cxx` `StartListeningTo` / `EndListeningTo` + `StartAllListeners` / a small sc helper — **not** a pile-on to `anyjson.cxx` / `bridge.cxx` unless emit-gate needs the pending map. Keep the follow-up as a **new Gerrit** once the tip is merged, not a pile-on patchset.
-- Do not block F6 (visible errors) or F7 (auto-spill) on this. F7 is the sibling “deferred write neighbors” problem. Path A does **not** share a SetFormula timer with F7 (there is no such timer for geometric). If someone later does Path B, **share one timer / re-entrancy flag**, same as [§3.5](#35-writes-must-be-outside-recalc-same-as-auto-spill) vs spill.
-- F5 (shared kernel) is the product this flag is for. WSD should own `mode`/`session_id` (jailsafe F5: overwrite client ids). Geometric emit-gate still lives in Core so order is Calc-list, not HTTP arrival.
-- Interop: Collabora stores `…PYTHONCOMPUTEFUNCTIONS.GETPY(...)`; LibrePy rewrites that on Classic load (`collabora_formula.py`). Path A extra listen **does not persist in the formula string** — Classic will not see the edge; LibrePy flag-on reconcile (trailing field) is a separate attach if the same ODS is opened in WriterAgent. Path B would need the LibrePy strip map to understand Collabora-attached preds. Out of scope for the first Collabora follow-up; note it. Prefer Path A so the file does not grow synthetic args that Classic must strip.
-
-### 12.7 Effort vs WriterAgent’s ~1 week
-
-WriterAgent’s week assumes Python, `formula_edit.py`, spill timer, UDProp, and a **sync** add-in.
-
-| Slice | Guess | Why |
-|-------|-------|-----|
-| **Path A** extra `StartListeningCell` + paired `End` + re-establish at `StartAllListeners` / import / `CalcAfterLoad`, Isolated-only, dirty-subgraph only | **~1 week** Core C++ for someone who already owns this AddIn | Discovery walk + listen pair + cap-skip + load restore are new C++; no strip, no JSON identity, no `SetFormula` timer. Algorithm (list-diff) is already specified in §§3–9 |
-| **Path B** trailing-field attach + `anyjson` strip + timer repair | **1–2 weeks** and the **wrong default** | `mxGroup` split + VARARGS pack + Unipoll/Solar `SetFormula` race. Do not schedule this |
-| Unanimous-ours map copied into C++ because we refuse to touch `interpr4` | **+several days** (Path B only) and still the same identity footguns | AddIn has **no `ScDocument` pointer** today (process-wide volatile cache). Path A does not need it for attach |
-| `pMyFormulaCell` stash + address-keyed map (no unanimous-ours) | **Days**, but it is an `sc/` interpreter touch | Cleaner than WriterAgent if we need emit-gate identity; more reviewer surface than scaddins-only |
-| Emit-gate so shared-kernel Python actually runs A then B | **+1–3 weeks** state machine on `g_aPending` + tests | This is the Collabora-specific tax. Extra listen is dirty-tracking, not A-before-B Python. Service FIFO lock (F5) is **not** geometric order |
-| Reviewer / Gerrit / Online undo / no-msgbox / extra-listen lifetime / multi-view | **Open-ended; think months if we fight the tip review** | Wait for Tomaž. Don’t combine with F3 plots or F7 spill in one series |
-
-**Honest range:** Path A dirty-tracking in Core is **about a week** after `=PY()` has landed. Real A-before-B Python on Online is **weeks**, not a WriterAgent week, because of `XVolatileResult`. Full Excel co-volatility remains months in `sc/` and is still rejected.
-
-Do not schedule this as “LibrePy geometric (trailing field), then copy-paste to Collabora in a day.”
-
-### 12.8 Scariest unknowns (2–3, plus a fourth)
-
-1. **Async volatile vs sync `python()`.** Extra listen + DAG ≠ serialized HTTP. Confirm with a two-cell shared-kernel (F5) experiment: A assigns `x=1`, B reads `x`. If both POST before either `complete_json`, B loses. Emit-gate or service-side geometric queue is then in-scope; listen attach alone is not.
-2. **Calling address / process-wide AddIn.** `getPy` is values-only; cache is process-wide, not per-`ScDocument`. Two views of one doc share kit (OK). Two docs in one kit (unusual) would share strip identity **if** anyone later does Path B. `pMyFormulaCell` is the way out for emit-gate; using it means touching `interpr4.cxx` which Tomaž did not ask to re-review.
-3. **Online UX for cap-hit skip-sheet.** Closed call wants a user-visible message box. Kit has no desktop dialog. Infobar vs log-only vs `#DISABLED`-style marker is unresolved.
-4. **Extra-listen lifetime.** `EndListeningTo` only walks RPN — unpaired extra listen leaks. `IsInsertingFromOtherDoc` skips listen; copy/import/undo/fill must re-establish at `StartAllListeners` / import / `CalcAfterLoad`, not first compile. Shared-formula `mxGroup` is *why* we prefer Path A, but a group of identical PY cells still share one listener walk — confirm extra listen is per-cell, not per-group. Also: kit undo vs hidden LibrePy undo; `GetFormula()` will not show the edge (reviewers will read it as a recalc-engine side channel — own that).
-
-**Not unknown, just easy to regress:** SolarMutex 1+ε; don’t emit from `complete_json` without re-acquiring Solar; don’t rewrite formulas from the wsd thread; don’t land Path B `;A1` “because WriterAgent did.”
-
-### 12.9 Suggested Collabora phases (after the tip lands)
-
-0. Keep this sketch in the WriterAgent doc. No product C++ until Keith + Tomaž want a follow-up.
-1. Prove dirty-tracking only: two Isolated `=PY` cells, extra `StartListeningCell` on B (or a throwaway hand-typed `;A1` as a *control*), confirm `StartListeningTo` already dirties B. Prove the async race with logging of emit order. **Do not** ship the `;A1` control.
-2. If race is real (expected): design emit-gate using `pMyFormulaCell` + pending map. **Still no IDL.**
-3. Then Path A auto-attach + End-pair + load restore + cap skip, flag default off, Isolated no-op for globals. No SetFormula timer. No trailing field.
-4. LibrePy interop note when the same ODS moves Classic ↔ Online (Path A edge does not survive in the formula string; Classic flag-on reconcile is a separate attach).
+This section defines the engine-native architecture for Geometric Recalculation Order inside LibreOffice Calc and Collabora Online. It replaces the speculative Pass 2 notes with a verified dual-layer design: an **engine-managed recalc DAG** in `sc/` paired with an **in-process emit-gate** in `scaddins/source/pythoncompute/bridge.cxx`.
 
 ---
 
-*Living sketch, pass 2. Tree paths are from `collabofficefull` as of 2026-09-02; line numbers will drift. Re-read `formulacell.cxx` `StartListeningTo` / `EndListeningTo` / `CompileXML`, `documen7.cxx` `StartAllListeners`, `interpr4.cxx` VARARGS + `pMyFormulaCell`, and `anyjson.cxx` before any brief. Do not treat pass 1’s trailing-field default as current.*
+### 12.1 Why the Desktop Model Fails in Collabora Online (The Four Fatal Traps)
+
+In WriterAgent Desktop LibrePy, `=PY()` is a **synchronous** UNO add-in: evaluating Cell A blocks until the Python worker process returns. Cell B with a trailing `;A1` field evaluates only after A has completed. In Collabora Online and LibreOffice Core C++, this model completely breaks down due to four fundamental architectural differences:
+
+| Hazard | Desktop LibrePy Behavior | Collabora Online / Core Reality | Fatal Consequence if Unaddressed |
+|--------|--------------------------|---------------------------------|-----------------------------------|
+| **1. Execution model** | **Synchronous** add-in (`python()` blocks) | **Asynchronous** add-in (`getPy` returns `XVolatileResult` `#BUSY!`) | **$O(N^2)$ Recalc Storm & Async Race Condition:** Both A and B emit HTTP simultaneously. When A finishes, A broadcasts `ScDataChanged`, forcing B to re-evaluate and re-emit HTTP a second time. In an $N$-cell chain, this produces $\frac{N(N+1)}{2}$ HTTP requests! |
+| **2. Listener lifecycle** | None in `sc/` (handled via formula text) | Direct `StartListeningCell` in `sc/` | **Dangling Pointer Memory Corruption:** `ScFormulaCell::EndListeningTo()` only walks RPN tokens. An ad-hoc listener attached to predecessor A is **not** unregistered when B is edited or deleted, leaving a dangling pointer in A's broadcaster slot that crashes on A's next broadcast. |
+| **3. Shared formula groups** | Formula text modified cell-by-cell | `CompileXML` groups identical formulas (`mxGroup`) | **Formula Group Fragmentation:** Appending unique `;A1`, `;A2`, `;A3` fields shatters grouped formulas into individual cells, destroying vectorization and inflating token storage. |
+| **4. Undo & Collaborative editing** | Local single-user `_undo_lock` | LOKit tile-based collaborative undo | **Undo Stack Corruption:** Deferred `SetFormula` rewrites pollute the LOKit undo stack with synthetic edits and conflict with live multi-user typing. |
+
+**The Core Realization:** Dependency in Calc’s recalculation DAG (whether via `;A1` or via `StartListeningCell`) only orders the **invocation** of `Interpret()`. In an asynchronous engine, `Interpret()` returns `#BUSY!` immediately. **A formula DAG edge alone does not serialize HTTP execution.**
+
+Therefore, Collabora requires a **Dual-Layer Architecture**:
+1. **Recalc DAG Layer (`sc/`):** Establishes dependency edges cleanly through an engine manager so that modifying A marks B dirty, without rewriting formula strings or corrupting memory.
+2. **Execution Emit-Gate Layer (`bridge.cxx`):** Gates HTTP emission under `SolarMutexGuard` so that B's request is not sent over the wire until A's HTTP response has completed, eliminating the $O(N^2)$ storm and strictly preserving Shared Kernel Python execution order.
+
+---
+
+### 12.2 Codebase Topology (`~/Desktop/collabofficefull/`)
+
+The implementation touches existing files in the Collabora Online / Core tree without altering the IDL signature (`getPy(code, data)` stays unchanged):
+
+| Component | Path & Relevant Lines | Function & Architectural Role |
+|-----------|----------------------|-------------------------------|
+| **AddIn Bridge** | `engine/scaddins/source/pythoncompute/bridge.cxx` <br> `L68–75, L134–179, L344–417` | **Emit-Gate & Pending Registry:** Manages `g_aPending` and `g_aWaiters` under `SolarMutexGuard`. Checks if a predecessor is pending before calling `pEmit`; unblocks waiters in `pythoncompute_complete_json`. |
+| **Volatile Result** | `engine/scaddins/source/pythoncompute/volatile.cxx` <br> `L30–85` | **Interim Status & Calc Notification:** Returns `#BUSY!`; on completion, acquires `SolarMutexGuard` and triggers `ScAddInListener::modified` via `ResultEvent`. |
+| **AddIn API** | `engine/scaddins/source/pythoncompute/addin.cxx` <br> `L49–66` | `ScaPythonComputeAddIn::getPy` entry point. Calls `startCompute`. |
+| **JSON Serialization** | `engine/scaddins/source/pythoncompute/anyjson.cxx` <br> `L878–895` | `buildExecuteRequestJson`: Emits request payload with request ID and data args. |
+| **Interpreter Bridge** | `engine/sc/source/core/tool/interpr4.cxx` <br> `L2991–3314` | `ScUnoAddInCall`: `pMyFormulaCell` is available during interpretation (L3308) and attaches `ScAddInListener`. |
+| **Formula Cell** | `engine/sc/source/core/data/formulacell.cxx` <br> `L5855–5894` (`StartListeningTo`) <br> `L5968–6012` (`EndListeningTo`) <br> `L979–996` (`~ScFormulaCell`) | **Cell Lifecycle & DAG Hooks:** Where formula dependencies are wired. Must pair with manager to cleanly clean up listeners on cell destruction. |
+| **Document Engine** | `engine/sc/source/core/data/documen7.cxx` <br> `L221–252` (`Start/EndListeningCell`) <br> `L527–581` (`TrackFormulas`) <br> `L328–432` (`CalcFormulaTree`) | **Recalculation Engine:** Traverses dirty formulas, orders formula tree, executes interpretations. |
+| **Macro/Dep Manager Precedent** | `engine/sc/source/core/data/documen8.cxx` <br> `L380` (`GetMacroManager`) <br> `engine/sc/inc/macromgr.hxx` | **Architectural Blueprint:** Demonstrates how Calc tracks non-RPN cell dependencies cleanly with symmetric removal on cell destruction. |
+| **Kit Emitter** | `kit/PythonComputeEmitter.cpp` <br> `L55–108, L187–287` | **In-Process Kit Boundary:** Calls `dlsym` for `pythoncompute_set_emitter` and `complete_json`. Forwards JSON upward via WebSocket text frames. |
+| **WSD Broker** | `wsd/ClientSession.cpp` <br> `L3021–3029, L3852–4025` | **Network Broker:** Receives frame from kit in jail; POSTs asynchronous HTTP to compute service; routes result back. **No changes required here.** |
+
+---
+
+### 12.3 The Dual-Layer Architecture
+
+```mermaid
+flowchart TD
+    subgraph Calc_Engine ["1. LibreOffice Calc Engine (engine/sc/)"]
+        FC1["Cell A: =PY('x = 1')"] -->|Recalc DAG Edge| FC2["Cell B: =PY('x + 1')"]
+        MGR["ScGeometricRecalcManager (owned by ScDocument)"]
+        MGR -.->|Safe EndListening on ~ScFormulaCell| FC1
+        MGR -.->|Safe EndListening on ~ScFormulaCell| FC2
+    end
+
+    subgraph AddIn_Bridge ["2. scaddins / pythoncompute (bridge.cxx)"]
+        SC1["startCompute(A)"] -->|Pending A in g_aPending| EMIT1["pEmit(A)"]
+        SC2["startCompute(B)"] -->|Predecessor A is in g_aPending| GATE["Emit-Gate: Queue B in g_aWaiters"]
+        GATE -.->|A finishes in complete_json| EMIT2["pEmit(B)"]
+    end
+
+    subgraph WSD_Compute ["3. coolwsd & Python Compute Service"]
+        EMIT1 -->|POST A| PY["Python Shared Kernel Session"]
+        PY -->|Result A| EMIT2
+        EMIT2 -->|POST B| PY
+    end
+```
+
+#### Layer 1: Calc Recalc DAG (`ScGeometricRecalcManager`)
+
+To prevent the dangling pointer trap, non-RPN geometric dependencies must be managed symmetrically. Calc already has this exact pattern in `ScMacroManager` (`engine/sc/inc/macromgr.hxx`) and `ScExternalRefManager`.
+
+1. **Class definition:** Add `ScGeometricRecalcManager` to `engine/sc/inc/geometricrecalcmgr.hxx`, owned by `ScDocument` (`std::unique_ptr<ScGeometricRecalcManager> mpGeometricMgr`).
+2. **Sheet Discovery:** Scans formula cells in row-major order using `ScColumn::GetCellStore()` / `GetFormulaCellBlockAddress`. Matches functions with AddIn programmatic name `getPy` / `getPython`.
+3. **Registration:**
+   - For cell $k > 1$ in the ordered chain, records predecessor $k-1$.
+   - Calls `rDoc.StartListeningCell(aPosPred, pCellSucc)`.
+4. **Symmetric Cleanup (Crucial):**
+   - In `ScFormulaCell::~ScFormulaCell()` (`formulacell.cxx` ~L985):
+     ```cpp
+     if (rDocument.HasGeometricRecalcManager())
+         rDocument.GetGeometricRecalcManager()->RemoveCell(this);
+     ```
+   - In `ScFormulaCell::EndListeningTo()`: Manager ensures `rDoc.EndListeningCell(aPosPred, this)` is called whenever a cell ceases listening.
+5. **Sheet Modifications:**
+   - On row/column insert, delete, or cell move (`ScDocument::UpdateReference` / `CopyBlockFromClip`): Manager rebuilds the geometric chain for affected sheets and retargets predecessor listeners.
+
+#### Layer 2: In-Process Execution Emit-Gate (`bridge.cxx`)
+
+The Emit-Gate lives directly in `engine/scaddins/source/pythoncompute/bridge.cxx` under `SolarMutexGuard`.
+
+1. **State Machine Additions:**
+   ```cpp
+   struct WaiterEntry
+   {
+       OUString sRequestId;
+       std::string sPayloadJson;
+       rtl::Reference<PythonComputeVolatileResult> xVolatile;
+   };
+
+   // Maps Predecessor Request ID -> List of dependent waiter entries
+   std::unordered_map<std::string, std::vector<WaiterEntry>> g_aWaiters;
+   // Maps Cell Key (doc_id, sheet, row, col) -> Active Request ID
+   std::unordered_map<std::string, std::string> g_aCellToActiveReqId;
+   ```
+
+2. **Gated `startCompute()`:**
+   - When Cell B evaluates:
+     - Check if Cell B has a geometric predecessor Cell A.
+     - Look up Cell A's active request ID in `g_aCellToActiveReqId`.
+     - If A's request ID is currently present in `g_aPending`:
+       - Construct Cell B's `PythonComputeVolatileResult` (shows `#BUSY!`).
+       - Generate Cell B's `sRequestId` and JSON payload.
+       - **Do NOT call `pEmit`.**
+       - Add Cell B to `g_aWaiters[idA]`.
+       - Record Cell B in `g_aCellToActiveReqId`.
+       - Return Cell B's volatile result to Calc.
+     - Else (Predecessor A is not pending / has finished):
+       - Call `pEmit(pUser, json.data(), json.size())` immediately.
+       - Record Cell B in `g_aPending` and `g_aCellToActiveReqId`.
+       - Return volatile result.
+
+3. **Unblocking in `pythoncompute_complete_json()`:**
+   - When Cell A finishes:
+     - Finish Cell A's volatile result: `xVol->finish(aResult)`.
+     - Remove Cell A from `g_aPending`.
+     - Look up `g_aWaiters.find(idA)`.
+     - If waiters exist (Cell B is waiting for A):
+       - Extract waiter entry for Cell B.
+       - Insert Cell B into `g_aPending` with fresh deadline.
+       - Call `g_pEmit(g_pEmitUser, waiter.sPayloadJson.data(), waiter.sPayloadJson.size())`.
+       - Cell B's HTTP request is now dispatched to coolwsd!
+     - `ScAddInListener::modified` for Cell A fires and notifies Calc, but Cell B is **already in-flight and not re-emitted**.
+
+**Mathematical Outcome:**
+- Every cell $A_k$ in an $N$-cell chain executes in Python **strictly after** $A_{k-1}$ has completed.
+- Total HTTP requests emitted across recalculation: **strictly $N$** ($O(N)$), completely eliminating the $O(N^2)$ storm.
+
+---
+
+### 12.4 Preserving Shared Formula Groups (`mxGroup`)
+
+One of the greatest dangers of formula rewriting (Path B) is breaking shared formula groups:
+- In `engine/sc/source/core/data/formulacell.cxx` (~L1345–1385), `CompileXML` groups consecutive identical formulas into an `ScFormulaCellGroup` (`mxGroup`).
+- A fill-down of 1,000 cells of `=PY("clean(data)")` is stored as a single grouped token array of length 1,000.
+- If formula strings are rewritten to `=PY("clean(data)"; A1)`, `=PY("clean(data)"; A2)`, etc., **every single formula group is shattered into 1,000 distinct token arrays**.
+
+**Under the Dual-Layer Architecture:**
+1. Formula strings remain completely untouched: `=PY("clean(data)")`.
+2. `mxGroup` remains fully intact in storage and memory.
+3. During recalculation, because `XVolatileResult` is asynchronous, Calc's grouped vector interpreter naturally falls back to scalar interpretation for each cell in the group (`ScFormulaCell::InterpretFormulaGroup` falls back when encountering volatile results).
+4. Each cell in the group dynamically resolves its predecessor position $(r - 1, c)$ via the `ScGeometricRecalcManager` without needing distinct bytecode.
+
+---
+
+### 12.5 Document Lifecycle, Settings & Interoperability
+
+1. **Opt-in Setting:**
+   - Stored as a document property in `ScDocOptions` / ODS settings: `GeometricRecalcOrder = true/false` (default **false**).
+   - In Collabora Online, exposed via document properties or menu toggle.
+2. **Document Load Restore:**
+   - In `engine/sc/source/core/data/documen7.cxx` ~L591 (`StartAllListeners`) and `formulacell.cxx` ~L1443 (`CalcAfterLoad`):
+     - If `GeometricRecalcOrder` is enabled, `ScGeometricRecalcManager::RebuildAllSheets()` walks formula stores and re-establishes geometric listeners.
+     - Avoids doing this during initial raw XML parsing (`IsImportingXML` / `IsInsertingFromOtherDoc` skips listener establishment).
+3. **Full Roundtrip Cleanliness (ODS & Excel XLSX):**
+   - Because formula text is never rewritten with synthetic `;A1` tokens:
+     - Saving to ODS produces standard formulas without extraneous parameters.
+     - Saving/exporting to XLSX produces clean `=_xlws.PY(...)` formulas that do not break Excel's argument parser or inject spurious global variables.
+     - Moving an ODS file between Desktop LibrePy and Collabora Online is completely safe: neither tool has to strip synthetic parameters generated by the other.
+4. **Cap-Hit UI in Collabora Online:**
+   - Discovery cap: 100 `=PY()` cells per sheet. If exceeded, skip chaining for that sheet.
+   - Collabora Online has no VCL desktop `Application::GetDefDialogParent()` / `msgbox`.
+   - Instead, post a LOKit client notification via `ChildSession::sendTextFrame("infobar: ...")` or window alert, informing the user: *"Geometric Recalc Order skipped on Sheet1: exceeded 100 Python cells cap."*
+
+---
+
+### 12.6 Implementation Phases (Roadmap for C++ Development)
+
+When starting implementation in `~/Desktop/collabofficefull`, proceed in this order:
+
+#### Phase 1: In-Process Emit-Gate in `scaddins` (Can be built and tested standalone)
+- **Files:** `engine/scaddins/source/pythoncompute/bridge.cxx`, `bridge.hxx`, `addin.cxx`.
+- Add `g_aWaiters` queue and predecessor request ID parameter to `startCompute`.
+- Modify `pythoncompute_complete_json` to drain waiters sequentially.
+- **Unit Test:** In `engine/scaddins/qa/pythoncompute.cxx`, write a test where Request B is gated behind Request A. Assert that B does not call `pEmit` while A is pending; assert that completing A triggers emission of B.
+
+#### Phase 2: `ScGeometricRecalcManager` in `engine/sc/`
+- **Files:** `engine/sc/inc/geometricrecalcmgr.hxx`, `engine/sc/source/core/data/geometricrecalcmgr.cxx`, `engine/sc/inc/document.hxx`, `engine/sc/source/core/data/documen8.cxx`.
+- Implement row-major PY cell discovery via `ScColumn::GetCellStore()`.
+- Implement symmetric `StartListeningCell` / `EndListeningCell`.
+- Hook cleanup into `ScFormulaCell::~ScFormulaCell()`.
+
+#### Phase 3: Recalc Integration & CppUnit Tests
+- **Files:** `engine/sc/qa/unit/ucalc.cxx`.
+- Test two chained `=PY()` cells: verify modifying Cell 1 dirties Cell 2.
+- Test cell deletion: verify no dangling pointers or listener leaks in `ScTable`.
+- Test `mxGroup` preservation: verify contiguous column of identical `=PY()` cells retains `GetCellGroup()`.
+
+#### Phase 4: Collabora Online End-to-End Verification
+- **Files:** `kit/ChildSession.cpp`, `test/UnitPythonCompute.cpp`.
+- Verify two-cell Shared Kernel execution in Online: Cell 1 sets `x = 42`, Cell 2 evaluates `x + 1`, result is `43` with zero race conditions.
+- Verify cap-hit infobar message delivery to client session.
+
+---
+
+*Specification Pass 3. Verified against Keith Curtis's Collabora Online / LibreOffice Core repository at `~/Desktop/collabofficefull/` (commits `3048e06f0d54` and `27355f078f2a`).*
+
