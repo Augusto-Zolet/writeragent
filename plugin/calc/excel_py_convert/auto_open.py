@@ -224,11 +224,12 @@ def install_excel_py_auto_convert(ctx: Any) -> None:
                         return
                     if name == "OnLoadFinished":
                         maybe_convert_excel_py_document(ctx, doc)
+                        from plugin.framework.queue_executor import execute_on_main_thread
+
                         try:
                             from plugin.calc.python.collabora_formula import (
                                 maybe_rewrite_collabora_py_formulas,
                             )
-                            from plugin.framework.queue_executor import execute_on_main_thread
 
                             # First arg is the callable; passing ctx here made
                             # execute_on_main_thread treat the UNO context as fn
@@ -242,6 +243,17 @@ def install_excel_py_auto_convert(ctx: Any) -> None:
                             # listener is proven not to abort OnLoadFinished.
                             log.warning(
                                 "collabora PY rewrite on open failed",
+                                exc_info=True,
+                            )
+                        try:
+                            from plugin.calc.python.geometric_recalc import (
+                                maybe_geometric_on_document_open,
+                            )
+
+                            execute_on_main_thread(maybe_geometric_on_document_open, ctx, doc)
+                        except Exception:
+                            log.warning(
+                                "geometric recalc on open failed",
                                 exc_info=True,
                             )
                         return
