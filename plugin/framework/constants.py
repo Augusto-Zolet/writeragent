@@ -61,7 +61,7 @@ EMBEDDINGS_HEARTBEAT_GRACE_S = 90
 # Max sub-chunks per embed+upsert window during ingest (docs/embeddings.md).
 EMBEDDINGS_INGEST_BATCH_SIZE = 64
 # Host-side bounded pool for short run_in_background jobs (not venv subprocess pools).
-BACKGROUND_POOL_MAX_WORKERS = 8
+BACKGROUND_POOL_MAX_WORKERS = 2
 
 # Warm venv worker pools (docs/embeddings.md — dedicated embeddings subprocess).
 WORKER_POOL_DEFAULT = "default"

@@ -133,7 +133,7 @@ Each job calls `thread_guard.set_background_task(name)` at start and clears it i
 
 CPython `ThreadPoolExecutor` workers are **non-daemon** from 3.9 on and would block soffice exit. The host uses an unbounded stdlib queue plus a fixed set of daemon threads named `wa-bg-0` … (`_DaemonWorkPool`). Load **queues**; it does not spawn extra native threads. The pool is bounded in **worker count**, not queue length.
 
-- Size: [`BACKGROUND_POOL_MAX_WORKERS`](../../plugin/framework/constants.py) (8), overridable with `WRITERAGENT_BG_POOL_WORKERS`.
+- Size: [`BACKGROUND_POOL_MAX_WORKERS`](../../plugin/framework/constants.py) (2), overridable with `WRITERAGENT_BG_POOL_WORKERS`.
 - Lazy singleton. No production `shutdown()` (lifetime = soffice). Tests use `reset_background_pool_for_tests()`.
 
 #### Dedicated vs pooled

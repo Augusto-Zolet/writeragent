@@ -10,6 +10,7 @@ import threading
 from plugin.framework.thread_guard import get_background_task_name
 from plugin.framework.worker_pool import (
     BackgroundHandle,
+    background_pool_max_workers,
     reset_background_pool_for_tests,
     run_in_background,
     AsyncProcess,
@@ -363,6 +364,22 @@ def test_reset_background_pool_creates_new_executor():
     # After shutdown the old wa-bg-0 is dead; a new pool thread may reuse the name.
     assert first[0].startswith("wa-bg-")
     assert second[0].startswith("wa-bg-")
+    reset_background_pool_for_tests()
+
+
+def test_background_pool_max_workers_default_and_env(monkeypatch: pytest.MonkeyPatch):
+    reset_background_pool_for_tests()
+    monkeypatch.delenv("WRITERAGENT_BG_POOL_WORKERS", raising=False)
+    assert background_pool_max_workers() == 2
+
+    monkeypatch.setenv("WRITERAGENT_BG_POOL_WORKERS", "4")
+    assert background_pool_max_workers() == 4
+
+    monkeypatch.setenv("WRITERAGENT_BG_POOL_WORKERS", "invalid")
+    assert background_pool_max_workers() == 2
+
+    reset_background_pool_for_tests(max_workers=5)
+    assert background_pool_max_workers() == 5
     reset_background_pool_for_tests()
 
 

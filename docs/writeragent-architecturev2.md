@@ -57,7 +57,7 @@ CrossHair runs `check` (contract-violation search) and `cover` (coverage example
 
 #### Threading Model & The Three-Layer UNO Safety Defense
 
-Everything above is helpful, but not sufficient. While the pure state machine and formal contracts guarantee logical correctness—ensuring that transitions and event lifecycles are mathematically sound—they only describe *what* should happen in the abstract. Getting a desktop AI assistant genuinely correct in a complex host application like LibreOffice requires multiple layers of defense: a formal threading model to keep the application responsive, and strict enforcement layers to ensure that PyUNO's thread boundaries are never breached.
+Everything above is helpful, but not sufficient. While the pure state machine and formal contracts guarantee logical correctness—ensuring that transitions and event lifecycles are mathematically sound—they only describe *what* should happen in the abstract. Getting a multi-threaded codebase genuinely correct in a complex host application like LibreOffice requires multiple layers of defense: a formal threading model to keep the application responsive, and strict enforcement layers to ensure that PyUNO's thread boundaries are never breached.
 
 ##### The Core Constraint: PyUNO Thread Affinity
 PyUNO is **not thread-safe**. UNO objects are thin Python proxies over LibreOffice's internal C++ objects. The underlying VCL (Visual Class Library) framework is single-threaded; touching a UNO object from a background worker thread races internal C++ state. Crucially, thread-affinity violations do not throw clean Python exceptions—instead, they silently corrupt the document undo stack, freeze the UI event loop, or crash `soffice` nondeterministically under load. The VCL main thread is the *only* thread that may legally touch UNO; there is no lock you can acquire to make off-thread UNO access safe.
@@ -65,7 +65,7 @@ PyUNO is **not thread-safe**. UNO objects are thin Python proxies over LibreOffi
 ##### The Formal Threading Model
 To run AI generation, network I/O, and sub-agents asynchronously without violating thread affinity, the platform defines **colored functions**: RED (main-thread / UNO), BLUE (background workers), and YELLOW (synchronous host dispatch — `=PY()`/`=PROMPT()`, remote PyUNO bridges). All background work flows through `run_in_background(func, ..., dedicated=, daemon=)` (`plugin/framework/worker_pool.py`):
 
-- **Daemon pool** — a fixed pool of 8 daemon threads (`wa-bg-0…7`, `BACKGROUND_POOL_MAX_WORKERS`) over an unbounded `queue.SimpleQueue`. Bounded in *worker count*, not queue length; pooled threads are daemon so they never block `soffice` exit (CPython `ThreadPoolExecutor` workers are non-daemon since 3.9).
+- **Daemon pool** — a fixed pool of 2 daemon threads (`wa-bg-0…1`, `BACKGROUND_POOL_MAX_WORKERS`) over an unbounded `queue.SimpleQueue`. Bounded in *worker count*, not queue length; pooled threads are daemon so they never block `soffice` exit (CPython `ThreadPoolExecutor` workers are non-daemon since 3.9).
 - **Dedicated threads** — `dedicated=True` (or `daemon=False`) spawns a single `threading.Thread` for servers, pipe drains, infinite loops, and any job another thread will `join()`. The rule: never `join()` a pooled job from another pooled job.
 - **`AsyncProcess` & pipe safety** — wraps `subprocess.Popen` with dedicated stdout/stderr drain threads; `terminate()` degrades to `kill()` on timeout. Every long-lived child with `stderr=PIPE` needs a continuous drain (`start_stderr_drain`/`AsyncProcess`) or stderr redirected, or the ~64 KiB kernel pipe buffer fills and deadlocks the parent. `StderrTail` keeps a bounded tail; `optimize_popen_pipes` expands Linux pipe size via `F_SETPIPE_SZ`.
 
@@ -183,6 +183,10 @@ Errors flow through a typed `WriterAgentException` hierarchy (24+ codes, from `C
 #### Automated Localization
 
 A gettext pipeline (`i18n.py`, `_()`) serves **35 locale catalogs**. String extraction is automated (Python + XDL + module YAML), and an AI-assisted translation script (`scripts/translate_missing.py`) fills missing/empty/fuzzy `.po` entries against an OpenAI-compatible API. It is genuinely **multi-threaded**: a `ThreadPoolExecutor` (default 5 workers, `--jobs`, staggered by `--delay` between starts) fans translation batches — and the `--review` pass's per-entry critiques — across all languages concurrently, preserving whitespace and parsing results with `safe_json_loads`. System prompts stay English; the model is instructed to match the user's language in free-form chat.
+
+#### Beyond UI Strings: Deep Linguistic Infrastructure
+
+Internationalization in WriterAgent extends far beyond translating user-interface strings. Robust document processing across 36+ languages demands script-specific systems engineering (`plugin/writer/locale/grammar_proofread_locale.py`): full Unicode 15.1 sentence support across 30+ non-Latin scripts, and specialized whitespace segmentation for unspaced languages like Thai. Can auto-detect and set language on text as it's typed, and then run the appropriate grammar checking.
 
 #### The "Lab": Internal Evaluation
 
