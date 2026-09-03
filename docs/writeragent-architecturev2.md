@@ -7,7 +7,7 @@
 
 ## Executive Summary
 
-WriterAgent is not just another "AI wrapper." It is a sophisticated, high-performance platform that bridges the gap between modern Artificial Intelligence and the complex, legacy environment of LibreOffice (Writer, Calc, and Draw).
+WriterAgent is a sophisticated, high-performance platform that bridges the gap between modern Artificial Intelligence and the complex, legacy environment of LibreOffice (Writer, Calc, and Draw).
 
 While many AI tools struggle to interact with desktop software reliably, WriterAgent uses advanced systems engineering—similar to a mini-operating system—to provide a seamless, robust, and semantically-aware assistant. The project ships as **three standalone extension packages** (`WriterAgent.oxt`, `LibrePy.oxt`, `LibreHarper.oxt`), installed one at a time:
 
@@ -44,7 +44,7 @@ This pattern is applied to the hardest orchestration paths, each with its own ty
 
 Previously these paths mixed implicit instance-field state with threads, UNO, and I/O—hard to reason about and expensive to test. Pure transitions are now unit-testable without a running office, and the "Stop vs. stream completion" and "Send/Stop mutual exclusion" races are enforced as contracts.
 
-#### Formal Verification
+#### Formal Verification of State Invariants
 
 The FSMs are not merely hand-tested; they carry **design-by-contract** assertions verified with **Hypothesis** (property-based) and **CrossHair** (concolic execution). Contracts use `@deal.pre` / `@deal.post` / `@deal.ensure` (via a no-op `deal_shim.py` at LibreOffice runtime, the real `deal` under pytest). Examples of shipped `@deal.ensure` contracts on `next_state`:
 
@@ -55,47 +55,43 @@ The FSMs are not merely hand-tested; they carry **design-by-contract** assertion
 
 CrossHair runs `check` (contract-violation search) and `cover` (coverage example generation) as budgeted partial exploration; the `next_state` functions are marked `# crosshair: off` and verified via `@deal.ensure` + Hypothesis oracles instead. Contracts and strategies live in `tests/chatbot/fsm_hyp_support.py` and `tests/chatbot/test_fsm_verification.py` (`make verify` for light, `make vhs` for deep fuzz).
 
-#### A Formal Threading Model
+#### Threading Model & The Three-Layer UNO Safety Defense
 
-The platform defines **colored functions**: RED (main-thread / UNO), BLUE (background workers), YELLOW (synchronous host dispatch — `=PY()`/`=PROMPT()`, remote PyUNO bridges). All background work flows through `run_in_background(func, ..., dedicated=, daemon=)` (`plugin/framework/worker_pool.py`):
+Everything above is helpful, but not sufficient. While the pure state machine and formal contracts guarantee logical correctness—ensuring that transitions and event lifecycles are mathematically sound—they only describe *what* should happen in the abstract. Getting a desktop AI assistant genuinely correct in a complex host application like LibreOffice requires multiple layers of defense: a formal threading model to keep the application responsive, and strict enforcement layers to ensure that PyUNO's thread boundaries are never breached.
+
+##### The Core Constraint: PyUNO Thread Affinity
+PyUNO is **not thread-safe**. UNO objects are thin Python proxies over LibreOffice's internal C++ objects. The underlying VCL (Visual Class Library) framework is single-threaded; touching a UNO object from a background worker thread races internal C++ state. Crucially, thread-affinity violations do not throw clean Python exceptions—instead, they silently corrupt the document undo stack, freeze the UI event loop, or crash `soffice` nondeterministically under load. The VCL main thread is the *only* thread that may legally touch UNO; there is no lock you can acquire to make off-thread UNO access safe.
+
+##### The Formal Threading Model
+To run AI generation, network I/O, and sub-agents asynchronously without violating thread affinity, the platform defines **colored functions**: RED (main-thread / UNO), BLUE (background workers), and YELLOW (synchronous host dispatch — `=PY()`/`=PROMPT()`, remote PyUNO bridges). All background work flows through `run_in_background(func, ..., dedicated=, daemon=)` (`plugin/framework/worker_pool.py`):
 
 - **Daemon pool** — a fixed pool of 8 daemon threads (`wa-bg-0…7`, `BACKGROUND_POOL_MAX_WORKERS`) over an unbounded `queue.SimpleQueue`. Bounded in *worker count*, not queue length; pooled threads are daemon so they never block `soffice` exit (CPython `ThreadPoolExecutor` workers are non-daemon since 3.9).
 - **Dedicated threads** — `dedicated=True` (or `daemon=False`) spawns a single `threading.Thread` for servers, pipe drains, infinite loops, and any job another thread will `join()`. The rule: never `join()` a pooled job from another pooled job.
-- **`AsyncProcess`** — wraps `subprocess.Popen` with dedicated stdout/stderr drain threads; `terminate()` degrades to `kill()` on timeout.
-- **Pipe-safety invariants** — every long-lived child with `stderr=PIPE` needs a continuous drain (`start_stderr_drain`/`AsyncProcess`) or stderr redirected, or the ~64 KiB kernel pipe buffer fills and deadlocks the parent. `StderrTail` keeps a bounded tail; `optimize_popen_pipes` expands Linux pipe size via `F_SETPIPE_SZ`.
+- **`AsyncProcess` & pipe safety** — wraps `subprocess.Popen` with dedicated stdout/stderr drain threads; `terminate()` degrades to `kill()` on timeout. Every long-lived child with `stderr=PIPE` needs a continuous drain (`start_stderr_drain`/`AsyncProcess`) or stderr redirected, or the ~64 KiB kernel pipe buffer fills and deadlocks the parent. `StderrTail` keeps a bounded tail; `optimize_popen_pipes` expands Linux pipe size via `F_SETPIPE_SZ`.
 
-Main-thread dispatch uses `QueueExecutor` (`execute_on_main_thread` / `post_to_main_thread`), which pokes the VCL main thread via `com.sun.star.awt.AsyncCallback` and blocks workers on a per-item `threading.Event` with timeout. It **refuses** blocking marshal from YELLOW context (deadlock hazard #402).
+##### Main-Thread Marshalling & Async Streaming: The Drain Loop
+Marshalling results and UI updates back to the RED main thread relies on two coordinated mechanisms:
 
-#### Async Streaming: The Drain Loop
+- **`QueueExecutor`** (`execute_on_main_thread` / `post_to_main_thread`) — pokes the VCL main thread via `com.sun.star.awt.AsyncCallback` and blocks workers on a per-item `threading.Event` with timeout. It **refuses** blocking marshal from YELLOW context (deadlock hazard #402).
+- **The Stream Drain Loop** — streaming AI tokens works by a strict **worker produces, UI drains** split. Background work pushes tuples onto a `queue.Queue` whose first element is always a `StreamQueueKind` enum member (`CHUNK`, `THINKING`, `TOOL_CALL`, `TOOL_RESULT`, `APPROVAL_REQUIRED`, `STREAM_DONE`, `ERROR`, …). The UI thread runs `run_stream_drain_loop`, which blocks up to 0.1 s for an item, drains any immediately available extras, and when idle calls `pump_ui_idle` — draining the `QueueExecutor` and pumping VCL via `toolkit.processEventsToIdle()`.
+  - **`job_done[0]` ownership**: Owned exclusively by the drain loop. The worker's `finally` posts the `(STREAM_DONE, None)` sentinel but never writes `job_done` directly, preventing the loop from exiting before `on_done` runs (which would skip `leaveUndoContext()` and corrupt the undo stack).
+  - **`BatchingStreamQueue`**: Batches `CHUNK`/`THINKING` deltas on the producer side for up to 250 ms (a one-shot timer armed on the first fragment), flushing before any control item to keep the UI smooth without main-thread sleeps.
+  - UNO `XTimerListener` is deliberately **not** used for sidebar streaming: the drain loop owns VCL pumping, guarded by `drain_owner_scope` (nested/differing drain owners raise). Direct `toolkit.processEventsToIdle()` outside approved chokepoints is banned by Opengrep.
 
-Streaming works by a strict **worker produces, UI drains** split. Background work pushes tuples onto a `queue.Queue` whose first element is always a `StreamQueueKind` enum member (`CHUNK`, `THINKING`, `TOOL_CALL`, `TOOL_RESULT`, `APPROVAL_REQUIRED`, `STREAM_DONE`, `ERROR`, …). The UI thread runs `run_stream_drain_loop`, which blocks up to 0.1 s for an item, drains any immediately available extras, and when idle calls `pump_ui_idle` — draining the `QueueExecutor` and pumping VCL via `toolkit.processEventsToIdle()`.
+##### Enforcing Thread Affinity: The Three-Layer Defense
+Architectural rules alone are conventions—nothing in Python natively stops an engineer or tool from accidentally invoking `doc.getText()` inside a BLUE background worker. WriterAgent enforces thread affinity across three concentric layers:
 
-Two ownership invariants make this robust:
-
-- **`job_done[0]` is owned by the drain loop only.** The worker's `finally` posts the `(STREAM_DONE, None)` sentinel but never writes `job_done` directly, or the loop can exit before `on_done` runs—skipping `leaveUndoContext()` and corrupting the undo stack.
-- **`BatchingStreamQueue`** batches `CHUNK`/`THINKING` deltas on the producer side for up to 250 ms (a one-shot timer armed on the first fragment), flushing before any control item. This keeps the UI smooth without main-thread sleeps.
-
-UNO `XTimerListener` is deliberately **not** used for sidebar streaming: the drain loop owns VCL pumping, guarded by `drain_owner_scope` (nested/differing drain owners raise). Direct `toolkit.processEventsToIdle()` outside approved chokepoints is banned by Opengrep.
-
-#### UNO Thread-Safety: A Three-Layer Defense
-
-Everything above is necessary, and none of it is sufficient. The FSM tells you *what* must happen — which state follows which event, which effects must fire. The threading model gives you the *machinery* to run work off the main thread and marshal it back. But both are **conventions, not enforcement**: they describe the rules, yet nothing in them stops a single `doc.getText()` from executing inside a worker, or a stray `toolkit.processEventsToIdle()` from running off the main thread.
-
-The reason that omission is fatal is specific to LibreOffice. PyUNO is **not thread-safe** — UNO objects are thin proxies over C++ internals, and touching the same object from two threads races those internals. The main thread is the *only* thread that may legally touch UNO; there is no lock you can take to make a worker thread legal. What's worse, the failure mode is the worst kind of bug: thread-affinity violations don't throw. They corrupt the undo stack, freeze the UI, or crash `soffice` — nondeterministically, under load, often long after the offending line ran. They are invisible in a code review and nearly impossible to reproduce in a test, because a race only shows up when two threads actually collide.
-
-So the FSM discipline above is helpful but woefully insufficient for a reliable product: it can tell you the *pattern*, but it cannot tell you whether anyone followed it. The three layers below exist to close exactly that gap — a runtime tripwire that fails loudly the instant UNO is touched off-thread, test-time affinity mocks that prove the boundaries hold, and static taint analysis that catches the violations *before* they ship.
-
-- **Layer A (runtime tripwire, shipped):** `thread_guard.py` wraps every UNO object in a viral `_UnoThreadGuardProxy` via `guard_uno()`, which asserts the main thread on every attribute access, call, and property write. `assert_main_thread` raises (dev) or logs (release stub) on violation; enabled by default (`WRITERAGENT_UNO_THREAD_GUARD=1`), stubbed off in release OXTs. The proxy unwraps for `__setattr__`/`__call__`/`queryInterface` so proxies never leak into C++.
-- **Layer B (test-time):** `ThreadAffineMock` and `set_designated_main_thread`/`set_force_marshal_mode` let affinity tests run under `make lo-test-threadguard`.
-- **Layer C (static):** Opengrep taint rules (`tests/semgrep/uno_thread_safety.yml`, `--taint-intrafile`) trace BLUE roots to RED sinks with sanitizers (`execute_on_main_thread`, `post_to_main_thread`, `if on_main_thread():`); a custom AST linter (`scripts/lint_thread_safety.py`) and a call-graph deadlock analyzer (`scripts/analyze_thread_deadlocks.py`) catch `blocking-marshal-in-sync-dispatch`.
+- **Layer A (Runtime tripwire, shipped):** `thread_guard.py` wraps every UNO object in a viral `_UnoThreadGuardProxy` via `guard_uno()`, which asserts the main thread on every attribute access, call, and property write. `assert_main_thread` raises (dev) or logs (release stub) on violation; enabled by default (`WRITERAGENT_UNO_THREAD_GUARD=1`), stubbed off in release OXTs. The proxy unwraps for `__setattr__`/`__call__`/`queryInterface` so proxies never leak into C++.
+- **Layer B (Test-time verification):** `ThreadAffineMock` and `set_designated_main_thread`/`set_force_marshal_mode` let affinity tests run under `make lo-test-threadguard` to prove marshal boundaries hold before code touches a real office build.
+- **Layer C (Static analysis):** Opengrep taint rules (`tests/semgrep/uno_thread_safety.yml`, `--taint-intrafile`) trace BLUE roots to RED sinks with sanitizers (`execute_on_main_thread`, `post_to_main_thread`, `if on_main_thread():`); a custom AST linter (`scripts/lint_thread_safety.py`) and a call-graph deadlock analyzer (`scripts/analyze_thread_deadlocks.py`) catch `blocking-marshal-in-sync-dispatch`.
 
 The context discipline is equally strict: use the extension's `self.ctx` / `get_ctx()` (a cached, wrapped context), never a fresh `uno.getComponentContext()` — a fresh call can return a *different* context that quietly breaks package/dialog lookups or segfaults test runners.
 
-#### JSON Repair and Robust Parsing
+#### Parsing Layer: JSON Repair and Robust Tool Recovery
 
 Model output is messy, so `safe_json_loads` (`plugin/framework/json_utils.py`) tries, in order: standard `json.loads`, `strict=False`, `ast.literal_eval` (Python reprs like `True`/`None`), then vendored `json_repair` (truncated JSON, trailing commas, unquoted keys). A pre-step repairs LaTeX sequences (`\times` → `\\times`) that collide with JSON escapes. Streamed SSE is normalized by `iterate_sse`; leaked chat-template control tokens (`<|...|>`) are stripped; and a Hermes-inspired client-side tool-call parser registry (`plugin/contrib/tool_call_parsers/`) recovers `<tool_call>` fragments for Hermes/Qwen/DeepSeek/Mistral/Llama/Kimi/GLM models without any VLLM dependency.
 
-#### Two Runtimes, One HTTP Client
+#### Transport Layer: Two Runtimes, One HTTP Client
 
 WriterAgent intentionally keeps **two separate agent runtimes** sharing a single `LlmClient`:
 
@@ -104,7 +100,7 @@ WriterAgent intentionally keeps **two separate agent runtimes** sharing a single
 
 Merging the runtimes would change prompts, stops, and transcripts; merging the HTTP client does not. `LlmClient` is constructed **per job** (sidebar send, grammar worker, `=PROMPT()`, smol), so each owns its persistent keep-alive `http.client` connection and provider shims—chat and grammar hitting the same Ollama use two sockets, not one shared conn. The transport is deliberately unlocked: the Stop button closes the socket (`stop()`) while a worker may be blocked in `getresponse()`, which is how a hung stream is aborted. A `RequestPacer` enforces a 50 ms inter-request interval; local HTTPS falls back from verified to unverified TLS only after a genuine certificate-verification failure on a local host.
 
-#### MCP: LibreOffice as a First-Class AI Citizen
+#### Integration Layer: MCP (LibreOffice as a First-Class AI Citizen)
 
 WriterAgent embeds an **MCP (Model Context Protocol) HTTP server** (`plugin/mcp/`) so external agents (Cursor, Claude Desktop, LM Studio) can remote-control LibreOffice over `http://localhost:18765/mcp`. It implements JSON-RPC 2.0 (`initialize`, `tools/list`, `tools/call`) with a **custom stdlib server** (no official SDK/Pydantic), marshalling every UNO operation to the main thread. Two concurrency layers prevent corruption: a **global semaphore** serializes fast tools (overload → HTTP 429), and a **per-document mutation gate** serializes mutating tools per document while read-only work stays concurrent. By default, tools are exposed through a single `delegate_to_specialized_*_toolset` gateway that runs a **nested smolagents sub-agent on WriterAgent's own configured LLM** — the MCP host's model never touches LibreOffice directly. Optional Cloudflare/Bore/Ngrok/Tailscale tunnels and a stdio bridge (`scripts/mcp_bridge.py`) round out remote access.
 
