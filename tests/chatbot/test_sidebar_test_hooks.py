@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import dataclasses
+import json
 import os
 import sys
 import unittest
@@ -28,6 +29,7 @@ from plugin.chatbot.sidebar_test_hooks import (
     chat_dialog_controls,
     control_enabled,
     debug_hooks_available,
+    ensure_slash_popup,
     fire_audio_auto_stop,
     inject_wav,
     iter_live_chat_panels,
@@ -35,6 +37,7 @@ from plugin.chatbot.sidebar_test_hooks import (
     unregister_live_panel,
     press_accept,
     press_change,
+    press_query_key,
     press_record,
     press_reject,
     press_send,
@@ -51,6 +54,7 @@ from plugin.chatbot.sidebar_test_hooks import (
     sidebar_deck_names,
     sidebar_panel,
     sidebar_provider,
+    slash_popup_state,
     stub_recorder_child,
     transcript_contains,
     transcript_text,
@@ -211,6 +215,29 @@ def test_set_query_text_dispatches_text_updated(fake_listener: _FakeListener) ->
     assert fake_listener.sidebar_state.send.has_text is True
 
 
+def test_slash_popup_hooks_read_state_and_consume_enter(fake_listener: _FakeListener) -> None:
+    fake_listener.slash_popup = SimpleNamespace(
+        is_open=True,
+        visible_names=["help", "clear"],
+        selected_name="help",
+        handle_key=lambda *a, **k: True,
+    )
+    state = slash_popup_state(listener=fake_listener)
+    assert state["visible"] is True
+    assert state["items"] == ["help", "clear"]
+    assert state["selected"] == "help"
+    assert state["available"] is True
+    press_query_key(1280, listener=fake_listener)
+    assert not any(isinstance(e, tuple) and e and e[0] == "action" for e in fake_listener.events)
+
+
+def test_ensure_slash_popup_none_without_ctx_or_listener(monkeypatch) -> None:
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks._HOOK_CTX", None)
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks.send_listener", lambda frame=None: None)
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks._URP_SLASH_POPUP", None)
+    assert ensure_slash_popup() is None
+
+
 def test_press_send_uses_on_action_performed(fake_listener: _FakeListener) -> None:
     press_send(listener=fake_listener)
     assert fake_listener.events[-1][0] == "action"
@@ -289,6 +316,42 @@ def test_handle_debug_sidebar_record_and_snapshot(fake_listener: _FakeListener, 
     handle_debug_sidebar_command("chatbot.debug_sidebar.SNAPSHOT")
     path = debug_sidebar_snapshot_path()
     assert os.path.isfile(path)
+    os.remove(path)
+
+
+def test_handle_debug_sidebar_slash_ops(fake_listener: _FakeListener, monkeypatch) -> None:
+    popup = SimpleNamespace(
+        is_open=True,
+        visible_names=["help", "clear"],
+        selected_name="help",
+        on_query_text=lambda text: setattr(popup, "last_text", text),
+        handle_key=lambda key, mods: setattr(popup, "last_key", (key, mods)),
+        last_text="",
+        last_key=None,
+    )
+    fake_listener.slash_popup = popup
+    fake_listener.query_control.setText("/he")
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks.adopt_runtime_send_listeners", lambda: 0)
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks.send_listener", lambda frame=None: fake_listener)
+    monkeypatch.setattr("plugin.chatbot.sidebar_test_hooks._slash_lru_names", lambda: ["help"])
+
+    handle_debug_sidebar_command("chatbot.debug_sidebar.SLASH_REFRESH")
+    assert popup.last_text == "/he"
+    handle_debug_sidebar_command("chatbot.debug_sidebar.SLASH_ENTER")
+    assert popup.last_key == (1280, 0)
+    handle_debug_sidebar_command("chatbot.debug_sidebar.SLASH_ESC")
+    assert popup.last_key == (1281, 0)
+    handle_debug_sidebar_command("chatbot.debug_sidebar.SNAPSHOT")
+    from plugin.chatbot.sidebar_test_hooks import debug_sidebar_snapshot_path
+
+    path = debug_sidebar_snapshot_path()
+    assert os.path.isfile(path)
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    assert data["slash_available"] is True
+    assert data["slash_visible"] is True
+    assert data["slash_items"] == ["help", "clear"]
+    assert data["slash_selected"] == "help"
     os.remove(path)
 
 
