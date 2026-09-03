@@ -147,6 +147,18 @@ def test_librepy_node_names_are_sort_stable():
     assert names[0].startswith("M0")
 
 
+def test_librepy_notebook_run_is_not_a_menu_item():
+    """Run All / From Here / Stop are hamburger-only when a notebook registry exists."""
+    root = ET.parse(_ADDONS_XCU).getroot()
+    items = _submenu_items(_find_menubar(root))
+    for url in (
+        "org.extension.librepy:notebook.run_all",
+        "org.extension.librepy:notebook.run_from_here",
+        "org.extension.librepy:notebook.stop",
+    ):
+        assert url not in items
+
+
 def test_librepy_menu_order():
     root = ET.parse(_ADDONS_XCU).getroot()
     assert _ordered_urls(_find_menubar(root)) == [

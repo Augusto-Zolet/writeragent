@@ -137,6 +137,22 @@ def test_writeragent_jupyter_is_not_a_menu_item():
     assert jupyter not in debug_urls
 
 
+def test_writeragent_notebook_run_is_not_a_menu_item():
+    """Run All / From Here / Stop are hamburger-only when a notebook registry exists."""
+    root = ET.parse(_ADDONS_XCU).getroot()
+    items = _submenu_items(_find_menubar(root))
+    debug_urls = [
+        _prop_text(item, "URL") for item in _debug_submenu(_find_menubar(root)).findall("node")
+    ]
+    for url in (
+        _PROTOCOL + "notebook.run_all",
+        _PROTOCOL + "notebook.run_from_here",
+        _PROTOCOL + "notebook.stop",
+    ):
+        assert url not in items
+        assert url not in debug_urls
+
+
 def test_writeragent_node_names_are_sort_stable():
     root = ET.parse(_ADDONS_XCU).getroot()
     names = _ordered_names(_find_menubar(root))
@@ -186,6 +202,24 @@ def test_writeragent_mcp_items_reserve_icon_slot():
     items = _submenu_items(_find_menubar(root))
     assert _has_image_identifier(items[_PROTOCOL + "mcp.server_status"])
     assert not _has_image_identifier(items[_PROTOCOL + "mcp.toggle_server"])
+
+
+def test_writeragent_toolbar_has_no_notebook_run_actions():
+    root = ET.parse(_ADDONS_XCU).getroot()
+    toolbar = None
+    for node in root.iter("node"):
+        if node.get(_OOR_NAME) == "org.extension.writeragent.toolbar":
+            toolbar = node
+            break
+    assert toolbar is not None
+    urls = []
+    for item in toolbar.findall("node"):
+        url = _prop_text(item, "URL")
+        if url:
+            urls.append(url)
+    assert _PROTOCOL + "notebook.run_all" not in urls
+    assert _PROTOCOL + "notebook.run_from_here" not in urls
+    assert _PROTOCOL + "notebook.stop" not in urls
 
 
 def test_writeragent_mcp_images_section_points_at_assets():
