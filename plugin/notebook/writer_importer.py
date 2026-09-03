@@ -1118,6 +1118,11 @@ def _iter_markdown_blocks(source: str) -> list[tuple[str, Any]]:
             flush_list()
             quote.append(bq_match.group(1))
             continue
+        # Indented continuation line under the active list item (CommonMark list continuation).
+        if list_items and line.startswith((" ", "\t")) and _md_indent_cols(line) > list_items[-1][0]:
+            indent, kind, start, prev_text = list_items[-1]
+            list_items[-1] = (indent, kind, start, prev_text + " " + line.strip())
+            continue
         if not line.strip():
             flush_para()
             flush_list()
@@ -1437,13 +1442,25 @@ def _append_markdown_cell(
                     )
         elif kind == "blockquote":
             body = str(payload)
-            html = (
-                "<blockquote><p>"
-                + _inline_markdown_to_html(body).replace("\n", "<br/>")
-                + "</p></blockquote>"
-            )
+            # Separate multiple paragraphs within blockquotes if present (> \n >).
+            b_paras = [p.strip() for p in re.split(r"\n\s*\n", body) if p.strip()]
+            if len(b_paras) > 1:
+                inner_p = "".join(
+                    f"<p>{_inline_markdown_to_html(p)}</p>".replace("\n", "<br/>")
+                    for p in b_paras
+                )
+                html = f"<blockquote>{inner_p}</blockquote>"
+            else:
+                html = (
+                    "<blockquote><p>"
+                    + _inline_markdown_to_html(body).replace("\n", "<br/>")
+                    + "</p></blockquote>"
+                )
             if not _insert_html_at_body_end(doc, html, lead_break=block_lead):
-                _append_body_paragraph(doc, body, _STYLE_BODY, lead_break=block_lead)
+                for p_idx, p_text in enumerate(b_paras or [body]):
+                    _append_body_paragraph(
+                        doc, p_text, _STYLE_BODY, lead_break=block_lead if p_idx == 0 else True
+                    )
         elif kind == "img":
             alt, src = payload if isinstance(payload, tuple) else ("", str(payload))
             if not _embed_markdown_image(doc, str(src), notebook_dir, ctx=ctx):

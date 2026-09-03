@@ -992,6 +992,105 @@ def test_import_nested_lists_and_blockquotes_fixture(monkeypatch):
         assert ">*" not in html.replace("</", "")
 
 
+def test_bourke_cells_5_and_8_direct():
+    import json
+    from plugin.notebook.writer_importer import (
+        _iter_markdown_blocks,
+        _list_block_to_html,
+        _inline_markdown_to_html,
+    )
+
+    ipynb_path = Path(__file__).resolve().parents[1] / "fixtures" / "introduction-to-numpy.ipynb"
+    assert ipynb_path.is_file()
+    with open(ipynb_path, encoding="utf-8") as fh:
+        nb = json.load(fh)
+
+    # Bourke Cell 5: "Where can I get help?"
+    c5_source = "".join(nb["cells"][5]["source"])
+    c5_blocks = _iter_markdown_blocks(c5_source)
+    c5_kinds = [k for k, _ in c5_blocks]
+    assert c5_kinds[0] == "h2"
+    assert c5_blocks[0][1] == "Where can I get help?"
+
+    # First ordered list in cell 5 has nested unordered items under item 2
+    ol_block = [b for b in c5_blocks if b[0] == "ol"][0]
+    ol_items = ol_block[1]
+    assert len(ol_items) == 5
+    assert ol_items[0][1] == "ol" and ol_items[0][2] == 1  # 1. Try it
+    assert ol_items[1][1] == "ol" and ol_items[1][2] == 2  # 2. Search for it
+    assert ol_items[2][1] == "ul" and ol_items[2][0] == 4  # nested ul indent 4
+    ol_html = _list_block_to_html(ol_items)
+    assert "<ol>" in ol_html and "<ul>" in ol_html
+    assert "https://numpy.org/doc/stable/index.html" in ol_html
+    assert "https://stackoverflow.com/" in ol_html
+    assert "https://chat.openai.com/" in ol_html
+
+    # Blockquote in cell 5
+    bq_block = [b for b in c5_blocks if b[0] == "blockquote"][0]
+    assert "how to find unique elements" in bq_block[1]
+    assert not bq_block[1].lstrip().startswith(">")
+
+    # Resumed ordered list with start=3
+    ol_resumed = [b for b in c5_blocks if b[0] == "ol"][1]
+    assert ol_resumed[1][0][2] == 3
+    resumed_html = _list_block_to_html(ol_resumed[1])
+    assert 'start="3"' in resumed_html
+    assert "Ask for help" in resumed_html
+
+    # Bourke Cell 8: "1. DataTypes and attributes"
+    c8_source = "".join(nb["cells"][8]["source"])
+    c8_blocks = _iter_markdown_blocks(c8_source)
+    assert c8_blocks[0] == ("h2", "1. DataTypes and attributes")
+    assert c8_blocks[1][0] == "blockquote"
+    assert "Note:" in c8_blocks[1][1]
+    assert "`ndarray`" in c8_blocks[1][1]
+    c8_html = _inline_markdown_to_html(c8_blocks[1][1])
+    assert "<code>ndarray</code>" in c8_html
+    assert "<strong>Note:</strong>" in c8_html or "**Note:**" not in c8_html
+
+
+def test_iter_markdown_blocks_list_continuation():
+    from plugin.notebook.writer_importer import _iter_markdown_blocks
+
+    source = (
+        "* First line of item\n"
+        "  continuation line for item\n"
+        "* Second item\n"
+    )
+    blocks = _iter_markdown_blocks(source)
+    assert len(blocks) == 1
+    assert blocks[0][0] == "ul"
+    items = blocks[0][1]
+    assert len(items) == 2
+    assert "First line of item continuation line for item" in items[0][3]
+    assert items[1][3] == "Second item"
+
+
+def test_append_markdown_cell_multi_paragraph_blockquote(monkeypatch):
+    from plugin.notebook.writer_importer import _append_markdown_cell
+
+    doc, body_text, _ = _writer_doc_mock()
+    html_calls: list[str] = []
+
+    def fake_insert_html(cursor, html, **kwargs):
+        html_calls.append(html)
+        return True
+
+    monkeypatch.setattr("plugin.writer.html_import.insert_html_fragment_at_cursor", fake_insert_html)
+
+    source = (
+        "> First paragraph in blockquote.\n"
+        ">\n"
+        "> Second paragraph in same blockquote.\n"
+    )
+    _append_markdown_cell(doc, source, lead_break=False)
+    assert len(html_calls) == 1
+    html = html_calls[0]
+    assert "<blockquote><p>First paragraph" in html
+    assert "</p><p>Second paragraph" in html
+    assert "</blockquote>" in html
+
+
 def test_inline_markdown_bold_italic_code():
     from plugin.notebook.writer_importer import _inline_markdown_to_html, _paragraph_needs_html
 
