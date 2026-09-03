@@ -9,6 +9,7 @@ from __future__ import annotations
 import dataclasses
 import os
 import sys
+import unittest
 from types import SimpleNamespace
 
 import pytest
@@ -45,6 +46,7 @@ from plugin.chatbot.sidebar_test_hooks import (
     send_state,
     set_audio_supported,
     set_query_text,
+    clear_sidebar_chat,
     show_writeragent_chat_deck,
     sidebar_deck_names,
     sidebar_panel,
@@ -367,6 +369,131 @@ def test_stub_recorder_child_hang_ready(fake_listener: _FakeListener) -> None:
         assert read_stub_recorder_control().get("hang_ready") is True
     finally:
         clear_stub_recorder_control()
+
+
+def test_clear_sidebar_chat_resets_session_and_widget(fake_listener: _FakeListener) -> None:
+    """Packet G must wipe leftover E/F transcript before canned-string asserts."""
+    cleared: list[str] = []
+
+    class _Session:
+        def clear(self) -> None:
+            cleared.append("session")
+
+    class _Widget:
+        def clear_and_greeting(self, greeting: str = "") -> None:
+            cleared.append("widget:%s" % greeting)
+
+    fake_listener.session = _Session()
+    fake_listener.rich_text_widget = _Widget()
+    fake_listener.response_control.setText("You: look up cats\nAssistant: leftover")
+    clear_sidebar_chat(listener=fake_listener)
+    assert cleared == ["session", "widget:"]
+
+
+def test_clear_sidebar_chat_falls_back_to_response_control(fake_listener: _FakeListener) -> None:
+    fake_listener.session = None
+    fake_listener.rich_text_widget = None
+    fake_listener.response_control.setText("You: hello\nAssistant: leftover")
+    clear_sidebar_chat(listener=fake_listener)
+    assert fake_listener.response_control.getText() == ""
+
+
+def test_clear_sidebar_chat_urp_clicks_clear(monkeypatch) -> None:
+    import plugin.chatbot.sidebar_test_hooks as hooks
+
+    clicked: list[object] = []
+    clear_btn = object()
+    monkeypatch.setattr(hooks, "send_listener", lambda frame=None: None)
+    monkeypatch.setattr(hooks, "chat_dialog_controls", lambda ctx, doc: {"clear": clear_btn})
+    monkeypatch.setattr(hooks, "current_component", lambda ctx: object())
+    monkeypatch.setattr(hooks, "uno_click", lambda ctrl: clicked.append(ctrl))
+    saved_ctx = hooks._HOOK_CTX
+    hooks._HOOK_CTX = object()
+    try:
+        clear_sidebar_chat(listener=None)
+    finally:
+        hooks._HOOK_CTX = saved_ctx
+    assert clicked == [clear_btn]
+
+
+def test_g_require_stop_rec_skips_when_label_stays_send(fake_listener: _FakeListener) -> None:
+    from tests.chatbot.test_mock_llm_sidebar_uno import _PACKET_G_RECORD_SKIP, _g_require_stop_rec
+
+    fake_listener.send_control.getModel().Label = "Send"
+    with pytest.raises(unittest.SkipTest, match="Stop Rec") as caught:
+        _g_require_stop_rec(fake_listener, timeout=0.0)
+    assert str(caught.value) == _PACKET_G_RECORD_SKIP
+
+
+def test_g_require_stop_rec_ok_when_label_is_stop_rec(fake_listener: _FakeListener) -> None:
+    from tests.chatbot.test_mock_llm_sidebar_uno import _g_require_stop_rec
+
+    fake_listener.send_control.getModel().Label = "Stop Rec"
+    _g_require_stop_rec(fake_listener, timeout=0.0)
+
+
+def test_g_require_stop_rec_urp_skips_when_session_send_stays_send(monkeypatch) -> None:
+    """URP-only: no in-process listener — skip after live Send label stays Send."""
+    from tests.chatbot import test_mock_llm_sidebar_uno as gmod
+
+    class _Btn:
+        def __init__(self) -> None:
+            self._model = SimpleNamespace(Label="Send")
+
+        def getModel(self):
+            return self._model
+
+    monkeypatch.setattr(gmod, "_session", SimpleNamespace(controls={"send": _Btn()}))
+    monkeypatch.setattr(gmod, "_transcript", lambda: "")
+    with pytest.raises(unittest.SkipTest, match="Record no-op"):
+        gmod._g_require_stop_rec(None, timeout=0.0)
+
+
+def test_g_require_stop_rec_urp_ok_when_session_send_is_stop_rec(monkeypatch) -> None:
+    from tests.chatbot import test_mock_llm_sidebar_uno as gmod
+
+    class _Btn:
+        def __init__(self) -> None:
+            self._model = SimpleNamespace(Label="Stop Rec")
+
+        def getModel(self):
+            return self._model
+
+    monkeypatch.setattr(gmod, "_session", SimpleNamespace(controls={"send": _Btn()}))
+    monkeypatch.setattr(gmod, "_transcript", lambda: "")
+    gmod._g_require_stop_rec(None, timeout=0.0)
+
+
+def test_g_skip_if_record_failed_on_device_error(monkeypatch) -> None:
+    from tests.chatbot import test_mock_llm_sidebar_uno as gmod
+
+    monkeypatch.setattr(
+        gmod,
+        "_transcript",
+        lambda: "[Audio error: Audio recording failed: Error querying device -1]",
+    )
+    with pytest.raises(unittest.SkipTest, match="Record no-op"):
+        gmod._g_skip_if_record_failed()
+
+
+def test_g4_skip_if_no_audio_reply_on_greeting_only(monkeypatch) -> None:
+    """CI G4: wait_idle is immediate, greeting has no audio-error string."""
+    from tests.chatbot import test_mock_llm_sidebar_uno as gmod
+
+    monkeypatch.setattr(
+        gmod,
+        "_transcript",
+        lambda: "Assistant: I can edit or translate your document instantly with professional formatting and color. Try me!",
+    )
+    with pytest.raises(unittest.SkipTest, match="Record no-op"):
+        gmod._g_skip_if_no_audio_reply()
+
+
+def test_g4_no_skip_when_native_reply_present(monkeypatch) -> None:
+    from tests.chatbot import test_mock_llm_sidebar_uno as gmod
+
+    monkeypatch.setattr(gmod, "_transcript", lambda: "Assistant: Hello from the mock microphone.")
+    gmod._g_skip_if_no_audio_reply()
 
 
 def test_mock_config_mutates_flags() -> None:
