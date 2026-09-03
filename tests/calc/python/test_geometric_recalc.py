@@ -218,6 +218,142 @@ def test_already_correct_predecessor_is_noop():
     assert result.records["A2"].predecessor == "A1"
 
 
+def test_row_insert_move_rehomes_orphan_record():
+    """Calc already adjusted A2→A3; leftover map key A2 must move to A3."""
+    result = _repair(
+        [
+            _cell("A1", '=PY("a")'),
+            _cell("A3", '=PY("c";A1)'),
+        ],
+        {"A2": GeometricRecord(predecessor="A1")},
+    )
+    assert result.patches == ()
+    assert result.records["A3"].predecessor == "A1"
+    assert "A2" not in result.records
+
+
+def test_user_authored_previous_py_is_not_recorded():
+    """§9.5: last==desired with no incoming record must stay unrecorded."""
+    result = _repair(
+        [
+            _cell("A1", '=PY("a")'),
+            _cell("A3", '=PY("c";A1)'),
+        ]
+    )
+    assert result.patches == ()
+    assert "A3" not in result.records
+
+
+def test_unmatched_orphan_does_not_record_user_authored_cell():
+    """Orphan A2 whose pred is not desired must not be stolen onto user-authored A3.
+
+    A2 is gone; A3 already has ``;A1`` because the user typed it (§9.5), not
+    because we attached A2. ``orphans[0]`` used to record A3 anyway.
+    A matching pred (A2→A1) is the row-insert rehome case, not this one.
+    """
+    result = _repair(
+        [
+            _cell("A1", '=PY("a")'),
+            _cell("A3", '=PY("c";A1)'),
+        ],
+        {"A2": GeometricRecord(predecessor="Z9")},
+    )
+    assert result.patches == ()
+    assert "A3" not in result.records
+    assert "A2" not in result.records
+
+
+def test_only_matching_orphan_rehomes_unmatched_is_dropped():
+    """Two orphans: only the pred that equals desired may rehome; the other drops."""
+    result = _repair(
+        [
+            _cell("A1", '=PY("a")'),
+            _cell("A3", '=PY("b";A1)'),
+            _cell("C1", '=PY("user";A3)'),
+        ],
+        {
+            "A2": GeometricRecord(predecessor="A1"),
+            "B9": GeometricRecord(predecessor="Z9"),
+        },
+    )
+    assert result.patches == ()
+    assert result.records["A3"].predecessor == "A1"
+    assert "A2" not in result.records
+    assert "B9" not in result.records
+    assert "C1" not in result.records
+
+
+def test_row_insert_three_cell_chain_rehomes_all_keys():
+    """A1,A2,A3 shifted to A1,A3,A4; every attach record follows the cell."""
+    result = _repair(
+        [
+            _cell("A1", '=PY("a")'),
+            _cell("A3", '=PY("b";A1)'),
+            _cell("A4", '=PY("c";A3)'),
+        ],
+        {
+            "A2": GeometricRecord(predecessor="A1"),
+            "A3": GeometricRecord(predecessor="A2"),
+        },
+    )
+    assert result.patches == ()
+    assert result.records["A3"].predecessor == "A1"
+    assert result.records["A4"].predecessor == "A3"
+    assert "A2" not in result.records
+
+
+def test_undo_stale_map_keeps_live_successor_record():
+    """Undo after delete-middle: stale ``{A3: A1}`` must not be stolen onto A2.
+
+    Live sheet is A1/A2/A3 (formulas already correct). Incoming pred A1 ≠
+    A3's desired A2 used to mark A3 homeless; rule 1 then moved that record
+    onto A2 (pred A1 == A2's desired). A3 left unrecorded with ``;A2`` so
+    successor-becomes-first remove-field was a noop.
+    """
+    result = _repair(
+        [
+            _cell("A1", '=PY("first")'),
+            _cell("A2", '=PY("mid";A1)'),
+            _cell("A3", '=PY("third";A2)'),
+        ],
+        {"A3": GeometricRecord(predecessor="A1")},
+    )
+    assert result.patches == ()
+    assert result.records["A3"].predecessor == "A2"
+    # Do not move A3's record onto A2. A2 has last==desired but no incoming
+    # key (delete dropped it); inventing one is §9.5 user-authored ``;A1``.
+    assert "A2" not in result.records
+
+    first_only = _repair(
+        [_cell("A3", '=PY("third";A2)')],
+        result.records,
+    )
+    assert _patch_map(first_only)["A3"].action == "remove"
+    assert "A3" not in first_only.records
+
+
+def test_row_insert_four_cell_chain_rehomes_all_keys():
+    """A1–A4 shifted +1 row; all three successors rehome, no formula patches."""
+    result = _repair(
+        [
+            _cell("A1", '=PY("a")'),
+            _cell("A3", '=PY("b";A1)'),
+            _cell("A4", '=PY("c";A3)'),
+            _cell("A5", '=PY("d";A4)'),
+        ],
+        {
+            "A2": GeometricRecord(predecessor="A1"),
+            "A3": GeometricRecord(predecessor="A2"),
+            "A4": GeometricRecord(predecessor="A3"),
+        },
+    )
+    assert result.patches == ()
+    assert result.records["A3"].predecessor == "A1"
+    assert result.records["A4"].predecessor == "A3"
+    assert result.records["A5"].predecessor == "A4"
+    assert "A2" not in result.records
+
+
 def test_already_correct_dollar_ref_is_noop():
     result = _repair(
         [
@@ -466,7 +602,7 @@ def test_notify_geometric_cap_hit_one_box_per_sheet_ui_thread_only():
         assert notify_geometric_cap_hit("ctx", "Sheet2", already_notified=notified)
         assert mock_box.call_count == 2
         titles = [c.args[1] for c in mock_box.call_args_list]
-        assert all(t == "Geometric Recalc Order" or "Geometric" in t for t in titles)
+        assert all("Geometric Recalc Order" in t and "Experimental" in t for t in titles)
         assert mock_box.call_args_list[0].kwargs.get("box_type") == 3
 
     with (
@@ -476,6 +612,23 @@ def test_notify_geometric_cap_hit_one_box_per_sheet_ui_thread_only():
         shown = notify_geometric_cap_hit("ctx", "Other", already_notified=set())
         assert shown is False
         mock_box.assert_not_called()
+
+
+def test_notify_geometric_cap_hit_off_main_does_not_persist():
+    """Off-main logs and returns False; it must not swallow the later UI box."""
+    reset_geometric_runtime_for_tests()
+    with (
+        patch("plugin.framework.thread_guard.on_main_thread", return_value=False),
+        patch("plugin.chatbot.dialogs.msgbox") as mock_box,
+    ):
+        assert notify_geometric_cap_hit("ctx", "Sheet1", workbook_key="wb1") is False
+        mock_box.assert_not_called()
+    with (
+        patch("plugin.framework.thread_guard.on_main_thread", return_value=True),
+        patch("plugin.chatbot.dialogs.msgbox") as mock_box,
+    ):
+        assert notify_geometric_cap_hit("ctx", "Sheet1", workbook_key="wb1")
+        assert mock_box.call_count == 1
 
 
 def test_cap_hit_user_message_names_the_sheet():
@@ -696,6 +849,44 @@ def test_cap_hit_sheet_skipped_on_reconcile(monkeypatch):
     # First two cells stay unchained (whole sheet skipped).
     assert sheet.getCellByPosition(0, 1).getFormula() == '=PY("x1")'
     assert current_geometric_strip_safe() == frozenset()
+
+
+def test_cap_hit_msgbox_persists_across_reconcile_without_shared_set(monkeypatch):
+    """Two document reconciles on truncated sheets must not show a second box."""
+    from plugin.tests.testing_utils import CalcDocStub, CalcSheetStub
+
+    _reset_geo()
+    sheet1 = CalcSheetStub("Sheet1")
+    sheet2 = CalcSheetStub("Data")
+    for i in range(GEOMETRIC_DISCOVERY_CAP + 1):
+        sheet1.getCellByPosition(0, i).setFormula(f'=PY("x{i}")')
+        sheet2.getCellByPosition(0, i).setFormula(f'=PY("y{i}")')
+    doc = CalcDocStub(sheets=[sheet1, sheet2], url="file:///cap-persist.ods")
+    monkeypatch.setattr(
+        "plugin.calc.python.geometric_recalc.geometric_flag_enabled", lambda: True
+    )
+    monkeypatch.setattr("plugin.doc.udprops.get_document_property", lambda *_a, **_k: None)
+    monkeypatch.setattr("plugin.doc.udprops.set_document_property", lambda *_a, **_k: None)
+    with (
+        patch("plugin.framework.thread_guard.on_main_thread", return_value=True),
+        patch("plugin.chatbot.dialogs.msgbox") as mock_box,
+    ):
+        reconcile_geometric_document("ctx", doc)
+        reconcile_geometric_document("ctx", doc)
+        assert mock_box.call_count == 2
+        titles = [c.args[1] for c in mock_box.call_args_list]
+        assert all("Experimental" in t for t in titles)
+        bodies = " ".join(str(c.args[2]) for c in mock_box.call_args_list)
+        assert "Sheet1" in bodies
+        assert "Data" in bodies
+
+    _reset_geo()
+    with (
+        patch("plugin.framework.thread_guard.on_main_thread", return_value=True),
+        patch("plugin.chatbot.dialogs.msgbox") as mock_box,
+    ):
+        reconcile_geometric_document("ctx", doc)
+        assert mock_box.call_count == 2
 
 
 # ---------------------------------------------------------------------------
