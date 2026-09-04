@@ -85,7 +85,7 @@ The prototype also does **not** add a dedicated IDL ordering argument. That rebu
 
 **Cross-cluster chaining (current design):** two independent PY clusters on one sheet (A1:A5 and D1:D5) become one chain — D1 waits on A5. That slightly over-dirties the D column when A3 changes. Correctness is fine; users who care can turn the flag off and write explicit `data` refs. Spatial clustering is not in the prototype.
 
-**Cap (current design):** `list_python_cells_on_sheet` stops at `_MAX_PYTHON_CELLS_FOUND = 100` (also `_MAX_CELLS_TO_SCAN = 50000`). The prototype adds `discover_python_cells_on_sheet` → `PythonSheetDiscovery.truncated`: after 100 PY cells we keep scanning for one more; #101 or the 50k scan cap sets `truncated=True`. An exact 100 that finishes the formula-cell walk is complete (`truncated=False`) and is chained. **If a cap is hit, skip geometric chaining for that entire sheet, log it, and show one user-visible error** (`notify_geometric_cap_hit` → existing `msgbox`, UI thread only, one box per skipped sheet; Online infobar is in the Collabora sketch — [§12](#12-collabora--libreoffice-core-living-sketch-not-final)). Do not only `log.error`. Do not chain the first 100 and leave #101 with no predecessor. The prototype does not raise the cap. It does not mark any eval-index triple strip-safe for that sheet — you cannot prove unanimous-ours on a truncated list ([§9.5](#95-marker-is-the-udprop--in-memory-map)). If the 50k scan cap fires with fewer than 100 PY cells, that list is also incomplete — same skip.
+**Cap (current design):** `list_python_cells_on_sheet` stops at `_MAX_PYTHON_CELLS_FOUND = 100` (also `_MAX_CELLS_TO_SCAN = 50000`). The prototype adds `discover_python_cells_on_sheet` → `PythonSheetDiscovery.truncated`: after 100 PY cells we keep scanning for one more; #101 or the 50k scan cap sets `truncated=True`. An exact 100 that finishes the formula-cell walk is complete (`truncated=False`) and is chained. **If a cap is hit, skip geometric chaining for that entire sheet, log it, and show one user-visible error** (`notify_geometric_cap_hit` → existing `msgbox`, UI thread only, one box per skipped sheet; Online infobar is in the Collabora design — [§12](#12-collabora--libreoffice-core-living-sketch-not-final)). Do not only `log.error`. Do not chain the first 100 and leave #101 with no predecessor. The prototype does not raise the cap. It does not mark any eval-index triple strip-safe for that sheet — you cannot prove unanimous-ours on a truncated list ([§9.5](#95-marker-is-the-udprop--in-memory-map)). If the 50k scan cap fires with fewer than 100 PY cells, that list is also incomplete — same skip.
 
 A 100-cell chain is serial (venv IPC per dirty cell); that is the price of order, not a new cliff.
 
@@ -446,9 +446,9 @@ Do not touch `AGENTS.md` unless the rewrite-outside-recalc rule needs to become 
 
 ---
 
-## 12. Collabora / LibreOffice core engine specification (Pass 3) <a name="12-collabora--libreoffice-core-living-sketch-not-final"></a>
+## 12. Collabora / LibreOffice core engine specification <a name="12-collabora--libreoffice-core-living-sketch-not-final"></a>
 
-**Proposed design, not implemented.** Pass 5 of the sketch: dual-layer engine DAG + **inhibit** emit-gate + `g_aParamCache` identity. Verified against `~/Desktop/collabofficefull` (commits `3048e06f0d54` and `27355f078f2a`). Pass 3's `g_aWaiters` queue is **not used in this sketch**. A formula DAG edge only orders when `Interpret()` is *called*; `getPy` returns `#BUSY!` immediately and that does not serialize HTTP. $\frac{N(N+1)}{2}$ HTTP is a worst case — a predecessor-only chain is closer to $2N-1$ — but still gate it.
+**Proposed design, not implemented.** Dual-layer engine DAG + **inhibit** emit-gate + `g_aParamCache` identity. A `g_aWaiters` queue is **not used**. A formula DAG edge only orders when `Interpret()` is *called*; `getPy` returns `#BUSY!` immediately and that does not serialize HTTP. $\frac{N(N+1)}{2}$ HTTP is a worst case — a predecessor-only chain is closer to $2N-1$ — but still gate it.
 
 This section defines a proposed engine-native architecture for Geometric Recalculation Order inside LibreOffice Calc and Collabora Online: an **engine-managed recalc DAG** in `sc/` paired with an **inhibit** gate so a successor does not call `pEmit` while its predecessor is still in `g_aPending`. The engine's `TrackFormulas` path then re-Interprets the successor with a fresh payload.
 
@@ -473,7 +473,7 @@ Therefore, Collabora would need a **Dual-Layer Architecture**:
 
 ---
 
-### 12.2 Codebase Topology (`~/Desktop/collabofficefull/`)
+### 12.2 Codebase Topology
 
 The proposed C++ work would touch existing files in the Collabora Online / Core tree without altering the IDL signature (`getPy(code, data)` stays unchanged):
 
@@ -538,7 +538,7 @@ To prevent the dangling pointer trap, non-RPN geometric dependencies must be man
 
 #### Layer 2: Inhibit Gate (prefer `sc/`, not a waiter queue)
 
-`getPy(code, data)` has **no cell coordinates**. `startCompute` cannot look up `(doc, sheet, row, col)`. Pass 3's `g_aWaiters` / `g_aCellToActiveReqId` assumed an identity the IDL does not have. This sketch does **not** use that queue.
+`getPy(code, data)` has **no cell coordinates**. `startCompute` cannot look up `(doc, sheet, row, col)`. A `g_aWaiters` / `g_aCellToActiveReqId` queue would assume an identity the IDL does not have. This design does **not** use that queue.
 
 **Preferred — Option B (engine inhibit):** `ScGeometricRecalcManager` in `ScFormulaCell::Interpret()` / `interpr4.cxx` checks whether this cell's geometric predecessor is still pending. If so, return the cached `#BUSY!` volatile and **do not** call the add-in. When A finishes, `complete_json` → `finish()` → `ScAddInListener::modified` → `TrackFormulas` dirties B (it requeues; view/idle/`CalcFormulaTree` runs `Interpret` later — not inside `TrackFormulas` itself). The second `Interpret(B)` sees A done, builds a **fresh** payload, and emits once.
 
@@ -590,7 +590,7 @@ One of the greatest dangers of formula rewriting (Path B) is breaking shared for
 
 ### 12.6 Implementation Phases (Roadmap for C++ Development)
 
-If starting implementation in `~/Desktop/collabofficefull`, a plausible order:
+If starting implementation in the Collabora Online / Core tree, a plausible order:
 
 #### Phase 1: Inhibit + param-cache identity (do not add `g_aWaiters`)
 - **Files:** `engine/sc/source/core/tool/interpr4.cxx` / `formulacell.cxx` (Option B), optionally `bridge.cxx` only if a cell key is later required for cache keying.
@@ -614,7 +614,3 @@ If starting implementation in `~/Desktop/collabofficefull`, a plausible order:
 - **Files:** `kit/ChildSession.cpp`, `test/UnitPythonCompute.cpp`.
 - Verify two-cell Shared Kernel execution in Online: Cell 1 sets `x = 42`, Cell 2 evaluates `x + 1`, result is `43` with zero race conditions.
 - Verify cap-hit infobar message delivery to client session.
-
----
-
-*Specification Pass 5. Inhibit + `g_aParamCache` identity; no `g_aWaiters`. Verified against `~/Desktop/collabofficefull/` (commits `3048e06f0d54` and `27355f078f2a`). Proposed design only — not in the tree.*
