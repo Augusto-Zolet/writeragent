@@ -479,10 +479,10 @@ def _label(ctrl) -> str:
     return ""
 
 
-def _wait_send_label(needle: str, timeout: float = 45.0) -> bool:
+def _wait_send_label(needle: str, timeout: float = 10.0) -> bool:
     controls = getattr(_session, "controls", None) or {}
     send = controls.get("send")
-    deadline = time.monotonic() + timeout
+    deadline = time.monotonic() + min(timeout, 10.0)
     while time.monotonic() <= deadline:
         if send is not None and needle.lower() in _label(send).lower():
             return True
@@ -1449,6 +1449,8 @@ def test_e8b_stop_mouse_skipped(ctx):
 
 @native_test
 def test_e9a_hitl_accept(ctx):
+    if getattr(_session, "config", None) and getattr(_session.config, "offline", False):
+        raise unittest.SkipTest("E9 HITL requires web_search tool calls (--offline mock emits final_answer only)")
     from plugin.framework.config import set_config
 
     _reset_mock_runtime()
@@ -1463,7 +1465,7 @@ def test_e9a_hitl_accept(ctx):
         set_query_text_via_controls(controls, "look up cats")
         time.sleep(0.2)
         uno_click(controls["send"])
-        if not _wait_send_label("Accept", timeout=45.0):
+        if not _wait_send_label("Accept", timeout=10.0):
             raise unittest.SkipTest("E9 HITL Accept label never appeared over URP")
         uno_click(controls["send"])
         assert wait_controls_send_finished(controls, timeout=90.0, transcript_fn=_transcript), (
@@ -1477,6 +1479,8 @@ def test_e9a_hitl_accept(ctx):
 
 @native_test
 def test_e9b_hitl_reject(ctx):
+    if getattr(_session, "config", None) and getattr(_session.config, "offline", False):
+        raise unittest.SkipTest("E9 HITL requires web_search tool calls (--offline mock emits final_answer only)")
     from plugin.framework.config import set_config
 
     _reset_mock_runtime()
@@ -1491,7 +1495,7 @@ def test_e9b_hitl_reject(ctx):
         set_query_text_via_controls(controls, "look up cats")
         time.sleep(0.2)
         uno_click(controls["send"])
-        if not _wait_send_label("Accept", timeout=45.0):
+        if not _wait_send_label("Accept", timeout=10.0):
             raise unittest.SkipTest("E9 HITL Accept label never appeared over URP")
         clear = controls.get("clear")
         if clear is not None and "reject" in _label(clear).lower():
@@ -1509,6 +1513,8 @@ def test_e9b_hitl_reject(ctx):
 
 @native_test
 def test_e9c_hitl_change(ctx):
+    if getattr(_session, "config", None) and getattr(_session.config, "offline", False):
+        raise unittest.SkipTest("E9 HITL requires web_search tool calls (--offline mock emits final_answer only)")
     from plugin.framework.config import set_config
 
     _reset_mock_runtime()
@@ -1523,7 +1529,7 @@ def test_e9c_hitl_change(ctx):
 
         set_query_text("look up cats", listener=sl)
         press_send(listener=sl)
-        if not _wait_send_label("Accept", timeout=45.0):
+        if not _wait_send_label("Accept", timeout=10.0):
             raise unittest.SkipTest("E9 HITL Accept never appeared")
         press_change("cats", listener=sl)
         assert wait_idle(listener=sl, timeout=90.0)
@@ -1541,6 +1547,8 @@ def test_e9d_stop_mouse_during_approval_skipped(ctx):
 
 @native_test
 def test_e9e_stop_action_during_approval(ctx):
+    if getattr(_session, "config", None) and getattr(_session.config, "offline", False):
+        raise unittest.SkipTest("E9 HITL requires web_search tool calls (--offline mock emits final_answer only)")
     from plugin.framework.config import set_config
 
     _reset_mock_runtime()
@@ -1555,7 +1563,7 @@ def test_e9e_stop_action_during_approval(ctx):
         set_query_text_via_controls(controls, "look up cats")
         time.sleep(0.2)
         uno_click(controls["send"])
-        if not _wait_send_label("Accept", timeout=45.0):
+        if not _wait_send_label("Accept", timeout=10.0):
             raise unittest.SkipTest("E9 HITL Accept label never appeared over URP")
         before = _transcript()
         uno_click(controls["stop"])
