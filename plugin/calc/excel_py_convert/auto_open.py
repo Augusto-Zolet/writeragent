@@ -35,6 +35,93 @@ _SAVE_DONE_EVENTS = frozenset({"OnSaveDone", "OnSaveAsDone", "OnSaveToDone"})
 _GEOMETRIC_OPEN_EVENTS = frozenset({"OnLoadFinished", "OnNew", "OnLoad", "OnCreate"})
 
 
+def _record_desktop_calc_sessions(ctx: Any) -> None:
+    """Record the leftover scalc only when it is the sole open Calc.
+
+    OnCreate Source is often the Writer keeper. Scanning *every* Calc made
+    leftover ``recorded=2`` / ``unambiguous=False`` (Shared drops session_id).
+    Two open workbooks stay Isolated by design. Cap stops MagicMock enums.
+    """
+    from plugin.framework.uno_context import get_desktop
+    from plugin.scripting.session_manager import (
+        calc_workbook_base_session_id,
+        is_opencl_probe_session_id,
+        recorded_calc_session_count,
+    )
+
+    desktop = get_desktop(ctx)
+    comps = getattr(desktop, "getComponents", lambda: None)()
+    if comps is None or not hasattr(comps, "createEnumeration"):
+        return
+    enum = comps.createEnumeration()
+    _ENUM_CAP = 32
+    n = 0
+    calcs: list[Any] = []
+    while True:
+        try:
+            has_more = enum.hasMoreElements()
+        except Exception:
+            break
+        if type(has_more).__name__ in ("Mock", "MagicMock") or not has_more:
+            break
+        if n >= _ENUM_CAP:
+            log.error("excel_py lifecycle: desktop enum hit cap=%s; stopping", _ENUM_CAP)
+            break
+        n += 1
+        elem = enum.nextElement()
+        model = elem
+        if not _is_calc_doc(model):
+            try:
+                ctrl = getattr(elem, "getController", lambda: None)()
+                model = ctrl.getModel() if ctrl is not None else None
+            except Exception:
+                continue
+        if _is_calc_doc(model):
+            try:
+                url = str(getattr(model, "getURL", lambda: "")() or "")
+            except Exception:
+                url = ""
+            if is_opencl_probe_session_id(url):
+                continue
+            calcs.append(model)
+    if len(calcs) == 1:
+        calc_workbook_base_session_id(calcs[0])
+    log.info(
+        "excel_py lifecycle: desktop calc sessions scanned=%s calcs=%s recorded=%s",
+        n,
+        len(calcs),
+        recorded_calc_session_count(),
+    )
+
+
+def _geometric_open_job(ctx: Any, doc: Any) -> None:
+    from plugin.calc.python.geometric_recalc import maybe_geometric_on_document_open
+
+    maybe_geometric_on_document_open(ctx, doc)
+    try:
+        _record_desktop_calc_sessions(ctx)
+    except Exception:
+        log.debug("excel_py lifecycle: desktop calc session scan failed", exc_info=True)
+
+
+def _run_geometric_on_open(ctx: Any, doc: Any) -> None:
+    """Record/reconcile in soffice. Inline when already on the UNO thread.
+
+    ``execute_on_main_thread`` from OnNew/OnCreate enqueues and waits. Those
+    events already run on the VCL thread, which is often not Python's
+    ``MainThread``, so the waiter blocks until AsyncCallback (30s timeout) and
+    leftover Shared ``=PY()`` then sees ``session_id=None`` (Isolated).
+    """
+    from plugin.framework.thread_guard import on_main_thread
+
+    if on_main_thread():
+        _geometric_open_job(ctx, doc)
+        return
+    from plugin.framework.queue_executor import execute_on_main_thread
+
+    execute_on_main_thread(_geometric_open_job, ctx, doc)
+
+
 def _is_calc_doc(doc: Any) -> bool:
     try:
         return bool(doc and doc.supportsService("com.sun.star.sheet.SpreadsheetDocument"))
@@ -191,20 +278,26 @@ def maybe_export_excel_py_on_save(ctx: Any, doc: Any) -> bool:
 def _doc_from_event(event: Any) -> Any | None:
     # UNO getattr on a disposed ViewController raises RuntimeException (not AttributeError),
     # so getattr(..., None) is not enough — common on unload / Draw teardown during tests.
+    # Factory ``OnNew`` / ``OnCreate`` for a hidden ``scalc`` often has Source=doc
+    # but getCurrentController() throws — do not skip ``_is_calc_doc(source)``.
     try:
         controller = getattr(event, "ViewController", None)
         if controller is not None and hasattr(controller, "getModel"):
             return controller.getModel()
     except Exception:
         pass
+    source = None
     try:
         source = getattr(event, "Source", None)
+    except Exception:
+        source = None
+    if source is not None and _is_calc_doc(source):
+        return source
+    try:
         if source is not None and hasattr(source, "getCurrentController"):
             ctrl = source.getCurrentController()
             if ctrl is not None and hasattr(ctrl, "getModel"):
                 return ctrl.getModel()
-        if source is not None and _is_calc_doc(source):
-            return source
     except Exception:
         pass
     return None
@@ -224,6 +317,24 @@ def install_excel_py_auto_convert(ctx: Any) -> None:
                 try:
                     name = getattr(Event, "EventName", "") or ""
                     doc = _doc_from_event(Event)
+                    # Hidden factory OnNew/OnCreate often has Source the Writer
+                    # keeper (leftover scalc is not focused). ``doc is None``
+                    # used to return here and skip the desktop scan, so soffice
+                    # ``_RECORDED_CALC_SESSION_IDS`` stayed empty and leftover
+                    # Shared ``=PY()`` ran Isolated (A1=41, A3 NameError).
+                    if name in _GEOMETRIC_OPEN_EVENTS:
+                        try:
+                            log.info(
+                                "excel_py lifecycle: geometric on_open event=%s has_doc=%s",
+                                name,
+                                doc is not None,
+                            )
+                            _run_geometric_on_open(ctx, doc)
+                        except Exception:
+                            log.warning(
+                                "geometric recalc on open failed",
+                                exc_info=True,
+                            )
                     if doc is None:
                         return
                     if name == "OnLoadFinished":
@@ -249,22 +360,7 @@ def install_excel_py_auto_convert(ctx: Any) -> None:
                                 "collabora PY rewrite on open failed",
                                 exc_info=True,
                             )
-                    if name in _GEOMETRIC_OPEN_EVENTS:
-                        from plugin.framework.queue_executor import execute_on_main_thread
-
-                        try:
-                            from plugin.calc.python.geometric_recalc import (
-                                maybe_geometric_on_document_open,
-                            )
-
-                            execute_on_main_thread(maybe_geometric_on_document_open, ctx, doc)
-                        except Exception:
-                            log.warning(
-                                "geometric recalc on open failed",
-                                exc_info=True,
-                            )
-                        if name == "OnLoadFinished":
-                            return
+                        return
                     if name in _SAVE_DONE_EVENTS:
                         maybe_export_excel_py_on_save(ctx, doc)
                 except Exception:
