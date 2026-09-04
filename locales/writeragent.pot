@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-31 16:47-0400\n"
+"POT-Creation-Date: 2026-09-04 14:41-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -274,6 +274,19 @@ msgstr ""
 
 #: plugin/framework/client/errors.py
 #, python-brace-format
+msgid ""
+"The local Ollama/llama.cpp process crashed because the prompt overflowed a "
+"{0} context window."
+msgstr ""
+
+#: plugin/framework/client/errors.py
+msgid ""
+"The local Ollama/llama.cpp process crashed because the prompt overflowed a "
+"too-small context window."
+msgstr ""
+
+#: plugin/framework/client/errors.py
+#, python-brace-format
 msgid "HTTP Error {0} from AI Provider: {1}"
 msgstr ""
 
@@ -497,6 +510,14 @@ msgstr ""
 msgid "Images inserted"
 msgstr ""
 
+#: plugin/calc/python/geometric_recalc.py
+#, python-format
+msgid ""
+"Geometric Recalc Order skipped sheet '%s': found %s or more Python cells "
+"(discovery cap). The sheet was left unchained so a partial list is not "
+"treated as complete."
+msgstr ""
+
 #: plugin/calc/excel_py_convert/auto_open.py
 #, python-brace-format
 msgid ""
@@ -621,6 +642,21 @@ msgstr ""
 #: plugin/librepy/sidebar_menus.py plugin/chatbot/hamburger_menu.py
 #: plugin/main.py
 msgid "Reset Python Session"
+msgstr ""
+
+#: plugin/librepy/sidebar_menus.py plugin/chatbot/hamburger_menu.py
+#: plugin/main.py
+msgid "Run All"
+msgstr ""
+
+#: plugin/librepy/sidebar_menus.py plugin/chatbot/hamburger_menu.py
+#: plugin/main.py
+msgid "Run From Here"
+msgstr ""
+
+#: plugin/librepy/sidebar_menus.py plugin/chatbot/hamburger_menu.py
+#: plugin/main.py plugin/xdl_strings.py
+msgid "Stop"
 msgstr ""
 
 #: plugin/librepy/sidebar_menus.py plugin/chatbot/dialogs.py
@@ -1122,6 +1158,38 @@ msgstr ""
 
 #: plugin/chatbot/chat_sidebar_mode.py
 msgid "Librarian"
+msgstr ""
+
+#: plugin/chatbot/slash_commands.py
+msgid "Print the command list"
+msgstr ""
+
+#: plugin/chatbot/slash_commands.py
+msgid "Start a new chat"
+msgstr ""
+
+#: plugin/chatbot/slash_commands.py
+msgid "Cancel the in-flight send"
+msgstr ""
+
+#: plugin/chatbot/slash_commands.py
+msgid "Mock command (echo only)"
+msgstr ""
+
+#: plugin/chatbot/slash_commands.py
+msgid "Apply last draft (mock)"
+msgstr ""
+
+#: plugin/chatbot/slash_commands.py
+msgid "Web research (mock)"
+msgstr ""
+
+#: plugin/chatbot/slash_commands.py
+msgid "Switch model (mock)"
+msgstr ""
+
+#: plugin/chatbot/slash_commands.py
+msgid "Slash commands:"
 msgstr ""
 
 #: plugin/chatbot/panel.py
@@ -2798,10 +2866,6 @@ msgid "Steps:"
 msgstr ""
 
 #: plugin/xdl_strings.py
-msgid "Stop"
-msgstr ""
-
-#: plugin/xdl_strings.py
 msgid "Temperature:"
 msgstr ""
 
@@ -3270,6 +3334,13 @@ msgid ""
 msgstr ""
 
 msgid "Isolated (default)"
+msgstr ""
+
+msgid "Geometric Recalc Order (Experimental)"
+msgstr ""
+
+msgid ""
+"Ensures PY cells evaluate in sheet order. Most useful with Shared kernel."
 msgstr ""
 
 msgid "Python auto spill in Calc"
