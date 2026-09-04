@@ -441,7 +441,7 @@ Do not touch `AGENTS.md` unless the rewrite-outside-recalc rule needs to become 
 
 **Status:** **(Experimental).** Phases 1–4 landed on master (Settings flag default off, attach on save / flag-on, UDProp load/save, Isolated `record_active_calc_session`, eval strip before the index heuristic, sheet modify-listener / insert-delete deferred repair, discovery `truncated` flag). Cap-hit modal persists across reconcile so debounce / save / open cannot storm. Row-insert rehomes the attach-map key onto the current address. Two open workbooks → no strip is **current prototype behavior off-main**: eval-time strip without a calling document uses `off_main_calc_session_is_unambiguous()` (`len(_RECORDED_CALC_SESSION_IDS)==1`). **UI-thread** eval may pass the resolved `target_doc` and strip that workbook even when another Calc file is open. Failed strip often becomes a silent matrix-index peel (wrong numbers), not `np.mean(data)` seeing a list. Flag-off leftover `;predecessor` fields are also **current prototype behavior** ([§9.4](#94-flag-turned-off-leave-refs)). Current design in [§9](#9-current-design-choices) (no IDL, no 1×1 value-shape strip, no `locate_formula_cell_in_doc` for eval identity, precedent-only, cap skip-sheet, no strip-on-disable, Isolated checkbox visible / no-op). **Eval identity** is **unanimous-ours** on `(workbook_key, resolved_code, n_args)` only ([§9.5](#95-marker-is-the-udprop--in-memory-map)). **Cap-hit UI:** skip the sheet, log, **and** show one first message box per skipped sheet (`notify_geometric_cap_hit`, persisted across reconcile) — do not only `log.error`.
 
-**Parked:** off-main multi-workbook keyed strip (still needs a real eval-time workbook id, not `len==1` — UI-thread `target_doc` strip is the half-fix); sheet-scoped mixed-poison hint; full re-chain when rehoming mismatch is large; workbook-global PY order and spatial clustering; Collabora extra-listen path ([§13](#12-collabora--libreoffice-core-living-sketch-not-final)). One-hop Err:522 skip before splice is **landed**.
+**Parked:** off-main multi-workbook keyed strip (still needs a real eval-time workbook id, not `len==1` — UI-thread `target_doc` strip is the half-fix); sheet-scoped mixed-poison hint; full re-chain when rehoming mismatch is large; workbook-global PY order and spatial clustering; Collabora extra-listen path ([§13](#12-collabora--libreoffice-core-living-sketch-not-final)); chain-batch of a dirty geometric suffix into one compute-service POST ([§12](#12-what-this-gives-versus-full-excel) — research, not designed). One-hop Err:522 skip before splice is **landed**.
 
 
 ---
@@ -498,6 +498,28 @@ Those two things buy **one** extra semantic: after any PY cell is dirty, **every
 | Two clusters on one sheet | Excel re-runs both anyway; the prototype over-dirties the later cluster. Same order, less work on the earlier one |
 | Non-row-major layout (clean in A1, load in C1) | Excel breaks the same way. Explicit `data` is **stronger** than either geometry scheme |
 
+### Batching — not needed for LibrePy; maybe for the compute service
+
+One reason Excel’s barrier looks like a perf design: PY runs in **another datacenter**. Interleaving PY with ordinary Excel cells at cell granularity means one high-latency HTTP (or equivalent) per PY cell, with the spreadsheet engine idle on the far side of the cut. If you could gather every PY cell’s code and inputs, send **one** payload, run them in order on the farm, and come back with all results, you pay **one RTT for the whole generation**. That is a rational remote-compute bet.
+
+LibrePy is not in that world. The add-in talks to a **warm local worker** over framed pickle ([venv IPC](../scripting/numpy-serialization.md)). That is microseconds to a few milliseconds. Interleaving PY with the Calc DAG is cheap: `Interpret()` of A blocks until Python returns, then B runs. No second scheduler for latency. Geometric order is about **correctness of globals**, not about hiding RTT.
+
+The “run it once” bet only holds if **no Excel formula that a later PY cell needs** itself depends on an earlier PY result:
+
+```text
+A1  PY:  x = 1
+B1  Excel: =A1+10
+C1  PY:  result = x + B1
+```
+
+You cannot pack C1’s inputs until B1 has A1’s value. That is a **cut** in the graph. Each cut is another remote round. Flip-flop is “number of PY↔Excel cuts,” not “one batch.” Co-volatility then makes each of those rounds worse: every PY pass re-runs **all** PY cells, not just the ones that just became unblocked. The latency win (fewer RTTs) and the globals win (replay everything) fight each other. Partial/Manual PY modes are Microsoft admitting automatic replay is too expensive. So the datacenter theory is plausible as a *motive*; mixed sheets force **many barriers**, and the original perf bet is lost.
+
+Collabora Online / the compute service ([jail-safe compute](../scripting/numpy-jailsafe.md)) sits in the middle: `getPy` is HTTP again, so RTT starts to matter. The wrong lesson from Excel is “co-volatile the workbook.” The right lesson is **batch the work you already know is ordered**.
+
+A geometric chain A→B→C is one pipeline. In principle the dirty suffix could be **one** ordered request: run A, then B, then C in the worker, come back once. That is “run the Python once” **without** replaying unrelated clusters and without flip-flop, as long as Excel in the middle is named on the DAG. Inhibit + retry (do not emit B while A is `#BUSY!`) is the per-cell version of the same idea ([§13](#12-collabora--libreoffice-core-living-sketch-not-final)); a chain-batch would be the latency version.
+
+**This is not designed yet.** It needs research: how the compute-service protocol would take an ordered list of `(code, data)` cells; how Shared-kernel session state is applied between steps in one POST; what to do when an Excel formula sits in the middle of the chain (you cannot pack the next PY until that Excel cell has a real value); how `g_aParamCache` / `#BUSY!` / `complete_json` would represent “this request is three cells”; whether kit→wsd should still emit per cell and let wsd coalesce, or emit once from `sc/`. Open questions, not a locked plan. The prototype on desktop does not need any of it.
+
 ### The 80 / 20
 
 Geometric order is Excel’s **authoring habit** (put the next step in the next cell) plus Calc’s **engine** (dirty subgraph).
@@ -506,7 +528,7 @@ Full Excel is “the sheet is one Python process; any PY tick replays the proces
 
 What you give up is mostly **replay-everything** and **cross-sheet implicit globals**. What you keep is the pipeline that made people ask for this, plus partial recalc, plus no `sc/` barrier and no N venv trips per keystroke.
 
-For Collabora, the thing to want next is **inhibit + a real cell identity for the param cache** — not flip-flop. Flip-flop is how Excel papers over a missing per-cell DAG. This design is trying to *have* the DAG.
+For Collabora, the thing to want first is **inhibit + a real cell identity for the param cache** — not flip-flop. Flip-flop is how Excel papers over a missing per-cell DAG. This design is trying to *have* the DAG. **Chain-batching** the dirty suffix into one compute-service POST is a later latency idea on top of that DAG, not a reason to import Excel’s workbook barrier.
 
 ---
 
