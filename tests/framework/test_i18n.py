@@ -232,6 +232,9 @@ class TestI18n(unittest.TestCase):
         """Return locales dir, compiling *lang* from .po when .mo is missing."""
         from pathlib import Path
 
+        from tests.strip_bundle import skip_if_release_build
+
+        skip_if_release_build("scripts/ not in stripped release tree")
         from scripts.compile_translations import compile_po
 
         localedir = get_locales_dir()

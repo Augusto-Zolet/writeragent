@@ -143,6 +143,7 @@ Top-level keys from the config dataclass (Settings dialog, chat, images).
 | `python_exec_timeout` | `int` | `10` | `1`–`600` | Wall-clock limit for Run Python Script and =PYTHON() / =PY(). |
 | `python_max_data_cells` | `int` | `250000` | `1000`–`2000000` | Maximum cells in =PYTHON() data or Run Python Script data/data_range. Larger values use more RAM and time; UNO range read still dominates. |
 | `python_session_mode` | `string` | `"isolated"` |  | Isolated: each =PYTHON() cell gets a fresh namespace. Shared: one namespace per workbook (variables carry between cells). Options: isolated (Isolated (default)), shared (Shared kernel) |
+| `python_geometric_recalc_order` | `bool` | `false` |  | Ensures PY cells evaluate in sheet order. Most useful with Shared kernel. |
 | `python_auto_spill` | `bool` | `true` |  | Automatically spill multi-cell array/DataFrame results from =PYTHON() into adjacent cells. |
 | `xl_static_rewrite` | `bool` | `false` |  | On Edit Python in Cell save, lift static xl("A1:…") onto =PY data args and rewrite to data / data[i] / .to_pandas(). |
 | `force_internal_script_editor` | `bool` | `false` |  | Internal |

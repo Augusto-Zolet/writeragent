@@ -192,7 +192,15 @@ def test_chat_panel_xdl_uses_menulist_for_slash_popup():
     """LibreOffice dialog.dtd has dlg:menulist only; dlg:listbox breaks the sidebar."""
     from pathlib import Path
 
-    xdl = Path(__file__).resolve().parents[2] / "extension" / "Dialogs" / "ChatPanelDialog.xdl"
+    root = Path(__file__).resolve().parents[2]
+    # Repo: extension/Dialogs/; make release bundle: Dialogs/ at OXT root.
+    candidates = (
+        root / "extension" / "Dialogs" / "ChatPanelDialog.xdl",
+        root / "Dialogs" / "ChatPanelDialog.xdl",
+    )
+    xdl = next((p for p in candidates if p.is_file()), None)
+    if xdl is None:
+        pytest.skip("ChatPanelDialog.xdl not in this tree")
     text = xdl.read_text(encoding="utf-8")
     assert "dlg:listbox" not in text
     assert 'dlg:id="slash_popup"' in text

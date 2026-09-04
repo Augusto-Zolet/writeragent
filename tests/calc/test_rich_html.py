@@ -78,6 +78,11 @@ def test_insert_cell_html_rich_loads_temp_writer_on_named_frame(caplog):
     # GHA 33771766524: close after a live paste hung the next desktop enum.
     temp_doc.close.assert_not_called()
     temp_doc.getText.return_value.setString.assert_called_with("")
+    from tests.strip_bundle import is_release_build
+
+    # _step() log.info/print are stripped; the message string literals remain.
+    if is_release_build():
+        return
     for step in (
         "loadComponentFromURL",
         "HTML insert",
@@ -97,6 +102,9 @@ def test_insert_cell_html_rich_loads_temp_writer_on_named_frame(caplog):
 
 def test_insert_cell_html_rich_steps_go_to_stderr(capsys):
     """GHA 33699746211 had no step line: file-only log.info never reached Actions."""
+    from tests.strip_bundle import skip_if_release_build
+
+    skip_if_release_build("log.info/print stripped in release bundle")
     from plugin.calc.rich_html import insert_cell_html_rich
 
     calc_doc, cell, desktop, _temp_doc, _calc_ctrl, _writer_ctrl = _cell_and_docs()
