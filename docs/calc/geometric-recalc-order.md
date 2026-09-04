@@ -21,7 +21,7 @@ At eval time the add-in sees only values, not addresses. At repair time we group
 
 **Difficulty:** medium for someone who already knows the spill / formula-edit path — on the order of **one careful week plus about a day** for the UDProp / in-memory map (the original happy-path week did not budget a marker). The risk is semantic (`data` arity, insert/delete, undo), not “can we write cells after recalc.” That is what the desktop work took; it is already landed.
 
-Collabora / LibreOffice core is a **proposed engine design** in [§12](#12-collabora--libreoffice-core-living-sketch-not-final) (dual-layer engine DAG + in-process emit-gate, **not** trailing `;A1`). Not implemented.
+What this buys versus Excel’s co-volatility / flip-flop scheduler is in [§12](#12-what-this-gives-versus-full-excel). Collabora / LibreOffice core is a **proposed engine design** in [§13](#12-collabora--libreoffice-core-living-sketch-not-final) (dual-layer engine DAG + in-process emit-gate, **not** trailing `;A1`). Not implemented.
 
 This document is the design record for the experimental prototype. Comments and alternatives are welcome — the “considered, not used” notes below keep the reasons, not a lock.
 
@@ -85,7 +85,7 @@ The prototype also does **not** add a dedicated IDL ordering argument. That rebu
 
 **Cross-cluster chaining (current design):** two independent PY clusters on one sheet (A1:A5 and D1:D5) become one chain — D1 waits on A5. That slightly over-dirties the D column when A3 changes. Correctness is fine; users who care can turn the flag off and write explicit `data` refs. Spatial clustering is not in the prototype.
 
-**Cap (current design):** `list_python_cells_on_sheet` stops at `_MAX_PYTHON_CELLS_FOUND = 100` (also `_MAX_CELLS_TO_SCAN = 50000`). The prototype adds `discover_python_cells_on_sheet` → `PythonSheetDiscovery.truncated`: after 100 PY cells we keep scanning for one more; #101 or the 50k scan cap sets `truncated=True`. An exact 100 that finishes the formula-cell walk is complete (`truncated=False`) and is chained. **If a cap is hit, skip geometric chaining for that entire sheet, log it, and show one user-visible error** (`notify_geometric_cap_hit` → existing `msgbox`, UI thread only, one box per skipped sheet; Online infobar is in the Collabora design — [§12](#12-collabora--libreoffice-core-living-sketch-not-final)). Do not only `log.error`. Do not chain the first 100 and leave #101 with no predecessor. The prototype does not raise the cap. It does not mark any eval-index triple strip-safe for that sheet — you cannot prove unanimous-ours on a truncated list ([§9.5](#95-marker-is-the-udprop--in-memory-map)). If the 50k scan cap fires with fewer than 100 PY cells, that list is also incomplete — same skip.
+**Cap (current design):** `list_python_cells_on_sheet` stops at `_MAX_PYTHON_CELLS_FOUND = 100` (also `_MAX_CELLS_TO_SCAN = 50000`). The prototype adds `discover_python_cells_on_sheet` → `PythonSheetDiscovery.truncated`: after 100 PY cells we keep scanning for one more; #101 or the 50k scan cap sets `truncated=True`. An exact 100 that finishes the formula-cell walk is complete (`truncated=False`) and is chained. **If a cap is hit, skip geometric chaining for that entire sheet, log it, and show one user-visible error** (`notify_geometric_cap_hit` → existing `msgbox`, UI thread only, one box per skipped sheet; Online infobar is in the Collabora design — [§13](#12-collabora--libreoffice-core-living-sketch-not-final)). Do not only `log.error`. Do not chain the first 100 and leave #101 with no predecessor. The prototype does not raise the cap. It does not mark any eval-index triple strip-safe for that sheet — you cannot prove unanimous-ours on a truncated list ([§9.5](#95-marker-is-the-udprop--in-memory-map)). If the 50k scan cap fires with fewer than 100 PY cells, that list is also incomplete — same skip.
 
 A 100-cell chain is serial (venv IPC per dirty cell); that is the price of order, not a new cliff.
 
@@ -251,7 +251,7 @@ Compare to **full Excel co-volatility:** multiple engineer-months in `sc/`, high
 | Circular refs from user reverse-refs | **Landed one-hop:** `formula_mentions_cell` (data arg, covering range, or unquoted code-in-cell). Skip attach; remove an ours field. We never attach a later cell. Transitive walk is not in the prototype. |
 | 100-cell discovery cap | Skip the **whole** sheet; never chain a partial list |
 | Shared + Isolated confusion | Checkbox always visible; helper: “Used with Shared kernel”; Isolated is a no-op |
-| Collabora Online | Proposed design in [§12](#12-collabora--libreoffice-core-living-sketch-not-final) (engine DAG + **inhibit** emit-gate + `g_aParamCache` identity, **not** trailing `;A1`, **not** `g_aWaiters`). Not implemented. |
+| Collabora Online | Proposed design in [§13](#12-collabora--libreoffice-core-living-sketch-not-final) (engine DAG + **inhibit** emit-gate + `g_aParamCache` identity, **not** trailing `;A1`, **not** `g_aWaiters`). Not implemented. |
 
 ---
 
@@ -430,7 +430,7 @@ Phase 4 — `data` strip (inject the in-memory map; no UNO) — **landed**:
 ## 11. Docs still to update before calling this shipped
 
 - Hub [session modes](../enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics): one short subsection + Settings table row.
-- [ms-py-compatibility](../scripting/ms-py-compatibility.md): pointer — “opt-in geometric *chain*, still not co-volatility.”
+- [ms-py-compatibility](../scripting/ms-py-compatibility.md): pointer — “opt-in geometric *chain*, still not co-volatility.” See [§12](#12-what-this-gives-versus-full-excel).
 - Settings helper in `module.yaml`.
 - This file: flip Status to shipped.
 
@@ -441,12 +441,76 @@ Do not touch `AGENTS.md` unless the rewrite-outside-recalc rule needs to become 
 
 **Status:** **(Experimental).** Phases 1–4 landed on master (Settings flag default off, attach on save / flag-on, UDProp load/save, Isolated `record_active_calc_session`, eval strip before the index heuristic, sheet modify-listener / insert-delete deferred repair, discovery `truncated` flag). Cap-hit modal persists across reconcile so debounce / save / open cannot storm. Row-insert rehomes the attach-map key onto the current address. Two open workbooks → no strip is **current prototype behavior off-main**: eval-time strip without a calling document uses `off_main_calc_session_is_unambiguous()` (`len(_RECORDED_CALC_SESSION_IDS)==1`). **UI-thread** eval may pass the resolved `target_doc` and strip that workbook even when another Calc file is open. Failed strip often becomes a silent matrix-index peel (wrong numbers), not `np.mean(data)` seeing a list. Flag-off leftover `;predecessor` fields are also **current prototype behavior** ([§9.4](#94-flag-turned-off-leave-refs)). Current design in [§9](#9-current-design-choices) (no IDL, no 1×1 value-shape strip, no `locate_formula_cell_in_doc` for eval identity, precedent-only, cap skip-sheet, no strip-on-disable, Isolated checkbox visible / no-op). **Eval identity** is **unanimous-ours** on `(workbook_key, resolved_code, n_args)` only ([§9.5](#95-marker-is-the-udprop--in-memory-map)). **Cap-hit UI:** skip the sheet, log, **and** show one first message box per skipped sheet (`notify_geometric_cap_hit`, persisted across reconcile) — do not only `log.error`.
 
-**Parked:** off-main multi-workbook keyed strip (still needs a real eval-time workbook id, not `len==1` — UI-thread `target_doc` strip is the half-fix); sheet-scoped mixed-poison hint; full re-chain when rehoming mismatch is large; workbook-global PY order and spatial clustering; Collabora extra-listen path ([§12](#12-collabora--libreoffice-core-living-sketch-not-final)). One-hop Err:522 skip before splice is **landed**.
+**Parked:** off-main multi-workbook keyed strip (still needs a real eval-time workbook id, not `len==1` — UI-thread `target_doc` strip is the half-fix); sheet-scoped mixed-poison hint; full re-chain when rehoming mismatch is large; workbook-global PY order and spatial clustering; Collabora extra-listen path ([§13](#12-collabora--libreoffice-core-living-sketch-not-final)). One-hop Err:522 skip before splice is **landed**.
 
 
 ---
 
-## 12. Collabora / LibreOffice core engine specification <a name="12-collabora--libreoffice-core-living-sketch-not-final"></a>
+## 12. What this gives versus full Excel
+
+Geometric order gets the **pipeline** Excel users think they have. It does not get Excel’s **“the whole Python program re-ran”** contract. That contract is almost all of the co-volatility / flip-flop tax, and most of it is a tax Calc does not want. Deeper Excel notes: [ms-py-compatibility §5.2](../scripting/ms-py-compatibility.md#52-co-volatility-a-second-calculation-mode).
+
+### What the prototype buys
+
+Shared kernel already keeps one namespace. The missing piece was **order**: Calc may evaluate `=PY()` in any order, so `A3` can run before `A1` and `df` is missing.
+
+Geometric order auto-wires **one DAG edge** to the previous PY cell in sheet order. For the usual vertical list:
+
+```text
+A1  df = load()
+A2  df = clean(df)
+A3  result = df.describe()
+```
+
+you get Excel’s *intent* (A then B then C) without Excel’s *mechanism* (re-run every PY cell). Edit A2 → A2 and A3 dirty. A1 does not reload. That is Calc’s pride, and it is the opposite of co-volatility.
+
+Desktop LibrePy is a **synchronous** add-in: A finishes before B’s `Interpret()` starts. So a mixed chain like PY → Excel → PY is just the normal DAG:
+
+- A1 PY
+- B1 `=A1+1`
+- C1 PY with `data` = B1 (and geometric `;A1`)
+
+No second scheduler. Flip-flop exists in Excel because PY is a **foreign batched runtime** (cloud / all-PY-then-Excel). Desktop LibrePy is not in that world.
+
+### What you miss without co-volatility and flip-flop
+
+Those two things buy **one** extra semantic: after any PY cell is dirty, **every** PY cell runs again, in workbook row-major order, as one generation. Mixed Excel formulas are deferred until that batch finishes, then Excel runs, then another PY batch if something still waits. That covers cases geometric order does not.
+
+**1. Hidden PY↔PY coupling outside the dirty suffix.** A cell that only mutates a global (setup, cache, `df = load()` from a file with no sheet dep) does **not** re-run when you edit a later cell. The namespace is incremental: prefix stays, suffix updates. Excel rebuilds the whole Python program so every global is from the same sweep. That is the real miss. It is also why Excel is slow, and why they added Partial/Manual PY modes.
+
+**2. Cross-sheet / workbook-wide implicit pipelines.** Geometric chains **each sheet alone**. `Sheet2!A1` using a name set on `Sheet1` has no automatic edge. Excel walks every PY cell in the book. Explicit `data` still works; the flag will not invent it.
+
+**3. “Notebook F9.”** People who treat the sheet as one script (“any change, replay everything top to bottom”) will notice. Geometric is a **chain**, not a barrier. Ctrl+Shift+F9 is the closest thing already in Calc.
+
+**4. Generational consistency of PY outputs.** An Excel `=SUM` over many PY cells, after one edit, can see a mix of old prefix values and new suffix values. Excel’s full PY pass makes them one generation. Same as any other Calc partial recalc — surprising only if you expected a Python barrier.
+
+**5. Online without a complete DAG.** Flip-flop is a blunt fix for “we cannot interleave PY and Excel at cell granularity.” Collabora’s proposed inhibit gate (successor does not emit while its predecessor is `#BUSY!`) is the *cell-granular* version and is stricter / cheaper than Excel’s all-PY batch ([§13](#12-collabora--libreoffice-core-living-sketch-not-final)). You miss flip-flop there only if the DAG is missing an edge (cross-sheet, or Excel in the middle that nobody named). Sync desktop does not need it.
+
+**6. Excel import that relied on co-volatility, not position.** The rewriter already lifts `xl()` ranges onto `data`. It does **not** invent PY↔PY edges. Turning the flag on after import attaches **previous-on-this-sheet**. Workbooks that shared globals across sheets, or depended on “every PY re-ran,” will not silently match Excel. That is a conversion story, not a scheduler story.
+
+### What you do not miss
+
+| Thought | Reality |
+|---------|---------|
+| Order of a vertical list | Same row-major assumption as Excel |
+| Excel→PY dirtying (`load` from a range) | Both need a formula dep. Excel uses trailing `_xlws.PY`; LibrePy uses `data`. Co-volatility does **not** create those edges |
+| PY → Excel → PY on desktop | Sync add-in + DAG is enough |
+| Two clusters on one sheet | Excel re-runs both anyway; the prototype over-dirties the later cluster. Same order, less work on the earlier one |
+| Non-row-major layout (clean in A1, load in C1) | Excel breaks the same way. Explicit `data` is **stronger** than either geometry scheme |
+
+### The 80 / 20
+
+Geometric order is Excel’s **authoring habit** (put the next step in the next cell) plus Calc’s **engine** (dirty subgraph).
+
+Full Excel is “the sheet is one Python process; any PY tick replays the process; Excel formulas take turns with that process.”
+
+What you give up is mostly **replay-everything** and **cross-sheet implicit globals**. What you keep is the pipeline that made people ask for this, plus partial recalc, plus no `sc/` barrier and no N venv trips per keystroke.
+
+For Collabora, the thing to want next is **inhibit + a real cell identity for the param cache** — not flip-flop. Flip-flop is how Excel papers over a missing per-cell DAG. This design is trying to *have* the DAG.
+
+---
+
+## 13. Collabora / LibreOffice core engine specification <a name="12-collabora--libreoffice-core-living-sketch-not-final"></a>
 
 **Proposed design, not implemented.** Dual-layer engine DAG + **inhibit** emit-gate + `g_aParamCache` identity. A `g_aWaiters` queue is **not used**. A formula DAG edge only orders when `Interpret()` is *called*; `getPy` returns `#BUSY!` immediately and that does not serialize HTTP. $\frac{N(N+1)}{2}$ HTTP is a worst case — a predecessor-only chain is closer to $2N-1$ — but still gate it.
 
@@ -454,7 +518,7 @@ This section defines a proposed engine-native architecture for Geometric Recalcu
 
 ---
 
-### 12.1 Why the Desktop Model Fails in Collabora Online (The Four Fatal Traps)
+### 13.1 Why the Desktop Model Fails in Collabora Online (The Four Fatal Traps)
 
 In WriterAgent Desktop LibrePy, `=PY()` is a **synchronous** UNO add-in: evaluating Cell A blocks until the Python worker process returns. Cell B with a trailing `;A1` field evaluates only after A has completed. In Collabora Online and LibreOffice Core C++, this model completely breaks down due to four fundamental architectural differences:
 
@@ -473,7 +537,7 @@ Therefore, Collabora would need a **Dual-Layer Architecture**:
 
 ---
 
-### 12.2 Codebase Topology
+### 13.2 Codebase Topology
 
 The proposed C++ work would touch existing files in the Collabora Online / Core tree without altering the IDL signature (`getPy(code, data)` stays unchanged):
 
@@ -492,7 +556,7 @@ The proposed C++ work would touch existing files in the Collabora Online / Core 
 
 ---
 
-### 12.3 The Dual-Layer Architecture
+### 13.3 The Dual-Layer Architecture
 
 ```mermaid
 flowchart TD
@@ -552,7 +616,7 @@ To prevent the dangling pointer trap, non-RPN geometric dependencies must be man
 
 ---
 
-### 12.4 Preserving Shared Formula Groups (`mxGroup`)
+### 13.4 Preserving Shared Formula Groups (`mxGroup`)
 
 One of the greatest dangers of formula rewriting (Path B) is breaking shared formula groups:
 - In `engine/sc/source/core/data/formulacell.cxx` (~L1345–1385), `CompileXML` groups consecutive identical formulas into an `ScFormulaCellGroup` (`mxGroup`).
@@ -567,7 +631,7 @@ One of the greatest dangers of formula rewriting (Path B) is breaking shared for
 
 ---
 
-### 12.5 Document Lifecycle, Settings & Interoperability
+### 13.5 Document Lifecycle, Settings & Interoperability
 
 1. **Opt-in Setting:**
    - Stored as a document property in `ScDocOptions` / ODS settings: `GeometricRecalcOrder = true/false` (default **false**).
@@ -588,7 +652,7 @@ One of the greatest dangers of formula rewriting (Path B) is breaking shared for
 
 ---
 
-### 12.6 Implementation Phases (Roadmap for C++ Development)
+### 13.6 Implementation Phases (Roadmap for C++ Development)
 
 If starting implementation in the Collabora Online / Core tree, a plausible order:
 
