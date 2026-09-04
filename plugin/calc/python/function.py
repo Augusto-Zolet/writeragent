@@ -1221,7 +1221,9 @@ def _execute_python_addin_impl(
 
         # Same-process hydrate: client/URP attach cannot fill soffice's map.
         ensure_geometric_strip_index_for_eval(target_doc, ctx)
-        args = maybe_strip_geometric_eval_args(code, args)
+        # UI-thread target_doc is a real workbook_key even when two Calc
+        # files are open; off-main still needs the len==1 session gate.
+        args = maybe_strip_geometric_eval_args(code, args, doc=target_doc)
         py_data = calc_addin_args_from_split(args, true_strings, false_strings)
         log.debug("PYTHON parsed py_data: %r", py_data)
         is_multi = len(args) > 1

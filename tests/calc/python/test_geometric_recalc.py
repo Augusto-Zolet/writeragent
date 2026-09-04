@@ -28,6 +28,7 @@ from plugin.calc.python.geometric_recalc import (
     ensure_geometric_strip_index_for_eval,
     eval_n_args_from_data,
     formula_data_args,
+    formula_mentions_cell,
     geometric_cap_hit_user_message,
     geometric_workbook_key,
     load_geometric_registry_for_doc,
@@ -125,6 +126,62 @@ def test_two_cells_append_predecessor():
     assert patches["A2"].action == "append"
     assert patches["A2"].new_formula == '=PY("df = clean(df)";A1)'
     assert result.records["A2"].predecessor == "A1"
+
+
+def test_formula_mentions_cell_one_hop():
+    assert formula_mentions_cell('=PY("x = 1"; A2)', "A2")
+    assert formula_mentions_cell('=PY("x = 1"; $A$2)', "A2")
+    assert formula_mentions_cell('=PY("np.sum(data)"; A2:A5)', "A3")
+    assert not formula_mentions_cell('=PY("x = 1"; B2)', "A2")
+    assert not formula_mentions_cell('=PY("result = xl(\'A2\')")', "A2")
+    assert formula_mentions_cell("=PY(A2)", "A2")
+    assert not formula_mentions_cell("=PY(A3)", "A2")
+
+
+def test_reverse_ref_skips_attach_to_avoid_cycle():
+    """A1 already names A2 — do not splice ;A1 onto A2 (Err:522)."""
+    result = _repair(
+        [
+            _cell("A1", '=PY("x = 1"; A2)'),
+            _cell("A2", '=PY("y = x")'),
+        ]
+    )
+    assert "A2" not in _patch_map(result)
+    assert "A2" not in result.records
+
+
+def test_reverse_ref_removes_ours_field():
+    """Ours ;A1 on A2 plus A1 naming A2 → remove-field so the cycle is not ours."""
+    result = _repair(
+        [
+            _cell("A1", '=PY("x = 1"; A2)'),
+            _cell("A2", '=PY("y = x"; A1)'),
+        ],
+        {"A2": GeometricRecord(predecessor="A1")},
+    )
+    patches = _patch_map(result)
+    assert patches["A2"].action == "remove"
+    assert "A2" not in result.records
+
+
+def test_pred_range_covering_successor_skips_attach():
+    result = _repair(
+        [
+            _cell("A1", '=PY("np.sum(data)"; A2:A5)'),
+            _cell("A2", '=PY("y = 1")'),
+        ]
+    )
+    assert "A2" not in result.records
+    assert "A2" not in _patch_map(result)
+
+
+def test_pred_code_in_cell_ref_to_successor_skips_attach():
+    cells = [
+        GeometricCell("A1", "=PY(A2)", resolved_code="x = 1"),
+        _cell("A2", '=PY("y = x")'),
+    ]
+    result = _repair(cells)
+    assert "A2" not in result.records
 
 
 def test_insert_in_middle_retargets_successor():
@@ -1000,6 +1057,42 @@ def test_two_workbooks_unambiguous_false_no_strip_at_eval():
         frozenset({_key("np.mean(data)", 2, "calc:file:///a.ods")}),
     )
     assert maybe_strip_geometric_eval_args("np.mean(data)", [col, pred]) == [col, pred]
+
+
+def test_two_workbooks_ui_thread_doc_still_strips():
+    """Focused / caller doc is a real key — F9 this book even if another is open."""
+    from plugin.scripting import session_manager as sm
+    from plugin.tests.testing_utils import CalcDocStub
+
+    _reset_geo()
+    sm.record_active_calc_session("calc:file:///a.ods")
+    sm.record_active_calc_session("calc:file:///b.ods")
+    doc = CalcDocStub(url="file:///a.ods")
+    sid = geometric_workbook_key(doc)
+    col, pred = _mean_range_and_pred()
+    replace_geometric_strip_safe(sid, frozenset({_key("np.mean(data)", 2, sid)}))
+    with patch("plugin.framework.thread_guard.on_main_thread", return_value=True):
+        assert maybe_strip_geometric_eval_args(
+            "np.mean(data)", [col, pred], doc=doc
+        ) == [col]
+
+
+def test_two_workbooks_off_main_doc_does_not_strip():
+    """Off-main must not use *doc* (UNO). Two recorded sessions → no strip."""
+    from plugin.scripting import session_manager as sm
+    from plugin.tests.testing_utils import CalcDocStub
+
+    _reset_geo()
+    sm.record_active_calc_session("calc:file:///a.ods")
+    sm.record_active_calc_session("calc:file:///b.ods")
+    doc = CalcDocStub(url="file:///a.ods")
+    sid = geometric_workbook_key(doc)
+    col, pred = _mean_range_and_pred()
+    replace_geometric_strip_safe(sid, frozenset({_key("np.mean(data)", 2, sid)}))
+    with patch("plugin.framework.thread_guard.on_main_thread", return_value=False):
+        assert maybe_strip_geometric_eval_args(
+            "np.mean(data)", [col, pred], doc=doc
+        ) == [col, pred]
 
 
 def test_isolated_unambiguous_session_strips():

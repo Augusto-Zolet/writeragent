@@ -12,11 +12,9 @@ Phase 3 shares the sheet modify trigger (0.1s debounce) and rebuilds the
 strip-safe index on insert/delete/clear and on a data-edit of the PY list.
 
 TODO (parked — not this revision):
-- Multi-workbook strip: today no-strip when more than one Calc session is
-  recorded; a future keyed strip would need a real eval-time workbook id,
-  not ``len==1``.
-- Cycle / Err:522: attaching the previous list entry can cycle if the user
-  already had a reverse ref; detect before splice.
+- Off-main multi-workbook strip still needs a real eval-time workbook id
+  (``len==1``). UI-thread eval may use ``target_doc`` even when two Calc
+  sessions are recorded.
 - Workbook-global PY order and spatial clustering (later options in the doc).
 - Collabora extra-listen path (doc §12) remains a living sketch.
 
@@ -39,7 +37,12 @@ import uuid
 from dataclasses import dataclass
 from typing import Any, Literal, Mapping
 
-from plugin.calc.address_utils import index_to_column, parse_address, split_sheet_prefix
+from plugin.calc.address_utils import (
+    index_to_column,
+    parse_address,
+    parse_range_string,
+    split_sheet_prefix,
+)
 from plugin.calc.calc_addin_data import split_python_addin_data_args
 from plugin.calc.python.cell_discovery import _MAX_PYTHON_CELLS_FOUND
 from plugin.calc.python.formula_edit import (
@@ -132,6 +135,43 @@ def cell_map_key(address: str) -> str:
 def same_cell_ref(left: str, right: str) -> bool:
     """True when two formula tokens name the same cell (``$`` / sheet ignored)."""
     return bool(left) and bool(right) and local_a1(left) == local_a1(right)
+
+
+def _arg_covers_cell(arg: str, target_a1: str) -> bool:
+    """True when a data-arg token (cell or range) includes *target_a1*."""
+    _sheet, rest = split_sheet_prefix(arg or "")
+    rest = rest.replace("$", "").strip()
+    if not rest or not target_a1:
+        return False
+    try:
+        (c0, r0), (c1, r1) = parse_range_string(rest)
+        tcol, trow = parse_address(target_a1)
+    except (TypeError, ValueError):
+        return False
+    c_lo, c_hi = (c0, c1) if c0 <= c1 else (c1, c0)
+    r_lo, r_hi = (r0, r1) if r0 <= r1 else (r1, r0)
+    return c_lo <= tcol <= c_hi and r_lo <= trow <= r_hi
+
+
+def formula_mentions_cell(formula: str, address: str) -> bool:
+    """True when *formula* has a one-hop Calc ref to *address* (Err:522 risk).
+
+    Checks trailing ``=PY`` data args (cell or range) and an unquoted
+    code-in-cell token. Does not parse Python source for ``xl("A2")``.
+    """
+    target = local_a1(address)
+    if not target or not formula:
+        return False
+    args = formula_data_args(formula)
+    if args is None:
+        return False
+    if any(_arg_covers_cell(arg, target) for arg in args):
+        return True
+    if py_formula_has_unquoted_code_ref(formula):
+        parts = parse_python_formula(formula)
+        if parts is not None and same_cell_ref(parts.code, address):
+            return True
+    return False
 
 
 def is_single_cell_arg(arg: str) -> bool:
@@ -625,11 +665,44 @@ def compute_sheet_repair(
             continue
         desired = desired_by_key[cell_map_key(cell.address)]
         key = cell_map_key(cell.address)
-        action, new_args = _plan_action(
-            desired=desired,
-            data_args=data_args,
-            record=working.get(key),
-        )
+        planned: tuple[Literal["append", "replace", "remove", "noop"], list[str]]
+        if desired is not None:
+            pred_formula = new_formulas.get(
+                cells[i - 1].address, cells[i - 1].formula
+            )
+            if formula_mentions_cell(pred_formula, cell.address):
+                # A1 already names A2 → attaching ;A1 onto A2 is Err:522.
+                record = working.get(key)
+                last = data_args[-1] if data_args else None
+                last_is_ours = (
+                    record is not None
+                    and last
+                    and is_single_cell_arg(last)
+                    and same_cell_ref(last, record.predecessor)
+                )
+                if last_is_ours:
+                    planned = ("remove", data_args[:-1])
+                else:
+                    log.debug(
+                        "geometric_recalc: skip attach %s onto %s "
+                        "(predecessor already refs successor; Err:522)",
+                        desired,
+                        key,
+                    )
+                    continue
+            else:
+                planned = _plan_action(
+                    desired=desired,
+                    data_args=data_args,
+                    record=working.get(key),
+                )
+        else:
+            planned = _plan_action(
+                desired=desired,
+                data_args=data_args,
+                record=working.get(key),
+            )
+        action, new_args = planned
         if action == "noop":
             # Row insert that only moves PY cells: Calc already rewrote the
             # formula (A2 with ;A1 became A3 with ;A1). last==desired so we
@@ -871,24 +944,42 @@ def clear_in_memory_geometric_state(*, workbook_key: str = "") -> None:
         _STRIP_SAFE = frozenset()
 
 
-def maybe_strip_geometric_eval_args(resolved_code: str, args: list[Any]) -> list[Any]:
-    """Drop the last split arg when the triple is strip-safe. No UNO.
+def maybe_strip_geometric_eval_args(
+    resolved_code: str,
+    args: list[Any],
+    *,
+    doc: Any = None,
+) -> list[Any]:
+    """Drop the last split arg when the triple is strip-safe.
 
     Must run after ``split_python_addin_data_args`` and before
-    ``calc_addin_args_from_split`` / the matrix-index heuristic. Two open
-    workbooks (unambiguous false) → no strip. Does **not** consult
+    ``calc_addin_args_from_split`` / the matrix-index heuristic.
+
+    Off-main (or no *doc*): two open workbooks (unambiguous false) → no
+    strip. UI-thread with a resolved *doc* uses that workbook's key even
+    when more than one Calc session is recorded — the common "two files
+    open, F9 this one" case. Does **not** consult
     ``geometric_flag_enabled`` — §9.4 flag-off leaves leftover refs, so
     leftover attached last args must still strip.
     """
     if not args:
         return args
+    from plugin.framework.thread_guard import on_main_thread
     from plugin.scripting.session_manager import (
         get_cached_calc_session_id,
         off_main_calc_session_is_unambiguous,
     )
 
-    unambiguous = off_main_calc_session_is_unambiguous()
-    workbook_key = get_cached_calc_session_id() if unambiguous else None
+    workbook_key: str | None = None
+    unambiguous = False
+    if doc is not None and on_main_thread():
+        # Focused / caller doc is a real key. Wrong-book lookup misses
+        # the triple and leaves the arg (same residual as no-strip).
+        workbook_key = geometric_workbook_key(doc)
+        unambiguous = True
+    else:
+        unambiguous = off_main_calc_session_is_unambiguous()
+        workbook_key = get_cached_calc_session_id() if unambiguous else None
     if not should_strip_eval_args(
         workbook_key=workbook_key,
         resolved_code=resolved_code,
