@@ -1,10 +1,7 @@
-# Geometric Recalc Order (Experimental) — implementation plan
+# Geometric Recalc Order (Experimental) — current design
 
-**Status:** **(Experimental).** Phases 1–4 landed on master (Settings flag default off, attach on save / flag-on, UDProp load/save, Isolated `record_active_calc_session`, eval strip before the index heuristic, sheet modify-listener / insert-delete deferred repair, discovery `truncated` flag). This revision repairs Gemini **B** (cap-hit modal persists across reconcile so debounce / save / open cannot storm) and **C** (row-insert rehomes the attach-map key onto the current address). Gemini **A** (two open workbooks → no strip) is **by design off-main**: eval-time strip without a calling document uses `off_main_calc_session_is_unambiguous()` (`len(_RECORDED_CALC_SESSION_IDS)==1`). **UI-thread** eval may pass the resolved `target_doc` and strip that workbook even when another Calc file is open. Failed strip often becomes a silent matrix-index peel (wrong numbers), not `np.mean(data)` seeing a list. Flag-off leftover `;predecessor` fields are also **by design** ([§9.4](#94-flag-turned-off-leave-refs)). Closed calls in [§9](#9-decisions) stand (no IDL, no 1×1 value-shape strip, no `locate_formula_cell_in_doc` for eval identity, precedent-only, cap skip-sheet, no strip-on-disable, Isolated checkbox visible / no-op). **Eval identity** is **unanimous-ours** on `(workbook_key, resolved_code, n_args)` only ([§9.5](#95-marker-is-the-udprop--in-memory-map)). **Cap-hit UI:** skip the sheet, log, **and** show one first message box per skipped sheet (`notify_geometric_cap_hit`, persisted across reconcile) — do not only `log.error`.
 
-**Parked (not this revision):** off-main multi-workbook keyed strip (still needs a real eval-time workbook id, not `len==1` — UI-thread `target_doc` strip is the half-fix); workbook-global PY order and spatial clustering; Collabora extra-listen path ([§12](#12-collabora--libreoffice-core-living-sketch-not-final)). One-hop Err:522 skip before splice is **landed**.
-
-**Related:** [Enabling NumPy & Python](../enabling_numpy_in_libreoffice.md) (session modes, auto-spill), [Microsoft `=PY` design stance](../scripting/ms-py-compatibility.md) (why we refuse Excel co-volatility), [Calc `=PY()` data shapes](py-data-shapes.md) (`data` / `ranges` arity).
+**Related:** [Enabling NumPy & Python](../enabling_numpy_in_libreoffice.md) (session modes, auto-spill), [Microsoft `=PY` design stance](../scripting/ms-py-compatibility.md) (why Excel co-volatility is out of scope), [Calc `=PY()` data shapes](py-data-shapes.md) (`data` / `ranges` arity).
 
 ---
 
@@ -12,17 +9,21 @@
 
 Shared-kernel `=PY()` already persists one Python namespace per workbook, but Calc may evaluate those cells in **any order**. Authors today must pass the upstream cell as a `data` argument so the DAG runs precedents first. That is correct and cheap — and easy to forget.
 
-**Geometric Recalc Order** is an opt-in Settings → Python flag. When on, LibrePy treats the sheet’s `=PY()` cells as a **list in sheet order** (row then column — the same order the Python sidebar already uses) and **auto-attaches only the previous list entry** as an extra formula field. Calc then runs A before B because B’s formula literally names A. Partial recalc stays intact: edit A, only A and the chain after it dirty.
+**Geometric Recalc Order** is an opt-in Settings → Python flag (default **off**). When on, LibrePy treats the sheet’s `=PY()` cells as a **list in sheet order** (row then column — the same order the Python sidebar already uses) and **auto-attaches only the previous list entry** as an extra formula field. Calc then runs A before B because B’s formula literally names A. Partial recalc stays intact: edit A, only A and the chain after it dirty.
 
 This is **not** Excel co-volatility (re-run every Python cell when any one is dirty). It is the existing `data`-as-dependency-edge idea, applied automatically to one predecessor.
 
-**Hard part:** inserting a new `=PY()` cell in the middle of the list. The successor’s predecessor field must be rewritten to the new cell. Those writes **must happen outside recalc**, using the same deferred, undo-isolated pattern as auto-spill (`perform_deferred_spill` + 0.1s timer). Writing other cells from inside the add-in re-enters the formula engine.
+The **desktop LibrePy prototype is in the tree** (flag, attach on save / flag-on, UDProp map, eval strip, deferred insert/delete repair). The hard part that made it more than a one-liner: inserting a new `=PY()` cell in the middle of the list. The successor’s predecessor field must be rewritten to the new cell. Those writes **must happen outside recalc**, using the same deferred, undo-isolated pattern as auto-spill (`perform_deferred_spill` + 0.1s timer). Writing other cells from inside the add-in re-enters the formula engine.
 
-**Marker (required):** a workbook UDProp plus an in-memory map, same pattern as `WriterAgentSpillRegistry` / `SPILL_REGISTRY` / `load_spill_registry_for_doc` in [`function.py`](../../plugin/calc/python/function.py). Eval-time strip consults that map. A 1×1 / “last arg is a PY cell” heuristic is **unimplementable** — `execute_python_addin` / `split_python_addin_data_args` / `calc_addin_args_from_split` see only values, never addresses.
+**Marker (required, and in the prototype):** a workbook UDProp plus an in-memory map, same pattern as `WriterAgentSpillRegistry` / `SPILL_REGISTRY` / `load_spill_registry_for_doc` in [`function.py`](../../plugin/calc/python/function.py). Eval-time strip consults that map. A 1×1 / “last arg is a PY cell” heuristic is **unimplementable** — `execute_python_addin` / `split_python_addin_data_args` / `calc_addin_args_from_split` see only values, never addresses.
 
-**Difficulty:** medium for someone who already knows the spill / formula-edit path — on the order of **one careful week plus about a day** for the UDProp / in-memory map (the original happy-path week did not budget a marker). The risk is semantic (`data` arity, insert/delete, undo), not “can we write cells after recalc.”
+At eval time the add-in sees only values, not addresses. At repair time we group cells by `(workbook_key, resolved_code, n_args)`. **Unanimous-ours** means every cell in that group is one we attached. Then it is safe to drop the last arg for the whole group. If even one cell in the group is user-authored (mixed), we strip none — the mix “poisons” the group. That is why a truncated (cap-hit) list cannot be marked strip-safe: we cannot prove the group is entirely ours. Details in [§9.5](#95-marker-is-the-udprop--in-memory-map).
 
-Collabora / LibreOffice core is specified in [§12](#12-collabora--libreoffice-core-living-sketch-not-final) (Pass 3: dual-layer engine DAG + in-process emit-gate, **not** trailing `;A1`). Ready for implementation.
+**Difficulty:** medium for someone who already knows the spill / formula-edit path — on the order of **one careful week plus about a day** for the UDProp / in-memory map (the original happy-path week did not budget a marker). The risk is semantic (`data` arity, insert/delete, undo), not “can we write cells after recalc.” That is what the desktop work took; it is already landed.
+
+Collabora / LibreOffice core is a **proposed engine design** in [§12](#12-collabora--libreoffice-core-living-sketch-not-final) (dual-layer engine DAG + in-process emit-gate, **not** trailing `;A1`). Not implemented.
+
+This document is the design record for the experimental prototype. Comments and alternatives are welcome — the “considered, not used” notes below keep the reasons, not a lock.
 
 ---
 
@@ -46,20 +47,20 @@ A3  =PY("result = df.describe()")
 
 Without `data` edges, Calc may run A3 before A1. The current docs tell authors to write `=PY("…"; A1)` on A2. Geometric Recalc Order does that attach automatically.
 
-### What we will not do
+### Out of scope for this prototype
 
-Do **not** implement Excel co-volatility. That needs a workbook-global PY barrier in `sc/`, flip-flop with non-PY formulas, and N Python executions per keystroke. [ms-py-compatibility §5.2](../scripting/ms-py-compatibility.md#52-co-volatility-a-second-calculation-mode) already rejected it. Geometric order reuses Calc’s DAG: one extra precedent per cell, dirty subgraph only.
+The prototype does **not** implement Excel co-volatility. That needs a workbook-global PY barrier in `sc/`, flip-flop with non-PY formulas, and N Python executions per keystroke. [ms-py-compatibility §5.2](../scripting/ms-py-compatibility.md#52-co-volatility-a-second-calculation-mode) already argued against it. Geometric order reuses Calc’s DAG: one extra precedent per cell, dirty subgraph only.
 
-Do **not** add a dedicated IDL ordering argument. That rebuilds `.rdb`s for both OXTs and adds a Collabora/Excel arity case. Collabora Gerrit is in review with Tomaž; do not pile another IDL change on that. Precedent-only strip of a trailing A1 field is enough ([§9.1](#91-precedent-only-not-value-in-data-not-idl)).
+The prototype also does **not** add a dedicated IDL ordering argument. That rebuilds `.rdb`s for both OXTs and adds a Collabora/Excel arity case. Collabora Gerrit is in review with Tomaž; another IDL change on that path is expensive. Precedent-only strip of a trailing A1 field is enough for the current design ([§9.1](#91-precedent-only-not-value-in-data-not-idl)). Worth revisiting if those costs change.
 
 ---
 
 ## 2. Product definition
 
 **Flag name (UI):** Geometric Recalc Order (Experimental)  
-**Config key (proposed):** `scripting.python_geometric_recalc_order`  
+**Config key:** `scripting.python_geometric_recalc_order`  
 **Type:** bool, default **false**  
-**Surface:** Settings → Python, next to session mode / auto-spill (`plugin/scripting/module.yaml`). Same checkbox path as `python_auto_spill`. LibrePy **and** WriterAgent.
+**Surface:** Settings → Python, next to session mode / auto-spill (`plugin/scripting/module.yaml`). Same checkbox path as `python_auto_spill`. LibrePy **and** WriterAgent. The checkbox and key exist today.
 
 **When on:**
 
@@ -68,9 +69,9 @@ Do **not** add a dedicated IDL ordering argument. That rebuilds `.rdb`s for both
 3. Leave user-authored ranges alone (see [§4](#4-data-binding--do-not-shadow-data)).
 4. On insert / delete / move that changes who “previous” is, **rewrite** the affected successor formulas — **deferred**, not during add-in evaluation.
 
-**When off:** no attach, no rewrite. Existing user-written `data` args stay. Geometric refs already attached **stay** (they are valid DAG edges). Do **not** implement strip-on-disable in this feature — the marker exists, but leaving refs is the cheaper correct default ([§9.4](#94-flag-turned-off-leave-refs)).
+**When off:** no attach, no rewrite. Existing user-written `data` args stay. Geometric refs already attached **stay** (they are valid DAG edges). The prototype does **not** strip-on-disable — the marker exists, but leaving refs is the cheaper current default ([§9.4](#94-flag-turned-off-leave-refs)).
 
-**Most valuable with Shared kernel.** Isolated cells do not share names, so order-only precedents do nothing useful for Python globals. Isolated + this flag is a **no-op** for Python semantics (the checkbox stays visible; helper text says it is used with Shared kernel). Do not hide the checkbox when Isolated is selected.
+**Most valuable with Shared kernel.** Isolated cells do not share names, so order-only precedents do nothing useful for Python globals. Isolated + this flag is a **no-op** for Python semantics (the checkbox stays visible; helper text says it is used with Shared kernel). The prototype does not hide the checkbox when Isolated is selected.
 
 ---
 
@@ -80,11 +81,11 @@ Do **not** add a dedicated IDL ordering argument. That rebuilds `.rdb`s for both
 
 `list_python_cells_on_sheet` already returns `PythonCellInfo` sorted by `(row, column)`. That **is** the geometric list.
 
-**List (decided):** all PY cells on **each sheet**, row-major, each sheet chained **independently**. Flag-on / document-open reconcile every sheet (`list_python_cells_in_doc(..., active_sheet_only=False)`). Insert/delete repair only the **modified** sheet. Cross-sheet predecessors are out of scope (sheet-qualified refs + sheet insert/rename). Workbook-global order (Sheet1 then Sheet2) is a later option, not required to prove the idea.
+**List (current design):** all PY cells on **each sheet**, row-major, each sheet chained **independently**. Flag-on / document-open reconcile every sheet (`list_python_cells_in_doc(..., active_sheet_only=False)`). Insert/delete repair only the **modified** sheet. Cross-sheet predecessors are out of scope (sheet-qualified refs + sheet insert/rename). Workbook-global order (Sheet1 then Sheet2) is a later option, not required to prove the idea.
 
-**Cross-cluster chaining (decided):** two independent PY clusters on one sheet (A1:A5 and D1:D5) become one chain — D1 waits on A5. That slightly over-dirties the D column when A3 changes. Correctness is fine; users who care can turn the flag off and write explicit `data` refs. Do not add spatial clustering.
+**Cross-cluster chaining (current design):** two independent PY clusters on one sheet (A1:A5 and D1:D5) become one chain — D1 waits on A5. That slightly over-dirties the D column when A3 changes. Correctness is fine; users who care can turn the flag off and write explicit `data` refs. Spatial clustering is not in the prototype.
 
-**Cap (decided):** `list_python_cells_on_sheet` stops at `_MAX_PYTHON_CELLS_FOUND = 100` (also `_MAX_CELLS_TO_SCAN = 50000`). **Phase 3** adds `discover_python_cells_on_sheet` → `PythonSheetDiscovery.truncated`: after 100 PY cells we keep scanning for one more; #101 or the 50k scan cap sets `truncated=True`. An exact 100 that finishes the formula-cell walk is complete (`truncated=False`) and is chained. **If a cap is hit, skip geometric chaining for that entire sheet, log it, and show one user-visible error** (`notify_geometric_cap_hit` → existing `msgbox`, UI thread only, one box per skipped sheet; Online infobar — [§12](#12-collabora--libreoffice-core-living-sketch-not-final)). Do not only `log.error`. Do not chain the first 100 and leave #101 with no predecessor. Do not raise the cap. Do not mark any eval-index triple strip-safe for that sheet — you cannot prove unanimous-ours on a truncated list ([§9.5](#95-marker-is-the-udprop--in-memory-map)). If the 50k scan cap fires with fewer than 100 PY cells, that list is also incomplete — same skip.
+**Cap (current design):** `list_python_cells_on_sheet` stops at `_MAX_PYTHON_CELLS_FOUND = 100` (also `_MAX_CELLS_TO_SCAN = 50000`). The prototype adds `discover_python_cells_on_sheet` → `PythonSheetDiscovery.truncated`: after 100 PY cells we keep scanning for one more; #101 or the 50k scan cap sets `truncated=True`. An exact 100 that finishes the formula-cell walk is complete (`truncated=False`) and is chained. **If a cap is hit, skip geometric chaining for that entire sheet, log it, and show one user-visible error** (`notify_geometric_cap_hit` → existing `msgbox`, UI thread only, one box per skipped sheet; Online infobar is in the Collabora sketch — [§12](#12-collabora--libreoffice-core-living-sketch-not-final)). Do not only `log.error`. Do not chain the first 100 and leave #101 with no predecessor. The prototype does not raise the cap. It does not mark any eval-index triple strip-safe for that sheet — you cannot prove unanimous-ours on a truncated list ([§9.5](#95-marker-is-the-udprop--in-memory-map)). If the 50k scan cap fires with fewer than 100 PY cells, that list is also incomplete — same skip.
 
 A 100-cell chain is serial (venv IPC per dirty cell); that is the price of order, not a new cliff.
 
@@ -119,7 +120,7 @@ Example: list is A1, A3. A3 has `;A1`. User inserts a PY cell at A2.
 
 Delete A2: A3’s predecessor must become A1 again, or **remove-field** if A3 is now first.
 
-Row insert that only **moves** existing PY cells: Calc’s own reference adjust may already be correct. The deferred pass should be **idempotent**: recompute desired predecessor per cell, rewrite only when the geometric field differs. **Also rehome the attach-map key** onto the cell’s current discovery address and drop keys that are no longer on the sheet — formula-only idempotence left an orphan at the old address after Calc shifted the cell (Gemini C). Rehome uses pred-match only for a **true orphan** (old key gone) or a row/col delta (`pred + (live − old)`); a live-key record stays unless the delta claims it. Undo after delete-middle often leaves `{A3: A1}` while formulas are again A2 `;A1` / A3 `;A2` — matching A3 onto A2 drops the successor from the map so the later successor-becomes-first remove-field is a noop.
+Row insert that only **moves** existing PY cells: Calc’s own reference adjust may already be correct. The deferred pass is **idempotent**: recompute desired predecessor per cell, rewrite only when the geometric field differs. **Also rehome the attach-map key** onto the cell’s current discovery address and drop keys that are no longer on the sheet — formula-only idempotence left an orphan at the old address after Calc shifted the cell (Gemini C). Rehome uses pred-match only for a **true orphan** (old key gone) or a row/col delta (`pred + (live − old)`); a live-key record stays unless the delta claims it. Undo after delete-middle often leaves `{A3: A1}` while formulas are again A2 `;A1` / A3 `;A2` — matching A3 onto A2 drops the successor from the map so the later successor-becomes-first remove-field is a noop.
 
 ### 3.5 Writes must be outside recalc (same as auto-spill)
 
@@ -129,7 +130,7 @@ Row insert that only **moves** existing PY cells: Calc’s own reference adjust 
 - Do not `processEventsToIdle` during recalc (re-enters the engine → `#VALUE!`).
 - Auto-spill already defers neighbor writes: collision check sync, then `threading.Timer(0.1)` → `perform_deferred_spill` on the **UI thread**, inside `_undo_lock`.
 
-Geometric rewrites use that same shape:
+Geometric rewrites use that same shape (and the prototype does):
 
 1. **Detect** (shared modify/save trigger, Monaco/formula save, flag toggle) that the geometric list changed.
 2. **Compute** a small patch: cells whose predecessor field is wrong.
@@ -155,7 +156,7 @@ Do **not** rewrite from inside the add-in just because this cell is evaluating.
 
 ## 4. Data binding — do not shadow `data`
 
-**Highest-risk implementation detail.** Decided: **precedent-only**, strip via the UDProp / in-memory map ([§9.1](#91-precedent-only-not-value-in-data-not-idl), [§9.5](#95-marker-is-the-udprop--in-memory-map)).
+**Highest-risk implementation detail.** Current design: **precedent-only**, strip via the UDProp / in-memory map ([§9.1](#91-precedent-only-not-value-in-data-not-idl), [§9.5](#95-marker-is-the-udprop--in-memory-map)).
 
 Today ([data shapes](py-data-shapes.md)):
 
@@ -182,30 +183,32 @@ In `_execute_python_addin_impl` ([`function.py`](../../plugin/calc/python/functi
 2. **Strip here** if the eval index marks this `(workbook_key, resolved_code, n_args)` **strip-safe** (unanimous-ours — [§9.5](#95-marker-is-the-udprop--in-memory-map)). Unconditional across **both** branches — including `_code_uses_indexed_multi_data` (`"data["` / `"ranges["` in the source). If the geometric field stays, it becomes `data[-1]` / `ranges[-1]`.
 3. Then `py_data = calc_addin_args_from_split(...)` and the existing trailing-single-cell **matrix-index** heuristic (the `is_multi and not _code_uses_indexed_multi_data(code)` block that peels a last 1-cell arg as `index_arg`, after which `finalize_python_return` slices `flat[value]`).
 
-If strip is skipped on a fill-down of identical `=PY("np.mean(data)"; B1:B10; pred)`, `calc_addin_args_from_split` flips `data` to a list, then the index heuristic peels the predecessor **value** as `index_arg` — silent wrong numbers. Strip must run first, and fill-down must be strip-safe when every cell with that triple is ours. Phase 4 must test both `=PY("np.mean(data)"; B1:B10)` and `=PY("ranges[-1].shape"; B1:B10)`, plus fill-down and mixed neighbors.
+If strip is skipped on a fill-down of identical `=PY("np.mean(data)"; B1:B10; pred)`, `calc_addin_args_from_split` flips `data` to a list, then the index heuristic peels the predecessor **value** as `index_arg` — silent wrong numbers. Strip must run first, and fill-down must be strip-safe when every cell with that triple is ours. Phase 4 tests both `=PY("np.mean(data)"; B1:B10)` and `=PY("ranges[-1].shape"; B1:B10)`, plus fill-down and mixed neighbors.
 
-Do not invent a reserved formula suffix. Do not add a third IDL argument.
+The prototype does not invent a reserved formula suffix or add a third IDL argument.
 
 ---
 
 ## 5. User-visible behavior
 
-**What the user sees:** formulas gain a trailing cell ref they did not type. That is the feature (Calc must see it). Document it in Settings helper text and the hub session-modes page when this ships.
+**What the user sees:** formulas gain a trailing cell ref they did not type. That is the feature (Calc must see it). Document it in Settings helper text and the hub session-modes page when this ships ([§11](#11-docs-still-to-update-before-calling-this-shipped)).
 
 **What they should not see:** extra undo steps **when an undo action already exists** (hidden under the user edit); `#REF!` storms after insert; `data` breaking on cells that already pass ranges; a full-sheet PY re-run after one edit. Flag-on / open reconcile with an empty undo stack may appear as **one locked unit** — that is accepted, not a second “rewrite A3” step on top of a user edit.
 
-**LibrePy sidebar:** the existing cell list is already geometric. A later UX nicety (not MVP) is a small “depends on A1” hint. Do not block the flag on sidebar chrome.
+**LibrePy sidebar:** the existing cell list is already geometric. A later UX nicety (not in the prototype) is a small “depends on A1” hint. Do not block the flag on sidebar chrome.
 
-**Excel import:** the OOXML rewriter must **not** invent geometric edges ([ms-py already says this](../scripting/ms-py-compatibility.md)). If the user turns the flag on after import, the deferred pass attaches them. Export **leaves** geometric-only args as extra `_xlws.PY` deps (they are valid precedents). Do not special-case strip on export for MVP.
+**Excel import:** the OOXML rewriter must **not** invent geometric edges ([ms-py already says this](../scripting/ms-py-compatibility.md)). If the user turns the flag on after import, the deferred pass attaches them. Export **leaves** geometric-only args as extra `_xlws.PY` deps (they are valid precedents). The prototype does not special-case strip on export.
 
 ---
 
 ## 6. Difficulty and reuse
 
+What the desktop prototype reused (already landed):
+
 | Piece | New? | Reuse |
 |-------|------|--------|
 | Settings checkbox | Small | `module.yaml` + existing Settings dialog |
-| Discover PY cells in order | Phase 3: `truncated` | `discover_python_cells_on_sheet` / `list_python_cells_on_sheet` — exact 100 is complete; do not raise the cap |
+| Discover PY cells in order | Phase 3: `truncated` | `discover_python_cells_on_sheet` / `list_python_cells_on_sheet` — exact 100 is complete; the prototype does not raise the cap |
 | Parse / rebuild `=PY(code; args)` | Small splice + remove-field | `formula_edit.py` — `rebuild_python_formula_with_data` **or** `rebuild_python_formula_with_code_ref` |
 | Marker | ~1 extra day | Copy `WriterAgentSpillRegistry` / `load_spill_registry_for_doc` / `SPILL_REGISTRY` (`udprops`). Record `workbook_key` even in Isolated. Unanimous-ours eval index — not uniqueness, not ≥1-hit. |
 | Deferred UI-thread writes + undo | Small | `perform_deferred_spill`, `_undo_lock`, Timer 0.1s — share debounce; explicit re-entrancy flag |
@@ -214,9 +217,9 @@ Do not invent a reserved formula suffix. Do not add a third IDL argument.
 | Insert-in-middle repair | Medium | Pure list-diff + `setFormula` |
 | Tests | Required | pytest on list-diff + formula splice + map/strip; UNO for insert-row + deferred rewrite |
 
-**Not required:** LibreOffice core patches, co-volatility, IDL change, venv protocol change, chat tools, strip-on-disable, raising the 100-cell cap.
+**Not in the desktop prototype:** LibreOffice core patches, co-volatility, IDL change, venv protocol change, chat tools, strip-on-disable, raising the 100-cell cap.
 
-**Rough effort:** 3–5 days for the happy path (flag + attach + deferred repair on one sheet) **plus about a day** for the UDProp / in-memory map; another 2–3 days for insert/delete/undo/flag-toggle edges and tests.
+**Rough effort (what it took):** 3–5 days for the happy path (flag + attach + deferred repair on one sheet) **plus about a day** for the UDProp / in-memory map; another 2–3 days for insert/delete/undo/flag-toggle edges and tests.
 
 Compare to **full Excel co-volatility:** multiple engineer-months in `sc/`, high regression risk. This flag is the cheap 80%.
 
@@ -227,12 +230,12 @@ Compare to **full Excel co-volatility:** multiple engineer-months in `sc/`, high
 | Risk | Mitigation |
 |------|------------|
 | Shadowing `data` (arity flip) | Precedent-only strip via the map, **before** the index heuristic ([§4](#4-data-binding--do-not-shadow-data)) |
-| 1×1 / “is a PY cell” strip | Forbidden — add-in sees values only ([§4.1](#41-why-a-value-shape-strip-cannot-work)) |
+| 1×1 / “is a PY cell” strip | Unimplementable — add-in sees values only ([§4.1](#41-why-a-value-shape-strip-cannot-work)) |
 | Index heuristic eats `;A1` | Strip first; Phase 4 tests `np.mean(data)`, `ranges[-1].shape`, fill-down |
-| Uniqueness / “fail-safe = no strip” | **Rejected** — kills fill-down of identical `=PY("np.mean(data)"; B1:B10)` |
-| ≥1-hit strip | **Rejected** — would strip a mixed matrix-index neighbor |
+| Uniqueness / “fail-safe = no strip” | Not used — kills fill-down of identical `=PY("np.mean(data)"; B1:B10)` |
+| ≥1-hit strip | Not used — would strip a mixed matrix-index neighbor |
 | Mixed ours + user same triple | Do not mark strip-safe; residual is “chain loses strip,” not “user cell loses last arg” |
-| Two open workbooks | **Off-main (Gemini A):** `off_main_calc_session_is_unambiguous()` false → no strip. **UI-thread** with `target_doc` uses that workbook's key even when two sessions are recorded. Residual without a key: leftover `;pred` often becomes `index_arg` (silent wrong numbers), not a list in the worker. |
+| Two open workbooks | **Off-main (Gemini A):** `off_main_calc_session_is_unambiguous()` false → no strip. **UI-thread** with `target_doc` uses that workbook's key even when two sessions are recorded. Residual without a key: leftover `;pred` often becomes `index_arg` (silent wrong numbers), not a list in the worker. Current prototype behavior, not a claim that this is the only possible approach. |
 | Isolated still needs strip | Isolated never enters `workbook_session_id`. Init-non-empty already records via `build_python_eval_init_kwargs` → `calc_init_session_id`. Isolated + no init still never records. UI load/repair must `record_active_calc_session("calc:" + _workbook_session_key)` (same string, idempotent) so the no-init case can pass the unambiguous check |
 | Keying the token `$A$1` | Eval `code` is resolved source (`execute_python_addin`); repair must read the code cell |
 | Naive `;` arity | Repair `n_args` must match `split_python_addin_data_args`, not a semicolon count |
@@ -243,16 +246,16 @@ Compare to **full Excel co-volatility:** multiple engineer-months in `sc/`, high
 | User already passed the previous cell as **data** | Do not record as ours; do not strip ([§9.5](#95-marker-is-the-udprop--in-memory-map)) |
 | User passed a **different** single-cell last arg (real data) | Append, do not replace, unless the map says that last arg is **our** stale predecessor |
 | Two independent PY clusters on one sheet | One row-major chain; slightly over-dirties the later cluster |
-| Circular refs from user reverse-refs | One-hop: if the predecessor formula already names the successor (data arg, range covering it, or unquoted code-in-cell), skip attach; remove an ours field. We never attach a later cell. Transitive walk is not shipped. |
+| Circular refs from user reverse-refs | One-hop: if the predecessor formula already names the successor (data arg, range covering it, or unquoted code-in-cell), skip attach; remove an ours field. We never attach a later cell. Transitive walk is not in the prototype. |
 | 100-cell discovery cap | Skip the **whole** sheet; never chain a partial list |
 | Shared + Isolated confusion | Checkbox always visible; helper: “Used with Shared kernel”; Isolated is a no-op |
-| Collabora Online | Concrete specification in [§12](#12-collabora--libreoffice-core-living-sketch-not-final) (Pass 5: engine DAG + **inhibit** emit-gate + `g_aParamCache` identity, **not** trailing `;A1`, **not** `g_aWaiters`). |
+| Collabora Online | Proposed design in [§12](#12-collabora--libreoffice-core-living-sketch-not-final) (engine DAG + **inhibit** emit-gate + `g_aParamCache` identity, **not** trailing `;A1`, **not** `g_aWaiters`). Not implemented. |
 
 ---
 
-## 8. Suggested phases
+## 8. Implementation status
 
-**Phase 0 — Review (this doc).** Closed product calls stand. Eval identity is specified in [§9.5](#95-marker-is-the-udprop--in-memory-map) (unanimous-ours + `workbook_key`) — do not treat the previous uniqueness draft as closed. Do not reopen [§9.1](#91-precedent-only-not-value-in-data-not-idl) C (IDL) or a value-shape strip.
+Desktop LibrePy phases 1–4 are **landed** on master. The notes below are what shipped, not a remaining schedule.
 
 **Phase 1 — Pure list + formula splice.** **Landed** in `plugin/calc/python/geometric_recalc.py` (`tests/calc/python/test_geometric_recalc.py`). Unit tests only: given a list of addresses + current formulas + the in-memory record, compute the patch and the eval-index bools. No UNO. Encodes the [§9.5](#95-marker-is-the-udprop--in-memory-map) table, including **remove-field**, code-in-cell splice from the raw formula (`rebuild_python_formula_with_code_ref`), fill-down unanimous-ours, mixed poison, one-hop Err:522 skip, and cap-hit skip (now via `truncated`). Cap-hit also returns a user-visible message; `notify_geometric_cap_hit` shows one `msgbox` per skipped sheet on the UI thread.
 
@@ -260,50 +263,52 @@ Compare to **full Excel co-volatility:** multiple engineer-months in `sc/`, high
 
 **Phase 3 — Deferred repair on insert/delete.** **Landed.** Shared trigger (`SheetModifyDispatcher` in `sheet_modify.py`) + spill-like 0.1s timer + re-entrancy flag. `CalcSpillModifyListener.modified` still walks `SPILL_REGISTRY` only; geometric repair runs its own `list_python_cells_on_sheet`. Insert/delete/clear retargets without waiting for save; a data-edit that changes the PY list rebuilds the strip-safe index. Discovery `truncated` flag: exact 100 is chained; #101 or the 50k scan cap skips the sheet. UNO tests: three-cell column, insert PY in the middle, successor’s field updates; delete (including successor-becomes-first → remove-field); undo. Cap-hit sheet is left unchained.
 
-**Phase 4 — Strip geometric arg from worker ingress.** **Landed on master** (with Phase 2 — attach without strip is the arity footgun), **without** an `args[:-1]` fingerprint. After `split_python_addin_data_args`, if the triple is strip-safe, drop `args[-1]` **before** the index heuristic and `calc_addin_args_from_split`. Eval identity is unanimous-ours on `(workbook_key, resolved_code, n_args)` only. UI-thread `=PY()` hydrates `_STRIP_SAFE` from UDProp when the evaluating process has an empty map (`ensure_geometric_strip_index_for_eval`) — attach may have run over URP, and `OnLoadFinished` can miss a later UDProp write. UI-thread strip passes `doc=target_doc` so two open workbooks still strip the focused / caller book. Tests in [§10](#10-test-plan-when-implemented).
+**Phase 4 — Strip geometric arg from worker ingress.** **Landed on master** (with Phase 2 — attach without strip is the arity footgun), **without** an `args[:-1]` fingerprint. After `split_python_addin_data_args`, if the triple is strip-safe, drop `args[-1]` **before** the index heuristic and `calc_addin_args_from_split`. Eval identity is unanimous-ours on `(workbook_key, resolved_code, n_args)` only. UI-thread `=PY()` hydrates `_STRIP_SAFE` from UDProp when the evaluating process has an empty map (`ensure_geometric_strip_index_for_eval`) — attach may have run over URP, and `OnLoadFinished` can miss a later UDProp write. UI-thread strip passes `doc=target_doc` so two open workbooks still strip the focused / caller book. Tests in [§10](#10-tests).
 
-**Non-goals until someone asks:** cross-sheet chains, workbook-global order, Isolated value-piping, sidebar annotations, Excel export special-case, raising the 100-cell cap, strip-on-disable, spatial clustering of independent PY groups, a dedicated IDL arg.
+**Not in the prototype** (open if someone wants them): cross-sheet chains, workbook-global order, Isolated value-piping, sidebar annotations, Excel export special-case, raising the 100-cell cap, strip-on-disable, spatial clustering of independent PY groups, a dedicated IDL arg.
 
 ---
 
-## 9. Decisions
+## 9. Current design choices
 
-Closed product calls stand. Eval identity is specified in [§9.5](#95-marker-is-the-udprop--in-memory-map) (was not closed by the uniqueness draft). Rejected alternatives are listed so they are not reopened.
+These are the choices the experimental prototype uses, with reasons. Alternatives are listed so reviewers can see what was tried or considered — not to forbid revisiting them.
+
+Eval identity is specified in [§9.5](#95-marker-is-the-udprop--in-memory-map). An earlier uniqueness draft (strip only when the triple is unique) broke fill-down; the prototype uses unanimous-ours + `workbook_key` instead.
 
 ### 9.1 Precedent-only (not value-in-`data`, not IDL)
 
-**Decision: A — Precedent-only.** The geometric arg is a Calc DAG token. Strip it before packing worker `data` / `ranges`. Do not inject the previous cell’s value.
+**Current design: A — Precedent-only.** The geometric arg is a Calc DAG token. Strip it before packing worker `data` / `ranges`. Do not inject the previous cell’s value.
 
-**Rejected:**
+**Considered, not used:**
 
 - **B — Value-in-`data`.** Inject the previous cell’s value into `data` / `data[-1]`. Breaks `np.mean(data)` on every cell that already passes one range.
-- **C — Third IDL parameter.** Rebuilds `.rdb`s for both OXTs; Collabora/Excel import get another arity case. Collabora Gerrit is in review; do not pile another IDL change. Do not reopen C in this feature.
+- **C — Third IDL parameter.** Rebuilds `.rdb`s for both OXTs; Collabora/Excel import get another arity case. Collabora Gerrit is in review; another IDL change on that path is expensive. Worth revisiting if those costs change.
 
 A trailing A1 field is enough **if** we strip it via the map, not a 1×1 heuristic.
 
 ### 9.2 The list is all PY cells on the sheet, row-major
 
-**Decision: A.** One chain per sheet. Independent clusters become one chain. Matches `list_python_cells_on_sheet` and the sidebar.
+**Current design: A.** One chain per sheet. Independent clusters become one chain. Matches `list_python_cells_on_sheet` and the sidebar.
 
-**Rejected:** contiguous-column-only (surprises authors who put the next step in C1); spatial clustering; workbook-global order. Those can wait.
+**Considered, not used:** contiguous-column-only (surprises authors who put the next step in C1); spatial clustering; workbook-global order. Those can wait.
 
 ### 9.3 Isolated mode — checkbox visible, no-op
 
-**Decision: A.** Always visible; Isolated is a no-op. Helper: “Ensures PY cells evaluate in sheet order. Most useful with Shared kernel.”
+**Current design: A.** Always visible; Isolated is a no-op. Helper: “Ensures PY cells evaluate in sheet order. Most useful with Shared kernel.”
 
-**Rejected:** hide the checkbox when Isolated is selected (couples two settings; looks like a bug when the box disappears).
+**Considered, not used:** hide the checkbox when Isolated is selected (couples two settings; looks like a bug when the box disappears).
 
 Precedent-only strip means Isolated `data` is unchanged. Isolated is a no-op for **Python globals**, not for the strip: `workbook_session_id` returns `None` when mode ≠ `shared`, but Isolated still needs strip (else arity breaks). Isolated does **not** “never enter `record_active_calc_session`”: a non-empty init script records via `build_python_eval_init_kwargs` → `calc_init_session_id` → `calc_workbook_base_session_id`. Isolated + no init still never records. Geometric UI load/repair must `record_active_calc_session("calc:" + _workbook_session_key)` (same string, idempotent) so the no-init case can pass the unambiguous check ([§9.5](#95-marker-is-the-udprop--in-memory-map)).
 
 ### 9.4 Flag turned off — leave refs
 
-**Decision: A.** Stop attaching and stop repairing. The refs stay as valid DAG edges. After a precedent-only strip they do not change Python behavior. **By design**, not a missing strip-on-disable: leftover `;predecessor` fields remain when the flag is off.
+**Current design: A.** Stop attaching and stop repairing. The refs stay as valid DAG edges. After a precedent-only strip they do not change Python behavior. **Current prototype behavior**, not a missing strip-on-disable: leftover `;predecessor` fields remain when the flag is off.
 
-**Rejected for this feature: B — strip-on-disable.** The marker now exists ([§9.5](#95-marker-is-the-udprop--in-memory-map)), so B is implementable later with the same remove-field primitive. Do not build it here.
+**Considered, not used for now: B — strip-on-disable.** The marker now exists ([§9.5](#95-marker-is-the-udprop--in-memory-map)), so B is implementable later with the same remove-field primitive. Not in the prototype.
 
 ### 9.5 Marker is the UDProp / in-memory map
 
-**Decision: C (required), used to implement A’s rewrite table.** Not a reserved suffix. Not IDL. Not a 1×1 / “last arg is a PY cell” heuristic. **Eval identity was not closed** by the uniqueness draft — it is **unanimous-ours** plus `workbook_key`, below.
+**Current design: C (required), used to implement A’s rewrite table.** Not a reserved suffix. Not IDL. Not a 1×1 / “last arg is a PY cell” heuristic. An earlier uniqueness draft did not settle eval identity — the prototype uses **unanimous-ours** plus `workbook_key`, below.
 
 Copy the spill pattern — do not invent a second subsystem:
 
@@ -324,11 +329,11 @@ At **repair time** (UI thread, we have addresses), compute an eval-index bool pe
 
 - **strip-safe** iff **every** discovered PY cell with that triple is in the map (ours-only / unanimous).
 - **Eval:** if that triple is marked strip-safe, drop `args[-1]` before the index heuristic and before `calc_addin_args_from_split`. Unconditional on both branches including `data[]` / `ranges[]`.
-- **Mixed** same-code/arity (a non-mapped user cell, e.g. matrix-index `=PY("f"; range; i)` next to a chain of `=PY("f"; range; pred)`) → do **not** mark strip-safe → **no-strip for the whole triple** (chain included) until the user cell is gone or attached. Residual to name: **mixed poisons the chain**, not “user cell also loses last arg.” Do **not** use a ≥1-hit rule; that would strip the matrix-index neighbor. Same `(code, n_args)` on a different range is the same triple — mixed on A also over-poisons B. Residual is safe (no strip → no wrong numbers).
+- **Mixed** same-code/arity (a non-mapped user cell, e.g. matrix-index `=PY("f"; range; i)` next to a chain of `=PY("f"; range; pred)`) → do **not** mark strip-safe → **no-strip for the whole triple** (chain included) until the user cell is gone or attached. Residual to name: **mixed poisons the chain**, not “user cell also loses last arg.” A ≥1-hit rule is not used; that would strip the matrix-index neighbor. Same `(code, n_args)` on a different range is the same triple — mixed on A also over-poisons B. Residual is safe (no strip → no wrong numbers).
 - **Cap-hit** → skip the entire sheet, do **not** mark any triple strip-safe, do not write a partial chain. You cannot prove unanimous on a truncated list.
-- **Rejected:** uniqueness / “fail-safe = no strip” / “typical pipelines have distinct code strings.” That kills fill-down of identical `=PY("np.mean(data)"; B1:B10)`: after attach every successor has the same `resolved_code` and `n_args=2`, non-unique → no-strip → `calc_addin_args_from_split` flips `data` to a list, then the index heuristic peels the predecessor **value** as `index_arg` — silent wrong numbers.
+- **Not used:** uniqueness / “fail-safe = no strip” / “typical pipelines have distinct code strings.” That kills fill-down of identical `=PY("np.mean(data)"; B1:B10)`: after attach every successor has the same `resolved_code` and `n_args=2`, non-unique → no-strip → `calc_addin_args_from_split` flips `data` to a list, then the index heuristic peels the predecessor **value** as `index_arg` — silent wrong numbers.
 
-**Fingerprint dropped** (was recommended, now rejected). A value hash of `args[:-1]` was meant to stop mixed-poison across two chains that reuse the same snippet on different ranges. Without Phase 3 the strip-safe set is not rebuilt on a data edit, so the live-value key missed after the user changed a range and strip skipped — `np.mean(data)` then saw a list. Under unanimous-ours, dropping the fingerprint never produces wrong numbers; it only widens the no-strip blast radius in the rare mixed case. Do **not** reintroduce a value or address fingerprint on the strip key. Eval identity is unanimous-ours on `(workbook_key, resolved_code, n_args)` only.
+**Fingerprint dropped** (was recommended, not used). A value hash of `args[:-1]` was meant to stop mixed-poison across two chains that reuse the same snippet on different ranges. Without Phase 3 the strip-safe set is not rebuilt on a data edit, so the live-value key missed after the user changed a range and strip skipped — `np.mean(data)` then saw a list. Under unanimous-ours, dropping the fingerprint never produces wrong numbers; it only widens the no-strip blast radius in the rare mixed case. The prototype does not put a value or address fingerprint on the strip key. Eval identity is unanimous-ours on `(workbook_key, resolved_code, n_args)` only.
 
 #### Three must-gets (easy to get wrong)
 
@@ -336,13 +341,13 @@ At **repair time** (UI thread, we have addresses), compute an eval-index bool pe
 
 **2. `n_args` at eval is `len(split_python_addin_data_args(data))`** (`calc_addin_data.py`). Repair arity **must** match that splitter, not a naive semicolon count. A pair `(range, 1×1 pred)` does **not** collapse under `_is_legacy_single_column_range`: the inner of the 1×1 is a sequence, so two varargs stay two args (`n_args=2` after attach).
 
-**3. Cap-hit:** `discover_python_cells_on_sheet` returns at most 100 and sets `truncated` when the 100-cell find cap or the 50k scan cap stopped the walk. You cannot prove unanimous on a truncated list. Already-decided skip-sheet is the fail-safe; do **not** mark those triples strip-safe. An exact 100 that finished the scan is complete and is chained.
+**3. Cap-hit:** `discover_python_cells_on_sheet` returns at most 100 and sets `truncated` when the 100-cell find cap or the 50k scan cap stopped the walk. You cannot prove unanimous on a truncated list. Skip-sheet is the current fail-safe; do **not** mark those triples strip-safe. An exact 100 that finished the scan is complete and is chained.
 
 #### `workbook_key` (blocking — do not cite `get_python_init_kwargs`)
 
 `get_python_init_kwargs` does **not** carry `doc_url`. `build_python_eval_init_kwargs` (`document_scripts.py`) returns `{}` with **no** session record when the init script is empty. When init is non-empty it calls `calc_init_session_id(doc)` → `calc_workbook_base_session_id` → `record_active_calc_session("calc:" + _workbook_session_key)` (`session_manager.py`). `set_calc_init_script` and on-main `get_python_init_kwargs` both go through that builder. `record_active_calc_session(None, kwargs)` itself does **not** add to `_RECORDED_CALC_SESSION_IDS` (`None` is ignored); the add is the side effect of building kwargs. Isolated does **not** “never enter `record_active_calc_session`.” Isolated + no init still never records. `workbook_session_id` still returns `None` when mode ≠ `shared`. Isolated still needs strip off-main (else arity breaks). Do **not** write a unit test that asserts Isolated always leaves `_RECORDED_CALC_SESSION_IDS` empty.
 
-**Eval `workbook_key`:** on the **UI thread**, `maybe_strip_geometric_eval_args(..., doc=target_doc)` uses `geometric_workbook_key(doc)` even when two Calc sessions are recorded (F9 this book). **Off-main**, `workbook_key = get_cached_calc_session_id()` only when `off_main_calc_session_is_unambiguous()` (`session_manager.py`: `len(_RECORDED_CALC_SESSION_IDS) == 1`). Else do not strip. **By design (Gemini A) off-main:** eval cannot pick `workbook_key` when more than one session is recorded. A leftover `;pred` after a failed strip is often peeled as `index_arg` (silent wrong numbers), not a list in `np.mean(data)`.
+**Eval `workbook_key`:** on the **UI thread**, `maybe_strip_geometric_eval_args(..., doc=target_doc)` uses `geometric_workbook_key(doc)` even when two Calc sessions are recorded (F9 this book). **Off-main**, `workbook_key = get_cached_calc_session_id()` only when `off_main_calc_session_is_unambiguous()` (`session_manager.py`: `len(_RECORDED_CALC_SESSION_IDS) == 1`). Else do not strip. **Current prototype behavior (Gemini A) off-main:** eval cannot pick `workbook_key` when more than one session is recorded. A leftover `;pred` after a failed strip is often peeled as `index_arg` (silent wrong numbers), not a list in `np.mean(data)`.
 
 On the **UI-thread** load / repair path, write that key into the geometric map **and** call `record_active_calc_session` with the **same string eval will read**: `calc:` + `_workbook_session_key` (never `""`). Do this **even in Isolated**. Same string as the init-kwargs path; idempotent; **required for the no-init case**. Do **not** invent a second Isolated key. Then one open file makes `len(_RECORDED_CALC_SESSION_IDS) == 1` and yellow Isolated can strip. Sibling of `load_spill_registry_for_doc`. Unsaved files must not use empty URL — same #402 hole as `session_key` / `_workbook_session_key` (URL, else a persisted unsaved id, never `""`).
 
@@ -368,17 +373,19 @@ Parse → drop the last geometric data arg → rebuild → drop the map record. 
 
 ### 9.6 Flag-on / document-open — all sheets
 
-**Decision: A.** All sheets, each chained independently. `list_python_cells_in_doc(..., active_sheet_only=False)` already walks `doc.getSheets()`. Modify-listener repair stays per-sheet.
+**Current design: A.** All sheets, each chained independently. `list_python_cells_in_doc(..., active_sheet_only=False)` already walks `doc.getSheets()`. Modify-listener repair stays per-sheet.
 
-**Rejected:** active sheet only (other tabs stay inconsistent until visited).
+**Considered, not used:** active sheet only (other tabs stay inconsistent until visited).
 
 ---
 
-## 10. Test plan (when implemented)
+## 10. Tests
 
-**Unit (`tests/calc/python/`, match the new module name; splice cases can extend `test_formula_edit.py`):**
+Most of this is already in the tree: unit tests in `tests/calc/python/test_geometric_recalc.py`, UNO tests in `tests/calc/python/test_geometric_recalc_uno.py`, desktop-enum mocks in `tests/calc/test_excel_py_auto_open.py`. Phase 1 is mockable without soffice.
 
-Phase 1 — list-diff + splice + eval-index bools (encode [§9.5](#95-marker-is-the-udprop--in-memory-map)):
+**Unit (`tests/calc/python/`, match the module name; splice cases can extend `test_formula_edit.py`):**
+
+Phase 1 — list-diff + splice + eval-index bools (encode [§9.5](#95-marker-is-the-udprop--in-memory-map)) — **landed**:
 
 - Empty, one cell, two cells, insert in middle, delete middle, delete first (remove-field), reorder.
 - Formula splice: no args; existing range args preserved; already-correct predecessor; stale predecessor replaced; user extra cell-ref appended not overwritten when it is not ours.
@@ -389,7 +396,7 @@ Phase 1 — list-diff + splice + eval-index bools (encode [§9.5](#95-marker-is-
 - **Err:522 one-hop:** predecessor already names the successor (data arg, covering range, or unquoted code-in-cell) → skip attach; ours field is removed. `xl("A2")` inside the Python string is not a Calc ref.
 - Cap: `truncated=True` → skip sheet, no patch, **no strip-safe marks**. Exact 100 with `truncated=False` is chained.
 
-Phase 4 — `data` strip (inject the in-memory map; no UNO):
+Phase 4 — `data` strip (inject the in-memory map; no UNO) — **landed**:
 
 - `=PY("np.mean(data)"; B1:B10)` after attach still packs a single `CalcRange` (not a list).
 - `=PY("ranges[-1].shape"; B1:B10)` after attach: `ranges[-1]` is `B1:B10`, not the predecessor (indexed multi-data branch).
@@ -405,22 +412,20 @@ Phase 4 — `data` strip (inject the in-memory map; no UNO):
 **UNO (`test_*_uno.py`):**
 
 - **Formula I/O (landed, `test_geometric_recalc_uno.py`):** live `getFormula()` / `setFormula()` on `=PY("y"; $C$5)` (absolute `$` survives attach), quoted `=PY("np.mean(data)"; B1:B10)` (splice still parses), and unquoted `=PY($A$1; …)` (code-in-cell stays unquoted). Flag can stay off — this is splice I/O, not eval strip. Do not mark win32-only.
-- **Desktop enum mock (pytest):** `_record_desktop_calc_sessions` must stop when `hasMoreElements()` is a MagicMock (same as `session_manager._find_document_by_predicate`) and cap at 32. OnNew inline + unpatched mock `ctx` used to allocate until OOM; that is not leftover Isolated. `pytest-timeout` is 60s (`signal`); leftover/`testing_runner` aborts at 30s (`WRITERAGENT_UNO_TEST_TIMEOUT`) without arm/disarm chatter. Geometric `OnNew`/`OnCreate` must still run the desktop scan when `_doc_from_event` is `None` (Writer keeper focused). Record **only when exactly one Calc is open** — scanning every Calc made leftover soffice `recorded=2` / `unambiguous=False` (Shared `session_id=None`). Worker restart must not `clear_active_calc_session()` or leftover after cap-hit sees `recorded=0`. Two `calc:unsaved:` keys replace rather than stack. Leftover closes extra factory `scalc` docs before F9 so a full `make test-uno` does not stay `recorded=2`. Do **not** record LibreOffice's OpenCL probe `opencl/cl-test.ods` (leftover 11:31 `ids=`).
+- **Desktop enum mock (landed, pytest in `test_excel_py_auto_open.py`):** `_record_desktop_calc_sessions` must stop when `hasMoreElements()` is a MagicMock (same as `session_manager._find_document_by_predicate`) and cap at 32. OnNew inline + unpatched mock `ctx` used to allocate until OOM; that is not leftover Isolated. `pytest-timeout` is 60s (`signal`); leftover/`testing_runner` aborts at 30s (`WRITERAGENT_UNO_TEST_TIMEOUT`) without arm/disarm chatter. Geometric `OnNew`/`OnCreate` must still run the desktop scan when `_doc_from_event` is `None` (Writer keeper focused). Record **only when exactly one Calc is open** — scanning every Calc made leftover soffice `recorded=2` / `unambiguous=False` (Shared `session_id=None`). Worker restart must not `clear_active_calc_session()` or leftover after cap-hit sees `recorded=0`. Two `calc:unsaved:` keys replace rather than stack. Leftover closes extra factory `scalc` docs before F9 so a full `make test-uno` does not stay `recorded=2`. Do **not** record LibreOffice's OpenCL probe `opencl/cl-test.ods` (leftover 11:31 `ids=`).
 - **Shared kernel eval (landed, `test_geometric_shared_kernel_a3_reads_a1_f9_stable`):** flag on, A3 reads a name assigned in A1 without a user-typed `data` ref; result is 41 across two `calculateAll` (F9) passes. Precedent-only strip of the attached last arg is Phase 4 unit-tested (`data is None` / `np.mean(data)` / `ranges[-1]`). **GitHub Actions asserts the 41s** — `testing_runner` seeds the throwaway `UserInstallation` from the user-level `uno_packages` that `make register-built-oxt` wrote (user `unopkg add` is invisible to `-env:UserInstallation=<tmp>`; 525 is a hard fail, not a skip). Discover soffice with `_resolve_soffice_bin` (Windows `soffice.exe`; macOS `Contents/MacOS/soffice`, not beside `Contents/Resources/officehelper.py`). Seed `writeragent.json` Shared before soffice starts (2s `get_config` cache). **Also persist `scripting.python_geometric_recalc_order` into that throwaway profile** — a client-only monkeypatch of `geometric_flag_enabled` does not reach soffice; leftover then runs flag-off there (no in-process `record` / `_STRIP_SAFE`), Shared `session_id` is dropped, and A3 sees Isolated `x_geo_live` undefined. Factory `OnNew` must record **inline** on the UNO thread (`_run_geometric_on_open`) — marshaling from that event enqueues+waits and can sit 30s, then leftover Shared still sees `session_id=None`. Do **not** seed checkout `.venv` as `scripting.python_venv_path` — leftover Shared then saw Isolated semantics (`x_geo_live` undefined) on Linux (GHA 33751116865) and macOS (GHA 33752809831). Windows/macOS soffice `sys.executable` is often empty or `soffice.exe`; `resolve_libreoffice_python` uses the sibling / `Contents/Resources` office interpreter instead (GHA 33752806292). Stay on the `with_native_doc` reuse Calc — a second factory `scalc` makes `off_main_calc_session_is_unambiguous()` false, so Shared drops `session_id`. Local blank profiles may still skip.
-- Insert a PY row between two chained cells; after the deferred pass, successor formula names the new cell; values update on next recalc.
-- Delete middle cell: successor retargets or remove-field if it is now first.
+- Insert a PY row between two chained cells; after the deferred pass, successor formula names the new cell; values update on next recalc. **Landed** (`test_geometric_insert_delete_undo_three_cell_column`).
+- Delete middle cell: successor retargets or remove-field if it is now first. **Landed** (same UNO test).
 - Flag off (landed, `test_geometric_flag_off_leaves_existing_refs`): no new attaches; existing refs stay.
 - Isolated + flag on (landed, `test_geometric_isolated_flag_on_noop_and_strip`): no-op for Python **globals**; strip still runs when `workbook_key` is unambiguous (no `data` breakage). UI load/repair records `calc:` + `_workbook_session_key`.
 - Undo (landed, `test_geometric_hidden_undo_and_locked_unit`): user types a new PY cell, geometric rewrite does not add a second undo step when `isUndoPossible()` (hidden context). Flag-on reconcile with no prior edit is one locked unit (`test_calc_spill_undo_lock` is the spill analogue).
 - **`#SPILL!` / auto-spill on a chained origin (landed, `test_geometric_chained_origin_still_auto_spills`):** attaching `;pred` does not break origin match (`is_matching_py_formula`). Neighbors use the existing `perform_deferred_spill` path. **GitHub Actions must write those neighbors** (same throwaway seed as the Shared-kernel leftover; 525 is a hard fail). Local blank profiles may still skip.
 - Re-entrancy (landed, `test_geometric_repair_setformula_does_not_reenter`): repair `setFormula` does not nest a second repair.
-- Cap-hit sheet: no chain, log emitted, no strip-safe marks.
-
-Do not run the full suite until this is implemented. Phase 1 is mockable without soffice.
+- Cap-hit sheet: no chain, log emitted, no strip-safe marks. **Landed** (`test_geometric_cap_hit_sheet_stays_unchained`).
 
 ---
 
-## 11. Docs to update when this ships (not now)
+## 11. Docs still to update before calling this shipped
 
 - Hub [session modes](../enabling_numpy_in_libreoffice.md#session-modes-and-recalc-semantics): one short subsection + Settings table row.
 - [ms-py-compatibility](../scripting/ms-py-compatibility.md): pointer — “opt-in geometric *chain*, still not co-volatility.”
@@ -429,13 +434,21 @@ Do not run the full suite until this is implemented. Phase 1 is mockable without
 
 Do not touch `AGENTS.md` unless the rewrite-outside-recalc rule needs to become a global invariant (it is already implied by the spill / `=PY()` contract).
 
+
+
+
+**Status:** **(Experimental).** Phases 1–4 landed on master (Settings flag default off, attach on save / flag-on, UDProp load/save, Isolated `record_active_calc_session`, eval strip before the index heuristic, sheet modify-listener / insert-delete deferred repair, discovery `truncated` flag). This revision repairs Gemini **B** (cap-hit modal persists across reconcile so debounce / save / open cannot storm) and **C** (row-insert rehomes the attach-map key onto the current address). Gemini **A** (two open workbooks → no strip) is **current prototype behavior off-main**: eval-time strip without a calling document uses `off_main_calc_session_is_unambiguous()` (`len(_RECORDED_CALC_SESSION_IDS)==1`). **UI-thread** eval may pass the resolved `target_doc` and strip that workbook even when another Calc file is open. Failed strip often becomes a silent matrix-index peel (wrong numbers), not `np.mean(data)` seeing a list. Flag-off leftover `;predecessor` fields are also **current prototype behavior** ([§9.4](#94-flag-turned-off-leave-refs)). Current design in [§9](#9-current-design-choices) (no IDL, no 1×1 value-shape strip, no `locate_formula_cell_in_doc` for eval identity, precedent-only, cap skip-sheet, no strip-on-disable, Isolated checkbox visible / no-op). **Eval identity** is **unanimous-ours** on `(workbook_key, resolved_code, n_args)` only ([§9.5](#95-marker-is-the-udprop--in-memory-map)). **Cap-hit UI:** skip the sheet, log, **and** show one first message box per skipped sheet (`notify_geometric_cap_hit`, persisted across reconcile) — do not only `log.error`.
+
+**Parked (not this revision):** off-main multi-workbook keyed strip (still needs a real eval-time workbook id, not `len==1` — UI-thread `target_doc` strip is the half-fix); workbook-global PY order and spatial clustering; Collabora extra-listen path ([§12](#12-collabora--libreoffice-core-living-sketch-not-final)). One-hop Err:522 skip before splice is **landed**.
+
+
 ---
 
 ## 12. Collabora / LibreOffice core engine specification (Pass 3) <a name="12-collabora--libreoffice-core-living-sketch-not-final"></a>
 
-**Status:** **Pass 5** — dual-layer engine DAG + **inhibit** emit-gate + `g_aParamCache` identity. Verified against `~/Desktop/collabofficefull` (commits `3048e06f0d54` and `27355f078f2a`). Pass 3's `g_aWaiters` queue is **rejected** ([§13.2](#132-review-of-collabora-online--core-engine-specification-pass-3-vs-collabofficefull)). Ready for implementation on that basis.
+**Proposed design, not implemented.** Pass 5 of the sketch: dual-layer engine DAG + **inhibit** emit-gate + `g_aParamCache` identity. Verified against `~/Desktop/collabofficefull` (commits `3048e06f0d54` and `27355f078f2a`). Pass 3's `g_aWaiters` queue is **not used in this sketch** ([§13.2](#132-review-of-collabora-online--core-engine-specification-pass-3-vs-collabofficefull)).
 
-This section defines the engine-native architecture for Geometric Recalculation Order inside LibreOffice Calc and Collabora Online: an **engine-managed recalc DAG** in `sc/` paired with an **inhibit** gate so a successor does not call `pEmit` while its predecessor is still in `g_aPending`. The engine's `TrackFormulas` path then re-Interprets the successor with a fresh payload.
+This section defines a proposed engine-native architecture for Geometric Recalculation Order inside LibreOffice Calc and Collabora Online: an **engine-managed recalc DAG** in `sc/` paired with an **inhibit** gate so a successor does not call `pEmit` while its predecessor is still in `g_aPending`. The engine's `TrackFormulas` path then re-Interprets the successor with a fresh payload.
 
 ---
 
@@ -452,7 +465,7 @@ In WriterAgent Desktop LibrePy, `=PY()` is a **synchronous** UNO add-in: evaluat
 
 **The Core Realization:** Dependency in Calc’s recalculation DAG (whether via `;A1` or via `StartListeningCell`) only orders the **invocation** of `Interpret()`. In an asynchronous engine, `Interpret()` returns `#BUSY!` immediately. **A formula DAG edge alone does not serialize HTTP execution.**
 
-Therefore, Collabora requires a **Dual-Layer Architecture**:
+Therefore, Collabora would need a **Dual-Layer Architecture**:
 1. **Recalc DAG Layer (`sc/`):** Establishes dependency edges cleanly through an engine manager so that modifying A marks B dirty, without rewriting formula strings or corrupting memory.
 2. **Inhibit Gate (`sc/` preferred, or `bridge.cxx` with a cell identity the IDL does not have):** When B would `Interpret` while A is still pending, return cached `#BUSY!` and **do not** `pEmit`. When A finishes, `TrackFormulas` dirties B; the next `Interpret(B)` builds a **fresh** payload and emits once. Do **not** queue a waiter payload (stale `#BUSY!` + double HTTP).
 
@@ -460,7 +473,7 @@ Therefore, Collabora requires a **Dual-Layer Architecture**:
 
 ### 12.2 Codebase Topology (`~/Desktop/collabofficefull/`)
 
-The implementation touches existing files in the Collabora Online / Core tree without altering the IDL signature (`getPy(code, data)` stays unchanged):
+The proposed C++ work would touch existing files in the Collabora Online / Core tree without altering the IDL signature (`getPy(code, data)` stays unchanged):
 
 | Component | Path & Relevant Lines | Function & Architectural Role |
 |-----------|----------------------|-------------------------------|
@@ -523,7 +536,7 @@ To prevent the dangling pointer trap, non-RPN geometric dependencies must be man
 
 #### Layer 2: Inhibit Gate (prefer `sc/`, not a waiter queue)
 
-`getPy(code, data)` has **no cell coordinates**. `startCompute` cannot look up `(doc, sheet, row, col)`. Pass 3's `g_aWaiters` / `g_aCellToActiveReqId` assumed an identity the IDL does not have. **Do not implement that queue.**
+`getPy(code, data)` has **no cell coordinates**. `startCompute` cannot look up `(doc, sheet, row, col)`. Pass 3's `g_aWaiters` / `g_aCellToActiveReqId` assumed an identity the IDL does not have. This sketch does **not** use that queue.
 
 **Preferred — Option B (engine inhibit):** `ScGeometricRecalcManager` in `ScFormulaCell::Interpret()` / `interpr4.cxx` checks whether this cell's geometric predecessor is still pending. If so, return the cached `#BUSY!` volatile and **do not** call the add-in. When A finishes, `complete_json` → `finish()` → `ScAddInListener::modified` → `TrackFormulas` dirties B (it requeues; view/idle/`CalcFormulaTree` runs `Interpret` later — not inside `TrackFormulas` itself). The second `Interpret(B)` sees A done, builds a **fresh** payload, and emits once.
 
@@ -575,7 +588,7 @@ One of the greatest dangers of formula rewriting (Path B) is breaking shared for
 
 ### 12.6 Implementation Phases (Roadmap for C++ Development)
 
-When starting implementation in `~/Desktop/collabofficefull`, proceed in this order:
+If starting implementation in `~/Desktop/collabofficefull`, a plausible order:
 
 #### Phase 1: Inhibit + param-cache identity (do not add `g_aWaiters`)
 - **Files:** `engine/sc/source/core/tool/interpr4.cxx` / `formulacell.cxx` (Option B), optionally `bridge.cxx` only if a cell key is later required for cache keying.
@@ -602,7 +615,7 @@ When starting implementation in `~/Desktop/collabofficefull`, proceed in this or
 
 ---
 
-*Specification Pass 5. Inhibit + `g_aParamCache` identity; no `g_aWaiters`. Verified against `~/Desktop/collabofficefull/` (commits `3048e06f0d54` and `27355f078f2a`).*
+*Specification Pass 5. Inhibit + `g_aParamCache` identity; no `g_aWaiters`. Verified against `~/Desktop/collabofficefull/` (commits `3048e06f0d54` and `27355f078f2a`). Proposed design only — not in the tree.*
 
 ---
 
@@ -618,10 +631,10 @@ Pass 4 notes were reviewed against LibrePy and `collabofficefull`. Corrections b
 2. **One listener per sheet** — `SheetModifyDispatcher` shares debounce, UI drain, and re-entrancy. **Nit:** `_undo_lock` is not one wrap around both jobs; spill and geometric each take it (two sequential units).
 3. **Strip-before-pack** — `function.py` order is split → `maybe_strip_geometric_eval_args` → `calc_addin_args_from_split` → matrix-index peel.
 
-**Verdicts on the four improvement items**
+**Notes on the four improvement items**
 
-| Item | Verdict | This revision |
-|------|---------|---------------|
+| Item | Note | This revision |
+|------|------|---------------|
 | Two-workbook blackout | Mechanism agreed. Symptom overstated: failed strip often becomes a silent `index_arg` peel, not `np.mean(data)` seeing a list. “Bind the dispatch job” is not implementable without new identity (`XAddIn` has no calling document). | **Landed half-fix:** UI-thread `maybe_strip_geometric_eval_args(..., doc=target_doc)` uses that workbook key even when two sessions are recorded. Off-main still requires `len==1`. |
 | Mixed triple poison | Agreed. Workbook-wide: mixed on Sheet1 also poisons the same `(code, n_args)` on Sheet2. | Unchanged. Sheet-scoped hint later; do not reintroduce a value fingerprint. |
 | Rehoming heuristics | Agreed they are delicate. Full re-chain on a large mismatch is the right fallback. | Unchanged until a live bug. |
@@ -633,12 +646,10 @@ Pass 4 notes were reviewed against LibrePy and `collabofficefull`. Corrections b
 
 **$O(N^2)$ as the default: disagree.** $\frac{N(N+1)}{2}$ is a worst case. A predecessor-only chain is closer to $2N-1$. Still gate it.
 
-**Prefer Option B (inhibit in `sc/`), not Option A.** `getPy` has no cell id. `pMyFormulaCell` is on `ScInterpreter` and can be null. Do not implement `g_aWaiters`. Stale `#BUSY!` in a queued payload only if B's `data` includes A; `TrackFormulas` dirties/requeues, it does not always `Interpret` immediately.
+**Prefer Option B (inhibit in `sc/`), not Option A.** `getPy` has no cell id. `pMyFormulaCell` is on `ScInterpreter` and can be null. This sketch does not use `g_aWaiters`. Stale `#BUSY!` in a queued payload only if B's `data` includes A; `TrackFormulas` dirties/requeues, it does not always `Interpret` immediately.
 
 **`g_aParamCache` was the largest Pass 4 omission.** Identity is `(code, data)` only. Identical fill-down shares one volatile / one HTTP and breaks Shared-kernel per-cell order if formulas stay untouched. Address this before C++ work.
 
 **Destructor:** copy the manager-cleanup *idea*, not the `ocMacro` gate. Use `HasGeometricRecalcManager()` like `HasExternalRefManager()`.
 
 **§12.2 overstated the current bridge.** Only `g_aPending` + `g_aParamCache` exist today.
-
-
