@@ -26,6 +26,11 @@ from plugin.chatbot.slash_popup import (
 )
 
 
+@pytest.fixture(autouse=True)
+def _enable_slash_for_unit_tests(monkeypatch):
+    monkeypatch.setattr("plugin.chatbot.slash_popup.ENABLE_SLASH", True)
+
+
 class _ListBox:
     def __init__(self) -> None:
         self.items: list[str] = []
@@ -288,3 +293,10 @@ def test_ask_path_printable_does_not_insert():
         popup.on_query_text("/")
         assert popup.handle_key(0, 0, "h") is False
     assert query.text == "/"
+
+
+def test_slash_disabled_when_flag_false(monkeypatch):
+    monkeypatch.setattr("plugin.chatbot.slash_popup.ENABLE_SLASH", False)
+    popup, _box = _controller()
+    popup.on_query_text("/")
+    assert popup.is_open is False

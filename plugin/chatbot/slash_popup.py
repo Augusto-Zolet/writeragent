@@ -77,6 +77,9 @@ def _ovdiag(obj: Any, label: str) -> None:
     _ovlog("%s", " ".join(str(b) for b in bits))
 
 
+# Feature flag: slash-command popup is currently disabled until stable.
+ENABLE_SLASH = False
+
 _POPUP_MAX_ROWS = 6
 _POPUP_ROW_PX = 14
 _POS_SIZE_FLAGS = 15  # X + Y + WIDTH + HEIGHT
@@ -355,6 +358,8 @@ class SlashPopupController:
 
     def on_query_text(self, text: str) -> None:
         """Open or narrow the popup from the current Ask-box contents."""
+        if not ENABLE_SLASH:
+            return
         prefix = slash_typed_prefix(text)
         _ovlog("on_query_text prefix=%r text=%r", prefix, (text[:40] if isinstance(text, str) else text))
         if prefix is None:

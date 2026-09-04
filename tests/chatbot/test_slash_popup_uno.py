@@ -12,8 +12,11 @@ from plugin.testing_runner import native_test
 @native_test
 def test_slash_popup_listbox_filter_and_keys(ctx):
     """Drive SlashPopupController on a live toolkit listbox created on first ``/``."""
+    from plugin.chatbot import slash_popup
     from plugin.chatbot.slash_commands import KEY_ESCAPE, KEY_RETURN
     from plugin.chatbot.slash_popup import SlashPopupController, uses_toolkit_overlay
+
+    slash_popup.ENABLE_SLASH = True
 
     smgr = ctx.getServiceManager()
     dlg_model = smgr.createInstanceWithContext("com.sun.star.awt.UnoControlDialogModel", ctx)

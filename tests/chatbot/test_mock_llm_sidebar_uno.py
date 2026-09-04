@@ -2354,6 +2354,7 @@ def _slash_key(key_code, listener=None):
 
 def _slash_prep():
     """Clear Ask + LRU. Isolated from Packet G. Works in-process or over URP."""
+    from plugin.chatbot import slash_popup
     from plugin.chatbot.sidebar_test_hooks import (
         adopt_runtime_send_listeners,
         ensure_slash_popup,
@@ -2362,6 +2363,7 @@ def _slash_prep():
     )
     from plugin.framework.config import set_config
 
+    slash_popup.ENABLE_SLASH = True
     adopt_runtime_send_listeners()
     sl = getattr(_session, "listener", None) or send_listener()
     set_config("slash_command_lru", [])
