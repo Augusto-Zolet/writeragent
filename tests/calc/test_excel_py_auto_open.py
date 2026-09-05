@@ -428,6 +428,28 @@ def test_oncreate_without_resolvable_doc_still_scans_desktop():
         scan.assert_called_once_with(ctx)
 
 
+def test_geometric_open_job_wires_unload_listener_when_scan_cannot_run():
+    """Dummy-thread OnLoadFinished still records calc:file:; OnUnload must drop it.
+
+    The desktop scan uses get_desktop (thread-guarded) and often fails there.
+    Closing the showcase file is the only soffice-side clear.
+    """
+    import plugin.calc.excel_py_convert.auto_open as mod
+
+    doc = CalcDocStub()
+    ctx = MagicMock()
+    with (
+        patch("plugin.calc.python.geometric_recalc.maybe_geometric_on_document_open") as open_geo,
+        patch(
+            "plugin.calc.python.workbook_lifecycle.ensure_calc_workbook_unload_resets_python"
+        ) as ensure_unload,
+        patch.object(mod, "_record_desktop_calc_sessions", side_effect=RuntimeError("guard")),
+    ):
+        mod._geometric_open_job(ctx, doc)
+    open_geo.assert_called_once_with(ctx, doc)
+    ensure_unload.assert_called_once_with(ctx, doc)
+
+
 def test_record_desktop_calc_sessions_records_only_exactly_one_calc():
     """Two Calcs must not be recorded — leftover then Isolated (recorded=2)."""
     import plugin.calc.excel_py_convert.auto_open as mod
@@ -462,6 +484,45 @@ def test_record_desktop_calc_sessions_records_only_exactly_one_calc():
         ):
             mod._record_desktop_calc_sessions(MagicMock())
         assert recorded_calc_session_count() == 1
+    finally:
+        clear_active_calc_session()
+
+
+def test_record_desktop_calc_sessions_drops_stale_closed_file_ids():
+    """Closed showcase calc:file: ids must not keep leftover Shared Isolated.
+
+    UNO tests that open python_showcase_demo.ods/.xlsx record those file
+    sessions in soffice. Client-side clear_active_calc_session() does not
+    reach soffice. The next sole-Calc desktop scan (factory OnNew) must
+    drop the leftovers so A3 can bind A1's Shared name.
+    """
+    import plugin.calc.excel_py_convert.auto_open as mod
+    from plugin.scripting.session_manager import (
+        clear_active_calc_session,
+        off_main_calc_session_is_unambiguous,
+        record_active_calc_session,
+        recorded_calc_session_count,
+        recorded_calc_session_ids,
+    )
+
+    clear_active_calc_session()
+    record_active_calc_session("calc:file:///fixtures/python_showcase_demo.ods")
+    record_active_calc_session("calc:file:///fixtures/python_showcase_demo.xlsx")
+    one = CalcDocStub()
+    enum = MagicMock()
+    enum.hasMoreElements.side_effect = [True, False]
+    enum.nextElement.side_effect = [one]
+    desktop = MagicMock()
+    desktop.getComponents.return_value.createEnumeration.return_value = enum
+    try:
+        with (
+            patch("plugin.framework.thread_guard.on_main_thread", return_value=True),
+            patch("plugin.framework.uno_context.get_desktop", return_value=desktop),
+        ):
+            mod._record_desktop_calc_sessions(MagicMock())
+        assert recorded_calc_session_count() == 1
+        assert off_main_calc_session_is_unambiguous()
+        assert all("python_showcase_demo" not in sid for sid in recorded_calc_session_ids())
     finally:
         clear_active_calc_session()
 

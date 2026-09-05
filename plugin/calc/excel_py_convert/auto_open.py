@@ -45,8 +45,10 @@ def _record_desktop_calc_sessions(ctx: Any) -> None:
     from plugin.framework.uno_context import get_desktop
     from plugin.scripting.session_manager import (
         calc_workbook_base_session_id,
+        clear_active_calc_session,
         is_opencl_probe_session_id,
         recorded_calc_session_count,
+        recorded_calc_session_ids,
     )
 
     desktop = get_desktop(ctx)
@@ -85,7 +87,14 @@ def _record_desktop_calc_sessions(ctx: Any) -> None:
                 continue
             calcs.append(model)
     if len(calcs) == 1:
-        calc_workbook_base_session_id(calcs[0])
+        sid = calc_workbook_base_session_id(calcs[0])
+        # Opening a saved showcase file records calc:file:… in soffice. Closing
+        # it does not always drop that id (OnUnload only discards the listener's
+        # early uuid). The next factory OnNew must prune those leftovers or
+        # Shared leftover stays recorded>1 / Isolated (A3 NameError).
+        for other in recorded_calc_session_ids():
+            if other != sid:
+                clear_active_calc_session(other)
     log.info(
         "excel_py lifecycle: desktop calc sessions scanned=%s calcs=%s recorded=%s",
         n,
@@ -98,6 +107,19 @@ def _geometric_open_job(ctx: Any, doc: Any) -> None:
     from plugin.calc.python.geometric_recalc import maybe_geometric_on_document_open
 
     maybe_geometric_on_document_open(ctx, doc)
+    # Geometric record uses getURL (not get_desktop), so a Dummy-thread
+    # OnLoadFinished still adds calc:file:…. The desktop scan then dies on
+    # the thread guard and never prunes. Wire OnUnload here so closing the
+    # showcase file drops that id — client-side clear cannot reach soffice.
+    if _is_calc_doc(doc):
+        try:
+            from plugin.calc.python.workbook_lifecycle import (
+                ensure_calc_workbook_unload_resets_python,
+            )
+
+            ensure_calc_workbook_unload_resets_python(ctx, doc)
+        except Exception:
+            log.debug("excel_py lifecycle: unload listener install failed", exc_info=True)
     try:
         _record_desktop_calc_sessions(ctx)
     except Exception:
