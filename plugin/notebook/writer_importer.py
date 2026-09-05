@@ -39,18 +39,26 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 from typing import Any, Iterator
 
-from com.sun.star.awt import Size
 from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
 
 from plugin.contrib.nbformat import read_ipynb
-from plugin.framework.i18n import _
 from plugin.notebook.cell_registry import (
     NotebookDocState,
-    cell_id_to_hex,
+    _cell_heading,
+    _coerce_notebook_text,
+    _prepare_display_text,
     insert_output_start_bookmark,
     new_code_cell_entry,
     save_notebook_source_path,
     save_registry,
+)
+from plugin.notebook.notebook_controls import (
+    _insert_code_input_in_flow,
+    _insert_run_button_in_flow,
+    _log_shape_add,
+    _resolve_para_style,
+    _style_control_paragraph,
+    _text_area_width_units,
 )
 from plugin.writer.images.image_tools import (
     _apply_graphic_properties,
@@ -62,35 +70,12 @@ from plugin.writer.images.image_tools import (
 
 log = logging.getLogger("writeragent.notebook")
 
-# 1/100 mm — code field width falls back when page style is unavailable.
-_DEFAULT_WIDTH = 14000
-_MIN_FIELD_HEIGHT = 500
-_LINE_HEIGHT = 450
-# Hairline + descenders. One extra _LINE_HEIGHT of wrap slack so a leftover
-# wrap (In[3] `type(a2))`) is fully inside the gray box. Half-line slack
-# (`_LINE_HEIGHT // 2`) clipped that last visual line mid-glyph and did not
-# tighten short cells (In[1] still had empty gray). Live with a bit of empty
-# gray on short cells. No wrap-width calculator, no HScroll.
-_FIELD_HEIGHT_PAD = 280
-_WRAP_SLACK = _LINE_HEIGHT
-# AS_CHARACTER cannot split; cap near one page body so a huge cell page-breaks as a
-# unit. Do not use a 9 cm cap — that sliced 15-line cells.
-_MAX_FIELD_HEIGHT = 24000
-# Small gutter ▶ — a 6 mm bordered square sat inside the first code line.
-_RUN_BUTTON_SIZE = 320
 _PROGRESS_EVERY_N_CELLS = 10
-_SLOW_ADD_MS = 2000
-_MAX_IMPORT_TEXT_CHARS = 50_000
-_TRUNCATION_SUFFIX = "\n\n[… truncated for import …]"
 _MAX_OUTPUTS_PER_CELL = 200
 _MAX_IMAGE_DECODE_BYTES = 8 * 1024 * 1024
 _MAX_IMAGE_DISPLAY_WIDTH_MM = 170
 _DEFAULT_IMAGE_HEIGHT_MM = 80
 _IMAGE_MIME_SUFFIX = {"image/png": ".png", "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/svg+xml": ".svg"}
-_CODE_FONT_NAME = "Liberation Mono"
-_CODE_FONT_HEIGHT = 10
-_CODE_FIELD_BG = 0xF7F7F7
-_CODE_FIELD_BORDER = 0xD0D0D0
 _NOTEBOOK_IN_CHAR_COLOR = 0x307FC1
 _HTTP_IMAGE_TIMEOUT_SEC = 2
 
@@ -132,7 +117,6 @@ _HTML_A_OR_IMG_TAG_RE = re.compile(r"(?is)</?(?:img|a)\b[^>]*?/?>")
 _HTML_ATTR_RE = re.compile(
     r"""(?is)([a-z_:][-a-z0-9_:.]*)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))"""
 )
-_IN_PROMPT_RE = re.compile(r"^In \[[0-9 ]*\]:")
 # One-item resumed list: ``<ol start="3"><li>Ask for help…</li></ol>``.
 _OL_START_RE = re.compile(r"""(?is)<ol\b[^>]*\bstart\s*=\s*["']?(\d+)""")
 
@@ -144,34 +128,6 @@ def _mono_ms(t0: float) -> int:
 def _strip_ansi(text: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", text)
 
-
-def _coerce_notebook_text(value: Any) -> str:
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, list):
-        return "".join(str(line) for line in value)
-    return str(value)
-
-
-def _height_for_text(text: str, doc: Any | None = None) -> int:
-    """Shape height in 1/100 mm so every source line is visible (no clipped last line)."""
-    lines = 0
-    for line in (text or "").split("\n"):
-        lines += max(1, (len(line) + 79) // 80)
-    lines = max(1, lines)
-    raw = lines * _LINE_HEIGHT + _FIELD_HEIGHT_PAD + _WRAP_SLACK
-    cap = _max_field_height_units(doc)
-    return max(_MIN_FIELD_HEIGHT, min(cap, raw))
-
-
-def _prepare_display_text(text: str) -> tuple[str, bool]:
-    display = text or ""
-    if len(display) <= _MAX_IMPORT_TEXT_CHARS:
-        return display, False
-    keep = max(0, _MAX_IMPORT_TEXT_CHARS - len(_TRUNCATION_SUFFIX))
-    return display[:keep] + _TRUNCATION_SUFFIX, True
 
 
 def _mime_plain(data: Any) -> str:
@@ -340,58 +296,6 @@ def _image_mime_from_bytes(raw: bytes, path: str) -> str:
     if lower.endswith((".jpg", ".jpeg")):
         return "image/jpeg"
     return "image/png"
-
-
-def _page_style(doc: Any | None) -> Any | None:
-    """Current page style, or Standard/Default fallback. None if unavailable."""
-    if doc is None:
-        return None
-    try:
-        families = doc.getStyleFamilies().getByName("PageStyles")
-        name = ""
-        try:
-            name = str(doc.getPropertyValue("PageDescName") or "")
-        except Exception:
-            name = ""
-        if name and families.hasByName(name):
-            return families.getByName(name)
-        for candidate in ("Standard", "Default", "Default Page Style"):
-            if families.hasByName(candidate):
-                return families.getByName(candidate)
-    except Exception:
-        log.debug("notebook import could not read page style", exc_info=True)
-    return None
-
-
-def _text_area_width_units(doc: Any | None) -> int:
-    """Page width minus left/right margins (1/100 mm), for code fields and images."""
-    style = _page_style(doc)
-    if style is None:
-        return _DEFAULT_WIDTH
-    try:
-        page_w = int(style.getPropertyValue("Width"))
-        left = int(style.getPropertyValue("LeftMargin"))
-        right = int(style.getPropertyValue("RightMargin"))
-        return max(6000, page_w - left - right)
-    except Exception:
-        log.debug("notebook import could not read page text-area width", exc_info=True)
-        return _DEFAULT_WIDTH
-
-
-def _max_field_height_units(doc: Any | None) -> int:
-    """Cap AS_CHARACTER code fields at roughly the page body height."""
-    style = _page_style(doc)
-    if style is None:
-        return _MAX_FIELD_HEIGHT
-    try:
-        page_h = int(style.getPropertyValue("Height"))
-        top = int(style.getPropertyValue("TopMargin"))
-        bottom = int(style.getPropertyValue("BottomMargin"))
-        # Leave room for the In [n]: gutter on the same page when possible.
-        return max(_MIN_FIELD_HEIGHT, page_h - top - bottom - 1500)
-    except Exception:
-        log.debug("notebook import could not read page text-area height", exc_info=True)
-        return _MAX_FIELD_HEIGHT
 
 
 def _display_size_units(raw: bytes, mime: str, *, max_width_mm: float | None = None) -> tuple[int, int]:
@@ -570,43 +474,6 @@ def _import_image_outputs_in_flow(
     return added
 
 
-def _log_shape_add(
-    *,
-    step: str,
-    name: str = "",
-    text_chars: int = 0,
-    truncated: bool = False,
-    shape_h: int = 0,
-    shapes_before: int,
-    create_ms: int = 0,
-    text_ms: int = 0,
-    add_ms: int = 0,
-    ok: bool = True,
-) -> None:
-    total_ms = create_ms + text_ms + add_ms
-    log.debug(
-        "notebook import add step=%s name=%s text_chars=%d truncated=%s shape_h=%d shapes_before=%d "
-        "create_ms=%d text_ms=%d add_ms=%d ok=%s",
-        step,
-        name,
-        text_chars,
-        truncated,
-        shape_h,
-        shapes_before,
-        create_ms,
-        text_ms,
-        add_ms,
-        ok,
-    )
-    if total_ms >= _SLOW_ADD_MS:
-        log.warning(
-            "notebook import slow UNO add step=%s total_ms=%d shapes_before=%d",
-            step,
-            total_ms,
-            shapes_before,
-        )
-
-
 @contextmanager
 def _batch_document_updates(doc: Any) -> Iterator[None]:
     """Suppress view/layout while inserting many in-flow controls.
@@ -683,23 +550,6 @@ def flush_ui_idle(ctx: Any | None, *, log_phase: str | None = None) -> None:
         return
     if log_phase:
         log.info("notebook import %s elapsed_ms=%d", log_phase, _mono_ms(t0))
-
-
-def _resolve_para_style(doc: Any, style_name: str | None) -> str | None:
-    """Map English style label to a name that exists in this document (locale-safe)."""
-    if not style_name:
-        return None
-    try:
-        para_styles = doc.getStyleFamilies().getByName("ParagraphStyles")
-        if para_styles.hasByName(style_name):
-            return style_name
-        lower = style_name.lower()
-        for name in para_styles.getElementNames():
-            if name.lower() == lower:
-                return name
-    except Exception:
-        log.debug("notebook import could not enumerate ParagraphStyles for %r", style_name)
-    return None
 
 
 def _get_para_styles(doc: Any) -> Any | None:
@@ -849,12 +699,6 @@ def _ensure_notebook_import_styles(doc: Any) -> str | None:
     except Exception:
         log.debug("notebook import could not update In keep properties", exc_info=True)
     return _resolve_para_style(doc, _STYLE_NOTEBOOK_IN)
-
-
-def _format_in_prompt(execution_count: Any | None) -> str:
-    if execution_count is None:
-        return "In [ ]:"
-    return f"In [{execution_count}]:"
 
 
 def _html_attr(tag_or_attrs: str, name: str) -> str:
@@ -1283,21 +1127,6 @@ def _unglue_last_paragraph(doc: Any) -> None:
         log.debug("notebook import unglue last paragraph failed", exc_info=True)
 
 
-def _anchor_control_as_character(shape: Any) -> None:
-    """In-flow control: AS_CHARACTER, top-aligned, no wrap beside the next shape."""
-    shape.setPropertyValue("AnchorType", AS_CHARACTER)
-    # VertOrientation.TOP — keep ▶ and the field on one line box (max height,
-    # not stacked). CHAR_CENTER / wrap was a plausible source of blank top bands.
-    try:
-        shape.setPropertyValue("VertOrient", 1)
-    except Exception:
-        log.debug("notebook import VertOrient not applied", exc_info=True)
-    try:
-        shape.setPropertyValue("TextWrap", 0)
-    except Exception:
-        log.debug("notebook import TextWrap not applied", exc_info=True)
-
-
 def _numbering_kind(name: str) -> str:
     """``none`` / ``outline`` / ``list`` — Outline is heading chapter numbering."""
     lowered = (name or "").strip().lower()
@@ -1634,176 +1463,6 @@ def _append_markdown_cell(
                 _append_body_paragraph(doc, str(payload), _STYLE_BODY, lead_break=False)
         else:
             _append_body_paragraph(doc, str(payload), _STYLE_BODY, lead_break=block_lead)
-
-
-def _set_model_prop(model: Any, name: str, value: Any) -> None:
-    try:
-        model.setPropertyValue(name, value)
-        return
-    except Exception:
-        pass
-    try:
-        setattr(model, name, value)
-    except Exception:
-        log.debug("notebook import could not set model %s", name, exc_info=True)
-
-
-def _style_code_field_model(model: Any) -> None:
-    """Jupyter-like code box: light gray fill, hairline border, Liberation Mono."""
-    _set_model_prop(model, "MultiLine", True)
-    _set_model_prop(model, "FontName", _CODE_FONT_NAME)
-    _set_model_prop(model, "FontHeight", _CODE_FONT_HEIGHT)
-    _set_model_prop(model, "BackgroundColor", _CODE_FIELD_BG)
-    # UnoControlEditModel: 0 none, 1 3D, 2 simple — simple + gray is a hairline.
-    _set_model_prop(model, "Border", 2)
-    _set_model_prop(model, "BorderColor", _CODE_FIELD_BORDER)
-    _set_model_prop(model, "VScroll", False)
-    _set_model_prop(model, "AutoVScroll", False)
-
-
-def _style_run_button_model(model: Any) -> None:
-    """Small ▶ without a fat 3D square around it."""
-    _set_model_prop(model, "Border", 0)
-    _set_model_prop(model, "BackgroundColor", 0xFFFFFF)
-    _set_model_prop(model, "FontHeight", 8)
-    _set_model_prop(model, "FocusOnClick", False)
-    _set_model_prop(model, "DefaultControl", "com.sun.star.form.control.CommandButton")
-
-
-def _style_control_paragraph(doc: Any) -> None:
-    """Field-only paragraph: full text-area width, no hanging indent for ▶."""
-    try:
-        text = doc.getText()
-        cursor = text.createTextCursor()
-        cursor.gotoEnd(False)
-        body = _resolve_para_style(doc, _STYLE_BODY)
-        if body:
-            cursor.setPropertyValue("ParaStyleName", body)
-        cursor.setPropertyValue("ParaFirstLineIndent", 0)
-        cursor.setPropertyValue("ParaLeftMargin", 0)
-        cursor.setPropertyValue("ParaTopMargin", 0)
-        cursor.setPropertyValue("ParaBottomMargin", 150)
-        # KeepTogether on a one-line para with a tall AS_CHARACTER object can
-        # force a page break even when the box would still fit. The shape
-        # cannot split either way; do not add an extra keep.
-        cursor.setPropertyValue("ParaKeepTogether", False)
-        # Do not KeepWithNext: gluing the tall AS_CHARACTER field to following
-        # markdown pulled both onto the next page and left a half-empty page.
-        cursor.setPropertyValue("ParaKeepWithNext", False)
-    except Exception:
-        log.debug("notebook import control paragraph style failed", exc_info=True)
-
-
-def _insert_run_button_in_flow(
-    doc: Any,
-    *,
-    cell_id: str,
-    controls_before: int,
-    ctx: Any | None = None,
-) -> None:
-    """In-flow ▶ on the ``In [n]:`` gutter paragraph (not the tall gray field)."""
-    from plugin.notebook.notebook_controls import form_button_push_type
-
-    hex_id = cell_id_to_hex(cell_id)
-    t0 = time.monotonic()
-    model = doc.createInstance("com.sun.star.form.component.CommandButton")
-    if model is None:
-        raise RuntimeError("Failed to create form CommandButton")
-    model.Name = f"nb_run_{hex_id}"
-    model.Label = "\u25b6"
-    if hasattr(model, "HelpText"):
-        model.HelpText = _("Run code cell")
-    # URL-type buttons open TargetURL via desktop and do not reach our ProtocolHandler.
-    model.ButtonType = form_button_push_type()
-    _style_run_button_model(model)
-
-    shape = doc.createInstance("com.sun.star.drawing.ControlShape")
-    if shape is None:
-        raise RuntimeError("Failed to create ControlShape for run button")
-    shape.setSize(Size(_RUN_BUTTON_SIZE, _RUN_BUTTON_SIZE))
-    shape.Control = model
-    _anchor_control_as_character(shape)
-
-    text = doc.getText()
-    cursor = text.createTextCursor()
-    cursor.gotoEnd(False)
-    t_add = time.monotonic()
-    text.insertTextContent(cursor, shape, False)
-    _log_shape_add(
-        step="run_button",
-        name=model.Name,
-        shapes_before=controls_before,
-        create_ms=_mono_ms(t0),
-        add_ms=_mono_ms(t_add),
-        shape_h=_RUN_BUTTON_SIZE,
-    )
-
-
-def _insert_code_input_in_flow(
-    doc: Any,
-    *,
-    name: str,
-    source: str,
-    controls_before: int,
-) -> None:
-    """Editable code cell: form TextField anchored in document flow at body end.
-
-    Uses AS_CHARACTER + insertTextContent (same as forms.py Writer path). Without
-    AnchorType, dp.add() on the draw page left controls inside the first heading
-    and inflated page count (~1 soft page break per code cell).
-    """
-    display, truncated = _prepare_display_text(_coerce_notebook_text(source))
-    raw_chars = len(source or "")
-
-    t0 = time.monotonic()
-    model = doc.createInstance("com.sun.star.form.component.TextField")
-    if model is None:
-        raise RuntimeError("Failed to create form TextField")
-    model.Name = name
-    if hasattr(model, "Label"):
-        model.Label = "Code"
-    _style_code_field_model(model)
-    create_ms = _mono_ms(t0)
-
-    t_text = time.monotonic()
-    model.Text = display
-    text_ms = _mono_ms(t_text)
-
-    h = _height_for_text(display, doc)
-    field_w = _text_area_width_units(doc)
-    t_shape = time.monotonic()
-    shape = doc.createInstance("com.sun.star.drawing.ControlShape")
-    if shape is None:
-        raise RuntimeError("Failed to create ControlShape")
-    shape.setSize(Size(field_w, h))
-    shape.Control = model
-    _anchor_control_as_character(shape)
-    create_ms += _mono_ms(t_shape)
-
-    text = doc.getText()
-    cursor = text.createTextCursor()
-    cursor.gotoEnd(False)
-    t_add = time.monotonic()
-    text.insertTextContent(cursor, shape, False)
-    add_ms = _mono_ms(t_add)
-    _log_shape_add(
-        step="code_field",
-        name=name,
-        text_chars=raw_chars,
-        truncated=truncated,
-        shape_h=h,
-        shapes_before=controls_before,
-        create_ms=create_ms,
-        text_ms=text_ms,
-        add_ms=add_ms,
-    )
-
-
-def _cell_heading(idx: int, cell_type: str, execution_count: Any | None = None) -> str:
-    """Code-cell gutter prompt only. Markdown/raw have no Cell N chrome."""
-    if cell_type == "code":
-        return _format_in_prompt(execution_count)
-    return ""
 
 
 def import_ipynb_to_writer(doc: Any, path: str, ctx: Any | None = None) -> dict[str, Any]:

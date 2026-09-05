@@ -26,18 +26,20 @@ from plugin.notebook.cell_registry import (
     load_registry,
     save_registry,
 )
-from plugin.notebook.form_lookup import find_control_shape_by_name as _find_control_shape_by_name
-from plugin.notebook.writer_importer import (
+from plugin.notebook.cell_registry import (
     _IN_PROMPT_RE,
+    _format_in_prompt,
+    _prepare_display_text,
+)
+from plugin.notebook.form_lookup import find_control_shape_by_name as _find_control_shape_by_name
+from plugin.notebook.notebook_controls import _resolve_para_style
+from plugin.notebook.writer_importer import (
     _PARAGRAPH_BREAK,
     _STYLE_MD_H1,
     _STYLE_MD_H2,
     _STYLE_NOTEBOOK_IN,
     _STYLE_OUTPUT,
-    _format_in_prompt,
     _insert_image_in_flow,
-    _prepare_display_text,
-    _resolve_para_style,
     _strip_ansi,
 )
 from plugin.scripting.payload_codec import host_unpack_data, is_image_payload, find_image_payloads

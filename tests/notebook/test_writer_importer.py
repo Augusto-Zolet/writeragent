@@ -10,41 +10,47 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from plugin.notebook.cell_registry import (
+    _MAX_IMPORT_TEXT_CHARS,
+    _cell_heading,
+    _coerce_notebook_text,
+    _format_in_prompt,
+    _prepare_display_text,
+)
+from plugin.notebook.notebook_controls import (
+    _DEFAULT_WIDTH,
+    _FIELD_HEIGHT_PAD,
+    _LINE_HEIGHT,
+    _MAX_FIELD_HEIGHT,
+    _MIN_FIELD_HEIGHT,
+    _WRAP_SLACK,
+    _height_for_text,
+    _max_field_height_units,
+    _page_style,
+    _resolve_para_style,
+    _text_area_width_units,
+)
 from plugin.notebook.writer_importer import (
     _MAX_IMAGE_DECODE_BYTES,
-    _MAX_IMPORT_TEXT_CHARS,
     _PARAGRAPH_BREAK,
     _STYLE_MD_H1,
     _STYLE_MD_H2,
     _STYLE_NOTEBOOK_IN,
-    _append_body_text_block,
     _append_body_paragraph,
+    _append_body_text_block,
     _append_paragraph_break_at_end,
     _apply_no_spellcheck_for_import,
-    _cell_heading,
-    _coerce_notebook_text,
     _create_import_para_style,
     _decode_notebook_image,
-    _trim_trailing_empty_paragraph,
-    _DEFAULT_WIDTH,
     _ensure_notebook_import_styles,
-    _FIELD_HEIGHT_PAD,
-    _format_in_prompt,
     _format_outputs_for_body,
-    _height_for_text,
     _inline_backticks_to_html,
     _iter_markdown_blocks,
-    _LINE_HEIGHT,
     _looks_like_html,
-    _max_field_height_units,
     _notebook_image_payload,
-    _page_style,
     _png_pixel_size,
-    _prepare_display_text,
-    _resolve_para_style,
-    _text_area_width_units,
+    _trim_trailing_empty_paragraph,
     _unglue_last_paragraph,
-    _WRAP_SLACK,
     _wrap_html_fragment,
     format_all_outputs,
     format_output_text,
@@ -387,7 +393,7 @@ def test_height_for_text_includes_one_wrap_line():
 
 
 def test_code_field_uses_full_text_area_width():
-    from plugin.notebook.writer_importer import _insert_code_input_in_flow
+    from plugin.notebook.notebook_controls import _insert_code_input_in_flow
 
     src = inspect.getsource(_insert_code_input_in_flow)
     assert "_text_area_width_units(doc)" in src
@@ -396,7 +402,6 @@ def test_code_field_uses_full_text_area_width():
 
 
 def test_page_style_shared_by_width_and_height():
-    from plugin.notebook.writer_importer import _MAX_FIELD_HEIGHT, _MIN_FIELD_HEIGHT
 
     assert _page_style(None) is None
     assert "_page_style(doc)" in inspect.getsource(_text_area_width_units)
@@ -542,7 +547,7 @@ def test_import_ipynb_to_writer_logs(tmp_path, monkeypatch):
             self.Height = h
 
     doc.createInstance.side_effect = lambda service: MagicMock()
-    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+    monkeypatch.setattr("plugin.notebook.notebook_controls.Size", FakeSize)
 
     log_messages: list[str] = []
 
@@ -583,7 +588,7 @@ def test_import_ipynb_to_writer_does_not_pump_vcl_idle(tmp_path, monkeypatch):
             self.Height = h
 
     flush = MagicMock()
-    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+    monkeypatch.setattr("plugin.notebook.notebook_controls.Size", FakeSize)
     monkeypatch.setattr("plugin.notebook.writer_importer.flush_ui_idle", flush)
     monkeypatch.setattr(
         "plugin.notebook.notebook_controls.wire_all_notebook_run_buttons",
@@ -651,7 +656,7 @@ def test_import_ipynb_code_cells_use_insert_text_content(tmp_path, monkeypatch):
         return MagicMock()
 
     doc.createInstance.side_effect = create_instance
-    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+    monkeypatch.setattr("plugin.notebook.notebook_controls.Size", FakeSize)
 
     stats = import_ipynb_to_writer(doc, str(ipynb))
 
@@ -688,7 +693,7 @@ def test_import_ipynb_markdown_html_uses_insert_html(tmp_path, monkeypatch):
             self.Height = h
 
     doc.createInstance.side_effect = lambda service: MagicMock()
-    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+    monkeypatch.setattr("plugin.notebook.notebook_controls.Size", FakeSize)
 
     def fake_insert_html(cursor, html, **kwargs):
         html_calls.append(html)
@@ -727,7 +732,7 @@ def test_import_ipynb_inserts_image_output(tmp_path, monkeypatch):
 
     doc.createInstance.side_effect = lambda service: MagicMock()
     body_text.insertTextContent.side_effect = lambda cursor, content, absorb: insert_calls.append(content)
-    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+    monkeypatch.setattr("plugin.notebook.notebook_controls.Size", FakeSize)
     monkeypatch.setattr(
         "plugin.notebook.writer_importer.insert_image_at_locator",
         lambda ctx, model, path, **kw: MagicMock(),
@@ -772,7 +777,7 @@ def test_import_image_then_stream_keeps_notebook_order(tmp_path, monkeypatch):
 
     body_text.insertString.side_effect = tracking_insert_string
     doc.createInstance.side_effect = lambda service: MagicMock()
-    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+    monkeypatch.setattr("plugin.notebook.notebook_controls.Size", FakeSize)
     monkeypatch.setattr(
         "plugin.notebook.writer_importer.insert_image_at_locator",
         tracking_insert_image,
@@ -801,7 +806,7 @@ def test_import_code_cell_without_outputs_has_no_output_heading(tmp_path, monkey
             self.Width = w
             self.Height = h
 
-    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+    monkeypatch.setattr("plugin.notebook.notebook_controls.Size", FakeSize)
     monkeypatch.setattr("plugin.notebook.cell_registry.insert_output_start_bookmark", lambda _d, _n: True)
 
     import_ipynb_to_writer(doc, str(ipynb))
@@ -847,7 +852,7 @@ def test_import_ipynb_saves_registry_with_two_code_cells(tmp_path, monkeypatch):
             self.Width = w
             self.Height = h
 
-    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+    monkeypatch.setattr("plugin.notebook.notebook_controls.Size", FakeSize)
     monkeypatch.setattr("plugin.notebook.cell_registry.insert_output_start_bookmark", lambda _d, _n: True)
 
     saved: list = []
@@ -935,7 +940,7 @@ def test_import_small_numpy_notebook_fixture(monkeypatch):
         return model
 
     doc.createInstance.side_effect = create_instance
-    monkeypatch.setattr("plugin.notebook.writer_importer.Size", FakeSize)
+    monkeypatch.setattr("plugin.notebook.notebook_controls.Size", FakeSize)
     monkeypatch.setattr("plugin.notebook.cell_registry.insert_output_start_bookmark", lambda _d, _n: True)
 
     html_calls: list[str] = []
@@ -1226,7 +1231,7 @@ def test_inline_markdown_nested_code_in_bold():
 
 
 def test_height_for_text_accounts_for_long_wrapped_lines():
-    from plugin.notebook.writer_importer import _height_for_text
+    from plugin.notebook.notebook_controls import _height_for_text
 
     short_lines = "a = 1\nb = 2"
     long_wrapped_line = "a = [" + "1, " * 100 + "]"

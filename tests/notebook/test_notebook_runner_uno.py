@@ -459,7 +459,8 @@ def _output_text_for_cell(doc, cell) -> str:
         _is_next_cell_boundary,
         _paragraph_string,
     )
-    from plugin.notebook.writer_importer import _STYLE_NOTEBOOK_IN, _resolve_para_style
+    from plugin.notebook.notebook_controls import _resolve_para_style
+    from plugin.notebook.writer_importer import _STYLE_NOTEBOOK_IN
 
     start = _cursor_after_bookmark(doc, cell.output_start_bookmark)
     if start is None:

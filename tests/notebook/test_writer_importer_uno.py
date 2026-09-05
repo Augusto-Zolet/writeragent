@@ -140,7 +140,8 @@ def _output_text_for_cell(doc, cell) -> str:
         _is_next_cell_boundary,
         _paragraph_string,
     )
-    from plugin.notebook.writer_importer import _STYLE_NOTEBOOK_IN, _resolve_para_style
+    from plugin.notebook.notebook_controls import _resolve_para_style
+    from plugin.notebook.writer_importer import _STYLE_NOTEBOOK_IN
 
     start = _cursor_after_bookmark(doc, cell.output_start_bookmark)
     if start is None:
@@ -566,8 +567,8 @@ def test_medium_numpy_import_layout_no_run(ctx, doc):
     for cell in state.code_cells:
         assert cell.code_field_name in names, f"{cell.code_field_name} missing: {names}"
 
+    from plugin.notebook.notebook_controls import _height_for_text
     from plugin.notebook.notebook_runner import _find_control_shape_by_name, read_code_from_field
-    from plugin.notebook.writer_importer import _height_for_text
 
     # Multi-line In[2] field must be tall enough that the last line is not clipped.
     cell_in2 = state.code_cells[1]
@@ -596,7 +597,7 @@ def test_medium_numpy_import_layout_no_run(ctx, doc):
     assert h_in1 >= want_in1, f"In[1] lost wrap slack: height={h_in1} want={want_in1}"
 
     from plugin.notebook.cell_registry import cell_id_to_hex
-    from plugin.notebook.writer_importer import _text_area_width_units
+    from plugin.notebook.notebook_controls import _text_area_width_units
 
     run_in2 = f"nb_run_{cell_id_to_hex(cell_in2.cell_id)}"
     gutter_in2 = _anchor_paragraph_string(doc, run_in2)

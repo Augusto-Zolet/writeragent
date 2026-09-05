@@ -27,10 +27,19 @@ import time
 from typing import Any
 
 import uno
+from com.sun.star.awt import Size
+from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
 
+from plugin.framework.i18n import _
 from plugin.framework.thread_guard import main_thread_only
 from plugin.framework.uno_listeners import BaseActionListener, BaseContainerListener, BaseDocumentEventListener
-from plugin.notebook.cell_registry import has_notebook_registry, load_registry
+from plugin.notebook.cell_registry import (
+    _coerce_notebook_text,
+    _prepare_display_text,
+    cell_id_to_hex,
+    has_notebook_registry,
+    load_registry,
+)
 
 log = logging.getLogger("writeragent.notebook")
 
@@ -38,6 +47,60 @@ log = logging.getLogger("writeragent.notebook")
 _FORM_BUTTON_PUSH = 0
 
 _RUN_PREFIX = "nb_run_"
+
+# 1/100 mm — code field width falls back when page style is unavailable.
+_DEFAULT_WIDTH = 14000
+_MIN_FIELD_HEIGHT = 500
+_LINE_HEIGHT = 450
+_FIELD_HEIGHT_PAD = 280
+_WRAP_SLACK = _LINE_HEIGHT
+_MAX_FIELD_HEIGHT = 24000
+_RUN_BUTTON_SIZE = 320
+_SLOW_ADD_MS = 2000
+_CODE_FONT_NAME = "Liberation Mono"
+_CODE_FONT_HEIGHT = 10
+_CODE_FIELD_BG = 0xF7F7F7
+_CODE_FIELD_BORDER = 0xD0D0D0
+
+__all__ = [
+    "form_button_push_type",
+    "ensure_form_design_mode_off",
+    "get_control_view_for_model",
+    "wired_run_listener_count",
+    "form_run_listeners",
+    "prune_dead_listeners",
+    "NotebookRunButtonListener",
+    "NotebookFormContainerListener",
+    "NotebookFormRunListener",
+    "wire_run_button_listener",
+    "wire_all_notebook_run_buttons",
+    "install_notebook_run_button_wiring",
+    "_resolve_para_style",
+    "_page_style",
+    "_text_area_width_units",
+    "_max_field_height_units",
+    "_height_for_text",
+    "_anchor_control_as_character",
+    "_set_model_prop",
+    "_style_code_field_model",
+    "_style_run_button_model",
+    "_style_control_paragraph",
+    "_log_shape_add",
+    "_insert_run_button_in_flow",
+    "_insert_code_input_in_flow",
+    "_DEFAULT_WIDTH",
+    "_MIN_FIELD_HEIGHT",
+    "_LINE_HEIGHT",
+    "_FIELD_HEIGHT_PAD",
+    "_WRAP_SLACK",
+    "_MAX_FIELD_HEIGHT",
+    "_RUN_BUTTON_SIZE",
+    "_SLOW_ADD_MS",
+    "_CODE_FONT_NAME",
+    "_CODE_FONT_HEIGHT",
+    "_CODE_FIELD_BG",
+    "_CODE_FIELD_BORDER",
+]
 
 # Keep listeners alive (UNO holds weak refs). Form-level: one pair per document.
 # File Open XFilter.filter() runs on Dummy-2 while main waits (Yellow; same as
@@ -556,3 +619,287 @@ def install_notebook_run_button_wiring(ctx: Any) -> None:
         _install_doc_event_listener(ctx)
     except Exception:
         log.debug("notebook controls: install wiring failed", exc_info=True)
+
+
+def _mono_ms(t0: float) -> int:
+    return int((time.monotonic() - t0) * 1000)
+
+
+def _resolve_para_style(doc: Any, style_name: str | None) -> str | None:
+    """Map English style label to a name that exists in this document (locale-safe)."""
+    if not style_name:
+        return None
+    try:
+        para_styles = doc.getStyleFamilies().getByName("ParagraphStyles")
+        if para_styles.hasByName(style_name):
+            return style_name
+        lower = style_name.lower()
+        for name in para_styles.getElementNames():
+            if name.lower() == lower:
+                return name
+    except Exception:
+        log.debug("notebook controls: could not enumerate ParagraphStyles for %r", style_name)
+    return None
+
+
+def _page_style(doc: Any | None) -> Any | None:
+    """Current page style, or Standard/Default fallback. None if unavailable."""
+    if doc is None:
+        return None
+    try:
+        families = doc.getStyleFamilies().getByName("PageStyles")
+        name = ""
+        try:
+            name = str(doc.getPropertyValue("PageDescName") or "")
+        except Exception:
+            name = ""
+        if name and families.hasByName(name):
+            return families.getByName(name)
+        for candidate in ("Standard", "Default", "Default Page Style"):
+            if families.hasByName(candidate):
+                return families.getByName(candidate)
+    except Exception:
+        log.debug("notebook controls could not read page style", exc_info=True)
+    return None
+
+
+def _text_area_width_units(doc: Any | None) -> int:
+    """Page width minus left/right margins (1/100 mm), for code fields and images."""
+    style = _page_style(doc)
+    if style is None:
+        return _DEFAULT_WIDTH
+    try:
+        page_w = int(style.getPropertyValue("Width"))
+        left = int(style.getPropertyValue("LeftMargin"))
+        right = int(style.getPropertyValue("RightMargin"))
+        return max(6000, page_w - left - right)
+    except Exception:
+        log.debug("notebook controls could not read page text-area width", exc_info=True)
+        return _DEFAULT_WIDTH
+
+
+def _max_field_height_units(doc: Any | None) -> int:
+    """Cap AS_CHARACTER code fields at roughly the page body height."""
+    style = _page_style(doc)
+    if style is None:
+        return _MAX_FIELD_HEIGHT
+    try:
+        page_h = int(style.getPropertyValue("Height"))
+        top = int(style.getPropertyValue("TopMargin"))
+        bottom = int(style.getPropertyValue("BottomMargin"))
+        # Leave room for the In [n]: gutter on the same page when possible.
+        return max(_MIN_FIELD_HEIGHT, page_h - top - bottom - 1500)
+    except Exception:
+        log.debug("notebook controls could not read page text-area height", exc_info=True)
+        return _MAX_FIELD_HEIGHT
+
+
+def _height_for_text(text: str, doc: Any | None = None) -> int:
+    """Shape height in 1/100 mm so every source line is visible (no clipped last line)."""
+    lines = 0
+    for line in (text or "").split("\n"):
+        lines += max(1, (len(line) + 79) // 80)
+    lines = max(1, lines)
+    raw = lines * _LINE_HEIGHT + _FIELD_HEIGHT_PAD + _WRAP_SLACK
+    cap = _max_field_height_units(doc)
+    return max(_MIN_FIELD_HEIGHT, min(cap, raw))
+
+
+def _anchor_control_as_character(shape: Any) -> None:
+    """In-flow control: AS_CHARACTER, top-aligned, no wrap beside the next shape."""
+    shape.setPropertyValue("AnchorType", AS_CHARACTER)
+    try:
+        shape.setPropertyValue("VertOrient", 1)
+    except Exception:
+        log.debug("notebook controls VertOrient not applied", exc_info=True)
+    try:
+        shape.setPropertyValue("TextWrap", 0)
+    except Exception:
+        log.debug("notebook controls TextWrap not applied", exc_info=True)
+
+
+def _set_model_prop(model: Any, name: str, value: Any) -> None:
+    try:
+        model.setPropertyValue(name, value)
+        return
+    except Exception:
+        pass
+    try:
+        setattr(model, name, value)
+    except Exception:
+        log.debug("notebook controls could not set model %s", name, exc_info=True)
+
+
+def _style_code_field_model(model: Any) -> None:
+    """Jupyter-like code box: light gray fill, hairline border, Liberation Mono."""
+    _set_model_prop(model, "MultiLine", True)
+    _set_model_prop(model, "FontName", _CODE_FONT_NAME)
+    _set_model_prop(model, "FontHeight", _CODE_FONT_HEIGHT)
+    _set_model_prop(model, "BackgroundColor", _CODE_FIELD_BG)
+    _set_model_prop(model, "Border", 2)
+    _set_model_prop(model, "BorderColor", _CODE_FIELD_BORDER)
+    _set_model_prop(model, "VScroll", False)
+    _set_model_prop(model, "AutoVScroll", False)
+
+
+def _style_run_button_model(model: Any) -> None:
+    """Small ▶ without a fat 3D square around it."""
+    _set_model_prop(model, "Border", 0)
+    _set_model_prop(model, "BackgroundColor", 0xFFFFFF)
+    _set_model_prop(model, "FontHeight", 8)
+    _set_model_prop(model, "FocusOnClick", False)
+    _set_model_prop(model, "DefaultControl", "com.sun.star.form.control.CommandButton")
+
+
+def _style_control_paragraph(doc: Any) -> None:
+    """Field-only paragraph: full text-area width, no hanging indent for ▶."""
+    try:
+        text = doc.getText()
+        cursor = text.createTextCursor()
+        cursor.gotoEnd(False)
+        body = _resolve_para_style(doc, "Text Body")
+        if body:
+            cursor.setPropertyValue("ParaStyleName", body)
+        cursor.setPropertyValue("ParaFirstLineIndent", 0)
+        cursor.setPropertyValue("ParaLeftMargin", 0)
+        cursor.setPropertyValue("ParaTopMargin", 0)
+        cursor.setPropertyValue("ParaBottomMargin", 150)
+        cursor.setPropertyValue("ParaKeepTogether", False)
+        cursor.setPropertyValue("ParaKeepWithNext", False)
+    except Exception:
+        log.debug("notebook controls paragraph style failed", exc_info=True)
+
+
+def _log_shape_add(
+    *,
+    step: str,
+    name: str = "",
+    text_chars: int = 0,
+    truncated: bool = False,
+    shape_h: int = 0,
+    shapes_before: int,
+    create_ms: int = 0,
+    text_ms: int = 0,
+    add_ms: int = 0,
+    ok: bool = True,
+) -> None:
+    total_ms = create_ms + text_ms + add_ms
+    log.debug(
+        "notebook controls add step=%s name=%s text_chars=%d truncated=%s shape_h=%d shapes_before=%d "
+        "create_ms=%d text_ms=%d add_ms=%d ok=%s",
+        step,
+        name,
+        text_chars,
+        truncated,
+        shape_h,
+        shapes_before,
+        create_ms,
+        text_ms,
+        add_ms,
+        ok,
+    )
+    if total_ms >= _SLOW_ADD_MS:
+        log.warning(
+            "notebook controls slow UNO add step=%s total_ms=%d shapes_before=%d",
+            step,
+            total_ms,
+            shapes_before,
+        )
+
+
+def _insert_run_button_in_flow(
+    doc: Any,
+    *,
+    cell_id: str,
+    controls_before: int,
+    ctx: Any | None = None,
+) -> None:
+    """In-flow ▶ on the ``In [n]:`` gutter paragraph (not the tall gray field)."""
+    hex_id = cell_id_to_hex(cell_id)
+    t0 = time.monotonic()
+    model = doc.createInstance("com.sun.star.form.component.CommandButton")
+    if model is None:
+        raise RuntimeError("Failed to create form CommandButton")
+    model.Name = f"nb_run_{hex_id}"
+    model.Label = "\u25b6"
+    if hasattr(model, "HelpText"):
+        model.HelpText = _("Run code cell")
+    model.ButtonType = form_button_push_type()
+    _style_run_button_model(model)
+
+    shape = doc.createInstance("com.sun.star.drawing.ControlShape")
+    if shape is None:
+        raise RuntimeError("Failed to create ControlShape for run button")
+    shape.setSize(Size(_RUN_BUTTON_SIZE, _RUN_BUTTON_SIZE))
+    shape.Control = model
+    _anchor_control_as_character(shape)
+
+    text = doc.getText()
+    cursor = text.createTextCursor()
+    cursor.gotoEnd(False)
+    t_add = time.monotonic()
+    text.insertTextContent(cursor, shape, False)
+    _log_shape_add(
+        step="run_button",
+        name=model.Name,
+        shapes_before=controls_before,
+        create_ms=_mono_ms(t0),
+        add_ms=_mono_ms(t_add),
+        shape_h=_RUN_BUTTON_SIZE,
+    )
+
+
+def _insert_code_input_in_flow(
+    doc: Any,
+    *,
+    name: str,
+    source: str,
+    controls_before: int,
+) -> None:
+    """Editable code cell: form TextField anchored in document flow at body end."""
+    display, truncated = _prepare_display_text(_coerce_notebook_text(source))
+    raw_chars = len(source or "")
+
+    t0 = time.monotonic()
+    model = doc.createInstance("com.sun.star.form.component.TextField")
+    if model is None:
+        raise RuntimeError("Failed to create form TextField")
+    model.Name = name
+    if hasattr(model, "Label"):
+        model.Label = "Code"
+    _style_code_field_model(model)
+    create_ms = _mono_ms(t0)
+
+    t_text = time.monotonic()
+    model.Text = display
+    text_ms = _mono_ms(t_text)
+
+    h = _height_for_text(display, doc)
+    field_w = _text_area_width_units(doc)
+    t_shape = time.monotonic()
+    shape = doc.createInstance("com.sun.star.drawing.ControlShape")
+    if shape is None:
+        raise RuntimeError("Failed to create ControlShape")
+    shape.setSize(Size(field_w, h))
+    shape.Control = model
+    _anchor_control_as_character(shape)
+    create_ms += _mono_ms(t_shape)
+
+    text = doc.getText()
+    cursor = text.createTextCursor()
+    cursor.gotoEnd(False)
+    t_add = time.monotonic()
+    text.insertTextContent(cursor, shape, False)
+    add_ms = _mono_ms(t_add)
+    _log_shape_add(
+        step="code_field",
+        name=name,
+        text_chars=raw_chars,
+        truncated=truncated,
+        shape_h=h,
+        shapes_before=controls_before,
+        create_ms=create_ms,
+        text_ms=text_ms,
+        add_ms=add_ms,
+    )
+
