@@ -22,6 +22,11 @@ newlines). Editing the SQL cells dirties RESULTS through Calc's DAG. Do not
 embed SQL inside the formula string — long quoted SQL is how Calc hits Err:508
 / comma→semicolon bugs. The sales⨝ZIP-income join stays the
 ``query_folder_sql`` happy path (sibling CSV is not a Calc arg).
+Sheet-only RESULTS leave ``SQL_RESULTS_SPILL_GUTTER_ROWS`` empty rows under
+the formula (``SQL_RESULTS_SPILL_GUTTER_COLS`` columns) so a 13-row
+Region×Category spill (header+12) does not hit the next title. The live
+RESULTS formula cell is unmerged — a span/merge over A:H covers the spill
+targets and Calc then shows only the top-left.
 
 ODS-only notes (XLSX never calls these paths):
 - ``ods_formula()`` rewrites Calc refs to OpenFormula in one pass so names like
@@ -216,6 +221,13 @@ MARKETING_RANGE_XLSX = "A4:G24"
 MARKETING_RANGE_ODS_CROSS = f"Statistics_ML.{MARKETING_RANGE_ODS}"
 MARKETING_RANGE_XLSX_CROSS = f"Statistics_ML!{MARKETING_RANGE_XLSX}"
 
+# Sheet-only RESULTS auto-spill: sales GROUP BY Region × Category is header + 12
+# data rows (13×4). The formula cell is the origin; leave this many *empty*
+# rows × columns under it so the next section title is not #SPILL!. Extra
+# rows/cols beyond 13×4 are clearance (sales worst case).
+SQL_RESULTS_SPILL_GUTTER_ROWS = 15
+SQL_RESULTS_SPILL_GUTTER_COLS = 5
+
 # Shared with tests — do not invent a second copy of these queries.
 SQL_SALES_BY_REGION_CATEGORY = """\
 SELECT Region, Category,
@@ -388,6 +400,13 @@ def sql_demo_scenarios() -> list[dict[str, str]]:
     ]
 
 
+def sql_results_gutter_rows(kind: str) -> int:
+    """Empty rows under a RESULTS formula so a 13-row spill misses the next title."""
+    if kind in ("sheet_sales", "sheet_marketing"):
+        return SQL_RESULTS_SPILL_GUTTER_ROWS
+    return 2
+
+
 def _a1_col_range(start_row: int, end_row: int) -> str:
     """A1 range for a vertical SQL block (single cell when start==end)."""
     if start_row == end_row:
@@ -475,8 +494,10 @@ def _add_ods_sql_sheet(doc: Any, make_cell: Any, make_table: Any, make_row: Any)
         formula = _scenario_result_formula(scenario["kind"], sql_range, ods=True)
         res_row = make_row("metric")
         if formula:
+            # Unmerged origin: spill writes B/C/… of this row. number-columns-spanned
+            # covers those cells so only the top-left stays visible (no IsMerged handling).
             res_row.addElement(
-                make_cell("Calculating via =PY() + DuckDB…", "FormulaResult", span_cols=8, formula=formula)
+                make_cell("Calculating via =PY() + DuckDB…", "FormulaResult", formula=formula)
             )
         else:
             res_row.addElement(
@@ -488,8 +509,8 @@ def _add_ods_sql_sheet(doc: Any, make_cell: Any, make_table: Any, make_row: Any)
                 )
             )
         emit(res_row)
-        emit(make_row("spacer"))
-        emit(make_row("spacer"))
+        for gutter_i in range(sql_results_gutter_rows(scenario["kind"])):
+            emit(make_row("spacer"))
 
     doc.spreadsheet.addElement(tab)
 
@@ -1527,13 +1548,15 @@ def build_xlsx_showcase(out_path: Path) -> None:
         current += 1
 
         formula = _scenario_result_formula(scenario["kind"], sql_range, ods=False)
-        ws8.merge_cells(f"A{current}:H{current}")
         rc = ws8[f"A{current}"]
         if formula:
+            # Unmerged origin: spill writes B/C/… of this row. A:H merge covers
+            # those cells so only the top-left stays visible (no IsMerged handling).
             set_formula_cell(rc, formula)
             rc.fill = res_fill
             rc.font = res_font
         else:
+            ws8.merge_cells(f"A{current}:H{current}")
             set_text_cell(
                 rc,
                 "Run this SQL with query_folder_sql (preloaded sales + flat_files zip_income). "
@@ -1544,7 +1567,7 @@ def build_xlsx_showcase(out_path: Path) -> None:
         rc.alignment = Alignment(vertical="center", wrap_text=True, indent=1)
         rc.border = thin_border
         ws8.row_dimensions[current].height = 36
-        current += 3
+        current += 1 + sql_results_gutter_rows(scenario["kind"])
 
     auto_fit_columns(ws8)
 
