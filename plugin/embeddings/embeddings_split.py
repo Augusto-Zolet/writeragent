@@ -28,11 +28,93 @@ def _deal_sentence_locale_ok_pytest(locale: object) -> bool:
 
 
 def _deal_sentence_locale_ok_crosshair(locale: object) -> bool:
-    return locale == DEFAULT_SENTENCE_LOCALE
+    # Identity, not ==: CrossHair synthesizes a new 'en@ss=standard' that
+    # compares equal but is not a real str/Locale, so icu4py SentenceBreaker
+    # TypeErrors. The default arg is this module constant.
+    return locale is DEFAULT_SENTENCE_LOCALE
+
+
+def _deal_chunk_base_meta_ok_pytest(base_meta: object) -> bool:
+    """Wide domain: production ``doc_url`` file:// paths exceed DEAL_MAX_TOKEN."""
+    return (
+        type(base_meta) is dict
+        and len(base_meta) <= DEAL_MAX_SHAPE_DIM
+        and all(
+            type(k) is str
+            and str_bounded(k, DEAL_MAX_TOKEN)
+            and (
+                v is None
+                or type(v) in (int, float, bool)
+                or (isinstance(v, str) and str_bounded(v, DEAL_MAX_SOURCE))
+            )
+            for k, v in base_meta.items()
+        )
+    )
+
+
+def _deal_chunk_base_meta_ok_crosshair(base_meta: object) -> bool:
+    """Tiny ascii keys/values for CrossHair check-all."""
+    return (
+        type(base_meta) is dict
+        and len(base_meta) <= _DEAL_SENT_LIST_LEN
+        and all(
+            type(k) is str
+            and ascii_bounded(k, DEAL_MAX_TOKEN)
+            and (
+                v is None
+                or type(v) in (int, float, bool)
+                or (isinstance(v, str) and ascii_bounded(v, DEAL_MAX_TOKEN))
+            )
+            for k, v in base_meta.items()
+        )
+    )
+
+
+_deal_chunk_base_meta_ok = (
+    _deal_chunk_base_meta_ok_crosshair if UNDER_CROSSHAIR else _deal_chunk_base_meta_ok_pytest
+)
+
+
+def _deal_run_locale_ok_pytest(locale: object) -> bool:
+    return locale is None or ascii_bounded(locale, DEAL_MAX_TOKEN)
+
+
+def _deal_run_locale_ok_crosshair(locale: object) -> bool:
+    # None keeps _split_prose_passage_to_spans on the default-locale call
+    # (split_passage_to_sentences(passage)). A BCP-47 string is rewritten to a
+    # new ICU tag that fails the CrossHair `is DEFAULT_SENTENCE_LOCALE` pre.
+    return locale is None
+
+
+_deal_run_locale_ok = _deal_run_locale_ok_crosshair if UNDER_CROSSHAIR else _deal_run_locale_ok_pytest
+
+
+def _deal_locale_run_ok(run: object) -> bool:
+    return _deal_run_locale_ok(getattr(run, "locale_bcp47", None))
 
 
 _deal_sentence_locale_ok = (
     _deal_sentence_locale_ok_crosshair if UNDER_CROSSHAIR else _deal_sentence_locale_ok_pytest
+)
+
+
+# NUL/controls are isascii() but ICU SentenceBreaker TypeErrors on them
+# (check-all 33928341275: split_passage_to_sentences('\x00', locale=DEFAULT)).
+def _deal_passage_text_ok_pytest(text: object) -> bool:
+    return str_bounded(text, DEAL_MAX_SOURCE)
+
+
+def _deal_passage_text_ok_crosshair(text: object) -> bool:
+    return (
+        isinstance(text, str)
+        and len(text) <= _DEAL_PASSAGE_LEN
+        and text.isascii()
+        and all(c.isprintable() or c in "\n\t\r" for c in text)
+    )
+
+
+_deal_passage_text_ok = (
+    _deal_passage_text_ok_crosshair if UNDER_CROSSHAIR else _deal_passage_text_ok_pytest
 )
 
 
@@ -60,7 +142,7 @@ def _import_splitter() -> Any:
 
 
 @deal.pre(
-    lambda text, locale=DEFAULT_SENTENCE_LOCALE, *_unused, **__: str_bounded(text, _DEAL_PASSAGE_LEN)
+    lambda text, locale=DEFAULT_SENTENCE_LOCALE, *_unused, **__: _deal_passage_text_ok(text)
     and _deal_sentence_locale_ok(locale)
 )
 def split_passage_to_sentences(text: str, locale: str = DEFAULT_SENTENCE_LOCALE) -> list[tuple[int, int, str]]:
@@ -294,11 +376,12 @@ def _split_non_prose_passage_to_spans(passage: str) -> list[tuple[int, int]]:
 
 
 @deal.pre(
-    lambda text, runs, base_meta, *_unused, **__: ascii_bounded(text, _DEAL_PASSAGE_LEN)
+    lambda text, runs, base_meta, *args, **kwargs: _deal_passage_text_ok(text)
     and isinstance(runs, list)
     and len(runs) <= _DEAL_SENT_LIST_LEN
-    and isinstance(base_meta, dict)
-    and len(base_meta) <= _DEAL_SENT_LIST_LEN
+    and _deal_chunk_base_meta_ok(base_meta)
+    and all(_deal_locale_run_ok(r) for r in runs)
+    and _deal_run_locale_ok(kwargs.get("doc_default_locale"))
 )
 def split_passage_locale_runs_to_chunk_meta(
     text: str,
@@ -338,15 +421,9 @@ def split_passage_locale_runs_to_chunk_meta(
 
 
 @deal.pre(
-    lambda text, base_meta, *args, **kwargs: ascii_bounded(text, _DEAL_PASSAGE_LEN)
-    and type(base_meta) is dict
-    and len(base_meta) <= _DEAL_SENT_LIST_LEN
-    and all(
-        type(k) is str and ascii_bounded(k, DEAL_MAX_TOKEN)
-        and (v is None or type(v) in (int, float, bool) or (isinstance(v, str) and ascii_bounded(v, DEAL_MAX_TOKEN)))
-        for k, v in base_meta.items()
-    )
-    and (kwargs.get("locale_bcp47") is None or ascii_bounded(kwargs.get("locale_bcp47"), DEAL_MAX_TOKEN))
+    lambda text, base_meta, *args, **kwargs: _deal_passage_text_ok(text)
+    and _deal_chunk_base_meta_ok(base_meta)
+    and _deal_run_locale_ok(kwargs.get("locale_bcp47"))
 )
 def split_passage_to_chunk_meta(
     text: str,
