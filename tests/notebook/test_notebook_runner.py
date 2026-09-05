@@ -7,7 +7,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from plugin.notebook.cell_registry import NotebookDocState, cell_id_to_hex, new_code_cell_entry
+from plugin.notebook.cell_registry import (
+    NotebookDocState,
+    cell_id_to_hex,
+    init_registry_execution_counter,
+    new_code_cell_entry,
+)
+from plugin.notebook.form_lookup import read_code_from_field
 from plugin.notebook.notebook_runner import (
     _find_cell_output_heading_end,
     _gutter_text_cursor,
@@ -19,8 +25,6 @@ from plugin.notebook.notebook_runner import (
     execute_code,
     find_run_from_here_index,
     format_run_output_text,
-    init_registry_execution_counter,
-    read_code_from_field,
     request_stop,
     run_cell,
     run_cell_for_doc_hex,
@@ -146,7 +150,7 @@ def test_run_cell_updates_registry_and_execution_count():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", return_value="print(1)"),
+        patch("plugin.notebook.form_lookup.read_code_from_field", return_value="print(1)"),
         patch(
             "plugin.notebook.notebook_runner.execute_code",
             return_value={"status": "ok", "result": None, "stdout": "1\n"},
@@ -195,7 +199,7 @@ def test_run_cell_rejects_reentrant_call():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", return_value="print(1)"),
+        patch("plugin.notebook.form_lookup.read_code_from_field", return_value="print(1)"),
         patch("plugin.notebook.notebook_runner.execute_code", side_effect=_reenter),
         patch("plugin.notebook.notebook_runner.clear_cell_output"),
         patch("plugin.notebook.notebook_runner.apply_run_result"),
@@ -220,7 +224,7 @@ def test_run_cell_empty_code():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", return_value="   "),
+        patch("plugin.notebook.form_lookup.read_code_from_field", return_value="   "),
     ):
         result = run_cell(ctx, doc, cell.cell_id)
     assert result.status == "error"
@@ -569,7 +573,7 @@ def test_run_cell_rerun_clears_then_applies():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", return_value="print(1)"),
+        patch("plugin.notebook.form_lookup.read_code_from_field", return_value="print(1)"),
         patch(
             "plugin.notebook.notebook_runner.execute_code",
             return_value={"status": "ok", "result": None, "stdout": "1\n"},
@@ -711,7 +715,7 @@ def test_run_cell_error_still_increments_execution_count():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", return_value="raise ValueError(1)"),
+        patch("plugin.notebook.form_lookup.read_code_from_field", return_value="raise ValueError(1)"),
         patch(
             "plugin.notebook.notebook_runner.execute_code",
             return_value={"status": "error", "message": "ValueError", "stdout": ""},
@@ -787,7 +791,7 @@ def test_run_cell_for_doc_hex_execution_error_does_not_msgbox():
     with (
         patch("plugin.notebook.notebook_runner.is_writer", return_value=True),
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", return_value="car[:,:,:3].shape"),
+        patch("plugin.notebook.form_lookup.read_code_from_field", return_value="car[:,:,:3].shape"),
         patch(
             "plugin.notebook.notebook_runner.execute_code",
             return_value={
@@ -887,7 +891,7 @@ def test_run_cells_sequence_in_registry_order():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", side_effect=_code_for_field),
+        patch("plugin.notebook.form_lookup.read_code_from_field", side_effect=_code_for_field),
         patch("plugin.notebook.notebook_runner.execute_code", side_effect=_exec),
         patch("plugin.notebook.notebook_runner.clear_cell_output"),
         patch("plugin.notebook.notebook_runner.apply_run_result"),
@@ -917,7 +921,7 @@ def test_run_from_here_start_index():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", side_effect=_code_for_field),
+        patch("plugin.notebook.form_lookup.read_code_from_field", side_effect=_code_for_field),
         patch("plugin.notebook.notebook_runner.execute_code", side_effect=_exec),
         patch("plugin.notebook.notebook_runner.clear_cell_output"),
         patch("plugin.notebook.notebook_runner.apply_run_result"),
@@ -981,7 +985,7 @@ def test_run_cells_stop_skips_remainder():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", side_effect=_code_for_field),
+        patch("plugin.notebook.form_lookup.read_code_from_field", side_effect=_code_for_field),
         patch("plugin.notebook.notebook_runner.execute_code", side_effect=_exec),
         patch("plugin.notebook.notebook_runner.clear_cell_output"),
         patch("plugin.notebook.notebook_runner.apply_run_result") as apply,
@@ -1016,7 +1020,7 @@ def test_run_cells_stop_during_between_cell_drain_skips_next():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", side_effect=_code_for_field),
+        patch("plugin.notebook.form_lookup.read_code_from_field", side_effect=_code_for_field),
         patch("plugin.notebook.notebook_runner.execute_code", side_effect=_exec),
         patch("plugin.notebook.notebook_runner.clear_cell_output"),
         patch("plugin.notebook.notebook_runner.apply_run_result") as apply,
@@ -1046,7 +1050,7 @@ def test_run_cells_busy_guard_skips_play_but_stop_works():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", side_effect=_code_for_field),
+        patch("plugin.notebook.form_lookup.read_code_from_field", side_effect=_code_for_field),
         patch("plugin.notebook.notebook_runner.execute_code", side_effect=_reenter),
         patch("plugin.notebook.notebook_runner.clear_cell_output"),
         patch("plugin.notebook.notebook_runner.apply_run_result") as apply,
@@ -1082,7 +1086,7 @@ def test_run_cells_skips_empty_and_continues():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", side_effect=_read),
+        patch("plugin.notebook.form_lookup.read_code_from_field", side_effect=_read),
         patch("plugin.notebook.notebook_runner.execute_code", side_effect=_exec),
         patch("plugin.notebook.notebook_runner.clear_cell_output"),
         patch("plugin.notebook.notebook_runner.apply_run_result") as apply,
@@ -1116,7 +1120,7 @@ def test_run_cells_error_continues_unless_stopped():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", side_effect=_code_for_field),
+        patch("plugin.notebook.form_lookup.read_code_from_field", side_effect=_code_for_field),
         patch("plugin.notebook.notebook_runner.execute_code", side_effect=_exec),
         patch("plugin.notebook.notebook_runner.clear_cell_output"),
         patch("plugin.notebook.notebook_runner.apply_run_result", side_effect=_apply),
@@ -1150,7 +1154,7 @@ def test_run_cells_does_not_pump_idle_during_execute():
 
     with (
         patch("plugin.notebook.notebook_runner.load_registry", return_value=state),
-        patch("plugin.notebook.notebook_runner.read_code_from_field", side_effect=_code_for_field),
+        patch("plugin.notebook.form_lookup.read_code_from_field", side_effect=_code_for_field),
         patch("plugin.notebook.notebook_runner.execute_code", side_effect=_exec),
         patch("plugin.notebook.notebook_runner.clear_cell_output"),
         patch("plugin.notebook.notebook_runner.apply_run_result"),

@@ -47,6 +47,7 @@ from plugin.notebook.cell_registry import (
     _cell_heading,
     _coerce_notebook_text,
     _prepare_display_text,
+    init_registry_execution_counter,
     insert_output_start_bookmark,
     new_code_cell_entry,
     save_notebook_source_path,
@@ -1536,7 +1537,6 @@ def import_ipynb_to_writer(doc: Any, path: str, ctx: Any | None = None) -> dict[
     log.info("notebook import cells_done elapsed_ms=%d cells=%d", _mono_ms(cells_t0), stats["cells"])
     if registry_state.code_cells:
         from plugin.notebook.notebook_controls import ensure_form_design_mode_off, wire_all_notebook_run_buttons
-        from plugin.notebook.notebook_runner import init_registry_execution_counter
 
         reg_t0 = time.monotonic()
         init_registry_execution_counter(registry_state)

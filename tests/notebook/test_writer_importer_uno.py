@@ -119,7 +119,7 @@ def _draw_control_names(doc) -> list[str]:
 
 
 def _anchor_paragraph_string(doc, shape_name: str) -> str:
-    from plugin.notebook.notebook_runner import _find_control_shape_by_name
+    from plugin.notebook.form_lookup import find_control_shape_by_name as _find_control_shape_by_name
 
     shape = _find_control_shape_by_name(doc, shape_name)
     if shape is None:
@@ -316,7 +316,8 @@ def _debug_menu_import_and_run(ctx, doc) -> None:
         ensure_form_design_mode_off,
         wire_all_notebook_run_buttons,
     )
-    from plugin.notebook.notebook_runner import read_code_from_field, run_cell, run_cell_for_doc_hex
+    from plugin.notebook.form_lookup import read_code_from_field
+    from plugin.notebook.notebook_runner import run_cell, run_cell_for_doc_hex
     from plugin.notebook.writer_importer import import_ipynb_to_writer
 
     boxes = []
@@ -568,7 +569,7 @@ def test_medium_numpy_import_layout_no_run(ctx, doc):
         assert cell.code_field_name in names, f"{cell.code_field_name} missing: {names}"
 
     from plugin.notebook.notebook_controls import _height_for_text
-    from plugin.notebook.notebook_runner import _find_control_shape_by_name, read_code_from_field
+    from plugin.notebook.form_lookup import find_control_shape_by_name as _find_control_shape_by_name, read_code_from_field
 
     # Multi-line In[2] field must be tall enough that the last line is not clipped.
     cell_in2 = state.code_cells[1]
@@ -688,7 +689,7 @@ def test_medium_numpy_import_layout_no_run(ctx, doc):
         # Print remaining-space math for code cells that start a page. Do not
         # assert it: the field paragraph is empty in getString(), so last_y is
         # the In [n]: gutter, not the bottom of the gray box.
-        from plugin.notebook.notebook_runner import _find_control_shape_by_name as _find_shape
+        from plugin.notebook.form_lookup import find_control_shape_by_name as _find_shape
 
         for page in pages_used:
             if page <= 1:
@@ -738,7 +739,7 @@ def test_medium_run_in2_keeps_in3_controls(ctx, doc):
         ensure_form_design_mode_off,
         wire_all_notebook_run_buttons,
     )
-    from plugin.notebook.notebook_runner import read_code_from_field
+    from plugin.notebook.form_lookup import read_code_from_field
     from plugin.notebook.writer_importer import import_ipynb_to_writer, flush_ui_idle
 
     import_ipynb_to_writer(doc, str(_MEDIUM_IPYNB), ctx=ctx)

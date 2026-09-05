@@ -108,7 +108,7 @@ def _draw_control_names(doc) -> list[str]:
 
 
 def _anchor_paragraph_string(doc, shape_name: str) -> str:
-    from plugin.notebook.notebook_runner import _find_control_shape_by_name
+    from plugin.notebook.form_lookup import find_control_shape_by_name as _find_control_shape_by_name
 
     shape = _find_control_shape_by_name(doc, shape_name)
     if shape is None:
@@ -259,7 +259,7 @@ def test_run_button_getcontrol_keeps_controls_and_splits_output(ctx, doc):
         ensure_form_design_mode_off,
         wire_all_notebook_run_buttons,
     )
-    from plugin.notebook.notebook_runner import read_code_from_field
+    from plugin.notebook.form_lookup import read_code_from_field
     from plugin.notebook.writer_importer import import_ipynb_to_writer, flush_ui_idle
 
     ipynb = _tiny_ipynb_path()
@@ -328,7 +328,7 @@ def test_run_first_of_consecutive_code_cells_keeps_next_controls(ctx, doc):
         ensure_form_design_mode_off,
         wire_all_notebook_run_buttons,
     )
-    from plugin.notebook.notebook_runner import read_code_from_field
+    from plugin.notebook.form_lookup import read_code_from_field
     from plugin.notebook.writer_importer import import_ipynb_to_writer, flush_ui_idle
 
     ipynb = _consecutive_code_cells_ipynb_path()
@@ -434,7 +434,7 @@ def _empty_paras_between_output_and_content(doc) -> int:
 
 
 def _gutter_line_for_cell(doc, cell) -> str:
-    from plugin.notebook.notebook_runner import _find_control_shape_by_name
+    from plugin.notebook.form_lookup import find_control_shape_by_name as _find_control_shape_by_name
 
     shape = _find_control_shape_by_name(doc, cell.code_field_name)
     if shape is not None:

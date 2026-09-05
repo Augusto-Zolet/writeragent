@@ -48,6 +48,7 @@ __all__ = [
     "has_notebook_registry",
     "save_notebook_source_path",
     "insert_output_start_bookmark",
+    "init_registry_execution_counter",
     "_IN_PROMPT_RE",
     "_format_in_prompt",
     "_cell_heading",
@@ -289,3 +290,14 @@ def insert_output_start_bookmark(doc: Any, bookmark_name: str) -> bool:
     except Exception:
         log.exception("notebook registry: failed to insert bookmark %r", bookmark_name)
         return False
+
+
+def init_registry_execution_counter(state: NotebookDocState) -> None:
+    """New kernel starts at 1. Saved ipynb ``execution_count`` values are historical.
+
+    ``max(saved)+1`` made the first live ▶ show ``[In [4]]`` on the small NumPy
+    fixture (saved 1, 2, 3). Jupyter starts a new kernel at 1; our ``notebook:…``
+    venv session is a new kernel on import. Re-runs still increment by 1.
+    """
+    state.next_execution_count = 1
+

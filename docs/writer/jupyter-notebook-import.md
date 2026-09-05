@@ -290,12 +290,12 @@ g_ImplementationHelper.addImplementation(
 
 | Module | Location | Purpose |
 |--------|----------|---------|
-| `cell_registry.py` | [`plugin/notebook/cell_registry.py`](../../plugin/notebook/cell_registry.py) | Document registry serialization, cell UUIDs, bookmarks, prompt formatting |
+| `cell_registry.py` | [`plugin/notebook/cell_registry.py`](../../plugin/notebook/cell_registry.py) | Document registry serialization, cell UUIDs, bookmarks, execution counter, prompt formatting |
 | `writer_importer.py` | [`plugin/notebook/writer_importer.py`](../../plugin/notebook/writer_importer.py) | Core import loop, nbformat processing, Writer DOM insertion |
 | `import_filter.py` | [`plugin/notebook/import_filter.py`](../../plugin/notebook/import_filter.py) | Native File Open XFilter+XImporter (no FilePicker / no completion msgbox) |
 | `notebook_controls.py` | [`plugin/notebook/notebook_controls.py`](../../plugin/notebook/notebook_controls.py) | Form control creation, layout sizing/styling, ▶ button wiring, and PyUNO listener management |
-| `notebook_runner.py` | [`plugin/notebook/notebook_runner.py`](../../plugin/notebook/notebook_runner.py) | Field reading, single-cell ▶, Run All / Run From Here / Stop, output replacement |
-| `form_lookup.py` | [`plugin/notebook/form_lookup.py`](../../plugin/notebook/form_lookup.py) | Draw page indexer: control models by name, ``ControlShape`` by name (`getAnchor`) |
+| `notebook_runner.py` | [`plugin/notebook/notebook_runner.py`](../../plugin/notebook/notebook_runner.py) | Single-cell ▶, Run All / Run From Here / Stop, output replacement, kernel venv execution |
+| `form_lookup.py` | [`plugin/notebook/form_lookup.py`](../../plugin/notebook/form_lookup.py) | Draw page indexer: control models/shapes by name (`getAnchor`), field code reading (`read_code_from_field`) |
 
 Entry Points:
 - [`plugin/main.py`](../../plugin/main.py) / [`plugin/main_core.py`](../../plugin/main_core.py): `notebook.run_cell.*` protocol dispatch, `notebook.run_all` / `run_from_here` / `stop` action handlers, and bootstrap listener wiring.

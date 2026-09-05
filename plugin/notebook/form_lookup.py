@@ -13,6 +13,14 @@ log = logging.getLogger("writeragent.notebook")
 
 _CONTROL_SHAPE_TYPE = "com.sun.star.drawing.ControlShape"
 
+__all__ = [
+    "index_form_control_models",
+    "find_form_control_model_by_name",
+    "find_control_shape_by_name",
+    "read_code_from_field",
+]
+
+
 
 def _unwrap_form_model(obj: Any) -> Any | None:
     if obj is None:
@@ -133,3 +141,12 @@ def find_control_shape_by_name(doc: Any, control_name: str) -> Any | None:
         if name == control_name:
             return shape
     return None
+
+
+def read_code_from_field(doc: Any, field_name: str) -> str:
+    """Read multiline source from an in-flow form ``TextField`` by control name."""
+    model = find_form_control_model_by_name(doc, field_name)
+    if model is not None and hasattr(model, "Text"):
+        return str(model.Text or "")
+    return ""
+
