@@ -802,7 +802,7 @@ test-uno: _check-lo-python
 
 test-mock-sidebar: _check-lo-python
 	@$(MAKE) -C "$(PROJECT_ROOT)" lo-kill
-	PYTHONUNBUFFERED=1 $(LO_PYTHON_UNSET) $(LO_PYTHON_ENV) "$(LO_PYTHON)" -u -m plugin.testing_runner --user-profile tests/chatbot/test_mock_llm_sidebar_uno.py $(FILTER); EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
+	WRITERAGENT_UNO_TEST_TIMEOUT=120 PYTHONUNBUFFERED=1 $(LO_PYTHON_UNSET) $(LO_PYTHON_ENV) "$(LO_PYTHON)" -u -m plugin.testing_runner --user-profile tests/chatbot/test_mock_llm_sidebar_uno.py $(FILTER); EXIT_CODE=$$?; $(MAKE) -C "$(PROJECT_ROOT)" lo-kill; exit $$EXIT_CODE
 
 # Cap xdist at 6 so subprocess-heavy compute_service / venv worker tests
 # do not starve handshake timeouts on an 8-core box (PYTEST_WORKERS=auto).
