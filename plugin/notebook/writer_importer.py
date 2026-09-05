@@ -125,354 +125,9 @@ def _mono_ms(t0: float) -> int:
     return int((time.monotonic() - t0) * 1000)
 
 
-def _strip_ansi(text: str) -> str:
-    return re.sub(r"\x1b\[[0-9;]*m", "", text)
-
-
-
-def _mime_plain(data: Any) -> str:
-    if not isinstance(data, dict):
-        return str(data) if data is not None else ""
-    if "text/plain" in data:
-        plain = data["text/plain"]
-        return plain if isinstance(plain, str) else "".join(plain)
-    for key in sorted(data.keys()):
-        if key.startswith("text/"):
-            val = data[key]
-            return val if isinstance(val, str) else "".join(val)
-    return ""
-
-
-def format_output_text(output: Any, execution_count: Any | None = None) -> str:
-    """Turn one nbformat output object into plain text for the document body.
-
-    Stream/print text has no ``Out [n]:`` prefix (Jupyter puts that only on
-    ``execute_result`` / last-line values).
-    """
-    output_type = getattr(output, "output_type", None) or output.get("output_type", "")
-    if output_type == "stream":
-        text = _coerce_notebook_text(getattr(output, "text", None) or output.get("text", ""))
-        return text
-    if output_type == "error":
-        tb = getattr(output, "traceback", None) or output.get("traceback", "")
-        if isinstance(tb, list):
-            tb = "\n".join(tb)
-        return _strip_ansi(str(tb))
-    if output_type in ("execute_result", "display_data"):
-        data = getattr(output, "data", None) or output.get("data", {})
-        if isinstance(data, dict):
-            if _notebook_image_payload(data) is not None:
-                return ""
-            plain = _mime_plain(data)
-            if plain:
-                if output_type == "execute_result" and execution_count is not None:
-                    return f"Out [{execution_count}]: {plain}"
-                return plain
-            mime_types = ", ".join(sorted(data.keys()))
-            return f"[non-text output: {mime_types}]"
-    return str(output)
-
-
-def format_all_outputs(outputs: list[Any]) -> str:
-    parts = [format_output_text(o) for o in (outputs or [])]
-    return "\n\n".join(p for p in parts if p.strip())
-
-
-def _format_outputs_for_body(
-    outputs: list[Any], cell_index: int, execution_count: Any | None = None
-) -> tuple[list[tuple[str, Any]], int]:
-    """Interleave text and image outputs in notebook order.
-
-    Previously appended all text, then all images, so ``[display image,
-    print(...)]`` rendered print-then-image. Walk each output once: flush
-    consecutive text before an image, then the image. Caps at
-    ``_MAX_OUTPUTS_PER_CELL``.
-
-    Returns ``(segments, text_output_count)``. Each segment is
-    ``("text", joined_str)`` or ``("image", output)``. ``text_output_count`` is
-    the number of outputs that produced non-empty text (same meaning as the
-    old ``stats["outputs"]`` increment, without a second ``format_output_text``).
-    """
-    out_list = outputs or []
-    if len(out_list) > _MAX_OUTPUTS_PER_CELL:
-        log.warning(
-            "notebook import cell=%d truncating outputs %d -> %d",
-            cell_index,
-            len(out_list),
-            _MAX_OUTPUTS_PER_CELL,
-        )
-        out_list = out_list[:_MAX_OUTPUTS_PER_CELL]
-    segments: list[tuple[str, Any]] = []
-    text_parts: list[str] = []
-    text_count = 0
-
-    def flush_text() -> None:
-        if text_parts:
-            segments.append(("text", "\n\n".join(text_parts)))
-            text_parts.clear()
-
-    for output in out_list:
-        text = format_output_text(output, execution_count)
-        if text.strip():
-            text_parts.append(text)
-            text_count += 1
-        if _outputs_contain_image([output]):
-            flush_text()
-            segments.append(("image", output))
-    flush_text()
-    return segments, text_count
-
-
-def _notebook_image_payload(data: dict[str, Any]) -> tuple[str, str] | None:
-    """Return (mime, base64) for the first supported image bundle in a notebook output."""
-    for mime in ("image/png", "image/jpeg", "image/jpg"):
-        if mime in data:
-            b64 = _coerce_notebook_text(data[mime])
-            if b64.strip():
-                return mime, b64
-    return None
-
-
-def _png_pixel_size(raw: bytes) -> tuple[int, int] | None:
-    if len(raw) < 24 or raw[:8] != b"\x89PNG\r\n\x1a\n":
-        return None
-    w, h = struct.unpack(">II", raw[16:24])
-    if w < 1 or h < 1:
-        return None
-    return w, h
-
-
-def _jpeg_pixel_size(raw: bytes) -> tuple[int, int] | None:
-    """Read SOF width/height so JPEG plots keep aspect ratio when capped."""
-    if len(raw) < 4 or raw[:2] != b"\xff\xd8":
-        return None
-    i = 2
-    while i < len(raw) - 8:
-        if raw[i] != 0xFF:
-            return None
-        marker = raw[i + 1]
-        if marker in (0xC0, 0xC1, 0xC2, 0xC3):
-            h, w = struct.unpack(">HH", raw[i + 5 : i + 9])
-            if w >= 1 and h >= 1:
-                return w, h
-            return None
-        if marker == 0xD9 or marker == 0xDA:
-            return None
-        length = struct.unpack(">H", raw[i + 2 : i + 4])[0]
-        i += 2 + length
-    return None
-
-
-def _svg_pixel_size(raw: bytes) -> tuple[int, int] | None:
-    """Read width/height or viewBox so SVG badges are not stretched to the page cap."""
-    text = raw.decode("utf-8", errors="ignore")[:4000]
-    vb = re.search(
-        r"viewBox\s*=\s*[\"']?\s*[-0-9.]+\s+[-0-9.]+\s+([0-9.]+)\s+([0-9.]+)",
-        text,
-        flags=re.IGNORECASE,
-    )
-    if vb:
-        w, h = float(vb.group(1)), float(vb.group(2))
-        if w >= 1 and h >= 1:
-            return int(w), int(h)
-    wm = re.search(r"\bwidth\s*=\s*[\"']?([0-9.]+)", text, flags=re.IGNORECASE)
-    hm = re.search(r"\bheight\s*=\s*[\"']?([0-9.]+)", text, flags=re.IGNORECASE)
-    if wm and hm:
-        w, h = float(wm.group(1)), float(hm.group(1))
-        if w >= 1 and h >= 1:
-            return int(w), int(h)
-    return None
-
-
-def _image_mime_from_bytes(raw: bytes, path: str) -> str:
-    if raw[:8] == b"\x89PNG\r\n\x1a\n":
-        return "image/png"
-    if len(raw) >= 2 and raw[:2] == b"\xff\xd8":
-        return "image/jpeg"
-    lower = (path or "").lower()
-    head = raw.lstrip()[:256].lower()
-    if lower.endswith(".svg") or b"<svg" in head:
-        return "image/svg+xml"
-    if lower.endswith((".jpg", ".jpeg")):
-        return "image/jpeg"
-    return "image/png"
-
-
-def _display_size_units(raw: bytes, mime: str, *, max_width_mm: float | None = None) -> tuple[int, int]:
-    """Map decoded image bytes to Writer size in 1/100 mm (capped width, keep aspect)."""
-    cap_mm = float(max_width_mm) if max_width_mm and max_width_mm > 0 else float(_MAX_IMAGE_DISPLAY_WIDTH_MM)
-    px_size = None
-    if mime == "image/png":
-        px_size = _png_pixel_size(raw)
-    elif mime in ("image/jpeg", "image/jpg"):
-        px_size = _jpeg_pixel_size(raw)
-    elif mime == "image/svg+xml":
-        px_size = _svg_pixel_size(raw)
-    if px_size is not None:
-        px_w, px_h = px_size
-    else:
-        px_w, px_h = None, None
-    if px_w and px_h:
-        w_mm = px_w * 25.4 / 96
-        h_mm = px_h * 25.4 / 96
-        if w_mm > cap_mm:
-            scale = cap_mm / w_mm
-            w_mm = cap_mm
-            h_mm = h_mm * scale
-        return _mm_to_units(w_mm, h_mm)
-    return _mm_to_units(cap_mm, _DEFAULT_IMAGE_HEIGHT_MM)
-
-
-def _decode_notebook_image(b64_data: str) -> bytes | None:
-    b64_data = _coerce_notebook_text(b64_data)
-    if len(b64_data) > _MAX_IMAGE_DECODE_BYTES:
-        log.warning(
-            "notebook import skip image decode size=%d max=%d",
-            len(b64_data),
-            _MAX_IMAGE_DECODE_BYTES,
-        )
-        return None
-    try:
-        return base64.b64decode(b64_data, validate=False)
-    except Exception:
-        log.debug("notebook image base64 decode failed", exc_info=True)
-        return None
-
-
-def _apply_notebook_image_flow(graphic: Any) -> None:
-    """AS_CHARACTER already in-flow; pin wrap off so plots do not float beside text."""
-    for name, val in (("TextWrap", 0), ("SurroundContour", False)):
-        try:
-            graphic.setPropertyValue(name, val)
-        except Exception:
-            log.debug("notebook image wrap property %s not applied", name, exc_info=True)
-
-
-def _insert_image_in_flow(
-    doc: Any,
-    *,
-    raw: bytes,
-    mime: str,
-    images_before: int,
-    ctx: Any | None = None,
-    text_cursor: Any | None = None,
-) -> bool:
-    """Embed notebook image output in document flow (TextGraphicObject).
-
-    Import appends at body end. Live ▶ must pass *text_cursor* under the cell —
-    ``gotoEnd`` was dumping matplotlib plots at the document end and jumping the view.
-    """
-    suffix = _IMAGE_MIME_SUFFIX.get(mime, ".png")
-    tmp_path = None
-    t0 = time.monotonic()
-    try:
-        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-            tmp.write(raw)
-            tmp_path = tmp.name
-        max_w_mm = _text_area_width_units(doc) / 100.0
-        w_units, h_units = _display_size_units(raw, mime, max_width_mm=max_w_mm)
-        w_mm = w_units / 100.0
-        h_mm = h_units / 100.0
-        text = doc.getText()
-        if text_cursor is not None:
-            cursor = text_cursor
-        else:
-            cursor = text.createTextCursor()
-            cursor.gotoEnd(False)
-        t_add = time.monotonic()
-        graphic = None
-        if ctx is not None:
-            graphic = insert_image_at_locator(
-                ctx,
-                doc,
-                tmp_path,
-                width_mm=w_mm,
-                height_mm=h_mm,
-                title="Notebook output",
-                description=mime,
-                text_cursor=cursor,
-            )
-            if graphic is None:
-                raise RuntimeError("insert_image_at_locator returned None")
-        else:
-            image = _create_embedded_graphic(doc, "writer", _file_url_for_path(tmp_path), ctx=ctx)
-            _apply_graphic_properties(
-                image,
-                width=w_units,
-                height=h_units,
-                title="Notebook output",
-                description=mime,
-                anchor_type=AS_CHARACTER,
-                inside="writer",
-            )
-            text.insertTextContent(cursor, image, False)
-            graphic = image
-        if graphic is not None:
-            _apply_notebook_image_flow(graphic)
-        add_ms = _mono_ms(t_add)
-        _log_shape_add(
-            step="image",
-            text_chars=len(raw),
-            shape_h=h_units,
-            shapes_before=images_before,
-            create_ms=_mono_ms(t0),
-            add_ms=add_ms,
-        )
-        return True
-    except Exception:
-        log.exception("Failed to insert notebook image in document flow")
-        _log_shape_add(step="image", shapes_before=images_before, create_ms=_mono_ms(t0), add_ms=0, ok=False)
-        return False
-    finally:
-        if tmp_path and os.path.exists(tmp_path):
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-
-
-def _outputs_contain_image(outputs: list[Any]) -> bool:
-    for output in outputs or []:
-        output_type = getattr(output, "output_type", None) or output.get("output_type", "")
-        if output_type not in ("display_data", "execute_result"):
-            continue
-        data = getattr(output, "data", None) or output.get("data", {})
-        if isinstance(data, dict) and _notebook_image_payload(data) is not None:
-            return True
-    return False
-
-
-def _import_image_outputs_in_flow(
-    doc: Any,
-    outputs: list[Any],
-    cell_index: int,
-    *,
-    images_before: int,
-    ctx: Any | None = None,
-) -> int:
-    """Insert image/png/jpeg outputs in the document body. Returns number of images added."""
-    added = 0
-    out_list = outputs or []
-    if len(out_list) > _MAX_OUTPUTS_PER_CELL:
-        out_list = out_list[:_MAX_OUTPUTS_PER_CELL]
-    for output in out_list:
-        output_type = getattr(output, "output_type", None) or output.get("output_type", "")
-        if output_type not in ("display_data", "execute_result"):
-            continue
-        data = getattr(output, "data", None) or output.get("data", {})
-        if not isinstance(data, dict):
-            continue
-        payload = _notebook_image_payload(data)
-        if payload is None:
-            continue
-        mime, b64 = payload
-        raw = _decode_notebook_image(b64)
-        if raw and _insert_image_in_flow(doc, raw=raw, mime=mime, images_before=images_before + added, ctx=ctx):
-            added += 1
-        else:
-            log.debug("notebook import cell=%d skip image mime=%s", cell_index, mime)
-    return added
-
+# ---------------------------------------------------------------------------
+# Document Lifecycle & Paragraph Styles
+# ---------------------------------------------------------------------------
 
 @contextmanager
 def _batch_document_updates(doc: Any) -> Iterator[None]:
@@ -700,6 +355,265 @@ def _ensure_notebook_import_styles(doc: Any) -> str | None:
         log.debug("notebook import could not update In keep properties", exc_info=True)
     return _resolve_para_style(doc, _STYLE_NOTEBOOK_IN)
 
+
+# ---------------------------------------------------------------------------
+# Document Flow & Paragraph Insertion
+# ---------------------------------------------------------------------------
+
+def _doc_body_nonempty(doc: Any) -> bool:
+    try:
+        text = doc.getText()
+        cursor = text.createTextCursor()
+        cursor.gotoStart(False)
+        cursor.gotoEnd(True)
+        return bool((cursor.getString() or "").strip())
+    except Exception:
+        return True
+
+
+def _append_paragraph_break_at_end(doc: Any) -> None:
+    """Insert a paragraph break at body end so following in-flow shapes are not in the previous para."""
+    text = doc.getText()
+    cursor = text.createTextCursor()
+    cursor.gotoEnd(False)
+    text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
+
+
+def _unglue_last_paragraph(doc: Any) -> None:
+    """Clear KeepWithNext on the last body paragraph.
+
+    Built-in Heading 2 (and some HTML list styles) keep-with-next. That glues the
+    last markdown paragraph onto the following code cell's unsplittable
+    AS_CHARACTER field, so Writer moves the whole block and leaves a page hole.
+    Call this immediately before inserting a code cell. In-gutter KeepWithNext
+    is also off so In+field is not one unsplittable brick.
+    """
+    try:
+        text = doc.getText()
+        cursor = text.createTextCursor()
+        cursor.gotoEnd(False)
+        cursor.setPropertyValue("ParaKeepWithNext", False)
+        cursor.setPropertyValue("ParaKeepTogether", False)
+    except Exception:
+        log.debug("notebook import unglue last paragraph failed", exc_info=True)
+
+
+def _numbering_kind(name: str) -> str:
+    """``none`` / ``outline`` / ``list`` — Outline is heading chapter numbering."""
+    lowered = (name or "").strip().lower()
+    if not lowered:
+        return "none"
+    if lowered == "outline" or "outline" in lowered:
+        return "outline"
+    return "list"
+
+
+def _copy_previous_outer_list(cursor: Any) -> bool:
+    """Copy NumberingStyleName + NumberingRules from the nearest level-0 list para."""
+    try:
+        text_obj = cursor.getText()
+        prev = text_obj.createTextCursorByRange(cursor)
+    except Exception:
+        return False
+    steps = 0
+    while steps < 32:
+        steps += 1
+        try:
+            if not prev.gotoPreviousParagraph(False):
+                return False
+            style = str(prev.getPropertyValue("NumberingStyleName") or "")
+            if _numbering_kind(style) != "list":
+                continue
+            level = int(prev.getPropertyValue("NumberingLevel") or 0)
+            if level != 0:
+                continue
+            rules = prev.getPropertyValue("NumberingRules")
+            if rules is None:
+                continue
+            cursor.setPropertyValue("NumberingStyleName", style)
+            cursor.setPropertyValue("NumberingRules", rules)
+            return True
+        except Exception:
+            continue
+    return False
+
+
+def _promote_para_to_outer_ol(cursor: Any, *, start: int) -> bool:
+    """Put *cursor*'s paragraph on the outer ordered list at *start*.
+
+    Skip-pre-clear left Ask for help on leftover nested-ul NumberingLevel=1
+    (same style as ChatGPT). Full pre-clear made insertDocumentFromURL drop
+    numbering on a 1-item ``<ol start=N>``. Keep the list style, force level 0,
+    restart at N.
+    """
+    try:
+        style = str(cursor.getPropertyValue("NumberingStyleName") or "")
+    except Exception:
+        style = ""
+    kind = _numbering_kind(style)
+    if kind == "outline":
+        return False
+    if kind == "none" and not _copy_previous_outer_list(cursor):
+        return False
+    try:
+        cursor.setPropertyValue("NumberingLevel", 0)
+        cursor.setPropertyValue("NumberingStartValue", int(start))
+        cursor.setPropertyValue("ParaIsNumberingRestart", True)
+        return True
+    except Exception:
+        log.debug("notebook import promote outer ol start=%s failed", start, exc_info=True)
+        return False
+
+
+def _last_nonempty_para_cursor(text: Any) -> Any | None:
+    try:
+        cursor = text.createTextCursor()
+        cursor.gotoEnd(False)
+    except Exception:
+        return None
+    steps = 0
+    while steps < 16:
+        steps += 1
+        if not _cursor_para_is_empty(cursor):
+            return cursor
+        try:
+            if not cursor.gotoPreviousParagraph(False):
+                return None
+        except Exception:
+            return None
+    return None
+
+
+def _cursor_para_is_empty(cursor: Any) -> bool:
+    """True when *cursor*'s paragraph has no visible text (trailing list leftover)."""
+    try:
+        text_obj = cursor.getText()
+        rng = text_obj.createTextCursorByRange(cursor)
+        rng.gotoStartOfParagraph(False)
+        rng.gotoEndOfParagraph(True)
+        raw = rng.getString()
+        if raw is None:
+            return True
+        if not isinstance(raw, str):
+            return False
+        return raw.strip() == ""
+    except Exception:
+        return False
+
+
+def _clear_para_numbering(cursor: Any) -> None:
+    """Drop inherited list numbering so the next block is not a leftover bullet."""
+    # StarWriter insertDocumentFromURL leaves NumberingRules on the last list
+    # item. A following paragraph break inherits that leftover. Clear both
+    # properties on heading/body/blockquote insertion cursors — not on the
+    # list fragment itself (see ``_insert_html_at_body_end``).
+    try:
+        cursor.setPropertyValue("NumberingStyleName", "")
+    except Exception:
+        log.debug("notebook import NumberingStyleName clear failed", exc_info=True)
+    try:
+        cursor.setPropertyValue("NumberingRules", None)
+    except Exception:
+        log.debug("notebook import NumberingRules clear failed", exc_info=True)
+
+
+def _append_body_paragraph(
+    doc: Any,
+    content: str,
+    para_style: str | None,
+    *,
+    lead_break: bool,
+    keep_with_next: bool = False,
+) -> None:
+    """Append one paragraph to the Writer body (end of document)."""
+    if not content and not para_style:
+        return
+    text = doc.getText()
+    cursor = text.createTextCursor()
+    cursor.gotoEnd(False)
+    if lead_break and _doc_body_nonempty(doc):
+        text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
+        cursor.gotoEnd(False)
+    # Always: leftover empty list para must not infect h2/body.
+    _clear_para_numbering(cursor)
+    resolved = _resolve_para_style(doc, para_style)
+    if resolved:
+        try:
+            cursor.setPropertyValue("ParaStyleName", resolved)
+        except Exception:
+            log.debug("notebook import ParaStyleName %r not applied", resolved)
+    if keep_with_next:
+        for prop, val in (("ParaKeepTogether", True), ("ParaKeepWithNext", True)):
+            try:
+                cursor.setPropertyValue(prop, val)
+            except Exception:
+                log.debug("notebook import %s not applied", prop, exc_info=True)
+    text.insertString(cursor, content, False)
+
+
+def _append_body_text_block(
+    doc: Any,
+    block: str,
+    para_style: str | None,
+    *,
+    lead_break: bool = True,
+) -> None:
+    """Append one paragraph; internal newlines stay in the same block."""
+    display, _unused = _prepare_display_text(block)
+    if not display:
+        return
+    _append_body_paragraph(doc, display, para_style, lead_break=lead_break)
+
+
+def _trim_trailing_empty_paragraph(doc: Any) -> None:
+    try:
+        text = doc.getText()
+        cursor = text.createTextCursor()
+        cursor.gotoEnd(False)
+
+        para_rng = text.createTextCursorByRange(cursor)
+        para_rng.gotoStartOfParagraph(False)
+        para_rng.gotoEndOfParagraph(True)
+        if (para_rng.getString() or "").strip() != "":
+            return
+
+        try:
+            style = str(cursor.getPropertyValue("ParaStyleName") or "")
+        except Exception:
+            style = str(getattr(cursor, "ParaStyleName", "") or "")
+        if "Heading" in style:
+            return
+        try:
+            portions = para_rng.createEnumeration()
+        except Exception:
+            portions = None
+        if portions:
+            psteps = 0
+            while psteps < 64:
+                pmore = portions.hasMoreElements()
+                if pmore is not True and pmore != 1:
+                    break
+                psteps += 1
+                portion = portions.nextElement()
+                try:
+                    ptype = str(portion.getPropertyValue("TextPortionType") or "")
+                except Exception:
+                    ptype = str(getattr(portion, "TextPortionType", "") or "")
+                if ptype == "Frame":
+                    return
+
+        prev = text.createTextCursorByRange(cursor)
+        if prev.gotoPreviousParagraph(False):
+            prev.gotoEndOfParagraph(False)
+            cursor.gotoRange(prev.getEnd(), True)
+            cursor.setString("")
+    except Exception:
+        log.debug("notebook import: trim trailing empty paragraph failed", exc_info=True)
+
+
+# ---------------------------------------------------------------------------
+# Markdown & Inline HTML Processing
+# ---------------------------------------------------------------------------
 
 def _html_attr(tag_or_attrs: str, name: str) -> str:
     """Read one HTML attribute value (quoted or bare) from a start tag or attr blob."""
@@ -1006,340 +920,6 @@ def _wrap_html_fragment(html: str) -> str:
     return f"<html><body>{body}</body></html>"
 
 
-def _doc_body_nonempty(doc: Any) -> bool:
-    try:
-        text = doc.getText()
-        cursor = text.createTextCursor()
-        cursor.gotoStart(False)
-        cursor.gotoEnd(True)
-        return bool((cursor.getString() or "").strip())
-    except Exception:
-        return True
-
-
-def _append_paragraph_break_at_end(doc: Any) -> None:
-    """Insert a paragraph break at body end so following in-flow shapes are not in the previous para."""
-    text = doc.getText()
-    cursor = text.createTextCursor()
-    cursor.gotoEnd(False)
-    text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
-
-
-def _split_markdown_image_src(raw: str) -> str:
-    src = (raw or "").strip()
-    if not src:
-        return ""
-    if src[0] in "\"'":
-        return src
-    return src.split()[0].strip("<>")
-
-
-def _fetch_remote_image(url: str) -> str | None:
-    """Download a reachable http(s) image to a temp file; None when not reachable."""
-    try:
-        from urllib.request import Request, urlopen
-
-        req = Request(url, headers={"User-Agent": "WriterAgent-notebook-import"})
-        with urlopen(req, timeout=_HTTP_IMAGE_TIMEOUT_SEC) as resp:
-            data = resp.read(_MAX_IMAGE_DECODE_BYTES + 1)
-        if not data or len(data) > _MAX_IMAGE_DECODE_BYTES:
-            return None
-        suffix = ".png"
-        lower = url.lower().split("?", 1)[0]
-        for ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"):
-            if lower.endswith(ext):
-                suffix = ".jpg" if ext == ".jpeg" else ext
-                break
-        tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
-        try:
-            tmp.write(data)
-        finally:
-            tmp.close()
-        return tmp.name
-    except Exception:
-        log.debug("notebook markdown image URL not reachable: %s", url, exc_info=True)
-        return None
-
-
-def _resolve_markdown_image_path(src: str, notebook_dir: str | None) -> str | None:
-    """Return a local filesystem path when *src* is a reachable image."""
-    src = _split_markdown_image_src(src)
-    if not src:
-        return None
-    if src.startswith("file:"):
-        try:
-            import uno
-
-            src = str(uno.fileUrlToSystemPath(src))
-        except Exception:
-            src = src.replace("file://", "", 1)
-    if src.startswith("http://") or src.startswith("https://"):
-        return _fetch_remote_image(src)
-    if os.path.isfile(src):
-        return src
-    if notebook_dir:
-        joined = os.path.normpath(os.path.join(notebook_dir, src))
-        if os.path.isfile(joined):
-            return joined
-    return None
-
-
-def _embed_markdown_image(doc: Any, src: str, notebook_dir: str | None, *, ctx: Any | None = None) -> bool:
-    path = _resolve_markdown_image_path(src, notebook_dir)
-    if not path:
-        return False
-    try:
-        with open(path, "rb") as fh:
-            raw = fh.read(_MAX_IMAGE_DECODE_BYTES + 1)
-        if not raw or len(raw) > _MAX_IMAGE_DECODE_BYTES:
-            return False
-        mime = _image_mime_from_bytes(raw, path)
-        _append_paragraph_break_at_end(doc) if _doc_body_nonempty(doc) else None
-        return _insert_image_in_flow(doc, raw=raw, mime=mime, images_before=0, ctx=ctx)
-    except Exception:
-        log.debug("notebook markdown image embed failed path=%s", path, exc_info=True)
-        return False
-    finally:
-        if src.startswith("http://") or src.startswith("https://"):
-            try:
-                if path and path.startswith(tempfile.gettempdir()) and os.path.exists(path):
-                    os.unlink(path)
-            except OSError:
-                pass
-
-
-def _unglue_last_paragraph(doc: Any) -> None:
-    """Clear KeepWithNext on the last body paragraph.
-
-    Built-in Heading 2 (and some HTML list styles) keep-with-next. That glues the
-    last markdown paragraph onto the following code cell's unsplittable
-    AS_CHARACTER field, so Writer moves the whole block and leaves a page hole.
-    Call this immediately before inserting a code cell. In-gutter KeepWithNext
-    is also off so In+field is not one unsplittable brick.
-    """
-    try:
-        text = doc.getText()
-        cursor = text.createTextCursor()
-        cursor.gotoEnd(False)
-        cursor.setPropertyValue("ParaKeepWithNext", False)
-        cursor.setPropertyValue("ParaKeepTogether", False)
-    except Exception:
-        log.debug("notebook import unglue last paragraph failed", exc_info=True)
-
-
-def _numbering_kind(name: str) -> str:
-    """``none`` / ``outline`` / ``list`` — Outline is heading chapter numbering."""
-    lowered = (name or "").strip().lower()
-    if not lowered:
-        return "none"
-    if lowered == "outline" or "outline" in lowered:
-        return "outline"
-    return "list"
-
-
-def _copy_previous_outer_list(cursor: Any) -> bool:
-    """Copy NumberingStyleName + NumberingRules from the nearest level-0 list para."""
-    try:
-        text_obj = cursor.getText()
-        prev = text_obj.createTextCursorByRange(cursor)
-    except Exception:
-        return False
-    steps = 0
-    while steps < 32:
-        steps += 1
-        try:
-            if not prev.gotoPreviousParagraph(False):
-                return False
-            style = str(prev.getPropertyValue("NumberingStyleName") or "")
-            if _numbering_kind(style) != "list":
-                continue
-            level = int(prev.getPropertyValue("NumberingLevel") or 0)
-            if level != 0:
-                continue
-            rules = prev.getPropertyValue("NumberingRules")
-            if rules is None:
-                continue
-            cursor.setPropertyValue("NumberingStyleName", style)
-            cursor.setPropertyValue("NumberingRules", rules)
-            return True
-        except Exception:
-            continue
-    return False
-
-
-def _promote_para_to_outer_ol(cursor: Any, *, start: int) -> bool:
-    """Put *cursor*'s paragraph on the outer ordered list at *start*.
-
-    Skip-pre-clear left Ask for help on leftover nested-ul NumberingLevel=1
-    (same style as ChatGPT). Full pre-clear made insertDocumentFromURL drop
-    numbering on a 1-item ``<ol start=N>``. Keep the list style, force level 0,
-    restart at N.
-    """
-    try:
-        style = str(cursor.getPropertyValue("NumberingStyleName") or "")
-    except Exception:
-        style = ""
-    kind = _numbering_kind(style)
-    if kind == "outline":
-        return False
-    if kind == "none" and not _copy_previous_outer_list(cursor):
-        return False
-    try:
-        cursor.setPropertyValue("NumberingLevel", 0)
-        cursor.setPropertyValue("NumberingStartValue", int(start))
-        cursor.setPropertyValue("ParaIsNumberingRestart", True)
-        return True
-    except Exception:
-        log.debug("notebook import promote outer ol start=%s failed", start, exc_info=True)
-        return False
-
-
-def _last_nonempty_para_cursor(text: Any) -> Any | None:
-    try:
-        cursor = text.createTextCursor()
-        cursor.gotoEnd(False)
-    except Exception:
-        return None
-    steps = 0
-    while steps < 16:
-        steps += 1
-        if not _cursor_para_is_empty(cursor):
-            return cursor
-        try:
-            if not cursor.gotoPreviousParagraph(False):
-                return None
-        except Exception:
-            return None
-    return None
-
-
-def _cursor_para_is_empty(cursor: Any) -> bool:
-    """True when *cursor*'s paragraph has no visible text (trailing list leftover)."""
-    try:
-        text_obj = cursor.getText()
-        rng = text_obj.createTextCursorByRange(cursor)
-        rng.gotoStartOfParagraph(False)
-        rng.gotoEndOfParagraph(True)
-        raw = rng.getString()
-        if raw is None:
-            return True
-        if not isinstance(raw, str):
-            return False
-        return raw.strip() == ""
-    except Exception:
-        return False
-
-
-def _clear_para_numbering(cursor: Any) -> None:
-    """Drop inherited list numbering so the next block is not a leftover bullet."""
-    # StarWriter insertDocumentFromURL leaves NumberingRules on the last list
-    # item. A following paragraph break inherits that leftover. Clear both
-    # properties on heading/body/blockquote insertion cursors — not on the
-    # list fragment itself (see ``_insert_html_at_body_end``).
-    try:
-        cursor.setPropertyValue("NumberingStyleName", "")
-    except Exception:
-        log.debug("notebook import NumberingStyleName clear failed", exc_info=True)
-    try:
-        cursor.setPropertyValue("NumberingRules", None)
-    except Exception:
-        log.debug("notebook import NumberingRules clear failed", exc_info=True)
-
-
-def _append_body_paragraph(
-    doc: Any,
-    content: str,
-    para_style: str | None,
-    *,
-    lead_break: bool,
-    keep_with_next: bool = False,
-) -> None:
-    """Append one paragraph to the Writer body (end of document)."""
-    if not content and not para_style:
-        return
-    text = doc.getText()
-    cursor = text.createTextCursor()
-    cursor.gotoEnd(False)
-    if lead_break and _doc_body_nonempty(doc):
-        text.insertControlCharacter(cursor, _PARAGRAPH_BREAK, False)
-        cursor.gotoEnd(False)
-    # Always: leftover empty list para must not infect h2/body.
-    _clear_para_numbering(cursor)
-    resolved = _resolve_para_style(doc, para_style)
-    if resolved:
-        try:
-            cursor.setPropertyValue("ParaStyleName", resolved)
-        except Exception:
-            log.debug("notebook import ParaStyleName %r not applied", resolved)
-    if keep_with_next:
-        for prop, val in (("ParaKeepTogether", True), ("ParaKeepWithNext", True)):
-            try:
-                cursor.setPropertyValue(prop, val)
-            except Exception:
-                log.debug("notebook import %s not applied", prop, exc_info=True)
-    text.insertString(cursor, content, False)
-
-
-def _append_body_text_block(
-    doc: Any,
-    block: str,
-    para_style: str | None,
-    *,
-    lead_break: bool = True,
-) -> None:
-    """Append one paragraph; internal newlines stay in the same block."""
-    display, _unused = _prepare_display_text(block)
-    if not display:
-        return
-    _append_body_paragraph(doc, display, para_style, lead_break=lead_break)
-
-
-def _trim_trailing_empty_paragraph(doc: Any) -> None:
-    try:
-        text = doc.getText()
-        cursor = text.createTextCursor()
-        cursor.gotoEnd(False)
-
-        para_rng = text.createTextCursorByRange(cursor)
-        para_rng.gotoStartOfParagraph(False)
-        para_rng.gotoEndOfParagraph(True)
-        if (para_rng.getString() or "").strip() != "":
-            return
-
-        try:
-            style = str(cursor.getPropertyValue("ParaStyleName") or "")
-        except Exception:
-            style = str(getattr(cursor, "ParaStyleName", "") or "")
-        if "Heading" in style:
-            return
-        try:
-            portions = para_rng.createEnumeration()
-        except Exception:
-            portions = None
-        if portions:
-            psteps = 0
-            while psteps < 64:
-                pmore = portions.hasMoreElements()
-                if pmore is not True and pmore != 1:
-                    break
-                psteps += 1
-                portion = portions.nextElement()
-                try:
-                    ptype = str(portion.getPropertyValue("TextPortionType") or "")
-                except Exception:
-                    ptype = str(getattr(portion, "TextPortionType", "") or "")
-                if ptype == "Frame":
-                    return
-
-        prev = text.createTextCursorByRange(cursor)
-        if prev.gotoPreviousParagraph(False):
-            prev.gotoEndOfParagraph(False)
-            cursor.gotoRange(prev.getEnd(), True)
-            cursor.setString("")
-    except Exception:
-        log.debug("notebook import: trim trailing empty paragraph failed", exc_info=True)
-
-
 def _insert_html_at_body_end(
     doc: Any, html: str, *, lead_break: bool, exit_list: bool = False
 ) -> bool:
@@ -1464,6 +1044,449 @@ def _append_markdown_cell(
         else:
             _append_body_paragraph(doc, str(payload), _STYLE_BODY, lead_break=block_lead)
 
+
+# ---------------------------------------------------------------------------
+# Image Pipeline
+# ---------------------------------------------------------------------------
+
+def _png_pixel_size(raw: bytes) -> tuple[int, int] | None:
+    if len(raw) < 24 or raw[:8] != b"\x89PNG\r\n\x1a\n":
+        return None
+    w, h = struct.unpack(">II", raw[16:24])
+    if w < 1 or h < 1:
+        return None
+    return w, h
+
+
+def _jpeg_pixel_size(raw: bytes) -> tuple[int, int] | None:
+    """Read SOF width/height so JPEG plots keep aspect ratio when capped."""
+    if len(raw) < 4 or raw[:2] != b"\xff\xd8":
+        return None
+    i = 2
+    while i < len(raw) - 8:
+        if raw[i] != 0xFF:
+            return None
+        marker = raw[i + 1]
+        if marker in (0xC0, 0xC1, 0xC2, 0xC3):
+            h, w = struct.unpack(">HH", raw[i + 5 : i + 9])
+            if w >= 1 and h >= 1:
+                return w, h
+            return None
+        if marker == 0xD9 or marker == 0xDA:
+            return None
+        length = struct.unpack(">H", raw[i + 2 : i + 4])[0]
+        i += 2 + length
+    return None
+
+
+def _svg_pixel_size(raw: bytes) -> tuple[int, int] | None:
+    """Read width/height or viewBox so SVG badges are not stretched to the page cap."""
+    text = raw.decode("utf-8", errors="ignore")[:4000]
+    vb = re.search(
+        r"viewBox\s*=\s*[\"']?\s*[-0-9.]+\s+[-0-9.]+\s+([0-9.]+)\s+([0-9.]+)",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if vb:
+        w, h = float(vb.group(1)), float(vb.group(2))
+        if w >= 1 and h >= 1:
+            return int(w), int(h)
+    wm = re.search(r"\bwidth\s*=\s*[\"']?([0-9.]+)", text, flags=re.IGNORECASE)
+    hm = re.search(r"\bheight\s*=\s*[\"']?([0-9.]+)", text, flags=re.IGNORECASE)
+    if wm and hm:
+        w, h = float(wm.group(1)), float(hm.group(1))
+        if w >= 1 and h >= 1:
+            return int(w), int(h)
+    return None
+
+
+def _image_mime_from_bytes(raw: bytes, path: str) -> str:
+    if raw[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if len(raw) >= 2 and raw[:2] == b"\xff\xd8":
+        return "image/jpeg"
+    lower = (path or "").lower()
+    head = raw.lstrip()[:256].lower()
+    if lower.endswith(".svg") or b"<svg" in head:
+        return "image/svg+xml"
+    if lower.endswith((".jpg", ".jpeg")):
+        return "image/jpeg"
+    return "image/png"
+
+
+def _display_size_units(raw: bytes, mime: str, *, max_width_mm: float | None = None) -> tuple[int, int]:
+    """Map decoded image bytes to Writer size in 1/100 mm (capped width, keep aspect)."""
+    cap_mm = float(max_width_mm) if max_width_mm and max_width_mm > 0 else float(_MAX_IMAGE_DISPLAY_WIDTH_MM)
+    px_size = None
+    if mime == "image/png":
+        px_size = _png_pixel_size(raw)
+    elif mime in ("image/jpeg", "image/jpg"):
+        px_size = _jpeg_pixel_size(raw)
+    elif mime == "image/svg+xml":
+        px_size = _svg_pixel_size(raw)
+    if px_size is not None:
+        px_w, px_h = px_size
+    else:
+        px_w, px_h = None, None
+    if px_w and px_h:
+        w_mm = px_w * 25.4 / 96
+        h_mm = px_h * 25.4 / 96
+        if w_mm > cap_mm:
+            scale = cap_mm / w_mm
+            w_mm = cap_mm
+            h_mm = h_mm * scale
+        return _mm_to_units(w_mm, h_mm)
+    return _mm_to_units(cap_mm, _DEFAULT_IMAGE_HEIGHT_MM)
+
+
+def _notebook_image_payload(data: dict[str, Any]) -> tuple[str, str] | None:
+    """Return (mime, base64) for the first supported image bundle in a notebook output."""
+    for mime in ("image/png", "image/jpeg", "image/jpg"):
+        if mime in data:
+            b64 = _coerce_notebook_text(data[mime])
+            if b64.strip():
+                return mime, b64
+    return None
+
+
+def _decode_notebook_image(b64_data: str) -> bytes | None:
+    b64_data = _coerce_notebook_text(b64_data)
+    if len(b64_data) > _MAX_IMAGE_DECODE_BYTES:
+        log.warning(
+            "notebook import skip image decode size=%d max=%d",
+            len(b64_data),
+            _MAX_IMAGE_DECODE_BYTES,
+        )
+        return None
+    try:
+        return base64.b64decode(b64_data, validate=False)
+    except Exception:
+        log.debug("notebook image base64 decode failed", exc_info=True)
+        return None
+
+
+def _apply_notebook_image_flow(graphic: Any) -> None:
+    """AS_CHARACTER already in-flow; pin wrap off so plots do not float beside text."""
+    for name, val in (("TextWrap", 0), ("SurroundContour", False)):
+        try:
+            graphic.setPropertyValue(name, val)
+        except Exception:
+            log.debug("notebook image wrap property %s not applied", name, exc_info=True)
+
+
+def _insert_image_in_flow(
+    doc: Any,
+    *,
+    raw: bytes,
+    mime: str,
+    images_before: int,
+    ctx: Any | None = None,
+    text_cursor: Any | None = None,
+) -> bool:
+    """Embed notebook image output in document flow (TextGraphicObject).
+
+    Import appends at body end. Live ▶ must pass *text_cursor* under the cell —
+    ``gotoEnd`` was dumping matplotlib plots at the document end and jumping the view.
+    """
+    suffix = _IMAGE_MIME_SUFFIX.get(mime, ".png")
+    tmp_path = None
+    t0 = time.monotonic()
+    try:
+        with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+            tmp.write(raw)
+            tmp_path = tmp.name
+        max_w_mm = _text_area_width_units(doc) / 100.0
+        w_units, h_units = _display_size_units(raw, mime, max_width_mm=max_w_mm)
+        w_mm = w_units / 100.0
+        h_mm = h_units / 100.0
+        text = doc.getText()
+        if text_cursor is not None:
+            cursor = text_cursor
+        else:
+            cursor = text.createTextCursor()
+            cursor.gotoEnd(False)
+        t_add = time.monotonic()
+        graphic = None
+        if ctx is not None:
+            graphic = insert_image_at_locator(
+                ctx,
+                doc,
+                tmp_path,
+                width_mm=w_mm,
+                height_mm=h_mm,
+                title="Notebook output",
+                description=mime,
+                text_cursor=cursor,
+            )
+            if graphic is None:
+                raise RuntimeError("insert_image_at_locator returned None")
+        else:
+            image = _create_embedded_graphic(doc, "writer", _file_url_for_path(tmp_path), ctx=ctx)
+            _apply_graphic_properties(
+                image,
+                width=w_units,
+                height=h_units,
+                title="Notebook output",
+                description=mime,
+                anchor_type=AS_CHARACTER,
+                inside="writer",
+            )
+            text.insertTextContent(cursor, image, False)
+            graphic = image
+        if graphic is not None:
+            _apply_notebook_image_flow(graphic)
+        add_ms = _mono_ms(t_add)
+        _log_shape_add(
+            step="image",
+            text_chars=len(raw),
+            shape_h=h_units,
+            shapes_before=images_before,
+            create_ms=_mono_ms(t0),
+            add_ms=add_ms,
+        )
+        return True
+    except Exception:
+        log.exception("Failed to insert notebook image in document flow")
+        _log_shape_add(step="image", shapes_before=images_before, create_ms=_mono_ms(t0), add_ms=0, ok=False)
+        return False
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+
+def _split_markdown_image_src(raw: str) -> str:
+    src = (raw or "").strip()
+    if not src:
+        return ""
+    if src[0] in "\"'":
+        return src
+    return src.split()[0].strip("<>")
+
+
+def _fetch_remote_image(url: str) -> str | None:
+    """Download a reachable http(s) image to a temp file; None when not reachable."""
+    try:
+        from urllib.request import Request, urlopen
+
+        req = Request(url, headers={"User-Agent": "WriterAgent-notebook-import"})
+        with urlopen(req, timeout=_HTTP_IMAGE_TIMEOUT_SEC) as resp:
+            data = resp.read(_MAX_IMAGE_DECODE_BYTES + 1)
+        if not data or len(data) > _MAX_IMAGE_DECODE_BYTES:
+            return None
+        suffix = ".png"
+        lower = url.lower().split("?", 1)[0]
+        for ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg"):
+            if lower.endswith(ext):
+                suffix = ".jpg" if ext == ".jpeg" else ext
+                break
+        tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+        try:
+            tmp.write(data)
+        finally:
+            tmp.close()
+        return tmp.name
+    except Exception:
+        log.debug("notebook markdown image URL not reachable: %s", url, exc_info=True)
+        return None
+
+
+def _resolve_markdown_image_path(src: str, notebook_dir: str | None) -> str | None:
+    """Return a local filesystem path when *src* is a reachable image."""
+    src = _split_markdown_image_src(src)
+    if not src:
+        return None
+    if src.startswith("file:"):
+        try:
+            import uno
+
+            src = str(uno.fileUrlToSystemPath(src))
+        except Exception:
+            src = src.replace("file://", "", 1)
+    if src.startswith("http://") or src.startswith("https://"):
+        return _fetch_remote_image(src)
+    if os.path.isfile(src):
+        return src
+    if notebook_dir:
+        joined = os.path.normpath(os.path.join(notebook_dir, src))
+        if os.path.isfile(joined):
+            return joined
+    return None
+
+
+def _embed_markdown_image(doc: Any, src: str, notebook_dir: str | None, *, ctx: Any | None = None) -> bool:
+    path = _resolve_markdown_image_path(src, notebook_dir)
+    if not path:
+        return False
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read(_MAX_IMAGE_DECODE_BYTES + 1)
+        if not raw or len(raw) > _MAX_IMAGE_DECODE_BYTES:
+            return False
+        mime = _image_mime_from_bytes(raw, path)
+        _append_paragraph_break_at_end(doc) if _doc_body_nonempty(doc) else None
+        return _insert_image_in_flow(doc, raw=raw, mime=mime, images_before=0, ctx=ctx)
+    except Exception:
+        log.debug("notebook markdown image embed failed path=%s", path, exc_info=True)
+        return False
+    finally:
+        if src.startswith("http://") or src.startswith("https://"):
+            try:
+                if path and path.startswith(tempfile.gettempdir()) and os.path.exists(path):
+                    os.unlink(path)
+            except OSError:
+                pass
+
+
+def _outputs_contain_image(outputs: list[Any]) -> bool:
+    for output in outputs or []:
+        output_type = getattr(output, "output_type", None) or output.get("output_type", "")
+        if output_type not in ("display_data", "execute_result"):
+            continue
+        data = getattr(output, "data", None) or output.get("data", {})
+        if isinstance(data, dict) and _notebook_image_payload(data) is not None:
+            return True
+    return False
+
+
+def _import_image_outputs_in_flow(
+    doc: Any,
+    outputs: list[Any],
+    cell_index: int,
+    *,
+    images_before: int,
+    ctx: Any | None = None,
+) -> int:
+    """Insert image/png/jpeg outputs in the document body. Returns number of images added."""
+    added = 0
+    out_list = outputs or []
+    if len(out_list) > _MAX_OUTPUTS_PER_CELL:
+        out_list = out_list[:_MAX_OUTPUTS_PER_CELL]
+    for output in out_list:
+        output_type = getattr(output, "output_type", None) or output.get("output_type", "")
+        if output_type not in ("display_data", "execute_result"):
+            continue
+        data = getattr(output, "data", None) or output.get("data", {})
+        if not isinstance(data, dict):
+            continue
+        payload = _notebook_image_payload(data)
+        if payload is None:
+            continue
+        mime, b64 = payload
+        raw = _decode_notebook_image(b64)
+        if raw and _insert_image_in_flow(doc, raw=raw, mime=mime, images_before=images_before + added, ctx=ctx):
+            added += 1
+        else:
+            log.debug("notebook import cell=%d skip image mime=%s", cell_index, mime)
+    return added
+
+
+# ---------------------------------------------------------------------------
+# Output Text & Interleaving
+# ---------------------------------------------------------------------------
+
+def _strip_ansi(text: str) -> str:
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
+def _mime_plain(data: Any) -> str:
+    if not isinstance(data, dict):
+        return str(data) if data is not None else ""
+    if "text/plain" in data:
+        plain = data["text/plain"]
+        return plain if isinstance(plain, str) else "".join(plain)
+    for key in sorted(data.keys()):
+        if key.startswith("text/"):
+            val = data[key]
+            return val if isinstance(val, str) else "".join(val)
+    return ""
+
+
+def format_output_text(output: Any, execution_count: Any | None = None) -> str:
+    """Turn one nbformat output object into plain text for the document body.
+
+    Stream/print text has no ``Out [n]:`` prefix (Jupyter puts that only on
+    ``execute_result`` / last-line values).
+    """
+    output_type = getattr(output, "output_type", None) or output.get("output_type", "")
+    if output_type == "stream":
+        text = _coerce_notebook_text(getattr(output, "text", None) or output.get("text", ""))
+        return text
+    if output_type == "error":
+        tb = getattr(output, "traceback", None) or output.get("traceback", "")
+        if isinstance(tb, list):
+            tb = "\n".join(tb)
+        return _strip_ansi(str(tb))
+    if output_type in ("execute_result", "display_data"):
+        data = getattr(output, "data", None) or output.get("data", {})
+        if isinstance(data, dict):
+            if _notebook_image_payload(data) is not None:
+                return ""
+            plain = _mime_plain(data)
+            if plain:
+                if output_type == "execute_result" and execution_count is not None:
+                    return f"Out [{execution_count}]: {plain}"
+                return plain
+            mime_types = ", ".join(sorted(data.keys()))
+            return f"[non-text output: {mime_types}]"
+    return str(output)
+
+
+def format_all_outputs(outputs: list[Any]) -> str:
+    parts = [format_output_text(o) for o in (outputs or [])]
+    return "\n\n".join(p for p in parts if p.strip())
+
+
+def _format_outputs_for_body(
+    outputs: list[Any], cell_index: int, execution_count: Any | None = None
+) -> tuple[list[tuple[str, Any]], int]:
+    """Interleave text and image outputs in notebook order.
+
+    Previously appended all text, then all images, so ``[display image,
+    print(...)]`` rendered print-then-image. Walk each output once: flush
+    consecutive text before an image, then the image. Caps at
+    ``_MAX_OUTPUTS_PER_CELL``.
+
+    Returns ``(segments, text_output_count)``. Each segment is
+    ``("text", joined_str)`` or ``("image", output)``. ``text_output_count`` is
+    the number of outputs that produced non-empty text (same meaning as the
+    old ``stats["outputs"]`` increment, without a second ``format_output_text``).
+    """
+    out_list = outputs or []
+    if len(out_list) > _MAX_OUTPUTS_PER_CELL:
+        log.warning(
+            "notebook import cell=%d truncating outputs %d -> %d",
+            cell_index,
+            len(out_list),
+            _MAX_OUTPUTS_PER_CELL,
+        )
+        out_list = out_list[:_MAX_OUTPUTS_PER_CELL]
+    segments: list[tuple[str, Any]] = []
+    text_parts: list[str] = []
+    text_count = 0
+
+    def flush_text() -> None:
+        if text_parts:
+            segments.append(("text", "\n\n".join(text_parts)))
+            text_parts.clear()
+
+    for output in out_list:
+        text = format_output_text(output, execution_count)
+        if text.strip():
+            text_parts.append(text)
+            text_count += 1
+        if _outputs_contain_image([output]):
+            flush_text()
+            segments.append(("image", output))
+    flush_text()
+    return segments, text_count
+
+
+# ---------------------------------------------------------------------------
+# Main Import Entry Point
+# ---------------------------------------------------------------------------
 
 def import_ipynb_to_writer(doc: Any, path: str, ctx: Any | None = None) -> dict[str, Any]:
     """Read *path* (.ipynb): body text for markdown/raw/outputs; in-flow field for code."""

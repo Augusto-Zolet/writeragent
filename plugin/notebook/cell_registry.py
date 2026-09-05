@@ -25,6 +25,8 @@ NOTEBOOK_REGISTRY_UDPROP = "WriterAgentNotebookJson"
 NOTEBOOK_SOURCE_PATH_UDPROP = "WriterAgentNotebookSourcePath"
 _REGISTRY_VERSION = 1
 _IN_PROMPT_RE = re.compile(r"^In \[[0-9 ]*\]:")
+_MAX_IMPORT_TEXT_CHARS = 50_000
+_TRUNCATION_SUFFIX = "\n\n[… truncated for import …]"
 
 # Module-level alias is evaluated at import. PEP 604 ``X | None`` needs 3.10+;
 # LibreOffice's embedded Python is often older. ``from __future__ import annotations``
@@ -55,6 +57,10 @@ __all__ = [
     "_prepare_display_text",
 ]
 
+
+# ---------------------------------------------------------------------------
+# Data Models
+# ---------------------------------------------------------------------------
 
 @dataclass
 class NotebookCodeCell:
@@ -116,6 +122,47 @@ class NotebookDocState:
         )
 
 
+# ---------------------------------------------------------------------------
+# Cell Text & Prompt Formatting
+# ---------------------------------------------------------------------------
+
+def _coerce_notebook_text(value: Any) -> str:
+    """Normalize nbformat text field (str or list of lines) to a single string."""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "".join(str(line) for line in value)
+    return str(value)
+
+
+def _prepare_display_text(text: str) -> tuple[str, bool]:
+    display = text or ""
+    if len(display) <= _MAX_IMPORT_TEXT_CHARS:
+        return display, False
+    keep = max(0, _MAX_IMPORT_TEXT_CHARS - len(_TRUNCATION_SUFFIX))
+    return display[:keep] + _TRUNCATION_SUFFIX, True
+
+
+def _format_in_prompt(execution_count: Any | None) -> str:
+    """Format Jupyter-style In [n]: gutter label for a code cell."""
+    if execution_count is None:
+        return "In [ ]:"
+    return f"In [{execution_count}]:"
+
+
+def _cell_heading(idx: int, cell_type: str, execution_count: Any | None = None) -> str:
+    """Code-cell gutter prompt only. Markdown/raw have no Cell N chrome."""
+    if cell_type == "code":
+        return _format_in_prompt(execution_count)
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Cell Identity & Creation
+# ---------------------------------------------------------------------------
+
 def cell_id_to_hex(cell_id: str) -> str:
     return cell_id.replace("-", "")
 
@@ -166,6 +213,10 @@ def new_code_cell_entry(
         output_start_bookmark=_bookmark_name_for_cell_id(cell_id),
     )
 
+
+# ---------------------------------------------------------------------------
+# Document Persistence & Bookmarks
+# ---------------------------------------------------------------------------
 
 def state_to_json(state: NotebookDocState) -> str:
     return json.dumps(state.to_dict(), separators=(",", ":"))
@@ -238,42 +289,3 @@ def insert_output_start_bookmark(doc: Any, bookmark_name: str) -> bool:
     except Exception:
         log.exception("notebook registry: failed to insert bookmark %r", bookmark_name)
         return False
-
-
-def _format_in_prompt(execution_count: Any | None) -> str:
-    """Format Jupyter-style In [n]: gutter label for a code cell."""
-    if execution_count is None:
-        return "In [ ]:"
-    return f"In [{execution_count}]:"
-
-
-def _cell_heading(idx: int, cell_type: str, execution_count: Any | None = None) -> str:
-    """Code-cell gutter prompt only. Markdown/raw have no Cell N chrome."""
-    if cell_type == "code":
-        return _format_in_prompt(execution_count)
-    return ""
-
-
-def _coerce_notebook_text(value: Any) -> str:
-    """Normalize nbformat text field (str or list of lines) to a single string."""
-    if value is None:
-        return ""
-    if isinstance(value, str):
-        return value
-    if isinstance(value, list):
-        return "".join(str(line) for line in value)
-    return str(value)
-
-
-_MAX_IMPORT_TEXT_CHARS = 50_000
-_TRUNCATION_SUFFIX = "\n\n[… truncated for import …]"
-
-
-def _prepare_display_text(text: str) -> tuple[str, bool]:
-    display = text or ""
-    if len(display) <= _MAX_IMPORT_TEXT_CHARS:
-        return display, False
-    keep = max(0, _MAX_IMPORT_TEXT_CHARS - len(_TRUNCATION_SUFFIX))
-    return display[:keep] + _TRUNCATION_SUFFIX, True
-
-
