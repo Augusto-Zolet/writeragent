@@ -483,16 +483,28 @@ class SortRange(ToolCalcRangeBase):
 
     name = "sort_range"
     intent = "edit"
-    description = "Sorts the specified range(s) by a column. Use for ordering rows by values in one column. Supports lists for non-contiguous areas."
+    description = (
+        "Stable one-column sort of the specified range(s) by values in one column. "
+        "Multi-key sorts are multiple calls (two stable one-column passes). "
+        "Do pass has_header=true when row 1 is labels because otherwise labels "
+        "sort as values. "
+        "Supports lists for non-contiguous areas."
+    )
     parameters = {
         "type": "object",
         "properties": {
             "range": {"type": "array", "items": {"type": "string"}, "description": ('Range(s) to sort (e.g. ["A1:D10"] or ["A1:B10", "D1:E10"]).')},
             "sort_column": {"type": "integer", "description": ("0-based column index within the range to sort by (default: 0)")},
             "ascending": {"type": "boolean", "description": ("True for ascending, False for descending (default: true)")},
-            "has_header": {"type": "boolean", "description": ("Is the first row a header that should not be sorted? (default: true)")},
+            "has_header": {
+                "type": "boolean",
+                "description": (
+                    "true when row 1 is labels; false only for a headerless block "
+                    "(default: true)."
+                ),
+            },
         },
-        "required": ["range"],
+        "required": ["range", "has_header"],
     }
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True
