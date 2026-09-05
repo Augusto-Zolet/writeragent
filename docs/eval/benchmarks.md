@@ -39,11 +39,11 @@ Ranked by **hard pass → agent score → metric**. **Hard pass** = document sub
 
 ## Key insights
 
-1. **Perfect hard pass (6 models):** DeepSeek V4 Flash, Muse Glimmer 30B, Grok 4.6, GPT-5.6 Luna, Muse Spark 1.3, and `openai/gpt-oss-120b` cleared every task on the hard gate after the selective Calc refresh. gpt-oss-120b still leads **C²/$** among the perfect set.
-2. **Catalog trim:** `z-ai/glm-5.3` was dropped from the ranking catalog (expensive/overkill); `z-ai/glm-5.3-flash` remains and recovered to **0.941** hard pass after #616 sort prompt fixes.
-3. **Calc selective (#616/#617):** Only `data_sorting` + `tax_column` were remeasured. Notable helps vs the post-#613 snapshot: `glm-5.3-flash` sort, `qwen/qwen3.8-27b` tax, `upstage/solar-pro4` sort+tax (among others). Other 15 tasks unchanged from #613.
-4. **Do not over-read rate-limit zeros:** Nemotron 3.5 Lightning and Qwen3.8 Flash still carry many 429 rows from older full-pack runs — only sort/tax were refreshed for them.
-5. **MiniMax M3:** Still carries the historical streaming-normalizer note; see [stream-normalizer-delta-crash.md](stream-normalizer-delta-crash.md).
+1. **Perfect hard pass:** `openai/gpt-oss-120b` and `x-ai/grok-4.6` cleared every task on the hard gate. Grok leads on raw correctness; gpt-oss-120b dominates **C²/$** (~$0.0005/task).
+2. **Mid-tier cluster:** Gemma 4 31B, GPT-5.6 Luna, GLM 5.3 Flash, DeepSeek V4 Flash, and Muse Glimmer sit at ~94% hard pass — strong cost/quality tradeoffs below the top two.
+3. **Calc/oracle hotspots:** `tax_column`, `data_sorting`, and `flowchart_gen` separated the middle from the bottom; most failures are model-side (wrong formulas, incomplete diagrams), not harness bugs.
+4. **Do not read 429 zeros:** Qwen3.8 Flash's 0% is OpenRouter 429 on all 17 tasks, not a model score. Nemotron 3.5 Lightning's **first** pass was the same 429 wall; the **6/17** in the table is a completed selective re-run (one `max_tool_rounds` error on `data_sorting`).
+5. **MiniMax M3 is in the table:** one task (`format_preservation`) hit a stream-normalizer contract bug (`type(delta) is dict`); not a blanket hold-out. Re-run that task after [stream-normalizer-delta-crash.md](stream-normalizer-delta-crash.md) is fixed.
 
 ## Scoring approach
 

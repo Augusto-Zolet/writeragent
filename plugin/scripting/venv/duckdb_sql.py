@@ -22,7 +22,7 @@ import logging
 import os
 import re
 import threading
-from typing import Any
+from typing import Any, cast
 
 from plugin.scripting.venv.coerce import (
     ok_result as _ok_result,
@@ -592,7 +592,8 @@ def run_sql(
             raise RuntimeError(str(res.get("message") or res.get("code") or "SQL failed"))
         cols = res.get("columns") or []
         rows = res.get("rows") or []
-        return pd.DataFrame(rows, columns=cols)
+        # Cast cols to Any for pandas-stubs Axes compatibility
+        return pd.DataFrame(rows, columns=cast("Any", cols))
 
     try:
         import duckdb  # type: ignore[import-not-found]
