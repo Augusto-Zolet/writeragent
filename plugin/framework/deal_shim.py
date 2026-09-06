@@ -12,7 +12,7 @@ See docs/framework/formal-verification.md §8.1 E for string contract convention
 ``DEAL_MAX_*`` are finite ``@deal.pre`` domains, not production limits (release
 OXTs strip ``@deal.*``; LibreOffice uses this shim as a no-op). Pytest /
 ``make test`` bind the wide, product-faithful table (ZZZ, Calc max row,
-CELL_REF=32). CrossHair binds the short table only when
+CELL_REF=256). CrossHair binds the short table only when
 ``WRITERAGENT_CROSSHAIR=1`` at import, which check-all, cover-all (including
 process-pool workers), and ``scripts/crosshair_stream.py run`` set before
 spawning CrossHair. Do not sniff ``sys.modules["crosshair"]`` or
@@ -101,12 +101,12 @@ def deal_maxima(*, crosshair: bool) -> DealMaxima:
             retry=retry,
             backoff=backoff,
             backoff_factor=backoff_factor,
-            html_chunk=16,  # char-by-char stripper; pytest keeps 512 for the 256-flush path
+            html_chunk=16,  # char-by-char stripper; pytest/debug keeps 4096 (was 512); CrossHair stays 16
         )
     return DealMaxima(
         col_letters=3,
         col_index=26 + 26**2 + 26**3 - 1,  # 18277, A–ZZZ (not 26**3-1)
-        cell_ref=32,
+        cell_ref=256,  # sheet-qualified ranges; was 32 (tripped live debug on long =PY / Sample Size Calculation.A1:K…)
         row_index=1_048_575,  # Calc max 0-based row (1_048_576 rows)
         argv=4096,  # wrap_command argv, including venv ``-c`` probes (~1–2k)
         cmd_args=32,  # wrap_command list length
@@ -123,7 +123,7 @@ def deal_maxima(*, crosshair: bool) -> DealMaxima:
         retry=retry,
         backoff=backoff,
         backoff_factor=backoff_factor,
-        html_chunk=512,  # wider than 256 so pytest still hits the tag-flush path
+        html_chunk=4096,  # long tool-result HTML in debug; strip_html_tags feeds in chunks (was 512)
     )
 
 

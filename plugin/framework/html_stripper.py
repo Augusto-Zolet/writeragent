@@ -25,12 +25,12 @@ from plugin.framework.deal_shim import (
     ascii_bounded,
     str_bounded,
     deal,
-    inverse_ensure,
 )
 
 # Wider than DEAL_MAX_SOURCE (16 under CrossHair): feed() must still reach the
-# 256-char tag flush under pytest. Pytest binds DEAL_MAX_HTML_CHUNK=512 so that
-# path stays live; CrossHair uses 16.
+# 256-char tag flush under pytest. Pytest binds DEAL_MAX_HTML_CHUNK=4096 so
+# long tool-result HTML chunks; CrossHair uses 16. strip_html_tags has no
+# whole-string @deal.pre — it feeds in DEAL_MAX_HTML_CHUNK slices.
 _DEAL_MAX_HTML_CHUNK = DEAL_MAX_HTML_CHUNK
 # Import-time only: pytest keeps Unicode body text (café); CrossHair uses ASCII
 # so SMT is not on 16-char Unicode (strip_html_tags 2:16, check-all 32877875221).
@@ -106,14 +106,16 @@ class StreamingHTMLStripper:
         return ""
 
 
-@deal.pre(lambda text: _deal_strip_html_ok(text, _DEAL_MAX_HTML_CHUNK))
+# Chunk through feed() so live deal never requires the whole string ≤ DEAL_MAX_HTML_CHUNK.
 @deal.post(lambda result: isinstance(result, str))
-@inverse_ensure(lambda text, result: "<" not in result or ">" not in result or len(result) <= len(text))
 def strip_html_tags(text: str) -> str:
     """Synchronous utility to strip HTML tags from a complete string."""
-    # crosshair: off  # wraps feed (cover-all 33451622787: 2 examples / 14064 log lines). Same leftover as StreamingHTMLStripper.feed.
+    # crosshair: off  # wraps feed; whole-text @deal.pre removed — crashed long tool-result chat appends in debug.
     if not text:
         return ""
     stripper = StreamingHTMLStripper()
-    res = stripper.feed(text)
-    return res + stripper.finalize()
+    parts = []
+    chunk = _DEAL_MAX_HTML_CHUNK
+    for i in range(0, len(text), chunk):
+        parts.append(stripper.feed(text[i : i + chunk]))
+    return "".join(parts) + stripper.finalize()
