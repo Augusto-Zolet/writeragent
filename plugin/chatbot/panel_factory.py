@@ -724,7 +724,9 @@ class ChatPanelElement(unohelper.Base, XUIElement):
         from plugin.chatbot.chat_sidebar_mode import CHAT_MODE_LIBRARIAN, is_image_mode, librarian_default_mode, mark_librarian_invoked, populate_mode_selector_with_flags, set_selector_mode_with_flags
 
         if aspect_ratio_selector:
-            aspect_ratio_selector.addItems(("Square", "Landscape (16:9)", "Portrait (9:16)", "Landscape (3:2)", "Portrait (2:3)"), 0)
+            from plugin.chatbot.settings_dialog import IMAGE_ASPECT_RATIO_LABELS
+
+            aspect_ratio_selector.addItems(IMAGE_ASPECT_RATIO_LABELS, 0)
             aspect_ratio_selector.setText(get_config("image_default_aspect") or "Square")
 
         if base_size_input:

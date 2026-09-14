@@ -43,7 +43,7 @@ Image generation and editing in WriterAgent uses the **same endpoint URL and API
 
 **General tab** ([`SettingsDialog.xdl.tpl`](../../extension/WriterAgentDialogs/SettingsDialog.xdl.tpl)): endpoint, API key, **Text/Chat Model**, **Image Model**, audio model, temperature, max tokens, additional instructions.
 
-**Image Settings tab**: base size, aspect ratio, steps, seed, auto gallery, insert frame.
+**Image Settings tab**: base size, aspect ratio (same five labels as the sidebar Image-mode dropdown: Square, Landscape 16:9, Portrait 9:16, Landscape 3:2, Portrait 2:3), steps, seed, auto gallery, insert frame.
 
 **Chat sidebar** ([`ChatPanelDialog.xdl`](../../extension/WriterAgentDialogs/ChatPanelDialog.xdl)): text model and image model comboboxes; additional instructions come from config only (Settings).
 

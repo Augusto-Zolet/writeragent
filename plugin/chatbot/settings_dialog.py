@@ -32,6 +32,16 @@ import logging
 
 log = logging.getLogger(__name__)
 
+# English display labels for Settings + sidebar Image-mode aspect comboboxes.
+# Stored as-is in image_default_aspect; send_handlers maps them to tool enums.
+IMAGE_ASPECT_RATIO_LABELS: tuple[str, ...] = (
+    "Square",
+    "Landscape (16:9)",
+    "Portrait (9:16)",
+    "Landscape (3:2)",
+    "Portrait (2:3)",
+)
+
 
 def get_settings_field_specs(ctx):
     """Return field specs for Settings dialog (single source for dialog and apply keys)."""
@@ -66,7 +76,12 @@ def _get_image_field_specs(ctx):
     return [
         {"name": "image_model", "value": str(get_image_model())},
         {"name": "image_base_size", "value": str(get_config_int("image_base_size")), "type": "int"},
-        {"name": "image_default_aspect", "value": get_config_str("image_default_aspect")},
+        {
+            "name": "image_default_aspect",
+            "value": get_config_str("image_default_aspect"),
+            # label==value: config stores English UI strings (not tool enums).
+            "options": [{"label": label, "value": label} for label in IMAGE_ASPECT_RATIO_LABELS],
+        },
         {"name": "image_steps", "value": str(get_config_int("image_steps")), "type": "int"},
         {"name": "image_auto_gallery", "value": "true" if get_config_bool("image_auto_gallery") else "false", "type": "bool"},
         {"name": "image_insert_frame", "value": "true" if get_config_bool("image_insert_frame") else "false", "type": "bool"},
