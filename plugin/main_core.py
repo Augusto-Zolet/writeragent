@@ -70,6 +70,10 @@ def bootstrap(ctx=None) -> None:
     global _initialized
     if _initialized:
         return
+    from plugin.framework.thread_guard import on_main_thread
+
+    if not on_main_thread():
+        return
     with _init_lock:
         if _initialized:
             return

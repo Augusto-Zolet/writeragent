@@ -146,6 +146,10 @@ def init_config(ctx=None):
     if _resolved_config_path is not None:
         return _resolved_config_path
     if ctx is None:
+        from plugin.framework.thread_guard import on_main_thread
+
+        if not on_main_thread():
+            raise ConfigError("UNO context is required to resolve config path on background thread")
         from plugin.framework.uno_context import get_ctx
 
         ctx = get_ctx()

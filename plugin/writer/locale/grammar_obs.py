@@ -119,7 +119,7 @@ def emit_grammar_status(
                 try:
                     post_to_main_thread(update_libreoffice_status_bar, phase, text, result)
                 except Exception:
-                    update_libreoffice_status_bar(phase, text, result)
+                    log.debug("Failed to post status bar update to main thread", exc_info=True)
         else:
             event_bus.global_event_bus.emit("grammar:status", phase=phase, preview=preview, length=length, result=result, elapsed_ms=elapsed_ms)
     except Exception as e:

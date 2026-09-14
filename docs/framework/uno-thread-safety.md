@@ -305,10 +305,10 @@ The following items are tracked for future enhancement:
 |---|---|
 | **Native Socket-Bridge `=PY("1+1")` under `lo-test-threadguard`** | GUI formula bar recalculation executes on the main thread and hides bridge worker issues. Adding a native test case that assigns formulas over a socket bridge will exercise remote bridge execution paths against live LibreOffice. |
 | **Opengrep Inter-File Taint (`--taint-interfile`)** | Opengrep inter-file taint is currently in alpha (`v1.28.0-interfile.alpha.2`). Until mature, the gate uses `--taint-intrafile` and cross-file workers rely on explicit `@background` decorators. |
-| **AST Linter Target Scope** | Default scan targets add-in and scripting directories (`plugin/calc/python`, `plugin/scripting`). As async tools expand in `plugin/chatbot` and `plugin/embeddings`, consider extending custom AST visitor rules to additional specialized tool modules. |
+| **AST Linter Target Scope & Cross-File Taint** | `scripts/lint_thread_safety.py` scans `plugin/` with whole-codebase AST call graph tracing. It traces paths starting from `@background` entrypoints and `run_in_background` callbacks across files to `RED_UNO_SOURCES`, with `execute_on_main_thread` / `post_to_main_thread` and `on_main_thread()` serving as sanitizers. |
 | **`uno_thread_safety` Pytest Fixture Adoption** | The fixture is currently opt-in for unit tests. Expanding its default use in tests that touch document helpers ensures off-main mock access is caught early in unit suites. |
 | **Infection-Start Chokepoint Audits** | The viral proxy (`_UnoThreadGuardProxy`) relies on all factory origins wrapping returned objects in `guard_uno`. Any new UNO service factory or model loader must be audited to ensure it wraps returned objects at birth. |
-| **`MainThreadToken` Deprecation / Adoption** | `plugin/framework/thread_token.py` provides nominal type tokens for static checkers. Since type coloring is currently handled by Opengrep taint rules and runtime guards, evaluate whether to plumb strict tokens across red APIs or deprecate the module. |
+| **`MainThreadToken` Deprecation** | Evaluated and removed. Instead of polluting hundreds of function signatures with nominal type tokens in a language without affine types, compile-time cross-file safety is enforced via AST call-graph tracing in `scripts/lint_thread_safety.py`. |
 
 ---
 
