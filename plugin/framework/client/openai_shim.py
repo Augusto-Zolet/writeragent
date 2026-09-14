@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 from plugin.framework.url_utils import get_url_path_and_query
-from .base_provider_shim import BaseProviderShim
+from .base_provider_shim import BaseProviderShim, coerce_image_data_url, coerce_raw_b64
 
 
 class OpenAIShim(BaseProviderShim):
@@ -38,7 +38,16 @@ class OllamaShim(BaseProviderShim):
         url = f"{endpoint}/api/generate"
         eff_model = model or "flux"
 
-        data = {"model": eff_model, "prompt": prompt, "stream": False}
+        data: dict[str, Any] = {"model": eff_model, "prompt": prompt, "stream": False}
+        if width:
+            data["width"] = width
+        if height:
+            data["height"] = height
+        # Ollama img2img is the generate endpoint's images[] of raw base64
+        # (https://docs.ollama.com/api/generate). Top-level image_url is ignored.
+        raw = coerce_raw_b64(image_url, source_image)
+        if raw:
+            data["images"] = [raw]
         path = get_url_path_and_query(url)
         return "POST", path, json.dumps(data).encode("utf-8"), self.client._headers()
 
@@ -86,14 +95,45 @@ class OpenRouterShim(BaseProviderShim):
         # a new image from the prompt. The documented field is input_references
         # (https://openrouter.ai/docs/guides/overview/multimodal/image-generation);
         # flux.2-klein-4b advertises 0–4 references in supported_parameters.
-        ref = image_url or source_image
+        ref = coerce_image_data_url(image_url, source_image)
         if ref:
-            if not (ref.startswith("data:image") or ref.startswith("http://") or ref.startswith("https://")):
-                ref = "data:image/png;base64," + ref
             data["input_references"] = [{"type": "image_url", "image_url": {"url": ref}}]
 
         path = get_url_path_and_query(url)
         return "POST", path, json.dumps(data).encode("utf-8"), self.client._headers()
+
+
+class TogetherShim(OpenAIShim):
+    """Together Images API: Kontext uses image_url; other models use reference_images."""
+
+    def build_image_request(
+        self,
+        prompt: str,
+        model: str | None,
+        width: int,
+        height: int,
+        steps: int | None = None,
+        source_image: str | None = None,
+        image_url: str | None = None,
+    ) -> tuple[str, str, bytes, dict[str, str]]:
+        method, path, body, headers = super().build_image_request(
+            prompt, model, width, height, steps=steps, source_image=source_image, image_url=image_url
+        )
+        # What was wrong: the OpenAI-compat default sent top-level image_url.
+        # Together's default image model (google/flash-image-2.5) only accepts
+        # reference_images[]; image_url is ignored or rejected — same silent
+        # create-instead-of-edit as OpenRouter's old image_url field.
+        # https://docs.together.ai/docs/inference/images/reference-images
+        ref = coerce_image_data_url(image_url, source_image)
+        if not ref:
+            return method, path, body, headers
+        data = json.loads(body.decode("utf-8"))
+        data.pop("image_url", None)
+        if model and "kontext" in model.lower():
+            data["image_url"] = ref
+        else:
+            data["reference_images"] = [ref]
+        return method, path, json.dumps(data).encode("utf-8"), headers
 
 
 def _load_anthropic() -> type[BaseProviderShim]:
@@ -121,6 +161,7 @@ _SHIM_REGISTRY: dict[str, Callable[[], type[BaseProviderShim]]] = {
     "grok": _load_grok,
     "ollama": lambda: OllamaShim,
     "openrouter": lambda: OpenRouterShim,
+    "together": lambda: TogetherShim,
 }
 
 

@@ -96,6 +96,48 @@ def test_google_image_completion(mock_ctx):
     data = json.loads(body.decode("utf-8"))
     assert "responseModalities" in data["generationConfig"]
     assert "IMAGE" in data["generationConfig"]["responseModalities"]
+    assert data["contents"][0]["parts"] == [{"text": "Generate an image"}]
+
+
+def test_google_gemini_image_edit_sends_inline_data(mock_ctx):
+    """Gemini image models edit via generateContent inlineData, not a prompt-only body."""
+    config = {
+        "endpoint": "https://generativelanguage.googleapis.com",
+        "api_key": "test-key",
+    }
+    client = LlmClient(config, mock_ctx)
+    shim = client._get_shim()
+    method, path, body, headers = shim.build_image_request(
+        "make it dusk",
+        model="gemini-2.5-flash-image",
+        width=1024,
+        height=1024,
+        source_image="abc123",
+    )
+    assert path == "/v1beta/models/gemini-2.5-flash-image:generateContent"
+    data = json.loads(body.decode("utf-8"))
+    parts = data["contents"][0]["parts"]
+    assert parts[0] == {"text": "make it dusk"}
+    assert parts[1]["inlineData"]["mimeType"] == "image/png"
+    assert parts[1]["inlineData"]["data"] == "abc123"
+
+
+def test_google_imagen_rejects_edit(mock_ctx):
+    """Imagen :predict cannot take a source image; refuse rather than generate a new picture."""
+    config = {
+        "endpoint": "https://generativelanguage.googleapis.com",
+        "api_key": "test-key",
+    }
+    client = LlmClient(config, mock_ctx)
+    shim = client._get_shim()
+    with pytest.raises(ValueError, match="Imagen models cannot edit"):
+        shim.build_image_request(
+            "make it dusk",
+            model="imagen-4.0-generate-001",
+            width=1024,
+            height=1024,
+            source_image="abc123",
+        )
 
 
 def test_google_parse_image_responses(mock_ctx):

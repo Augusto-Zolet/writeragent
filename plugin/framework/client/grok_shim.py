@@ -10,6 +10,7 @@ import json
 from typing import Any
 
 from plugin.framework.url_utils import get_url_path_and_query
+from .base_provider_shim import coerce_image_data_url
 from .openai_shim import OpenAIShim
 
 
@@ -28,7 +29,11 @@ class GrokShim(OpenAIShim):
     ) -> tuple[str, str, bytes, dict[str, str]]:
         endpoint = self.client._endpoint()
         api_path = self.client._api_path()
-        url = endpoint + api_path + "/images/generations"
+        ref = coerce_image_data_url(image_url, source_image)
+        # Create stays on /images/generations. xAI edit is a different JSON
+        # route (not OpenAI multipart): POST /v1/images/edits with image.url.
+        # https://docs.x.ai/developers/model-capabilities/images/editing
+        url = endpoint + api_path + ("/images/edits" if ref else "/images/generations")
 
         data: dict[str, Any] = {
             "prompt": prompt,
@@ -38,6 +43,8 @@ class GrokShim(OpenAIShim):
         }
         if steps:
             data["steps"] = steps
+        if ref:
+            data["image"] = {"url": ref, "type": "image_url"}
 
         path = get_url_path_and_query(url)
         return "POST", path, json.dumps(data).encode("utf-8"), self.client._headers()

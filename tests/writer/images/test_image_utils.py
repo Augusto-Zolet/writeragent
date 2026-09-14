@@ -265,6 +265,37 @@ class TestEndpointImageProvider(unittest.TestCase):
             [{"type": "image_url", "image_url": {"url": "data:image/png;base64,b64data"}}],
         )
 
+    @patch('plugin.framework.client.llm_client.init_logging')
+    def test_together_image_request_uses_reference_images_for_edit(self, mock_init):
+        """Together default image models (Flash Image / FLUX.2) want reference_images, not image_url."""
+        config = {"endpoint": "https://api.together.xyz", "model": "google/flash-image-2.5"}
+        client = LlmClient(config, MockContext())
+        with patch.object(client, "_resolve_auth", return_value={"provider": "together"}):
+            method, path, body, headers = client.make_image_request("a cat", model="google/flash-image-2.5")
+            data = json.loads(body.decode("utf-8"))
+            self.assertNotIn("image_url", data)
+            self.assertNotIn("reference_images", data)
+
+            method, path, body, headers = client.make_image_request(
+                "make him a wizard", model="google/flash-image-2.5", source_image="b64data"
+            )
+        data = json.loads(body.decode("utf-8"))
+        self.assertNotIn("image_url", data)
+        self.assertEqual(data["reference_images"], ["data:image/png;base64,b64data"])
+
+    @patch('plugin.framework.client.llm_client.init_logging')
+    def test_together_kontext_image_request_uses_image_url_for_edit(self, mock_init):
+        """FLUX.1 Kontext on Together documents a single image_url string."""
+        config = {"endpoint": "https://api.together.xyz", "model": "black-forest-labs/FLUX.1-kontext-pro"}
+        client = LlmClient(config, MockContext())
+        with patch.object(client, "_resolve_auth", return_value={"provider": "together"}):
+            method, path, body, headers = client.make_image_request(
+                "watercolor", model="black-forest-labs/FLUX.1-kontext-pro", source_image="b64data"
+            )
+        data = json.loads(body.decode("utf-8"))
+        self.assertEqual(data["image_url"], "data:image/png;base64,b64data")
+        self.assertNotIn("reference_images", data)
+
 class TestImageService(unittest.TestCase):
     def test_endpoint_provider_with_none_config(self):
         """ImageService(..., None) must not call .get on None (regression: generate_image / endpoint)."""

@@ -981,13 +981,26 @@ def test_grok_shim(client):
 
         # Test image request for Grok (should omit size)
         client.image_completion("Draw a cat", model="aurora", width=1024, height=1024)
-        
+
         # Check the request body sent to sync_request
-        _, kwargs = mock_sync.call_args
+        args, kwargs = mock_sync.call_args
         body = json.loads(kwargs["data"])
         assert body["prompt"] == "Draw a cat"
         assert body["model"] == "aurora"
         assert "size" not in body
+        assert "image" not in body
+        assert str(args[0]).endswith("/images/generations")
+
+        client.image_completion("Make it dusk", model="aurora", width=1024, height=1024, source_image="abc123")
+        args, kwargs = mock_sync.call_args
+        body = json.loads(kwargs["data"])
+        assert str(args[0]).endswith("/images/edits")
+        assert "image_url" not in body
+        assert body["image"] == {
+            "url": "data:image/png;base64,abc123",
+            "type": "image_url",
+        }
+        assert body["response_format"] == "b64_json"
 
 
 def test_ollama_shim_image(client):
@@ -1000,12 +1013,22 @@ def test_ollama_shim_image(client):
 
         # Test image request for Ollama
         client.image_completion("Draw a dog", model="flux", width=1024, height=1024)
-        
+
         _, kwargs = mock_sync.call_args
         body = json.loads(kwargs["data"])
         assert body["prompt"] == "Draw a dog"
         assert body["model"] == "flux"
         assert body["stream"] is False
+        assert body["width"] == 1024
+        assert body["height"] == 1024
+        assert "images" not in body
+        assert "image_url" not in body
+
+        client.image_completion("Make it dusk", model="flux", width=512, height=512, source_image="abc123")
+        _, kwargs = mock_sync.call_args
+        body = json.loads(kwargs["data"])
+        assert body["images"] == ["abc123"]
+        assert "image_url" not in body
 
         # Test parsing
         shim = client._get_shim()

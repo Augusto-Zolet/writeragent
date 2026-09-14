@@ -15,6 +15,7 @@ import logging
 from typing import Any
 
 from plugin.framework.url_utils import get_url_path_and_query
+from .base_provider_shim import coerce_raw_b64, inline_image_mime
 from .openai_shim import OpenAIShim
 
 log = logging.getLogger(__name__)
@@ -39,7 +40,15 @@ class GoogleShim(OpenAIShim):
 
         # Key in x-goog-api-key, not ?key=, so it does not land in access logs
         # or ``log.debug("URL: ...")``.
+        has_source = bool(image_url or source_image)
         if model_name.startswith("imagen"):
+            # Imagen :predict is text-to-image only. Posting a prompt-only
+            # predict while a graphic is selected would replace it with a
+            # new image (same silent miss as OpenRouter's old image_url).
+            if has_source:
+                raise ValueError(
+                    "Imagen models cannot edit an existing image. Pick a Gemini image model (for example gemini-2.5-flash-image)."
+                )
             url = f"{endpoint}/v1beta/models/{model_name}:predict"
             aspect = "1:1"
             if width and height:
@@ -56,7 +65,16 @@ class GoogleShim(OpenAIShim):
             data: dict[str, Any] = {"instances": [{"prompt": prompt}], "parameters": {"sampleCount": 1, "aspectRatio": aspect}}
         else:
             url = f"{endpoint}/v1beta/models/{model_name}:generateContent"
-            data = {"contents": [{"role": "user", "parts": [{"text": prompt}]}], "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
+            parts: list[dict[str, Any]] = [{"text": prompt}]
+            raw = coerce_raw_b64(image_url, source_image)
+            if raw:
+                parts.append({
+                    "inlineData": {
+                        "mimeType": inline_image_mime(image_url, source_image),
+                        "data": raw,
+                    }
+                })
+            data = {"contents": [{"role": "user", "parts": parts}], "generationConfig": {"responseModalities": ["IMAGE", "TEXT"]}}
 
         path = get_url_path_and_query(url)
         headers = dict(self.client._headers())

@@ -13,6 +13,36 @@ from typing import Any
 from plugin.framework.url_utils import get_url_path_and_query
 
 
+def coerce_image_data_url(image_url: str | None = None, source_image: str | None = None) -> str | None:
+    """Normalize a source image to a data URL or http(s) URL for JSON image APIs."""
+    ref = image_url or source_image
+    if not ref:
+        return None
+    if ref.startswith(("data:image", "http://", "https://")):
+        return ref
+    return "data:image/png;base64," + ref
+
+
+def coerce_raw_b64(image_url: str | None = None, source_image: str | None = None) -> str | None:
+    """Normalize a source image to raw base64 (Ollama ``images`` / Gemini ``inlineData``)."""
+    ref = image_url or source_image
+    if not ref:
+        return None
+    if ref.startswith("data:") and "," in ref:
+        return ref.split(",", 1)[1]
+    return ref
+
+
+def inline_image_mime(image_url: str | None = None, source_image: str | None = None) -> str:
+    """MIME type for an inline image part; default png when the source is raw base64."""
+    ref = image_url or source_image
+    if ref and ref.startswith("data:") and ";" in ref:
+        mime = ref[5:].split(";", 1)[0]
+        if mime:
+            return mime
+    return "image/png"
+
+
 class BaseProviderShim:
     """Base provider shim implementing standard OpenAI-compatible API format by default."""
 
@@ -133,13 +163,9 @@ class BaseProviderShim:
         if steps:
             data["steps"] = steps
 
-        if image_url:
-            data["image_url"] = image_url
-        elif source_image:
-            if source_image.startswith("data:image"):
-                data["image_url"] = source_image
-            else:
-                data["image_url"] = "data:image/png;base64," + source_image
+        ref = coerce_image_data_url(image_url, source_image)
+        if ref:
+            data["image_url"] = ref
 
         path = get_url_path_and_query(url)
         return "POST", path, json.dumps(data).encode("utf-8"), self.client._headers()
