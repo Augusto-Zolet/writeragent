@@ -40,7 +40,7 @@ class TestGetProviderDefaults(unittest.TestCase):
 
     def test_openrouter_default_image_model(self):
         d = get_provider_defaults("openrouter")
-        self.assertEqual(d.get("image_model"), "google/gemini-2.5-flash-image")
+        self.assertEqual(d.get("image_model"), "google/gemini-3.1-flash-lite-image")
 
     def test_openrouter_free_model_catalog(self):
         from plugin.framework.default_models import DEFAULT_MODELS
