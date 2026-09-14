@@ -89,7 +89,7 @@ The context discipline is equally strict: use the extension's `self.ctx` / `get_
 
 #### Parsing Layer: JSON Repair and Robust Tool Recovery
 
-Model output is messy, so `safe_json_loads` (`plugin/framework/json_utils.py`) tries, in order: standard `json.loads`, `strict=False`, `ast.literal_eval` (Python reprs like `True`/`None`), then vendored `json_repair` (truncated JSON, trailing commas, unquoted keys). A pre-step repairs LaTeX sequences (`\times` → `\\times`) that collide with JSON escapes. Streamed SSE is normalized by `iterate_sse`; leaked chat-template control tokens (`<|...|>`) are stripped; and a Hermes-inspired client-side tool-call parser registry (`plugin/contrib/tool_call_parsers/`) recovers `<tool_call>` fragments for Hermes/Qwen/DeepSeek/Mistral/Llama/Kimi/GLM models without any VLLM dependency.
+Model output is messy, so `safe_json_loads` (`plugin/framework/json_utils.py`) tries, in order: standard `json.loads`, `strict=False`, `ast.literal_eval` (Python reprs like `True`/`None`), then vendored `json_repair` (truncated JSON, trailing commas, unquoted keys). A pre-step repairs LaTeX sequences (`\times` → `\\times`) that collide with JSON escapes. Streamed SSE is normalized by `iterate_sse`; leaked chat-template control tokens (`<|...|>`) are stripped; and a Hermes-inspired client-side tool-call parser registry (`plugin/contrib/tool_call_parsers/`) recovers tool markup from finished assistant text (Hermes/Qwen/Qwen3-Coder, DeepSeek V3–V4.1 DSML, Mistral `[ARGS]`, Llama JSON/pythonic, Kimi K2/K3/Horizon, GLM, MiniMax M2, Gemma 4, FunctionGemma) without any VLLM dependency. Parsers run after the HTTP response or stream ends when native `tool_calls` are missing.
 
 #### Transport Layer: Two Runtimes, One HTTP Client
 

@@ -38,9 +38,24 @@ class MistralToolCallParser(ToolCallParser):
 
     # The [TOOL_CALLS] token -- may appear as different strings depending on tokenizer
     BOT_TOKEN = "[TOOL_CALLS]"
+    # v11+ Tekken decode emits name[ARGS]{...}; older dumps are name{...}
+    ARGS_TOKEN = "[ARGS]"
 
     # Fallback regex for pre-v11 format when JSON parsing fails
     TOOL_CALL_REGEX = re.compile(r"\[?\s*(\{.*?\})\s*\]?", re.DOTALL)
+
+    @staticmethod
+    def _extract_args_json(raw_args: str) -> str:
+        """First complete JSON value; drop trailing text the model may append (vLLM gh#48975)."""
+        stripped = raw_args.strip()
+        if not stripped:
+            return "{}"
+        try:
+            unused, end = json.JSONDecoder().raw_decode(stripped)
+        except json.JSONDecodeError:
+            return stripped
+        del unused
+        return stripped[:end]
 
     def parse(self, text: str) -> ParseResult:
         if self.BOT_TOKEN not in text:
@@ -52,21 +67,26 @@ class MistralToolCallParser(ToolCallParser):
             raw_tool_calls = parts[1:]
 
             # Detect format: if the first raw part starts with '[', it's pre-v11
+            # ([ARGS] after a tool name is v11+ and does not start the raw part.)
             first_raw = raw_tool_calls[0].strip() if raw_tool_calls else ""
             is_pre_v11 = first_raw.startswith("[") or first_raw.startswith("{")
 
             tool_calls: List[ChatCompletionMessageToolCall] = []
 
             if not is_pre_v11:
-                # v11+ format: [TOOL_CALLS]tool_name{args}[TOOL_CALLS]tool_name2{args2}
+                # v11+: [TOOL_CALLS]name[ARGS]{...} or older [TOOL_CALLS]name{...}
                 for raw in raw_tool_calls:
                     raw = raw.strip()
                     if not raw or "{" not in raw:
                         continue
 
                     brace_idx = raw.find("{")
-                    tool_name = raw[:brace_idx].strip()
-                    args_str = raw[brace_idx:]
+                    args_idx = raw.find(self.ARGS_TOKEN)
+                    if 0 <= args_idx < brace_idx:
+                        tool_name = raw[:args_idx].strip()
+                    else:
+                        tool_name = raw[:brace_idx].strip()
+                    args_str = self._extract_args_json(raw[brace_idx:])
 
                     tool_calls.append(
                         ChatCompletionMessageToolCall(

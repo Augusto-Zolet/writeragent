@@ -7,9 +7,10 @@ Format uses custom arg_key/arg_value tags rather than standard JSON:
     <arg_key>param2</arg_key><arg_value>value2</arg_value>
     </tool_call>
 
-Values are deserialized using safe_json_loads -> safe_python_literal_eval -> raw string fallback.
+Argument values are kept as raw strings (vLLM Glm47MoeModelToolParser).
+_deserialize_value remains for callers that still want literal conversion.
 
-Based on VLLM's Glm4MoeModelToolParser.extract_tool_calls()
+Based on VLLM's Glm47MoeModelToolParser.extract_tool_calls()
 """
 
 import json
@@ -17,7 +18,7 @@ import re
 import uuid
 from typing import Any, Dict, List
 
-from plugin.framework.errors import safe_json_loads, safe_python_literal_eval
+from plugin.framework.errors import safe_python_literal_eval
 from plugin.contrib.tool_call_parsers.openai_compat import ChatCompletionMessageToolCall, Function
 
 from plugin.contrib.tool_call_parsers import ParseResult, ToolCallParser, register_parser
@@ -41,8 +42,8 @@ class Glm45ToolCallParser(ToolCallParser):
     instead of standard JSON arguments.
     """
 
-    FUNC_CALL_REGEX = re.compile(r"<tool_call>.*?</tool_call>", re.DOTALL)
-    FUNC_DETAIL_REGEX = re.compile(r"<tool_call>([^\n]*)\n(.*)</tool_call>", re.DOTALL)
+    # vLLM Glm47MoeModelToolParser: no required newline, zero-arg legal
+    FUNC_CALL_REGEX = re.compile(r"<tool_call>(.*?)</tool_call>", re.DOTALL)
     FUNC_ARG_REGEX = re.compile(
         r"<arg_key>(.*?)</arg_key>\s*<arg_value>(.*?)</arg_value>", re.DOTALL
     )
@@ -61,20 +62,18 @@ class Glm45ToolCallParser(ToolCallParser):
             tool_calls: List[ChatCompletionMessageToolCall] = []
 
             for match in matched_calls:
-                detail = self.FUNC_DETAIL_REGEX.search(match)
-                if not detail:
+                first_arg = match.find("<arg_key>")
+                if first_arg < 0:
+                    func_name = match.strip()
+                    arg_dict: Dict[str, Any] = {}
+                else:
+                    func_name = match[:first_arg].strip()
+                    pairs = self.FUNC_ARG_REGEX.findall(match[first_arg:])
+                    # Keys stripped; values kept raw (vLLM no longer literal_evals)
+                    arg_dict = {key.strip(): value for key, value in pairs}
+
+                if not func_name:
                     continue
-
-                func_name = detail.group(1).strip()
-                func_args_raw = detail.group(2)
-
-                # Parse arg_key/arg_value pairs
-                pairs = self.FUNC_ARG_REGEX.findall(func_args_raw) if func_args_raw else []
-                arg_dict: Dict[str, Any] = {}
-                for key, value in pairs:
-                    arg_key = key.strip()
-                    arg_val = _deserialize_value(value.strip())
-                    arg_dict[arg_key] = arg_val
 
                 tool_calls.append(
                     ChatCompletionMessageToolCall(

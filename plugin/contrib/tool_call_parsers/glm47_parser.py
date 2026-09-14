@@ -1,14 +1,9 @@
 """
 GLM 4.7 tool call parser.
 
-Same as GLM 4.5 but with slightly different regex patterns.
-The tool_call tags may wrap differently and arg parsing handles
-newlines between key/value pairs.
-
-Based on VLLM's Glm47MoeModelToolParser (extends Glm4MoeModelToolParser).
+vLLM maps both glm45 and glm47 to the same extract format
+(no required newline, zero-arg legal). This class is a registered alias.
 """
-
-import re
 
 from plugin.contrib.tool_call_parsers import register_parser
 from plugin.contrib.tool_call_parsers.glm45_parser import Glm45ToolCallParser
@@ -16,24 +11,6 @@ from plugin.contrib.tool_call_parsers.glm45_parser import Glm45ToolCallParser
 
 @register_parser("glm47")
 class Glm47ToolCallParser(Glm45ToolCallParser):
-    """
-    Parser for GLM 4.7 tool calls.
-    Extends GLM 4.5 with updated regex patterns.
-    """
+    """Parser for GLM 4.7; same tags as GLM 4.5."""
 
-    # Compile regexes once at the class level for performance
-    _COMPILED_DETAIL_REGEX = re.compile(
-        r"<tool_call>(.*?)(<arg_key>.*?)?</tool_call>", re.DOTALL
-    )
-    _COMPILED_ARG_REGEX = re.compile(
-        r"<arg_key>(.*?)</arg_key>(?:\\n|\s)*<arg_value>(.*?)</arg_value>",
-        re.DOTALL,
-    )
-
-    def __init__(self):
-        super().__init__()
-        # GLM 4.7 uses a slightly different detail regex that includes
-        # the <tool_call> wrapper and optional arg_key content
-        self.FUNC_DETAIL_REGEX = self._COMPILED_DETAIL_REGEX
-        # GLM 4.7 handles newlines between arg_key and arg_value tags
-        self.FUNC_ARG_REGEX = self._COMPILED_ARG_REGEX
+    pass

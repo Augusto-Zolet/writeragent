@@ -20,7 +20,7 @@ import re
 import uuid
 from typing import Any, Dict, List, Optional
 
-from plugin.framework.errors import safe_json_loads, safe_python_literal_eval
+from plugin.framework.errors import safe_python_literal_eval
 from plugin.contrib.tool_call_parsers.openai_compat import ChatCompletionMessageToolCall, Function
 
 from plugin.contrib.tool_call_parsers import ParseResult, ToolCallParser, register_parser
@@ -42,29 +42,32 @@ def _try_convert_value(value: str) -> Any:
 
 
 @register_parser("qwen3_coder")
+@register_parser("qwen3_xml")
+@register_parser("mimo")
 class Qwen3CoderToolCallParser(ToolCallParser):
     """
     Parser for Qwen3-Coder XML-format tool calls.
 
     Uses nested XML tags: <tool_call><function=name><parameter=key>val</parameter></function></tool_call>
+    qwen3_xml and mimo are vLLM aliases for the same tags.
     """
 
     START_TOKEN = "<tool_call>"
     FUNCTION_PREFIX = "<function="
 
-    # Find complete tool_call blocks (or unclosed at end)
+    # Whitespace-tolerant tags (vLLM qwen3.py _PARAM_RE)
     TOOL_CALL_REGEX = re.compile(
-        r"<tool_call>(.*?)</tool_call>|<tool_call>(.*?)$", re.DOTALL
+        r"<\s*tool_call\s*>(.*?)</\s*tool_call\s*>|<\s*tool_call\s*>(.*?)$",
+        re.DOTALL,
     )
 
-    # Find function blocks within a tool_call
     FUNCTION_REGEX = re.compile(
-        r"<function=(.*?)</function>|<function=(.*)$", re.DOTALL
+        r"<\s*function\s*=\s*(.*?)</\s*function\s*>|<\s*function\s*=\s*(.*)$",
+        re.DOTALL,
     )
 
-    # Find parameter blocks within a function
     PARAMETER_REGEX = re.compile(
-        r"<parameter=(.*?)(?:</parameter>|(?=<parameter=)|(?=</function>)|$)",
+        r"<\s*parameter\s*=\s*(.*?)(?:<\s*/\s*parameter\s*>|(?=<\s*parameter\s*=)|(?=<\s*/\s*function)|$)",
         re.DOTALL,
     )
 
@@ -105,7 +108,7 @@ class Qwen3CoderToolCallParser(ToolCallParser):
             return None
 
     def parse(self, text: str) -> ParseResult:
-        if self.FUNCTION_PREFIX not in text:
+        if "function=" not in text:
             return text, None
 
         try:

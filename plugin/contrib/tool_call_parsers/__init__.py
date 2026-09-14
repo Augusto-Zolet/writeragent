@@ -127,33 +127,79 @@ from .llama_parser import LlamaToolCallParser  # noqa: E402, F401
 from .qwen_parser import QwenToolCallParser  # noqa: E402, F401
 from .deepseek_v3_parser import DeepSeekV3ToolCallParser  # noqa: E402, F401
 from .deepseek_v3_1_parser import DeepSeekV31ToolCallParser  # noqa: E402, F401
+from .deepseek_v32_parser import DeepSeekV32ToolCallParser  # noqa: E402, F401
+from .deepseek_v4_parser import (  # noqa: E402, F401
+    DeepSeekV4ToolCallParser,
+    DeepSeekV41ToolCallParser,
+)
 from .kimi_k2_parser import KimiK2ToolCallParser  # noqa: E402, F401
+from .kimi_k3_parser import KimiK3ToolCallParser  # noqa: E402, F401
+from .k2_horizon_parser import K2HorizonToolCallParser  # noqa: E402, F401
 from .glm45_parser import Glm45ToolCallParser  # noqa: E402, F401
 from .glm47_parser import Glm47ToolCallParser  # noqa: E402, F401
 from .qwen3_coder_parser import Qwen3CoderToolCallParser  # noqa: E402, F401
+from .minimax_m2_parser import MinimaxM2ToolCallParser  # noqa: E402, F401
+from .functiongemma_parser import FunctionGemmaToolCallParser  # noqa: E402, F401
+from .gemma4_parser import Gemma4ToolCallParser  # noqa: E402, F401
+from .llama4_pythonic_parser import Llama4PythonicToolCallParser  # noqa: E402, F401
+
+
+def resolve_parser_name(model_name: str) -> Optional[str]:
+    """Map a model id to a registered parser name. Most-specific match wins."""
+    if not model_name:
+        return None
+    model_name = model_name.lower()
+
+    if "hermes" in model_name:
+        return "hermes"
+    if (
+        "qwen3-coder" in model_name
+        or "qwen3_coder" in model_name
+        or "qwen3coder" in model_name
+    ):
+        return "qwen3_coder"
+    if "qwen" in model_name:
+        return "hermes"
+    if "deepseek" in model_name:
+        if "v4.1" in model_name or "v41" in model_name:
+            return "deepseek_v41"
+        if "v4" in model_name:
+            return "deepseek_v4"
+        if "v3.2" in model_name or "v32" in model_name:
+            return "deepseek_v32"
+        if "v3.1" in model_name or "v31" in model_name:
+            return "deepseek_v31"
+        return "deepseek_v3"
+    if "minimax" in model_name:
+        return "minimax_m2"
+    if "kimi" in model_name:
+        if "k3" in model_name:
+            return "kimi_k3"
+        if "horizon" in model_name:
+            return "k2_horizon"
+        return "kimi_k2"
+    if "glm" in model_name or "z-ai" in model_name or "zhipu" in model_name:
+        return "glm47"
+    if "longcat" in model_name:
+        return "longcat"
+    if "functiongemma" in model_name:
+        return "functiongemma"
+    if "gemma-4" in model_name or "gemma4" in model_name or "gemma_4" in model_name:
+        return "gemma4"
+    if "mistral" in model_name:
+        return "mistral"
+    if "llama" in model_name:
+        if "pythonic" in model_name:
+            return "llama4_pythonic"
+        return "llama3_json"
+    return None
 
 
 def get_parser_for_model(model_name: str) -> Optional[ToolCallParser]:
     """Identify and return a parser instance based on the model string."""
-    if not model_name:
+    name = resolve_parser_name(model_name)
+    if name is None:
         return None
-    model_name = model_name.lower()
-    # Map model names to registered parser names
-    if "hermes" in model_name:
-        name = "hermes"
-    elif "qwen3" in model_name:
-        name = "qwen3_coder"
-    elif "qwen" in model_name:
-        name = "hermes"
-    elif "deepseek" in model_name:
-        name = "deepseek_v3"
-    elif "mistral" in model_name:
-        name = "mistral"
-    elif "llama" in model_name:
-        name = "llama3_json"
-    else:
-        return None
-
     try:
         return get_parser(name)
     except KeyError:

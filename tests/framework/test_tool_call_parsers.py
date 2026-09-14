@@ -1,6 +1,7 @@
 from plugin.contrib.tool_call_parsers import (
     get_parser,
     get_parser_for_model,
+    resolve_parser_name,
 )
 
 def test_hermes_parser():
@@ -286,3 +287,208 @@ def test_get_parser_for_model():
     assert p4 is not None
     
     assert get_parser_for_model("unknown") is None
+
+
+def test_resolve_parser_name_most_specific():
+    assert resolve_parser_name("hermes-2-pro") == "hermes"
+    assert resolve_parser_name("qwen/qwen3.8-27b") == "hermes"
+    assert resolve_parser_name("qwen/qwen3-coder-plus") == "qwen3_coder"
+    assert resolve_parser_name("qwen3coder") == "qwen3_coder"
+    assert resolve_parser_name("deepseek-coder-v3") == "deepseek_v3"
+    assert resolve_parser_name("deepseek-v3.1") == "deepseek_v31"
+    assert resolve_parser_name("deepseek-v3.2") == "deepseek_v32"
+    assert resolve_parser_name("deepseek/deepseek-v4-flash-0731") == "deepseek_v4"
+    assert resolve_parser_name("deepseek/deepseek-v4.1-flash") == "deepseek_v41"
+    assert resolve_parser_name("minimax/minimax-m2.5") == "minimax_m2"
+    assert resolve_parser_name("moonshotai/kimi-k3") == "kimi_k3"
+    assert resolve_parser_name("moonshotai/kimi-k2") == "kimi_k2"
+    assert resolve_parser_name("kimi-k2-horizon") == "k2_horizon"
+    assert resolve_parser_name("z-ai/glm-4.7") == "glm47"
+    assert resolve_parser_name("meituan/longcat-2.0") == "longcat"
+    assert resolve_parser_name("google/functiongemma-270m-it") == "functiongemma"
+    assert resolve_parser_name("google/gemma-4-31b-it") == "gemma4"
+    assert resolve_parser_name("llama-4-pythonic") == "llama4_pythonic"
+    assert resolve_parser_name("llama-3-70b") == "llama3_json"
+    assert resolve_parser_name("unknown") is None
+    assert resolve_parser_name("") is None
+
+
+def test_mistral_parser_args_token():
+    parser = get_parser("mistral")
+    text = 'Result[TOOL_CALLS]get_weather[ARGS]{"city": "Berlin"} leftover prose'
+    content, tool_calls = parser.parse(text)
+
+    assert content == "Result"
+    assert tool_calls is not None
+    assert len(tool_calls) == 1
+    assert tool_calls[0]["function"]["name"] == "get_weather"
+    assert tool_calls[0]["function"]["arguments"] == '{"city": "Berlin"}'
+
+
+def test_glm47_same_line_and_zero_arg():
+    parser = get_parser("glm47")
+    text = (
+        "Hi\n"
+        "<tool_call>get_weather<arg_key>city</arg_key><arg_value>Beijing</arg_value></tool_call>"
+        "<tool_call>get_current_date</tool_call>"
+    )
+    content, tool_calls = parser.parse(text)
+
+    assert content == "Hi"
+    assert tool_calls is not None
+    assert len(tool_calls) == 2
+    assert tool_calls[0]["function"]["name"] == "get_weather"
+    assert tool_calls[0]["function"]["arguments"] == '{"city": "Beijing"}'
+    assert tool_calls[1]["function"]["name"] == "get_current_date"
+    assert tool_calls[1]["function"]["arguments"] == "{}"
+
+
+def test_qwen3_coder_whitespace_tags():
+    parser = get_parser("qwen3_xml")
+    text = (
+        "<tool_call>\n"
+        "< function=get_weather >\n"
+        "< parameter = city >Paris</ parameter >\n"
+        "</ function >\n"
+        "</tool_call>"
+    )
+    content, tool_calls = parser.parse(text)
+    assert tool_calls is not None
+    assert tool_calls[0]["function"]["name"] == "get_weather"
+    assert tool_calls[0]["function"]["arguments"] == '{"city": "Paris"}'
+
+
+def test_deepseek_v32_parser():
+    parser = get_parser("deepseek_v32")
+    text = (
+        "Looking up.\n"
+        "<｜DSML｜function_calls>\n"
+        "<｜DSML｜invoke name=\"get_weather\">\n"
+        "<｜DSML｜parameter name=\"location\" string=\"true\">杭州</｜DSML｜parameter>\n"
+        "<｜DSML｜parameter name=\"count\" string=\"false\">5</｜DSML｜parameter>\n"
+        "</｜DSML｜invoke>\n"
+        "</｜DSML｜function_calls>"
+    )
+    content, tool_calls = parser.parse(text)
+    assert content == "Looking up."
+    assert tool_calls is not None
+    assert tool_calls[0]["function"]["name"] == "get_weather"
+    assert tool_calls[0]["function"]["arguments"] == '{"location": "杭州", "count": 5}'
+
+
+def test_deepseek_v4_parser():
+    parser = get_parser("deepseek_v4")
+    text = (
+        "<think>plan</think>\n"
+        "<｜DSML｜tool_calls>\n"
+        "<｜DSML｜invoke name=\"calc\">\n"
+        "<｜DSML｜parameter name=\"expr\" string=\"true\">1+1</｜DSML｜parameter>\n"
+        "</｜DSML｜invoke>\n"
+        "</｜DSML｜tool_calls>"
+    )
+    content, tool_calls = parser.parse(text)
+    assert tool_calls is not None
+    assert tool_calls[0]["function"]["name"] == "calc"
+    assert tool_calls[0]["function"]["arguments"] == '{"expr": "1+1"}'
+
+
+def test_deepseek_v41_parser():
+    parser = get_parser("deepseek_v41")
+    text = (
+        "<｜DSML｜ calls>\n"
+        "<｜DSML｜ invoke name=\"calc\">\n"
+        "<｜DSML｜ parameter name=\"expr\" string=\"true\">2+2</｜DSML｜ parameter>\n"
+        "</｜DSML｜ invoke>\n"
+        "</｜DSML｜ calls>"
+    )
+    content, tool_calls = parser.parse(text)
+    assert tool_calls is not None
+    assert tool_calls[0]["function"]["name"] == "calc"
+    assert tool_calls[0]["function"]["arguments"] == '{"expr": "2+2"}'
+
+
+def test_minimax_m2_parser():
+    parser = get_parser("minimax_m2")
+    text = (
+        "Checking.\n"
+        "<minimax:tool_call><invoke name=\"get_weather\">"
+        "<parameter name=\"city\">Seattle</parameter>"
+        "</invoke></minimax:tool_call>"
+    )
+    content, tool_calls = parser.parse(text)
+    assert content == "Checking."
+    assert tool_calls is not None
+    assert tool_calls[0]["function"]["name"] == "get_weather"
+    assert tool_calls[0]["function"]["arguments"] == '{"city": "Seattle"}'
+
+
+def test_kimi_k3_parser():
+    parser = get_parser("kimi_k3")
+    text = (
+        "<|open|>response<|sep|>Hi<|close|>response<|sep|>"
+        "<|open|>tools<|sep|>"
+        '<|open|>call tool="python" index="1"<|sep|>'
+        '<|open|>argument key="code" type="string"<|sep|>print(1)<|close|>argument<|sep|>'
+        "<|close|>call<|sep|>"
+        "<|close|>tools<|sep|>"
+    )
+    content, tool_calls = parser.parse(text)
+    assert content == "Hi"
+    assert tool_calls is not None
+    assert tool_calls[0]["function"]["name"] == "python"
+    assert tool_calls[0]["function"]["arguments"] == '{"code": "print(1)"}'
+
+
+def test_functiongemma_parser():
+    parser = get_parser("functiongemma")
+    text = (
+        "Call it.\n"
+        "<start_function_call>call:get_weather"
+        "{city:<escape>\"Paris\"<escape>}<end_function_call>"
+    )
+    content, tool_calls = parser.parse(text)
+    assert content == "Call it."
+    assert tool_calls is not None
+    assert tool_calls[0]["function"]["name"] == "get_weather"
+    assert tool_calls[0]["function"]["arguments"] == '{"city": "Paris"}'
+
+
+def test_gemma4_parser():
+    parser = get_parser("gemma4")
+    text = (
+        "Thinking done.\n"
+        '<|tool_call>call:get_weather{city:<|"|>Tokyo<|"|>,unit:<|"|>celsius<|"|>}<tool_call|>'
+    )
+    content, tool_calls = parser.parse(text)
+    assert content == "Thinking done."
+    assert tool_calls is not None
+    assert tool_calls[0]["function"]["name"] == "get_weather"
+    assert tool_calls[0]["function"]["arguments"] == '{"city": "Tokyo", "unit": "celsius"}'
+
+
+def test_llama4_pythonic_parser():
+    parser = get_parser("llama4_pythonic")
+    text = '<|python_start|>[get_weather(city="Paris", unit="celsius")]<|python_end|>'
+    content, tool_calls = parser.parse(text)
+    assert content is None
+    assert tool_calls is not None
+    assert tool_calls[0]["function"]["name"] == "get_weather"
+    assert tool_calls[0]["function"]["arguments"] == '{"city": "Paris", "unit": "celsius"}'
+
+
+def test_k2_horizon_parser():
+    parser = get_parser("k2_horizon")
+    text = (
+        "Sure.\n"
+        "<ifm|tool_calls>"
+        "<ifm|tool_call>get_weather"
+        "<ifm|arg_key>city</ifm|arg_key>"
+        "<ifm|arg_value>Paris</ifm|arg_value>"
+        "</ifm|tool_call>"
+        "</ifm|tool_calls>"
+    )
+    content, tool_calls = parser.parse(text)
+    assert content == "Sure."
+    assert tool_calls is not None
+    assert tool_calls[0]["function"]["name"] == "get_weather"
+    assert tool_calls[0]["function"]["arguments"] == '{"city": "Paris"}'
