@@ -18,7 +18,53 @@ from .base_provider_shim import BaseProviderShim, coerce_image_data_url, coerce_
 
 
 class OpenAIShim(BaseProviderShim):
-    """Shim for standard OpenAI-compatible providers."""
+    """Shim for standard OpenAI-compatible providers.
+
+    Official ``api.openai.com`` image edit is ``POST /v1/images/edits`` JSON
+    ``images[].image_url``, not a top-level ``image_url`` on generations
+    (https://developers.openai.com/api/reference/resources/images/methods/edit).
+    Other hosts keep the generic OpenAI-compat body in ``BaseProviderShim``.
+    """
+
+    def build_image_request(
+        self,
+        prompt: str,
+        model: str | None,
+        width: int,
+        height: int,
+        steps: int | None = None,
+        source_image: str | None = None,
+        image_url: str | None = None,
+    ) -> tuple[str, str, bytes, dict[str, str]]:
+        if self.client._get_provider() != "openai":
+            return super().build_image_request(
+                prompt, model, width, height, steps=steps, source_image=source_image, image_url=image_url
+            )
+
+        ref = coerce_image_data_url(image_url, source_image)
+        # dall-e-3 is generations-only. A prompt-only create while a graphic is
+        # selected would replace it with a new image (same silent miss as
+        # OpenRouter's old image_url / Imagen :predict).
+        if ref and model and str(model).lower().startswith("dall-e-3"):
+            raise ValueError(
+                "dall-e-3 cannot edit an existing image. Pick a GPT Image model or dall-e-2."
+            )
+
+        endpoint = self.client._endpoint()
+        api_path = self.client._api_path()
+        url = endpoint + api_path + ("/images/edits" if ref else "/images/generations")
+        data: dict[str, Any] = {
+            "prompt": prompt,
+            "n": 1,
+            "size": f"{width}x{height}",
+            "response_format": "b64_json",
+        }
+        if model:
+            data["model"] = model
+        if ref:
+            data["images"] = [{"image_url": ref}]
+        path = get_url_path_and_query(url)
+        return "POST", path, json.dumps(data).encode("utf-8"), self.client._headers()
 
 
 class OllamaShim(BaseProviderShim):

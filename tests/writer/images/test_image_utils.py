@@ -266,6 +266,42 @@ class TestEndpointImageProvider(unittest.TestCase):
         )
 
     @patch('plugin.framework.client.llm_client.init_logging')
+    def test_openai_image_request_uses_images_edits_for_edit(self, mock_init):
+        """Official OpenAI img2img is POST /images/edits JSON images[].image_url, not generations image_url."""
+        config = {"endpoint": "https://api.openai.com", "model": "gpt-image-2", "api_key": "sk-test"}
+        client = LlmClient(config, MockContext())
+        with patch.object(client, "_resolve_auth", return_value={"provider": "openai"}):
+            method, path, body, headers = client.make_image_request("a cat", model="gpt-image-2")
+            data = json.loads(body.decode("utf-8"))
+            self.assertTrue(path.endswith("/images/generations"))
+            self.assertFalse(path.endswith("/images/edits"))
+            self.assertNotIn("image_url", data)
+            self.assertNotIn("images", data)
+            self.assertNotIn("steps", data)
+            self.assertEqual(data["response_format"], "b64_json")
+
+            method, path, body, headers = client.make_image_request(
+                "make him a wizard", model="gpt-image-2", source_image="b64data"
+            )
+        data = json.loads(body.decode("utf-8"))
+        self.assertTrue(path.endswith("/images/edits"))
+        self.assertNotIn("image_url", data)
+        self.assertEqual(data["images"], [{"image_url": "data:image/png;base64,b64data"}])
+        self.assertEqual(data["response_format"], "b64_json")
+        self.assertEqual(data["model"], "gpt-image-2")
+
+    @patch('plugin.framework.client.llm_client.init_logging')
+    def test_openai_dalle3_rejects_edit(self, mock_init):
+        """dall-e-3 is generations-only; refuse rather than replace the selected graphic."""
+        config = {"endpoint": "https://api.openai.com", "model": "dall-e-3", "api_key": "sk-test"}
+        client = LlmClient(config, MockContext())
+        with patch.object(client, "_resolve_auth", return_value={"provider": "openai"}):
+            with self.assertRaises(ValueError) as raised:
+                client.make_image_request("make it dusk", model="dall-e-3", source_image="b64data")
+        self.assertIn("dall-e-3", str(raised.exception).lower())
+        self.assertIn("cannot edit", str(raised.exception).lower())
+
+    @patch('plugin.framework.client.llm_client.init_logging')
     def test_together_image_request_uses_reference_images_for_edit(self, mock_init):
         """Together default image models (Flash Image / FLUX.2) want reference_images, not image_url."""
         config = {"endpoint": "https://api.together.xyz", "model": "google/flash-image-2.5"}
