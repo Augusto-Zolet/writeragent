@@ -50,18 +50,35 @@ Current diagnostics already exist in `plugin/framework/logging.py`:
 
 This is already a good base for practical reliability work. The next step is better classification, better docs, and better recovery behavior, not an elaborate telemetry stack.
 
-### 1.3 Existing Network Resilience
+### 1.3 Existing Network Resilience and Retry
 
-Current network behavior in `plugin/framework/client/llm_client.py` already includes:
+Network behavior in `plugin/framework/client/` and `plugin/mcp/` includes a mature, bounded retry and pacing system:
 
-- persistent connections
-- bounded request timeouts
-- a local HTTPS certificate fallback path
-- a fresh-connection retry on some transient streaming failures
-- defensive handling for malformed streaming payloads
-- a guard against repeated streaming chunks
+- **Pacing and Delay Math (`plugin/framework/client/request_controls.py`)**:
+  - OpenClaw `packages/retry` delay math port: jittered exponential backoff (`backoff_delay_sec`) bounded by `RETRY_MIN_DELAY_SEC` (0.3s) and `RETRY_MAX_DELAY_SEC` (30.0s).
+  - Both symmetric and positive jitter modes (`_apply_jitter_ms`).
+  - `parse_retry_after`: parses both delta-seconds and RFC HTTP-date formats; treats `Retry-After` as a lower bound.
+  - Abortable sleep (`wait_abortable`): sleeps in small (0.05s) chunks checking `stop_checker`, so user Stop immediately terminates the retry wait without UI hang.
+  - Sidebar status emission (`format_retry_wait_status`, `emit_retry_status`): displays real-time localized feedback (e.g. `"Provider busy, retrying in 3s…"`) in the sidebar.
+  - Learned per-host pacing (`remember_host_gap`, `clear_host_gap`, `wait_host_gap`): caches backoff per host across separate requests to avoid stampeding busy backends.
+  - Dedicated OpenRouter free-tier pacing (`OPENROUTER_FREE_MIN_GAP_SEC = 3.0` for `:free` and `openrouter/free` models).
+  - `RequestPacer` enforcing client-level minimum intervals (`LLM_MIN_REQUEST_INTERVAL_SEC = 0.05`) between sends.
+  - `LocalHttpsCertificateFallback` tracking local hosts that failed TLS verification (e.g., self-signed local Ollama/LM Studio) and safely retrying unverified only for local addresses.
 
-The roadmap should treat this as the baseline and improve it with clearer retry policy and tests.
+- **Transport and Request Retries (`http_transport.py` & `llm_client.py`)**:
+  - Bounded request timeouts and persistent HTTP connections.
+  - Automatic retries on `CONNECTION_ERRORS` and `RETRYABLE_HTTP_STATUS` (429, 503) up to `RETRY_MAX_ATTEMPTS = 3` for both streaming and non-streaming (`request_with_tools`) calls.
+  - **Text duplication guard**: Retries are strictly forbidden once any tokens have been emitted to the UI (`emitted_any`); raises `NetworkError(code="CONNECTION_LOST")` instead of re-requesting.
+  - Credential redaction: API keys are redacted from error bodies and logs before recording.
+  - Defensive handling for malformed SSE chunks and repeat-chunk suppression.
+
+- **MCP Tunnel Retries (`plugin/mcp/tunnel_state.py` & `tunnel.py`)**:
+  - Pure state machine exponential backoff (`compute_backoff_delay`) under `@deal` contracts.
+  - Discrete side effects (`ScheduleRetryTimerEffect`, `CancelRetryTimerEffect`) managing reconnection timers without blocking the event loop.
+
+- **Subprocess and Test Runner Retries**:
+  - Headless LibreOffice harness bootstrap retry on pipe miss in `plugin/testing_runner.py`.
+  - Venv worker stdin timeout retry in `plugin/scripting/venv_worker.py`.
 
 ### 1.4 Existing Health and Fallback Mechanisms
 
@@ -173,82 +190,56 @@ def get_document_content_with_fallback(model, max_length):
 
 ### 3.2 Priority 2: Bounded Retries for Real I/O
 
-Retries are valuable when they are narrow, explicit, and limited.
+Retries are valuable when they are narrow, explicit, bounded, and abortable.
 
-### Good retry targets
+### What is Shipped
 
-- network requests in `plugin/framework/client/llm_client.py`
-- network-adjacent MCP operations where transient failure is plausible
-- file I/O around config/history persistence when partial transient failure is realistic
+1. **Outbound LLM Requests (`plugin/framework/client/`)**:
+   - **Delay calculation (`request_controls.py`)**: Port of OpenClaw `packages/retry` delay math. Exponential backoff with jitter (`backoff_delay_sec`), clamped between `RETRY_MIN_DELAY_SEC` (0.3s) and `RETRY_MAX_DELAY_SEC` (30.0s).
+   - **`Retry-After` header parsing**: Handles delta-seconds and RFC HTTP-date strings via `parse_retry_after()`; honors `Retry-After` as a lower bound.
+   - **Immediate abortability (`wait_abortable`)**: Sleeps in 50ms chunks, continuously checking `stop_checker`. If the user clicks Stop in the sidebar, the sleep terminates immediately without hanging the UI.
+   - **Live UI status**: Emits real-time retry notices (e.g. `"Provider busy, retrying in 3s…"`) to the sidebar via `emit_retry_status`.
+   - **Learned host cooldown (`remember_host_gap`, `wait_host_gap`)**: Process-wide gap cache per host so subsequent or parallel requests space themselves rather than immediately hitting a busy host.
+   - **OpenRouter free-tier pacing**: Enforces a 3.0s minimum gap (`OPENROUTER_FREE_MIN_GAP_SEC`) for `:free` and `openrouter/free` models.
+   - **Client-level pacing (`RequestPacer`)**: Enforces minimum gap (`LLM_MIN_REQUEST_INTERVAL_SEC = 0.05s`) between consecutive sends.
+   - **Streaming & Non-Streaming integration (`llm_client.py`, `http_transport.py`)**: Up to 3 attempts on `CONNECTION_ERRORS` and HTTP 429/503.
+   - **Text duplication guard**: If any token has already reached the UI (`emitted_any is True`), retry is strictly blocked to prevent duplicating streamed text; raises `NetworkError(code="CONNECTION_LOST")`.
+   - **Credential redaction**: Secrets/keys are scrubbed before logging error payloads.
 
-### Bad retry targets
+2. **MCP SSE Tunnel (`plugin/mcp/tunnel_state.py` & `tunnel.py`)**:
+   - Pure state machine exponential backoff (`compute_backoff_delay`, capped at `DEAL_MAX_BACKOFF`) under `@deal` contracts.
+   - Emits `ScheduleRetryTimerEffect` and `CancelRetryTimerEffect` to schedule reconnection timers cleanly without blocking.
 
-- broad retries around arbitrary UNO operations
-- hidden retries that ignore user stop/cancel intent
-- retries that make side effects ambiguous
+3. **Subprocess & Test Runner Retries**:
+   - Headless LibreOffice bootstrap pipe retry in `plugin/testing_runner.py`.
+   - Venv worker stdin write timeout retry in `plugin/scripting/venv_worker.py`.
 
-### Retry policy guidelines
+### What Remains / Out of Scope
 
-- small attempt count, usually 2-3
-- exponential backoff with jitter
-- only retry clearly transient exceptions
-- preserve stop/cancel semantics
-- log retry count and final failure reason
-
-### Example shape
-
-```python
-def with_retry(func, max_attempts=3, base_delay=0.1):
-    attempt = 0
-    while attempt < max_attempts:
-        try:
-            return func()
-        except RetryableError:
-            attempt += 1
-            if attempt >= max_attempts:
-                raise
-            time.sleep(base_delay * (2 ** (attempt - 1)))
-```
-
-The roadmap should avoid presenting retries as a global abstraction first. Start with the concrete hot paths where it matters.
+- **File I/O Persistence Retries**: Config and chat history currently use atomic writes (`atomic_write`) and fallback from SQLite to JSON. Bounded retries around transient OS file locks (e.g., Windows anti-virus locks) remain deferred unless concrete locking failures are observed in practice.
+- **Arbitrary UNO Operations**: Retrying arbitrary UNO operations remains prohibited, as UNO failures typically stem from stale object handles, threading violations, or disposal where retry without reacquisition either hangs or crashes.
 
 ### 3.3 Priority 3: Verification, Invariants, and Contract Checks
 
 This is a high priority because it improves confidence over time while keeping runtime complexity modest.
 
-### Target areas
+### Shipped Contract Infrastructure
 
-- pure parsing and normalization helpers
-- state transitions with clear legal/illegal moves
-- functions that transform data into structured payloads
-- boundary functions where a bad argument quickly becomes a confusing downstream failure
+WriterAgent has broadly adopted Design-by-Contract using `deal` (and `plugin/framework/deal_shim.py`) across 57+ modules in `plugin/`:
 
-### Good patterns
+- **Pure logic and serialization**: `payload_codec.py` (`is_split_grid`, `is_multi_data`, array pack/unpack), `calc_range.py`, `cells.py`, `address_utils.py`.
+- **Protocol and State Machines**: MCP wire types (`wire_types.py`), MCP state (`mcp_state.py`), MCP SSE tunnel (`tunnel_state.py`), chat send state (`send_state.py`), tool loop state (`tool_loop_state.py`).
+- **Parsing and normalization**: `stream_normalizer.py`, `response_normalizers.py`, `html_stripper.py`, `url_utils.py`, `json_utils.py`.
+- **AST and Scripting**: `ast_stmt_edit.py`, `import_policy.py`, `editor_ipc.py`, `sandbox.py`.
 
-- `deal` preconditions and postconditions on critical pure entry points
-- `deal` invariants where the target is stable and mostly pure
-- optional postcondition checks for pure helper outputs
-- invariant helpers reused by both tests and debug paths
-- property-style tests that continuously exercise those invariants
+The lightweight `deal_shim.py` ensures that contracts are fully enforced during development, testing, and static analysis without adding runtime overhead to LibreOffice extension release builds.
 
-### Example shape
+### Concolic Execution and SMT Solving
 
-```python
-import deal
-
-@deal.pre(lambda max_context: isinstance(max_context, int) and max_context > 0)
-@deal.post(lambda result: isinstance(result, str))
-def normalize_context_limit(max_context):
-    return str(max_context)
-```
-
-### Guidance
-
-- use this first where invariants are clear and stable
-- keep most checks close to pure logic and boundary validation
-- avoid turning every UNO interaction into a contract framework
-- prefer `deal` or another established contract tool over custom decorator code
-- let tests do the heavy lifting when runtime checks would be noisy
+Beyond runtime contract checks, the repository has implemented SMT-backed concolic execution using CrossHair:
+- `make crosshair-check` / `make crosshair-cover`: concolic test generation and contract verification for critical pure modules like `payload_codec.py`.
+- `make crosshair-check-all` / `make crosshair-cover-all`: repo-wide sweeps across all `@deal`-annotated modules using streaming subprocess wrappers (`scripts/crosshair_stream.py`).
+- For complete design theory, see [docs/framework/formal-verification.md](formal-verification.md).
 
 ### 3.4 Priority 4: Lightweight Health Checks
 
@@ -304,38 +295,30 @@ def create_document_context(model, max_context, ctx=None):
 
 ### 3.6 Priority 6: Testing That Tries To Break Things
 
-Testing should take more of the complexity burden so runtime code can stay straightforward.
+Testing takes the complexity burden so runtime code can stay straightforward.
 
-### Property-based and fuzz testing
+### Shipped Property-Based Testing
 
-These are good fits when applied to code that is deterministic and pure or mostly pure:
+WriterAgent uses `hypothesis` extensively across 35+ dedicated verification test suites (`tests/**/*_verification.py`), exercising:
 
-- JSON parsing wrappers
-- string/stream normalization helpers
-- protocol parsing
-- delta accumulation
-- range and bounds logic
-- config validation logic
+- **Streaming and normalization**: `test_stream_normalizer_verification.py`, `test_accumulate_delta_verification.py`, `test_response_normalizers_verification.py`.
+- **Parsing and error payloads**: `test_json_utils_verification.py`, `test_error_payload_verification.py`, `test_html_and_auth_verification.py`.
+- **Serialization and AST edits**: `test_serialization_verification.py`, `test_payload_codec_policy_verification.py`, `test_scripting_ast_verification.py`.
+- **Protocol and State Machines**: `test_mcp_wire_verification.py`, `test_tunnel_state.py`, `test_fsm_verification.py`.
 
-### Example
+These tests generate thousands of randomized, adversarial inputs (deeply nested dicts, malformed UTF-8/surrogates, extreme float bounds, degenerate grids) to verify that invariants and contracts hold without unexpected unhandled exceptions.
 
-```python
-from hypothesis import given
-from hypothesis.strategies import text, integers
+### Concolic Fuzzing via CrossHair
 
-@given(text(), integers(min_value=1, max_value=10000))
-def test_safe_string_operation(s, max_len):
-    result = safe_string_operation(s, max_len)
-    assert isinstance(result, str)
-    assert len(result) <= max_len
-```
+In addition to property-based tests, symbolic/concolic path exploration via `crosshair cover` automatically generates concrete counterexamples and probes dark corners in serialization and parsing code:
 
-### Fuzzing guidance
+- `make crosshair-check`: SMT solver searches for contract violations.
+- `make crosshair-cover`: Guided fuzzing for branch coverage, generating minimal reproducible test cases.
+- `scripts/crosshair_check_all.py` / `scripts/crosshair_cover_all.py`: Parallel test sweeps across all contracted modules.
 
-Fuzz testing is explicitly in scope for this roadmap. It increases test complexity, but that is acceptable because it does not make production code more esoteric.
+### Fuzzing Guidance
 
 Best candidates:
-
 - malformed JSON fragments
 - broken SSE chunks
 - repeated or partial deltas
@@ -344,7 +327,6 @@ Best candidates:
 - invariant-preserving randomized inputs for pure helper code
 
 Less useful candidates:
-
 - direct end-to-end UNO behavior where the oracle is unclear
 - large integration fuzzers that mostly fail nondeterministically
 
@@ -412,32 +394,33 @@ This section should guide actual work and triage.
 
 ### Phase 1: Baseline Reliability (near term)
 
-- [ ] Rewrite task priorities around practical recovery and graceful degradation
-- [ ] Document the main failure modes and preferred recovery paths
-- [ ] Identify pure helpers and boundary functions that are good candidates for `deal` contracts or invariant checks
-- [ ] Reuse an existing contract library such as `deal` instead of building custom decorator infrastructure
-- [ ] Tighten validation on a small set of critical boundaries
-- [ ] Standardize bounded retry policy for network and file I/O hot paths
-- [ ] Improve logging consistency for retry exhaustion and degraded-mode fallbacks
-- [ ] Clarify current watchdog and health-check expectations in docs and code comments
+- [x] Rewrite task priorities around practical recovery and graceful degradation
+- [x] Document the main failure modes and preferred recovery paths
+- [x] Identify pure helpers and boundary functions that are good candidates for `deal` contracts or invariant checks
+- [x] Reuse an existing contract library such as `deal` (`plugin/framework/deal_shim.py`) instead of building custom decorator infrastructure
+- [x] Tighten validation on a small set of critical boundaries (config schema, MCP schemas, tool schemas, payload codec)
+- [x] Standardize bounded retry policy for network hot paths (`request_controls.py`, `http_transport.py`, `llm_client.py`, `tunnel_state.py`)
+- [x] Improve logging consistency for retry exhaustion, backoff attempts, and degraded-mode fallbacks
+- [x] Clarify current watchdog and health-check expectations in docs and code comments
 
 ### Phase 2: User-Visible Resilience
 
-- [ ] Add graceful degradation to the most failure-prone document and chat paths
-- [ ] Improve stale-object recovery where reacquisition is safe and obvious
-- [ ] Extend `deal` contract coverage and invariant checks to high-value pure logic paths
-- [ ] Expand lightweight health checks and diagnostics
-- [ ] Ensure stop/cancel behavior remains correct when retries are introduced
-- [ ] Add targeted tests for fallback behavior and recovery decisions
+- [ ] Add graceful degradation to the most failure-prone document and chat paths (fallback to text/selection when full document XHTML export fails)
+- [ ] Improve stale-object recovery where reacquisition is safe and obvious (reacquiring active document model on disposal in sidebar chat)
+- [x] Extend `deal` contract coverage and invariant checks to high-value pure logic paths (57+ modules)
+- [ ] Expand lightweight health checks and diagnostics (session failure counters, guided recovery hints in sidebar)
+- [x] Ensure stop/cancel behavior remains correct when retries are introduced (`wait_abortable` with chunked sleep and `stop_checker`)
+- [x] Add targeted tests for fallback behavior, retry math, and recovery decisions (`test_request_controls.py`, `test_http_transport.py`, `test_client_llm.py`)
 
 ### Phase 3: Adversarial Verification
 
-- [ ] Expand fuzz testing for parsers, streaming normalizers, and config/history loading
-- [ ] Add property-style tests for pure helpers with clear invariants
-- [ ] Use invariant helpers as test oracles where practical
-- [ ] Add failure-injection tests for network retry and fallback behavior
-- [ ] Extend integration tests only where the expected outcome is stable and valuable
-- [ ] Use regression tests to lock in fixes from real bugs
+- [x] Expand fuzz testing for parsers, streaming normalizers, and config/history loading (CrossHair concolic fuzzing via `scripts/crosshair_check_all.py`, `scripts/crosshair_cover_all.py`)
+- [x] Add property-style tests for pure helpers with clear invariants (35+ Hypothesis test suites under `tests/`)
+- [x] Use invariant helpers as test oracles where practical (`payload_codec` envelope detector, AST statement edits)
+- [x] Add failure-injection tests for network retry and fallback behavior (`test_request_controls.py`, `test_http_transport.py`, `test_client_llm.py`)
+- [x] Extend integration tests only where the expected outcome is stable and valuable
+- [x] Use regression tests to lock in fixes from real bugs
+- [ ] Continuous automated fuzzing pipeline in CI for streaming decoders and JSON parsers
 
 ### Phase 4: Revisit Only If Needed
 
