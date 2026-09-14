@@ -173,7 +173,7 @@ A chronicle of building a Python runtime and AI suite inside LibreOffice:
 - **Week 2 & 3**: [MCP, research sub-agent, voice support, and evaluation dashboard](https://keithcu.com/wordpress/?p=5112)
 - **Week 4–6**: [State machines, formal verification, and specialized toolsets](https://keithcu.com/wordpress/?p=5245)
 - **Week 6 & 7**: [Async grammar checking and TeX import support](https://keithcu.com/wordpress/?p=5276)
-- **Week 8+**: [NumPy compute bridge, `=PY()` Calc add-in, Monaco editor, and LibrePy core split](docs/scripting/librepy-split.md)
+- **Week 8+**: [NumPy compute bridge, `=PY()`](https://keithcu.com/wordpress/?p=5310)
 
 ---
 
