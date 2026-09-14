@@ -1207,6 +1207,39 @@ def test_native_doc_windows_reuses_calc_when_leftovers_open(monkeypatch):
         tu._NATIVE_DOC_POOL.clear()
 
 
+def test_native_doc_teardown_reset_failure_closes_without_session_clear(monkeypatch):
+    """Failed pooled reset closes the doc and skips session clear (no return in finally)."""
+    from unittest.mock import MagicMock
+
+    from plugin.tests.testing_utils import TestingFactory
+    import plugin.tests.testing_utils as tu
+
+    doc = MagicMock(name="pooled_doc")
+    events = []
+
+    def reset_fail(*_a, **_k):
+        events.append("reset")
+        raise RuntimeError("reset failed")
+
+    monkeypatch.setattr(tu, "reset_native_doc", reset_fail)
+    monkeypatch.setattr(TestingFactory, "create_native_doc", lambda *_a, **_k: doc)
+    monkeypatch.setattr(
+        TestingFactory, "close_doc", lambda *_a, **_k: events.append("close")
+    )
+    monkeypatch.setattr(
+        "plugin.scripting.session_manager.clear_active_calc_session",
+        lambda: events.append("clear_session"),
+    )
+    tu._NATIVE_DOC_POOL.clear()
+    ctx = object()
+    try:
+        with TestingFactory.native_doc(ctx, "calc", reuse=True) as got:
+            assert got is doc
+        assert events == ["reset", "close"]
+    finally:
+        tu._NATIVE_DOC_POOL.clear()
+
+
 def test_create_native_doc_posix_does_not_prepare_writer_factory(monkeypatch):
     from unittest.mock import MagicMock, patch
 

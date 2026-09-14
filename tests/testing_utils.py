@@ -2444,18 +2444,20 @@ class TestingFactory:
                 try:
                     reset_native_doc(doc, doc_type, ctx)
                 except Exception:
+                    # Do not return from finally: that swallows a failed test
+                    # body and warns on 3.12+ (SyntaxWarning: return in finally).
                     _native_teardown_progress(
                         "native_doc: teardown reset failed; close_doc"
                     )
                     TestingFactory.close_doc(doc)
-                    return
-                _native_teardown_progress("native_doc: teardown reset done")
-                try:
-                    from plugin.scripting.session_manager import clear_active_calc_session
+                else:
+                    _native_teardown_progress("native_doc: teardown reset done")
+                    try:
+                        from plugin.scripting.session_manager import clear_active_calc_session
 
-                    clear_active_calc_session()
-                except Exception:
-                    pass
+                        clear_active_calc_session()
+                    except Exception:
+                        pass
             else:
                 _native_teardown_progress("native_doc: teardown close_doc start")
                 TestingFactory.close_doc(doc)

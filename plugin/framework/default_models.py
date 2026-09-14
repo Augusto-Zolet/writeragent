@@ -84,8 +84,6 @@ def get_provider_defaults(provider):
 
 
 DEFAULT_MODELS: list[dict[str, Any]] = [
-    # openrouter/free is a router, not a model. OpenRouter lists 200k
-    # (https://openrouter.ai/openrouter/free); the routed hop may be smaller.
     {"display_name": "Free Models (Auto)", "capability": ModelCapability.CHAT | ModelCapability.VISION | ModelCapability.TOOLS, "context_length": 200000, "ids": {"openrouter": "openrouter/free"}},
     {"display_name": "DeepSeek V3", "capability": ModelCapability.CHAT | ModelCapability.TOOLS, "context_length": 163840, "ids": {"deepseek": "deepseek-chat"}, "default_text": True},
     {"display_name": "DeepSeek V4 Flash", "capability": ModelCapability.CHAT | ModelCapability.TOOLS, "context_length": 163840, "ids": {"together": "deepseek-ai/DeepSeek-V4-Flash-0731"}},
@@ -102,9 +100,5 @@ DEFAULT_MODELS: list[dict[str, Any]] = [
     {"display_name": "Nvidia Parakeet TDT 0.6B v3", "capability": ModelCapability.AUDIO, "ids": {"together": "nvidia/parakeet-tdt-0.6b-v3"}, "default_audio": True},
     {"display_name": "GLM 5.2", "capability": ModelCapability.CHAT | ModelCapability.TOOLS, "context_length": 200000, "ids": {"zai": "glm-5.2"}, "default_text": True},
     {"display_name": "GLM ASR 2512", "capability": ModelCapability.AUDIO, "ids": {"zai": "glm-asr-2512"}, "default_audio": True},
-    # Soak / Packet K. Not a hosted default — ``ids.mock`` keeps Settings
-    # dropdowns empty. ``resolve_context_window`` matches the id so
-    # writeragent-mock has a denominator (32768: 8192 left no remainder
-    # after the Writer system prompt + core tool schemas; not Hermes 256k).
     {"display_name": "WriterAgent Mock", "capability": ModelCapability.CHAT | ModelCapability.AUDIO | ModelCapability.TOOLS, "context_length": 32768, "ids": {"mock": "writeragent-mock"}},
 ]
