@@ -79,13 +79,21 @@ def test_google_image_completion(mock_ctx):
     assert "key=" not in path
     data = json.loads(body.decode("utf-8"))
     assert data["parameters"]["aspectRatio"] == "16:9"
+    assert data["parameters"]["imageSize"] == "2K"
 
     # 2. Test Imagen aspect ratio 4:3 and 3:4
     _, _, body_4_3, _ = shim.build_image_request("Draw a cat", model="imagen-4.0-generate-001", width=1024, height=768)
-    assert json.loads(body_4_3.decode("utf-8"))["parameters"]["aspectRatio"] == "4:3"
+    params_4_3 = json.loads(body_4_3.decode("utf-8"))["parameters"]
+    assert params_4_3["aspectRatio"] == "4:3"
+    assert params_4_3["imageSize"] == "1K"
 
     _, _, body_3_4, _ = shim.build_image_request("Draw a tower", model="imagen-4.0-generate-001", width=768, height=1024)
-    assert json.loads(body_3_4.decode("utf-8"))["parameters"]["aspectRatio"] == "3:4"
+    params_3_4 = json.loads(body_3_4.decode("utf-8"))["parameters"]
+    assert params_3_4["aspectRatio"] == "3:4"
+    assert params_3_4["imageSize"] == "1K"
+
+    _, _, body_hi, _ = shim.build_image_request("Draw a mural", model="imagen-4.0-generate-001", width=4096, height=4096)
+    assert json.loads(body_hi.decode("utf-8"))["parameters"]["imageSize"] == "2K"
 
     # 3. Test Multimodal path (other models)
     method, path, body, headers = shim.build_image_request("Generate an image", model="gemini-2.5-flash-image", width=1024, height=1024)
@@ -97,10 +105,16 @@ def test_google_image_completion(mock_ctx):
     assert "responseModalities" in data["generationConfig"]
     assert "IMAGE" in data["generationConfig"]["responseModalities"]
     assert data["generationConfig"]["imageConfig"]["aspectRatio"] == "1:1"
+    assert data["generationConfig"]["imageConfig"]["imageSize"] == "1K"
     assert data["contents"][0]["parts"] == [{"text": "Generate an image"}]
 
     _, _, body_wide, _ = shim.build_image_request("Generate an image", model="gemini-2.5-flash-image", width=1792, height=1024)
-    assert json.loads(body_wide.decode("utf-8"))["generationConfig"]["imageConfig"]["aspectRatio"] == "16:9"
+    wide_cfg = json.loads(body_wide.decode("utf-8"))["generationConfig"]["imageConfig"]
+    assert wide_cfg["aspectRatio"] == "16:9"
+    assert wide_cfg["imageSize"] == "2K"
+
+    _, _, body_small, _ = shim.build_image_request("Generate an image", model="gemini-2.5-flash-image", width=512, height=512)
+    assert json.loads(body_small.decode("utf-8"))["generationConfig"]["imageConfig"]["imageSize"] == "512"
 
 
 def test_google_gemini_image_edit_sends_inline_data(mock_ctx):

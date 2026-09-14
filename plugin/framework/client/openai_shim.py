@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 from plugin.framework.url_utils import get_url_path_and_query
-from .base_provider_shim import BaseProviderShim, canonical_aspect_ratio, coerce_image_data_url, coerce_raw_b64
+from .base_provider_shim import BaseProviderShim, canonical_aspect_ratio, canonical_resolution, coerce_image_data_url, coerce_raw_b64
 
 
 class OpenAIShim(BaseProviderShim):
@@ -140,6 +140,12 @@ class OpenRouterShim(BaseProviderShim):
             ratio = canonical_aspect_ratio(width, height)
             if ratio:
                 data["aspect_ratio"] = ratio
+                # Gemini-family models ignore pixel size and honor resolution
+                # tiers (512 / 1K / 2K / 4K). Pair with aspect_ratio — do not
+                # also send size (HTTP 400).
+                res = canonical_resolution(width, height)
+                if res:
+                    data["resolution"] = res
             else:
                 data["size"] = f"{width}x{height}"
 
@@ -173,20 +179,36 @@ class TogetherShim(OpenAIShim):
         method, path, body, headers = super().build_image_request(
             prompt, model, width, height, steps=steps, source_image=source_image, image_url=image_url
         )
+        data = json.loads(body.decode("utf-8"))
+        # What was wrong: BaseProviderShim sends OpenAI size="WxH". Together
+        # documents width/height integers (Flash Image, FLUX.2) or aspect_ratio
+        # (Kontext). Unknown size is ignored, so Square/16:9 never reached the
+        # model. https://docs.together.ai/docs/inference/images/parameters
+        data.pop("size", None)
+        is_kontext = bool(model and "kontext" in model.lower())
+        if is_kontext:
+            ratio = canonical_aspect_ratio(width, height)
+            if ratio:
+                data["aspect_ratio"] = ratio
+            data.pop("width", None)
+            data.pop("height", None)
+        else:
+            if width:
+                data["width"] = width
+            if height:
+                data["height"] = height
         # What was wrong: the OpenAI-compat default sent top-level image_url.
         # Together's default image model (google/flash-image-2.5) only accepts
         # reference_images[]; image_url is ignored or rejected — same silent
         # create-instead-of-edit as OpenRouter's old image_url field.
         # https://docs.together.ai/docs/inference/images/reference-images
         ref = coerce_image_data_url(image_url, source_image)
-        if not ref:
-            return method, path, body, headers
-        data = json.loads(body.decode("utf-8"))
-        data.pop("image_url", None)
-        if model and "kontext" in model.lower():
-            data["image_url"] = ref
-        else:
-            data["reference_images"] = [ref]
+        if ref:
+            data.pop("image_url", None)
+            if is_kontext:
+                data["image_url"] = ref
+            else:
+                data["reference_images"] = [ref]
         return method, path, json.dumps(data).encode("utf-8"), headers
 
 

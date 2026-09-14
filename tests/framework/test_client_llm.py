@@ -987,15 +987,31 @@ def test_grok_shim(client):
         body = json.loads(kwargs["data"])
         assert body["prompt"] == "Draw a cat"
         assert body["model"] == "aurora"
+        assert body["aspect_ratio"] == "1:1"
+        assert body["resolution"] == "1k"
         assert "size" not in body
+        assert "quality" not in body
         assert "image" not in body
         assert str(args[0]).endswith("/images/generations")
+
+        client.image_completion("Wide landscape", model="aurora", width=1792, height=1024)
+        body = json.loads(mock_sync.call_args.kwargs["data"])
+        assert body["aspect_ratio"] == "16:9"
+        assert body["resolution"] == "2k"
+
+        client.image_completion("High res", model="aurora", width=2048, height=2048)
+        body = json.loads(mock_sync.call_args.kwargs["data"])
+        assert body["aspect_ratio"] == "1:1"
+        assert body["resolution"] == "2k"
 
         client.image_completion("Make it dusk", model="aurora", width=1024, height=1024, source_image="abc123")
         args, kwargs = mock_sync.call_args
         body = json.loads(kwargs["data"])
         assert str(args[0]).endswith("/images/edits")
         assert "image_url" not in body
+        assert body["aspect_ratio"] == "1:1"
+        assert body["resolution"] == "1k"
+        assert "quality" not in body
         assert body["image"] == {
             "url": "data:image/png;base64,abc123",
             "type": "image_url",
@@ -1059,16 +1075,23 @@ def test_openrouter_shim_image(client):
         assert body["prompt"] == "Draw a galaxy"
         assert body["model"] == "bytedance-seed/seedream-4.5"
         assert body["aspect_ratio"] == "1:1"
+        assert body["resolution"] == "1K"
         assert "size" not in body
         assert body["n"] == 1
         assert body["output_format"] == "png"
+
+        client.image_completion("Draw a galaxy", model="bytedance-seed/seedream-4.5", width=2048, height=2048)
+        body = json.loads(mock_sync.call_args.kwargs["data"])
+        assert body["aspect_ratio"] == "1:1"
+        assert body["resolution"] == "2K"
+        assert "size" not in body
 
 
 def test_openrouter_shim_image_flux_klein_png_aspect_not_size(client):
     """flux.2-klein-4b rejects webp and size+aspect_ratio pairs (create + img2img).
 
-    Hint with aspect_ratio alone; pixel size is omitted so OpenRouter does not
-    400 a mismatched pair. Gemini ignores size and needs the aspect hint.
+    Hint with aspect_ratio plus resolution; pixel size is omitted so OpenRouter
+    does not 400 a mismatched pair. Gemini ignores size and needs those hints.
     """
     client.config["endpoint"] = "https://openrouter.ai/api"
     with (
@@ -1088,6 +1111,7 @@ def test_openrouter_shim_image_flux_klein_png_aspect_not_size(client):
         body = json.loads(mock_sync.call_args.kwargs["data"])
         assert body["model"] == "black-forest-labs/flux.2-klein-4b"
         assert body["aspect_ratio"] == "16:9"
+        assert body["resolution"] == "1K"
         assert "size" not in body
         assert body["output_format"] == "png"
         assert "webp" not in json.dumps(body)
@@ -1103,6 +1127,7 @@ def test_openrouter_shim_image_flux_klein_png_aspect_not_size(client):
         body = json.loads(mock_sync.call_args.kwargs["data"])
         assert body["output_format"] == "png"
         assert body["aspect_ratio"] == "1:1"
+        assert body["resolution"] == "1K"
         assert "size" not in body
         assert "image_url" not in body
         assert body["input_references"] == [

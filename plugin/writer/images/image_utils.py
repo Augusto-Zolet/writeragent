@@ -22,7 +22,7 @@ import tempfile
 import re
 import base64
 from plugin.framework.client.llm_client import LlmClient
-from plugin.framework.client.base_provider_shim import canonical_aspect_ratio
+from plugin.framework.client.base_provider_shim import canonical_aspect_ratio, canonical_resolution
 from plugin.framework.client.requests import sync_request
 from plugin.framework.config import get_config_int
 
@@ -107,8 +107,17 @@ class EndpointImageProvider(ImageProvider):
             # field; image_config.aspect_ratio is the documented hint
             # (https://openrouter.ai/google/gemini-3.1-flash-lite-image).
             hint = canonical_aspect_ratio(width, height, named=kwargs.get("aspect_ratio"))
+            image_config = {}
             if hint:
-                body_dict["image_config"] = {"aspect_ratio": hint}
+                image_config["aspect_ratio"] = hint
+            # What was wrong: we sent aspect_ratio only. Gemini chat still
+            # defaulted to ~1K because pixel size is not a chat field;
+            # image_config.image_size is the matching resolution hint.
+            size_hint = canonical_resolution(width, height)
+            if size_hint:
+                image_config["image_size"] = size_hint
+            if image_config:
+                body_dict["image_config"] = image_config
             if steps is not None and steps > 0:
                 body_dict["steps"] = steps
             if "max_tokens" in kwargs:

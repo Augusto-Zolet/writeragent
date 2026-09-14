@@ -15,7 +15,7 @@ import logging
 from typing import Any
 
 from plugin.framework.url_utils import get_url_path_and_query
-from .base_provider_shim import canonical_aspect_ratio, coerce_raw_b64, inline_image_mime
+from .base_provider_shim import canonical_aspect_ratio, canonical_resolution, coerce_raw_b64, inline_image_mime
 from .openai_shim import OpenAIShim
 
 log = logging.getLogger(__name__)
@@ -51,7 +51,12 @@ class GoogleShim(OpenAIShim):
                 )
             url = f"{endpoint}/v1beta/models/{model_name}:predict"
             aspect = canonical_aspect_ratio(width, height) or "1:1"
-            data: dict[str, Any] = {"instances": [{"prompt": prompt}], "parameters": {"sampleCount": 1, "aspectRatio": aspect}}
+            params: dict[str, Any] = {"sampleCount": 1, "aspectRatio": aspect}
+            # Imagen ignores pixel size; imageSize is 1K/2K only.
+            res = canonical_resolution(width, height, family="imagen")
+            if res:
+                params["imageSize"] = res
+            data: dict[str, Any] = {"instances": [{"prompt": prompt}], "parameters": params}
         else:
             url = f"{endpoint}/v1beta/models/{model_name}:generateContent"
             parts: list[dict[str, Any]] = [{"text": prompt}]
@@ -63,15 +68,19 @@ class GoogleShim(OpenAIShim):
                         "data": raw,
                     }
                 })
-            # Gemini image models ignore pixel size; imageConfig.aspectRatio is
-            # the documented hint (1:1, 16:9, 4:3, …). Native generateContent
-            # previously sent no aspect at all.
+            # Gemini image models ignore pixel size; imageConfig.aspectRatio and
+            # imageSize (512 / 1K / 2K / 4K) are the documented hints. Native
+            # generateContent previously sent no aspect or size at all.
             aspect = canonical_aspect_ratio(width, height) or "1:1"
+            image_config: dict[str, Any] = {"aspectRatio": aspect}
+            res = canonical_resolution(width, height)
+            if res:
+                image_config["imageSize"] = res
             data = {
                 "contents": [{"role": "user", "parts": parts}],
                 "generationConfig": {
                     "responseModalities": ["IMAGE", "TEXT"],
-                    "imageConfig": {"aspectRatio": aspect},
+                    "imageConfig": image_config,
                 },
             }
 

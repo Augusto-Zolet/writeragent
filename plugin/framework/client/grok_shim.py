@@ -10,7 +10,7 @@ import json
 from typing import Any
 
 from plugin.framework.url_utils import get_url_path_and_query
-from .base_provider_shim import coerce_image_data_url
+from .base_provider_shim import canonical_aspect_ratio, canonical_resolution, coerce_image_data_url
 from .openai_shim import OpenAIShim
 
 
@@ -41,6 +41,16 @@ class GrokShim(OpenAIShim):
             "response_format": "b64_json",
             "model": model or "aurora",
         }
+        # What was wrong: width/height were accepted and never written. xAI
+        # documents aspect_ratio (default auto) and resolution (1k/2k), not
+        # OpenAI size, so Square / 2048 in the sidebar never reached the model.
+        # https://docs.x.ai/developers/model-capabilities/images/generation
+        ratio = canonical_aspect_ratio(width, height)
+        if ratio:
+            data["aspect_ratio"] = ratio
+        res = canonical_resolution(width, height, family="grok")
+        if res:
+            data["resolution"] = res
         if steps:
             data["steps"] = steps
         if ref:

@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.dirname(get_plugin_dir()))
 
 from plugin.writer.images.image_utils import ImageService, EndpointImageProvider
-from plugin.framework.client.base_provider_shim import canonical_aspect_ratio
+from plugin.framework.client.base_provider_shim import canonical_aspect_ratio, canonical_resolution
 from plugin.framework.client.llm_client import LlmClient
 from plugin.tests.testing_utils import MockContext, create_mock_client
 
@@ -312,6 +312,17 @@ class TestEndpointImageProvider(unittest.TestCase):
             data = json.loads(body.decode("utf-8"))
             self.assertNotIn("image_url", data)
             self.assertNotIn("reference_images", data)
+            self.assertNotIn("size", data)
+            self.assertEqual(data["width"], 1024)
+            self.assertEqual(data["height"], 1024)
+
+            method, path, body, headers = client.make_image_request(
+                "wide", model="google/flash-image-2.5", width=896, height=512
+            )
+            data = json.loads(body.decode("utf-8"))
+            self.assertEqual(data["width"], 896)
+            self.assertEqual(data["height"], 512)
+            self.assertNotIn("size", data)
 
             method, path, body, headers = client.make_image_request(
                 "make him a wizard", model="google/flash-image-2.5", source_image="b64data"
@@ -327,11 +338,24 @@ class TestEndpointImageProvider(unittest.TestCase):
         client = LlmClient(config, MockContext())
         with patch.object(client, "_resolve_auth", return_value={"provider": "together"}):
             method, path, body, headers = client.make_image_request(
+                "a lake", model="black-forest-labs/FLUX.1-kontext-pro", width=896, height=512
+            )
+            create = json.loads(body.decode("utf-8"))
+            self.assertEqual(create["aspect_ratio"], "16:9")
+            self.assertNotIn("size", create)
+            self.assertNotIn("width", create)
+            self.assertNotIn("height", create)
+
+            method, path, body, headers = client.make_image_request(
                 "watercolor", model="black-forest-labs/FLUX.1-kontext-pro", source_image="b64data"
             )
         data = json.loads(body.decode("utf-8"))
         self.assertEqual(data["image_url"], "data:image/png;base64,b64data")
         self.assertNotIn("reference_images", data)
+        self.assertNotIn("size", data)
+        self.assertNotIn("width", data)
+        self.assertNotIn("height", data)
+        self.assertEqual(data["aspect_ratio"], "1:1")
 
 class TestImageService(unittest.TestCase):
     def test_endpoint_provider_with_none_config(self):
@@ -453,7 +477,7 @@ class TestImageService(unittest.TestCase):
         body = captured["body"]
         assert isinstance(body, dict)
         self.assertEqual(body["modalities"], ["image"])
-        self.assertEqual(body["image_config"], {"aspect_ratio": "1:1"})
+        self.assertEqual(body["image_config"], {"aspect_ratio": "1:1", "image_size": "512"})
         self.assertNotIn("size", body)
 
 
@@ -468,6 +492,21 @@ class TestCanonicalAspectRatio(unittest.TestCase):
         self.assertEqual(canonical_aspect_ratio(896, 512), "16:9")
         self.assertEqual(canonical_aspect_ratio(1024, 768), "4:3")
         self.assertEqual(canonical_aspect_ratio(768, 1024), "3:4")
+
+    def test_canonical_resolution_tiers_and_clamps(self):
+        self.assertEqual(canonical_resolution(512, 512), "512")
+        self.assertEqual(canonical_resolution(1024, 1024), "1K")
+        self.assertEqual(canonical_resolution(2048, 2048), "2K")
+        self.assertEqual(canonical_resolution(4096, 4096), "4K")
+        self.assertEqual(canonical_resolution(512, 512, family="grok"), "1k")
+        self.assertEqual(canonical_resolution(1024, 1024, family="grok"), "1k")
+        self.assertEqual(canonical_resolution(2048, 2048, family="grok"), "2k")
+        self.assertEqual(canonical_resolution(4096, 4096, family="grok"), "2k")
+        self.assertEqual(canonical_resolution(512, 512, family="imagen"), "1K")
+        self.assertEqual(canonical_resolution(1024, 768, family="imagen"), "1K")
+        self.assertEqual(canonical_resolution(2048, 2048, family="imagen"), "2K")
+        self.assertEqual(canonical_resolution(4096, 4096, family="imagen"), "2K")
+        self.assertIsNone(canonical_resolution(0, 512))
 
 
 if __name__ == '__main__':

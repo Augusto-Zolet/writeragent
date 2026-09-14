@@ -75,6 +75,39 @@ def canonical_aspect_ratio(
     return None
 
 
+def canonical_resolution(
+    width: int | None = None,
+    height: int | None = None,
+    *,
+    family: str = "standard",
+) -> str | None:
+    """Map max(width, height) to a vendor resolution tier.
+
+    Standard (OpenRouter / Gemini): ``512``, ``1K``, ``2K``, ``4K``.
+    Grok only documents ``1k`` / ``2k``. Imagen only documents ``1K`` / ``2K``.
+    """
+    if not width or not height or width < 1 or height < 1:
+        return None
+    edge = max(width, height)
+    if edge <= 768:
+        tier = "512"
+    elif edge <= 1536:
+        tier = "1K"
+    elif edge <= 3072:
+        tier = "2K"
+    else:
+        tier = "4K"
+    if family == "grok":
+        return "2k" if tier in ("2K", "4K") else "1k"
+    if family == "imagen":
+        if tier == "512":
+            return "1K"
+        if tier == "4K":
+            return "2K"
+        return tier
+    return tier
+
+
 def coerce_image_data_url(image_url: str | None = None, source_image: str | None = None) -> str | None:
     """Normalize a source image to a data URL or http(s) URL for JSON image APIs."""
     ref = image_url or source_image
