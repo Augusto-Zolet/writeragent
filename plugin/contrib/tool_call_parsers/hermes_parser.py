@@ -12,10 +12,9 @@ from typing import List
 
 from plugin.framework.errors import safe_json_loads
 from plugin.contrib.tool_call_parsers.openai_compat import ChatCompletionMessageToolCall, Function
-from plugin.contrib.tool_call_parsers import ParseResult, ToolCallParser, register_parser
+from plugin.contrib.tool_call_parsers import ParseResult, ToolCallParser
 
 
-@register_parser("hermes")
 class HermesToolCallParser(ToolCallParser):
     """
     Parser for Hermes-format tool calls.

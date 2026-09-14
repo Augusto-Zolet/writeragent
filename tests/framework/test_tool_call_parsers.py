@@ -1,12 +1,11 @@
 from plugin.contrib.tool_call_parsers import (
     get_parser,
     get_parser_for_model,
-    resolve_parser_name,
 )
 
 
 def test_hermes_parser():
-    parser = get_parser("hermes")
+    parser = get_parser()
     text = 'Hello\n<tool_call>{"name": "test_tool", "arguments": {"cmd": "ls"}}</tool_call>'
     content, tool_calls = parser.parse(text)
 
@@ -17,7 +16,7 @@ def test_hermes_parser():
 
 
 def test_hermes_parser_unclosed():
-    parser = get_parser("hermes")
+    parser = get_parser()
     text = '<tool_call>{"name": "test_tool", "arguments": {"cmd": "ls"}'
     content, tool_calls = parser.parse(text)
 
@@ -29,7 +28,7 @@ def test_hermes_parser_unclosed():
 
 
 def test_hermes_parser_normalization():
-    parser = get_parser("hermes")
+    parser = get_parser()
     # provider emitting arguments as an object in-text
     text = '<tool_call>{"name": "test_tool", "arguments": {"cmd": "ls", "args": ["-l", "-a"]}}</tool_call>'
     content, tool_calls = parser.parse(text)
@@ -41,7 +40,7 @@ def test_hermes_parser_normalization():
 
 
 def test_hermes_parser_string_arguments():
-    parser = get_parser("hermes")
+    parser = get_parser()
     # arguments already encoded as a JSON string
     text = '<tool_call>{"name": "test_tool", "arguments": "{\\"cmd\\": \\"ls\\"}"}</tool_call>'
     content, tool_calls = parser.parse(text)
@@ -53,7 +52,7 @@ def test_hermes_parser_string_arguments():
 
 
 def test_hermes_parser_whitespace():
-    parser = get_parser("hermes")
+    parser = get_parser()
     # provider emitting whitespace or newlines inside and around the tags
     text = (
         "Hello\n"
@@ -71,7 +70,7 @@ def test_hermes_parser_whitespace():
 
 
 def test_hermes_parser_multiple():
-    parser = get_parser("hermes")
+    parser = get_parser()
     text = (
         "Here are your calls:\n"
         '<tool_call>{"name": "tool1", "arguments": {"a": 1}}</tool_call>\n'
@@ -98,4 +97,3 @@ def test_get_parser_for_model():
 
     # None for empty model name
     assert get_parser_for_model("") is None
-    assert resolve_parser_name("") is None

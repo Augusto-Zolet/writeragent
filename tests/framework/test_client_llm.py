@@ -755,7 +755,7 @@ def test_strip_leaked_chat_template_control_tokens_empty():
 
 
 def test_strip_leaked_chat_template_control_tokens_llama_python_tag_still_parsable():
-    """Stripping ``<|python_tag|>`` leaves JSON; llama3_json parser uses ``{`` anyway."""
+    """Stripping ``<|python_tag|>`` leaves the JSON payload intact."""
     raw = '<|python_tag|>{"name": "x", "arguments": {}}'
     out = strip_leaked_chat_template_control_tokens(raw)
     assert "<|" not in out
