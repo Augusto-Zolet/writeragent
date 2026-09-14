@@ -7,7 +7,7 @@
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 
-from plugin.embeddings.search_ui import SearchDialog, show_search_dialog
+from plugin.embeddings.search_ui import SearchDialog, format_cache_age, show_search_dialog
 
 
 class TestSearchDialog:
@@ -225,3 +225,49 @@ class TestSearchDialog:
 
         assert doc_calls_during_marshal, "get_active_document should run during search"
         assert all(doc_calls_during_marshal), "get_active_document must be marshaled to main thread"
+
+    def test_format_cache_age_thresholds(self):
+        # < 60 seconds -> "just now"
+        assert format_cache_age(0) == "just now"
+        assert format_cache_age(30) == "just now"
+        assert format_cache_age(59.9) == "just now"
+        assert format_cache_age(-5) == "just now"
+
+        # 60s <= age < 3600s -> minutes
+        assert format_cache_age(60) == "1m ago"
+        assert format_cache_age(120) == "2m ago"
+        assert format_cache_age(3599) == "59m ago"
+
+        # 3600s <= age < 86400s -> hours
+        assert format_cache_age(3600) == "1h ago"
+        assert format_cache_age(7200) == "2h ago"
+        assert format_cache_age(86399) == "23h ago"
+
+        # >= 86400s (24h) -> days
+        assert format_cache_age(86400) == "1d ago"
+        assert format_cache_age(86400 * 1.5) == "1d ago"
+        assert format_cache_age(86400 * 2) == "2d ago"
+        assert format_cache_age(86400 * 7) == "7d ago"
+
+    def test_refresh_cache_status_over_24h_shows_days(self):
+        import time
+
+        mock_ctx = MagicMock()
+        dialog = SearchDialog.__new__(SearchDialog)
+        dialog._ctx = mock_ctx
+        mock_dlg = MagicMock()
+        status_lbl = MagicMock()
+        mock_dlg.getControl.return_value = status_lbl
+
+        two_days_ago = time.time() - (86400 * 2 + 100)
+
+        with patch("plugin.embeddings.search_ui.execute_on_main_thread", side_effect=lambda fn, *args, **kwargs: fn(*args, **kwargs)):
+            with patch("plugin.embeddings.search_ui.get_active_document", return_value=MagicMock()):
+                with patch("plugin.embeddings.embeddings_cache.resolve_index_context", return_value=("key", Path("/db"), Path("/meta"), "/root")):
+                    with patch("plugin.framework.client.embeddings_service._folder_search_mode", return_value="sqlite"):
+                        with patch("plugin.embeddings.embeddings_cache.index_is_empty", return_value=False):
+                            with patch("plugin.embeddings.embeddings_cache.read_corpus_meta", return_value={"updated_at": str(two_days_ago)}):
+                                dialog._refresh_cache_status(mock_dlg)
+
+        assert status_lbl.getModel().Label == "Cache Status: Built (2d ago)"
+

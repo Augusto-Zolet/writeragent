@@ -29,6 +29,21 @@ log = logging.getLogger(__name__)
 _SEARCH_KEY_RETURN = 1280
 
 
+def format_cache_age(age_secs: float) -> str:
+    """Format relative cache age in seconds to human-readable localized string.
+
+    Displays 'just now', minutes ('{0}m ago'), hours ('{0}h ago'), or days ('{0}d ago')
+    when age is 24 hours or greater.
+    """
+    if age_secs < 60:
+        return _("just now")
+    if age_secs < 3600:
+        return _("{0}m ago").format(int(age_secs // 60))
+    if age_secs < 86400:
+        return _("{0}h ago").format(int(age_secs // 3600))
+    return _("{0}d ago").format(int(age_secs // 86400))
+
+
 class SearchDialog:
     """Modeless dialog to let users run search_nearby_files queries directly."""
 
@@ -219,12 +234,7 @@ class SearchDialog:
                         try:
                             updated_at = float(updated_at_str)
                             age_secs = time.time() - updated_at
-                            if age_secs < 60:
-                                age_str = _("just now")
-                            elif age_secs < 3600:
-                                age_str = _("{0}m ago").format(int(age_secs // 60))
-                            else:
-                                age_str = _("{0}h ago").format(int(age_secs // 3600))
+                            age_str = format_cache_age(age_secs)
                             return _("Cache Status: Built ({0})").format(age_str)
                         except ValueError:
                             pass

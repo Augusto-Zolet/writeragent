@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-09 14:57-0400\n"
+"POT-Creation-Date: 2026-09-14 16:20-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Norwegian Nynorsk <LL@li.org>\n"
@@ -77,6 +77,25 @@ msgid "Run code cell"
 msgstr "Køyr kodecelle"
 
 #: plugin/embeddings/search_ui.py
+msgid "just now"
+msgstr "akkurat no"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}m ago"
+msgstr "for {0} minutt sidan"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}h ago"
+msgstr "for {0} timar sidan"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}d ago"
+msgstr "for {0} dagar sidan"
+
+#: plugin/embeddings/search_ui.py
 msgid "Cache Status: No active document"
 msgstr "Bufra-status: Inget aktivt dokument"
 
@@ -95,20 +114,6 @@ msgstr "Bufra-status: Ikkje bygd (lancedb)"
 #: plugin/embeddings/search_ui.py
 msgid "Cache Status: Not built"
 msgstr "Bufra-status: Ikkje bygd"
-
-#: plugin/embeddings/search_ui.py
-msgid "just now"
-msgstr "akkurat no"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}m ago"
-msgstr "for {0} minutt sidan"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}h ago"
-msgstr "for {0} timar sidan"
 
 #: plugin/embeddings/search_ui.py
 #, python-brace-format

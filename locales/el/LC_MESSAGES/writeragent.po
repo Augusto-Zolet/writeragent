@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-09 14:57-0400\n"
+"POT-Creation-Date: 2026-09-14 16:20-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Greek <LL@li.org>\n"
@@ -78,6 +78,25 @@ msgid "Run code cell"
 msgstr "Εκτέλεση κελιού κώδικα"
 
 #: plugin/embeddings/search_ui.py
+msgid "just now"
+msgstr "μόλις τώρα"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}m ago"
+msgstr "πριν από {0}λ"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}h ago"
+msgstr "πριν από {0}ώ"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}d ago"
+msgstr "πριν από {0}ημ"
+
+#: plugin/embeddings/search_ui.py
 msgid "Cache Status: No active document"
 msgstr "Κατάσταση προσωρινής μνήμης: Κανένα ενεργό έγγραφο"
 
@@ -96,20 +115,6 @@ msgstr "Κατάσταση προσωρινής μνήμης: Δεν έχει δ
 #: plugin/embeddings/search_ui.py
 msgid "Cache Status: Not built"
 msgstr "Κατάσταση προσωρινής μνήμης: Δεν έχει δημιουργηθεί"
-
-#: plugin/embeddings/search_ui.py
-msgid "just now"
-msgstr "μόλις τώρα"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}m ago"
-msgstr "πριν από {0}λ"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}h ago"
-msgstr "πριν από {0}ώ"
 
 #: plugin/embeddings/search_ui.py
 #, python-brace-format

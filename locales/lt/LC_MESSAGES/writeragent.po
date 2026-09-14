@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-09 14:57-0400\n"
+"POT-Creation-Date: 2026-09-14 16:20-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Lithuanian <LL@li.org>\n"
@@ -77,6 +77,25 @@ msgid "Run code cell"
 msgstr "Vykdyti kodo ląstelę"
 
 #: plugin/embeddings/search_ui.py
+msgid "just now"
+msgstr "ką tik"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}m ago"
+msgstr "prieš {0} min."
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}h ago"
+msgstr "prieš {0} val."
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}d ago"
+msgstr "prieš {0} d."
+
+#: plugin/embeddings/search_ui.py
 msgid "Cache Status: No active document"
 msgstr "Talpyklos būsena: nėra aktyvaus dokumento"
 
@@ -95,20 +114,6 @@ msgstr "Talpyklos būsena: nesukurta (lancedb)"
 #: plugin/embeddings/search_ui.py
 msgid "Cache Status: Not built"
 msgstr "Talpyklos būsena: nesukurta"
-
-#: plugin/embeddings/search_ui.py
-msgid "just now"
-msgstr "ką tik"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}m ago"
-msgstr "prieš {0} min."
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}h ago"
-msgstr "prieš {0} val."
 
 #: plugin/embeddings/search_ui.py
 #, python-brace-format

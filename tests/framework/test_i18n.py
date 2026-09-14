@@ -267,6 +267,47 @@ class TestI18n(unittest.TestCase):
         self.assertEqual(translation.gettext("Built-in"), "Integriert")
         self.assertIsNot(type(translation), NullTranslations)
 
+    def test_days_ago_translation_across_all_locales(self):
+        """Verify that all 35 compiled locales contain a valid translation for '{0}d ago'."""
+        import os
+        from plugin.framework.constants import get_locales_dir
+
+        localedir = get_locales_dir()
+        locale_dirs = [
+            d for d in os.listdir(localedir)
+            if os.path.isdir(os.path.join(localedir, d, "LC_MESSAGES"))
+        ]
+        self.assertGreaterEqual(len(locale_dirs), 35)
+
+        for lang in locale_dirs:
+            self._ensure_mo(lang)
+            translation = i18n_module.load_translation([lang], localedir, fallback=False)
+            translated = translation.gettext("{0}d ago")
+            self.assertTrue(translated, f"Empty translation for {lang}")
+            if lang != "en_US.UTF-8":
+                self.assertNotEqual(
+                    translated,
+                    "{0}d ago",
+                    f"Locale {lang} missing translation for '{{0}}d ago'",
+                )
+
+        # Spot-check specific languages
+        es_trans = i18n_module.load_translation(["es"], localedir, fallback=False)
+        self.assertEqual(es_trans.gettext("{0}d ago"), "hace {0}d")
+
+        de_trans = i18n_module.load_translation(["de"], localedir, fallback=False)
+        self.assertEqual(de_trans.gettext("{0}d ago"), "vor {0} T.")
+
+        fr_trans = i18n_module.load_translation(["fr"], localedir, fallback=False)
+        self.assertEqual(fr_trans.gettext("{0}d ago"), "il y a {0}j")
+
+        ja_trans = i18n_module.load_translation(["ja"], localedir, fallback=False)
+        self.assertEqual(ja_trans.gettext("{0}d ago"), "{0}日前")
+
+        zh_trans = i18n_module.load_translation(["zh_CN"], localedir, fallback=False)
+        self.assertEqual(zh_trans.gettext("{0}d ago"), "{0}天前")
+
+
     def test_dialog_views_imports(self):
         """Import dialog_views with full UNO; otherwise expect ImportError (headless pytest)."""
         try:

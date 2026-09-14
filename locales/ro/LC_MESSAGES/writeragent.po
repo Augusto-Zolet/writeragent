@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-09 14:57-0400\n"
+"POT-Creation-Date: 2026-09-14 16:20-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Romanian <LL@li.org>\n"
@@ -77,6 +77,25 @@ msgid "Run code cell"
 msgstr "Execută celula de cod"
 
 #: plugin/embeddings/search_ui.py
+msgid "just now"
+msgstr "chiar acum"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}m ago"
+msgstr "acum {0}m"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}h ago"
+msgstr "acum {0}h"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}d ago"
+msgstr "acum {0}z"
+
+#: plugin/embeddings/search_ui.py
 msgid "Cache Status: No active document"
 msgstr "Stare cache: Niciun document activ"
 
@@ -95,20 +114,6 @@ msgstr "Stare cache: Neconstruit (lancedb)"
 #: plugin/embeddings/search_ui.py
 msgid "Cache Status: Not built"
 msgstr "Stare cache: Neconstruit"
-
-#: plugin/embeddings/search_ui.py
-msgid "just now"
-msgstr "chiar acum"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}m ago"
-msgstr "acum {0}m"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}h ago"
-msgstr "acum {0}h"
 
 #: plugin/embeddings/search_ui.py
 #, python-brace-format

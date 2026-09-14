@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-09 14:57-0400\n"
+"POT-Creation-Date: 2026-09-14 16:20-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Catalan <LL@li.org>\n"
@@ -77,6 +77,25 @@ msgid "Run code cell"
 msgstr "Executa la cel·la de codi"
 
 #: plugin/embeddings/search_ui.py
+msgid "just now"
+msgstr "ara mateix"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}m ago"
+msgstr "fa {0}m"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}h ago"
+msgstr "fa {0}h"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}d ago"
+msgstr "fa {0}d"
+
+#: plugin/embeddings/search_ui.py
 msgid "Cache Status: No active document"
 msgstr "Estat de la memòria cau: Cap document actiu"
 
@@ -95,20 +114,6 @@ msgstr "Estat de la memòria cau: No construïda (lancedb)"
 #: plugin/embeddings/search_ui.py
 msgid "Cache Status: Not built"
 msgstr "Estat de la memòria cau: No construïda"
-
-#: plugin/embeddings/search_ui.py
-msgid "just now"
-msgstr "ara mateix"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}m ago"
-msgstr "fa {0}m"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}h ago"
-msgstr "fa {0}h"
 
 #: plugin/embeddings/search_ui.py
 #, python-brace-format

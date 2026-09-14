@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: WriterAgent 1.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-09 14:57-0400\n"
+"POT-Creation-Date: 2026-09-14 16:20-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: \n"
 "Language-Team: Swedish\n"
@@ -72,6 +72,25 @@ msgid "Run code cell"
 msgstr "Kör kodcell"
 
 #: plugin/embeddings/search_ui.py
+msgid "just now"
+msgstr "just nu"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}m ago"
+msgstr "för {0}m sedan"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}h ago"
+msgstr "för {0}h sedan"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}d ago"
+msgstr "för {0}d sedan"
+
+#: plugin/embeddings/search_ui.py
 msgid "Cache Status: No active document"
 msgstr "Cachestatus: Inget aktivt dokument"
 
@@ -90,20 +109,6 @@ msgstr "Cachestatus: Ej byggd (lancedb)"
 #: plugin/embeddings/search_ui.py
 msgid "Cache Status: Not built"
 msgstr "Cachestatus: Ej byggd"
-
-#: plugin/embeddings/search_ui.py
-msgid "just now"
-msgstr "just nu"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}m ago"
-msgstr "för {0}m sedan"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}h ago"
-msgstr "för {0}h sedan"
 
 #: plugin/embeddings/search_ui.py
 #, python-brace-format

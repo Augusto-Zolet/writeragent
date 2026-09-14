@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-09 14:57-0400\n"
+"POT-Creation-Date: 2026-09-14 16:20-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Bulgarian <LL@li.org>\n"
@@ -78,6 +78,25 @@ msgid "Run code cell"
 msgstr "Изпълнение на клетка с код"
 
 #: plugin/embeddings/search_ui.py
+msgid "just now"
+msgstr "току-що"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}m ago"
+msgstr "преди {0} м."
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}h ago"
+msgstr "преди {0} ч."
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}d ago"
+msgstr "преди {0} д."
+
+#: plugin/embeddings/search_ui.py
 msgid "Cache Status: No active document"
 msgstr "Състояние на кеша: Няма активен документ"
 
@@ -96,20 +115,6 @@ msgstr "Състояние на кеша: Не е изграден (lancedb)"
 #: plugin/embeddings/search_ui.py
 msgid "Cache Status: Not built"
 msgstr "Състояние на кеша: Не е изграден"
-
-#: plugin/embeddings/search_ui.py
-msgid "just now"
-msgstr "току-що"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}m ago"
-msgstr "преди {0} м."
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}h ago"
-msgstr "преди {0} ч."
 
 #: plugin/embeddings/search_ui.py
 #, python-brace-format

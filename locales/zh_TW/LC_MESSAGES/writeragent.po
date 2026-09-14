@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-09 14:57-0400\n"
+"POT-Creation-Date: 2026-09-14 16:20-0400\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: Chinese (Traditional) <LL@li.org>\n"
@@ -72,6 +72,25 @@ msgid "Run code cell"
 msgstr "執行程式碼儲存格"
 
 #: plugin/embeddings/search_ui.py
+msgid "just now"
+msgstr "剛剛"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}m ago"
+msgstr "{0} 分鐘前"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}h ago"
+msgstr "{0} 小時前"
+
+#: plugin/embeddings/search_ui.py
+#, python-brace-format
+msgid "{0}d ago"
+msgstr "{0} 天前"
+
+#: plugin/embeddings/search_ui.py
 msgid "Cache Status: No active document"
 msgstr "快取狀態：無作用中文件"
 
@@ -90,20 +109,6 @@ msgstr "快取狀態：未建立 (lancedb)"
 #: plugin/embeddings/search_ui.py
 msgid "Cache Status: Not built"
 msgstr "快取狀態：未建立"
-
-#: plugin/embeddings/search_ui.py
-msgid "just now"
-msgstr "剛剛"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}m ago"
-msgstr "{0} 分鐘前"
-
-#: plugin/embeddings/search_ui.py
-#, python-brace-format
-msgid "{0}h ago"
-msgstr "{0} 小時前"
 
 #: plugin/embeddings/search_ui.py
 #, python-brace-format
