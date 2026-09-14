@@ -2,7 +2,7 @@
 Hermes tool call parser.
 
 Format: <tool_call>{"name": "func", "arguments": {...}}</tool_call>
-Based on VLLM's Hermes2ProToolParser.extract_tool_calls()
+Based on Hermes / VLLM's Hermes2ProToolParser.extract_tool_calls()
 """
 
 import json
@@ -12,7 +12,6 @@ from typing import List
 
 from plugin.framework.errors import safe_json_loads
 from plugin.contrib.tool_call_parsers.openai_compat import ChatCompletionMessageToolCall, Function
-
 from plugin.contrib.tool_call_parsers import ParseResult, ToolCallParser, register_parser
 
 
@@ -48,15 +47,20 @@ class HermesToolCallParser(ToolCallParser):
 
                 tc_data = safe_json_loads(raw_json, default=None)
                 if tc_data is not None and isinstance(tc_data, dict) and "name" in tc_data:
+                    raw_args = tc_data.get("arguments", {})
+                    # Avoid double-encoding when the model outputs arguments as an already-encoded JSON string
+                    if isinstance(raw_args, str):
+                        args_str = raw_args
+                    else:
+                        args_str = json.dumps(raw_args, ensure_ascii=False)
+                    call_id = tc_data.get("id") or tc_data.get("call_id") or f"call_{uuid.uuid4().hex[:8]}"
                     tool_calls.append(
                         ChatCompletionMessageToolCall(
-                            id=f"call_{uuid.uuid4().hex[:8]}",
+                            id=str(call_id),
                             type="function",
                             function=Function(
                                 name=tc_data["name"],
-                                arguments=json.dumps(
-                                    tc_data.get("arguments", {}), ensure_ascii=False
-                                ),
+                                arguments=args_str,
                             ),
                         )
                     )

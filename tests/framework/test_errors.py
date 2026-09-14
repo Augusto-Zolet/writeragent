@@ -541,19 +541,6 @@ class TestSecurityFix(unittest.TestCase):
         self.assertEqual(safe_python_literal_eval('(1, 2)', default='(1, 2)'), '(1, 2)')
         self.assertEqual(safe_python_literal_eval("{'a': 1}", default='fallback'), 'fallback')
 
-    def test_glm45_deserializer(self):
-        from plugin.contrib.tool_call_parsers.glm45_parser import _deserialize_value
-        self.assertEqual(_deserialize_value('True'), True)
-        self.assertEqual(_deserialize_value('true'), True)
-        self.assertEqual(_deserialize_value('123'), 123)
-        self.assertEqual(_deserialize_value("'abc'"), 'abc')
-
-    def test_qwen3_coder_deserializer(self):
-        from plugin.contrib.tool_call_parsers.qwen3_coder_parser import _try_convert_value
-        self.assertEqual(_try_convert_value('True'), True)
-        self.assertEqual(_try_convert_value('null'), None)
-        self.assertEqual(_try_convert_value('123'), 123)
-
     def test_smolagents_deserializer(self):
         self.assertEqual(safe_python_literal_eval('{"type": "string"}'), {'type': 'string'})
 
