@@ -5,10 +5,11 @@
 """Compute-only JSON blob forward helpers.
 
 LibrePy desktop ``=PY()`` keeps Pickle5 + ``split_grid``. The HTTP compute
-service is a thinner proxy: peel small control fields from the kit JSON body,
-forward the raw ``data`` value bytes to the formula worker, and forward the
-worker's ``result_json`` bytes back to coolwsd — no host ``json.loads`` of the
-grid, no ``host_pack_data``, no second ``json.dumps`` of the result.
+service is a thinner proxy: peel small control fields from today's single
+JSON object (or from an optional multipart ``meta`` part), forward the raw
+``data`` JSON bytes to the formula worker, and forward the worker's
+``result_json`` bytes back to coolwsd — no host ``json.loads`` of the grid,
+no ``host_pack_data``, no second ``json.dumps`` of the result.
 
 Worker stdio still uses the existing length-prefixed Pickle5 envelope so we do
 not add a second IPC protocol. Large payloads travel as ``bytes`` fields
@@ -20,6 +21,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from email import policy
+from email.parser import BytesParser
 from typing import Any
 
 # HTTP max_body_bytes is 32 MiB; pickle of the envelope needs a little slack.
@@ -28,13 +31,15 @@ COMPUTE_MAX_PAYLOAD_BYTES = 33 * 1024 * 1024
 WIRE_JSON_FORWARD = "json_forward"
 WIRE_PICKLE = "pickle"
 
+# Peel-walker only (single-JSON ingress). Transitional Collabora contract;
+# delete with peel_execute_request after kit ships multipart.
 _WS = frozenset({0x09, 0x0A, 0x0D, 0x20})
 _MAX_JSON_DEPTH = 256
 _BOM = b"\xef\xbb\xbf"
 
 
 class ExecuteRequestError(ValueError):
-    """Raised when the HTTP body is not a JSON object we can peel."""
+    """Raised when the HTTP body is not a peelable JSON object or multipart kit body."""
 
 
 @dataclass(frozen=True)
@@ -69,8 +74,119 @@ def decode_worker_result(res: dict[str, Any]) -> dict[str, Any]:
     return res
 
 
+def is_multipart_content_type(content_type: str | None) -> bool:
+    """True when the kit opted into the optional multipart ingress."""
+    if not content_type:
+        return False
+    return content_type.split(";", 1)[0].strip().lower().startswith("multipart/")
+
+
+def encode_multipart_execute(
+    meta: dict[str, Any],
+    data_json: bytes | None = None,
+    *,
+    boundary: str = "wa-compute",
+) -> tuple[str, bytes]:
+    """Build optional kit multipart. Returns ``(Content-Type, body bytes)``.
+
+    ``meta`` is small control JSON only — do not nest the grid there.
+    """
+
+    def _part(name: str, payload: bytes) -> bytes:
+        return (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="{name}"\r\n'
+            f"Content-Type: application/json\r\n"
+            f"Content-Transfer-Encoding: 8bit\r\n"
+            f"\r\n"
+        ).encode("ascii") + payload + b"\r\n"
+
+    chunks = [_part("meta", json.dumps(meta, allow_nan=False).encode("utf-8"))]
+    if data_json is not None:
+        chunks.append(_part("data", data_json))
+    chunks.append(f"--{boundary}--\r\n".encode("ascii"))
+    return f"multipart/form-data; boundary={boundary}", b"".join(chunks)
+
+
+def _part_payload_bytes(part: Any) -> bytes:
+    payload = part.get_payload(decode=True)
+    if isinstance(payload, (bytes, bytearray)):
+        return bytes(payload)
+    text = part.get_payload(decode=False)
+    if isinstance(text, (bytes, bytearray)):
+        return bytes(text)
+    if isinstance(text, str):
+        return text.encode("utf-8")
+    raise ExecuteRequestError("multipart part has no payload")
+
+
+def parse_multipart_execute(body: bytes, content_type: str) -> ExecuteRequestParts:
+    """Optional kit ingress: peel ``meta`` with the same helper; keep Part B raw.
+
+    Same ``ExecuteRequestParts`` as ``peel_execute_request``. The host never
+    ``json.loads`` the ``data`` part. ``meta`` is the #766 peel over a small
+    object (no nested grid).
+    """
+    if not is_multipart_content_type(content_type):
+        raise ExecuteRequestError("Content-Type is not multipart")
+    raw = b"MIME-Version: 1.0\r\nContent-Type: " + content_type.encode("utf-8") + b"\r\n\r\n" + body
+    msg = BytesParser(policy=policy.default).parsebytes(raw)
+    if not msg.is_multipart():
+        raise ExecuteRequestError("expected a multipart body")
+
+    named: dict[str, bytes] = {}
+    ordered: list[bytes] = []
+    for part in msg.iter_parts():
+        payload = _part_payload_bytes(part)
+        ordered.append(payload)
+        disp_name = part.get_param("name", header="content-disposition")
+        if isinstance(disp_name, str) and disp_name:
+            named[disp_name] = payload
+
+    meta_bytes: bytes | None = None
+    for key in ("meta", "metadata"):
+        if key in named:
+            meta_bytes = named[key]
+            break
+    data_bytes: bytes | None = named.get("data")
+
+    # multipart/mixed with unnamed parts: first = meta, second = data.
+    if meta_bytes is None:
+        if not ordered:
+            raise ExecuteRequestError("missing meta part")
+        meta_bytes = ordered[0]
+        if data_bytes is None and len(ordered) >= 2:
+            data_bytes = ordered[1]
+
+    # Reuse #766 peel on the small meta object — not a second metadata codec.
+    meta_parts = peel_execute_request(meta_bytes)
+    if meta_parts.data_json is not None:
+        raise ExecuteRequestError("meta part must not include a 'data' field")
+    return ExecuteRequestParts(
+        req_id=meta_parts.req_id,
+        code=meta_parts.code,
+        mode=meta_parts.mode,
+        timeout_ms=meta_parts.timeout_ms,
+        init_script=meta_parts.init_script,
+        data_json=data_bytes,
+        has_session_id=meta_parts.has_session_id,
+    )
+
+
+def parse_execute_request(body: bytes, content_type: str | None) -> ExecuteRequestParts:
+    """MIME dispatch: multipart (long-term) vs JSON-object peel (transitional)."""
+    if is_multipart_content_type(content_type):
+        return parse_multipart_execute(body, content_type or "")
+    # Transitional Collabora contract. Keep until kit ships multipart;
+    # then delete this peel branch. Multipart is the long-term ingress.
+    return peel_execute_request(body)
+
+
 def peel_execute_request(body: bytes) -> ExecuteRequestParts:
     """Walk a top-level JSON object; decode small keys; keep ``data`` raw.
+
+    Transitional Collabora contract. Keep until kit ships multipart; then
+    delete this peel path. Multipart is the long-term ingress.
 
     Does not ``json.loads`` the ``data`` value (the large grid). ``code`` /
     ``mode`` / ``timeout_ms`` / ``id`` / ``init_script`` are loaded as isolated
@@ -128,9 +244,8 @@ def peel_execute_request(body: bytes) -> ExecuteRequestParts:
         if key == "data":
             data_json = value_slice
         elif key == "data_json":
-            # Kit may send a JSON string that already holds the data blob.
-            # Prefer an explicit ``data`` key when both are present (last
-            # ``data`` still wins if it appears later).
+            # Peel-only alias (single-JSON body). Prefer explicit ``data`` if
+            # both appear (last ``data`` still wins). Goes away with peel.
             if data_json is None:
                 data_json = _coerce_data_json_field(value_slice)
         elif key == "session_id":
@@ -167,7 +282,10 @@ def peel_execute_request(body: bytes) -> ExecuteRequestParts:
 
 
 def _coerce_data_json_field(value_slice: bytes) -> bytes:
-    """``data_json`` as a JSON string → inner UTF-8 bytes; otherwise raw slice."""
+    """Peel-only: ``data_json`` string → inner UTF-8 bytes; else raw slice.
+
+    Transitional Collabora contract. Delete with the peel path.
+    """
     stripped = value_slice.lstrip()
     if stripped.startswith(b'"'):
         try:
@@ -178,6 +296,11 @@ def _coerce_data_json_field(value_slice: bytes) -> bytes:
             return decoded.encode("utf-8")
         raise ExecuteRequestError("data_json string must decode to text")
     return value_slice
+
+
+# --- peel walker (single-JSON only) ---
+# Transitional Collabora contract. Keep until kit ships multipart; then
+# delete this whole helper block. Multipart is the long-term ingress.
 
 
 def _loads_small(value_slice: bytes) -> Any:
