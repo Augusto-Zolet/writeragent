@@ -385,10 +385,13 @@ pytest tests/compute_service/
 Run the built-in benchmark harness to evaluate throughput (RPS), latency percentiles, and multi-core scaling under simulated concurrent office loads:
 
 ```bash
-# Quick sanity run
+# Quick formula worker scaling run (evaluates 1, 2, and 4 formula workers with 4 concurrent clients)
 python scripts/benchmark_compute_service.py --quick
 
-# Full multi-concurrency benchmark (1 to 32 concurrent clients)
+# Worker scaling across specific worker counts and concurrency
+python scripts/benchmark_compute_service.py --workers 1,2,4 --concurrency 4
+
+# Multi-concurrency client load benchmark (1 to 32 concurrent clients)
 python scripts/benchmark_compute_service.py --concurrency 1,2,4,8,16,32 --requests 50 --threads 32
 ```
 
@@ -396,6 +399,6 @@ python scripts/benchmark_compute_service.py --concurrency 1,2,4,8,16,32 --reques
 - **`numpy_vector` (GIL Released)**: High throughput (280+ RPS), low median latency (~7–14ms) across 1–32 client threads as NumPy frees the GIL to all CPU cores.
 - **`tabular_stats` (Mixed C/Python)**: Steady 180–195 RPS for 2D spreadsheet table filtering, summary statistics, and column aggregations.
 - **`stateful_session` (`mode="shared"`)**: Fast in-memory stateful recalculations (400–430 RPS) with median latency under 10ms for multi-tenant sessions.
-- **`pure_python` (GIL Held)**: Constant CPU throughput (~30 RPS) bounded by single-interpreter bytecode execution.
+- **`pure_python` (GIL Held)**: Constant single-interpreter CPU throughput (~30 RPS) per worker process, scaling linearly across CPU cores as formula worker subprocesses are added (`--workers 1,2,4`).
 
 See also [`docs/scripting/numpy-jailsafe.md`](../docs/scripting/numpy-jailsafe.md) (kit JSON contract) and [`docs/scripting/numpy-serialization.md`](../docs/scripting/numpy-serialization.md) (Pickle5 + `split_grid`).
