@@ -1013,8 +1013,9 @@ def build_writer_rewrite_prompt(original_text: str, instructions: str) -> str:
 class WriterCompoundUndo:
     """Wrap ``XUndoManager.enterUndoContext`` / ``leaveUndoContext`` for one Ctrl+Z step.
 
-    Call :meth:`close` when the operation finishes (success or error). Safe to call
-    multiple times.
+    Prefer ``with WriterCompoundUndo(doc, title):``. Explicit :meth:`close` remains
+    for streamed sessions that open in ``__init__`` and finish later. Safe to call
+    ``close`` multiple times.
     """
 
     def __init__(self, doc, title: str) -> None:
@@ -1046,6 +1047,13 @@ class WriterCompoundUndo:
             # Upgrade from debug to warning so failures are visible without debug logging.
             # "Insert $1" in the undo menu means this context was never opened.
             self._log.warning("WriterCompoundUndo: enterUndoContext failed, undo grouping disabled (title=%r): %s", title, e)
+
+    def __enter__(self) -> "WriterCompoundUndo":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        # Do not swallow exceptions; only close the undo group.
+        self.close()
 
     def close(self) -> None:
         """End the compound undo context if :meth:`__init__` opened one."""

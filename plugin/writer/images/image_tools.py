@@ -170,8 +170,7 @@ def insert_image(ctx, model, img_path, width_px, height_px, title="", descriptio
     width_units, height_units = visual_helpers.px_to_units(width_px, height_px)
 
     # Gallery is filesystem-only; keep it outside the document undo group.
-    undo = WriterCompoundUndo(model, "WriterAgent: Insert image")
-    try:
+    with WriterCompoundUndo(model, "WriterAgent: Insert image"):
         if inside in ["writer", "web"]:
             _insert_image_to_writer(ctx, model, img_path, width_units, height_units, title, description, add_frame)
         else:
@@ -179,8 +178,6 @@ def insert_image(ctx, model, img_path, width_px, height_px, title="", descriptio
                 ctx, model, inside, img_path, width_units, height_units, title, description,
                 page_index=page_index, x_mm=x_mm, y_mm=y_mm,
             )
-    finally:
-        undo.close()
 
     if add_to_gallery:
         add_image_to_gallery(ctx, img_path, f"{title}\n\n{description}")
@@ -198,8 +195,7 @@ def insert_image_at_locator(ctx, model, img_path, width_mm: int | float = 80, he
     inside = get_type_doc(model)
     width_units, height_units = _mm_to_units(width_mm, height_mm)
 
-    undo = WriterCompoundUndo(model, "WriterAgent: Insert image")
-    try:
+    with WriterCompoundUndo(model, "WriterAgent: Insert image"):
         if inside in ("writer", "web"):
             if text_cursor is not None:
                 _place_view_cursor_at_text_range(model, text_cursor)
@@ -219,8 +215,6 @@ def insert_image_at_locator(ctx, model, img_path, width_mm: int | float = 80, he
             page_index=page_index, x_mm=x_mm, y_mm=y_mm,
         )
         return _selection_graphic_object(model)
-    finally:
-        undo.close()
 
 
 def insert_image_into_header_footer(
@@ -259,8 +253,7 @@ def insert_image_into_header_footer(
         raise ValueError("region must be one of: %s" % ", ".join(_REGION_PROPS))
 
     # Enable region + auto-height + embed are separate UNO steps; group them.
-    undo = WriterCompoundUndo(model, "WriterAgent: Insert image in header/footer")
-    try:
+    with WriterCompoundUndo(model, "WriterAgent: Insert image in header/footer"):
         style, resolved = resolve_page_style(model, style_name)
         is_on_prop, text_prop = _REGION_PROPS[region]
         if not style.getPropertyValue(is_on_prop):
@@ -288,9 +281,6 @@ def insert_image_into_header_footer(
             "region": region,
             "auto_height": bool(auto_height),
         }
-    finally:
-        undo.close()
-
 
 def _place_view_cursor_at_text_range(model, text_cursor):
     try:
@@ -473,8 +463,7 @@ def replace_graphic_source(ctx, model, graphic, img_path, width_units=None, heig
             if anchor is None:
                 return False
             # Linked Writer replace inserts then removes — group into one Ctrl+Z.
-            undo = WriterCompoundUndo(model, "WriterAgent: Replace image")
-            try:
+            with WriterCompoundUndo(model, "WriterAgent: Replace image"):
                 _place_view_cursor_at_text_range(model, anchor)
                 new_graphic = _dispatch_insert_linked_graphic(ctx, model, file_url)
                 if new_graphic is not None:
@@ -500,13 +489,10 @@ def replace_graphic_source(ctx, model, graphic, img_path, width_units=None, heig
                         inside=inside,
                     )
                 return True
-            finally:
-                undo.close()
         draw_page = visual_helpers.get_active_draw_page(model, inside)
         if draw_page is None:
             return False
-        undo = WriterCompoundUndo(model, "WriterAgent: Replace image")
-        try:
+        with WriterCompoundUndo(model, "WriterAgent: Replace image"):
             pos = graphic.getPosition()
             draw_page.remove(graphic)
             new_graphic = _dispatch_insert_linked_graphic(ctx, model, file_url)
@@ -534,11 +520,8 @@ def replace_graphic_source(ctx, model, graphic, img_path, width_units=None, heig
                     inside=inside,
                 )
             return True
-        finally:
-            undo.close()
 
-    undo = WriterCompoundUndo(model, "WriterAgent: Replace image")
-    try:
+    with WriterCompoundUndo(model, "WriterAgent: Replace image"):
         file_url = _file_url_for_path(img_path)
         if not _safe_set_property(graphic, "GraphicURL", file_url) and ctx is not None:
             xgraphic = _graphic_from_provider(ctx, file_url)
@@ -558,9 +541,6 @@ def replace_graphic_source(ctx, model, graphic, img_path, width_units=None, heig
             if not _safe_set_property(graphic, "Size", sz):
                 _safe_try_method(graphic, "setSize", sz)
         return True
-    finally:
-        undo.close()
-
 
 def _get_selected_graphic_object(model):
     """

@@ -461,30 +461,27 @@ class WriteCellRange(ToolBase):
                     "Do not pass values when source is set. "
                     "To copy a block, pass source and dest range only."
                 )
-            undo = WriterCompoundUndo(ctx.doc, "WriterAgent: Copy range")
             try:
-                copied: dict[str, Any] | None = None
-                for dest in rn:
-                    copied = manipulator.copy_formula_range(source, dest)
-                if copied is None:
-                    return self._tool_error("range is required")
-                msg = copied["message"]
-                if len(rn) > 1:
-                    msg = (
-                        f"Copied {copied['rows_copied']}×{copied['cols_copied']} "
-                        f"from {source} onto {len(rn)} ranges."
-                    )
-                return {
-                    "status": "ok",
-                    "message": msg,
-                    "rows_copied": copied["rows_copied"],
-                    "cols_copied": copied["cols_copied"],
-                }
+                with WriterCompoundUndo(ctx.doc, "WriterAgent: Copy range"):
+                    copied: dict[str, Any] | None = None
+                    for dest in rn:
+                        copied = manipulator.copy_formula_range(source, dest)
+                    if copied is None:
+                        return self._tool_error("range is required")
+                    msg = copied["message"]
+                    if len(rn) > 1:
+                        msg = (
+                            f"Copied {copied['rows_copied']}×{copied['cols_copied']} "
+                            f"from {source} onto {len(rn)} ranges."
+                        )
+                    return {
+                        "status": "ok",
+                        "message": msg,
+                        "rows_copied": copied["rows_copied"],
+                        "cols_copied": copied["cols_copied"],
+                    }
             except Exception as e:
                 return self._tool_error(str(e))
-            finally:
-                undo.close()
-
         fov = kwargs.get("values")
         # values is required when source is omitted (schema keeps it optional so
         # source-only calls pass validate). Missing must not fall through as clear.
@@ -513,18 +510,16 @@ class WriteCellRange(ToolBase):
                         _values_length_mismatch_message(r, n_vals, n_cells, rows, cols)
                     )
 
-        undo = WriterCompoundUndo(ctx.doc, "WriterAgent: Write formulas")
         try:
-            if len(rn) == 1:
-                result = manipulator.write_formula_range(rn[0], fov)
-                return {"status": "ok", "message": result}
-            for r in rn:
-                manipulator.write_formula_range(r, fov)
-            return {"status": "ok", "message": f"Wrote to {len(rn)} ranges"}
+            with WriterCompoundUndo(ctx.doc, "WriterAgent: Write formulas"):
+                if len(rn) == 1:
+                    result = manipulator.write_formula_range(rn[0], fov)
+                    return {"status": "ok", "message": result}
+                for r in rn:
+                    manipulator.write_formula_range(r, fov)
+                return {"status": "ok", "message": f"Wrote to {len(rn)} ranges"}
         except Exception as e:
             return self._tool_error(str(e))
-        finally:
-            undo.close()
 
 
 class InsertCellHtml(ToolBase):

@@ -384,6 +384,12 @@ class TestImageCompoundUndo(unittest.TestCase):
                 events.append(("enter", title))
                 self.title = title
 
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                self.close()
+
             def close(self):
                 events.append(("close", self.title))
 
@@ -425,6 +431,12 @@ class TestImageCompoundUndo(unittest.TestCase):
             def __init__(self, doc, title):
                 events.append(("enter", title))
                 self.title = title
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc, tb):
+                self.close()
 
             def close(self):
                 events.append(("close", self.title))

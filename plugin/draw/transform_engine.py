@@ -73,20 +73,18 @@ class SlideCommandEngine:
         self.warnings: list[str] = []
 
     def apply(self, transform_obj: dict[str, Any]) -> dict[str, Any]:
-        undo = WriterCompoundUndo(self.doc, "WriterAgent: Transform document structure")
         try:
-            top_uno = transform_obj.get("UnoCommand")
-            if top_uno is not None:
-                self._apply_top_level_uno(top_uno)
-            for cmd in get_slide_commands(transform_obj):
-                self._apply_command(cmd)
-            self.bridge.set_current_page_index(self.current_slide)
-            return {"status": "ok", "current_slide": self.current_slide, "applied": self.applied, "warnings": self.warnings}
+            with WriterCompoundUndo(self.doc, "WriterAgent: Transform document structure"):
+                top_uno = transform_obj.get("UnoCommand")
+                if top_uno is not None:
+                    self._apply_top_level_uno(top_uno)
+                for cmd in get_slide_commands(transform_obj):
+                    self._apply_command(cmd)
+                self.bridge.set_current_page_index(self.current_slide)
+                return {"status": "ok", "current_slide": self.current_slide, "applied": self.applied, "warnings": self.warnings}
         except Exception as exc:
             log.exception("SlideCommandEngine.apply failed")
             return {"status": "error", "message": str(exc), "applied": self.applied, "warnings": self.warnings}
-        finally:
-            undo.close()
 
     def _page_count(self) -> int:
         return self.pages.getCount()

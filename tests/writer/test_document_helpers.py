@@ -180,6 +180,24 @@ def test_writer_compound_undo_enter_close_and_idempotent():
     assert doc.undo.left is True
 
 
+def test_writer_compound_undo_context_manager_closes_on_success_and_error():
+    doc = _MockDoc(recording=True)
+    with WriterCompoundUndo(doc, "WriterAgent: with-ok") as cu:
+        assert cu is not None
+        assert doc.undo.entered is True
+        assert doc.undo.left is False
+    assert doc.undo.left is True
+
+    doc2 = _MockDoc(recording=True)
+    try:
+        with WriterCompoundUndo(doc2, "WriterAgent: with-err"):
+            assert doc2.undo.entered is True
+            raise RuntimeError("boom")
+    except RuntimeError:
+        pass
+    assert doc2.undo.left is True
+
+
 def test_set_document_property_updates_existing_without_readding(monkeypatch):
     """Regression: ``UserDefinedProperties`` exposes existence via ``getPropertySetInfo``,
     not ``hasByName``. The old check fell through to ``addProperty`` even when the
