@@ -101,23 +101,23 @@ class EndpointImageProvider(ImageProvider):
             _method, _path, body, _headers = self.client.make_chat_request(messages, max_tokens=1000, model=model)
             body_dict = json.loads(body)
             body_dict["modalities"] = ["image"]
-            # What was wrong: Gemini image models on OpenRouter use this chat
-            # path (they output text+image, so they are not image-only). We
-            # never sent aspect_ratio. Pixel size is not a chat-completions
-            # field; image_config.aspect_ratio is the documented hint
-            # (https://openrouter.ai/google/gemini-3.1-flash-lite-image).
-            hint = canonical_aspect_ratio(width, height, named=kwargs.get("aspect_ratio"))
-            image_config = {}
-            if hint:
-                image_config["aspect_ratio"] = hint
-            # What was wrong: we sent aspect_ratio only. Gemini chat still
-            # defaulted to ~1K because pixel size is not a chat field;
-            # image_config.image_size is the matching resolution hint.
-            size_hint = canonical_resolution(width, height)
-            if size_hint:
-                image_config["image_size"] = size_hint
-            if image_config:
-                body_dict["image_config"] = image_config
+            # Edit: source image already defines geometry. Sending sidebar
+            # Square / Base Size as image_config overrode the selection and
+            # mapped ~512 display px to image_size "512", which OpenRouter
+            # chat rejects (enum is 0.5K|1K|2K|4K).
+            if not source_image:
+                # Create: Gemini multimodal models need image_config hints;
+                # pixel size is not a chat-completions field
+                # (https://openrouter.ai/google/gemini-3.1-flash-lite-image).
+                hint = canonical_aspect_ratio(width, height, named=kwargs.get("aspect_ratio"))
+                image_config = {}
+                if hint:
+                    image_config["aspect_ratio"] = hint
+                size_hint = canonical_resolution(width, height, family="openrouter_chat")
+                if size_hint:
+                    image_config["image_size"] = size_hint
+                if image_config:
+                    body_dict["image_config"] = image_config
             if steps is not None and steps > 0:
                 body_dict["steps"] = steps
             if "max_tokens" in kwargs:

@@ -443,7 +443,7 @@ class TestImageService(unittest.TestCase):
         self.assertEqual(captured.get("height"), 1024)
 
     def test_openrouter_chat_path_sends_image_config_aspect(self):
-        """Gemini multimodal path must hint aspect_ratio via image_config, not pixel size."""
+        """Gemini multimodal create must hint aspect_ratio / 0.5K via image_config."""
         mock_ctx = MagicMock()
         api = {
             "endpoint": "https://openrouter.ai/api/v1",
@@ -477,8 +477,47 @@ class TestImageService(unittest.TestCase):
         body = captured["body"]
         assert isinstance(body, dict)
         self.assertEqual(body["modalities"], ["image"])
-        self.assertEqual(body["image_config"], {"aspect_ratio": "1:1", "image_size": "512"})
+        self.assertEqual(body["image_config"], {"aspect_ratio": "1:1", "image_size": "0.5K"})
         self.assertNotIn("size", body)
+
+    def test_openrouter_chat_edit_omits_image_config(self):
+        """Img2img must not send sidebar size/aspect; source image defines geometry."""
+        mock_ctx = MagicMock()
+        api = {
+            "endpoint": "https://openrouter.ai/api/v1",
+            "api_key": "k",
+            "is_openrouter": True,
+            "model": "google/gemini-3.1-flash-lite-image",
+        }
+        provider = EndpointImageProvider(api, mock_ctx)
+        captured: dict[str, object] = {}
+
+        def fake_make_chat_request(messages, max_tokens=512, tools=None, stream=False, model=None, **kw):
+            return "POST", "/v1/chat/completions", '{"model":"m","messages":[]}', {}
+
+        def fake_request_with_tools(messages, body_override=None, model=None, **kw):
+            captured["body"] = json.loads(body_override)
+            return {"content": "", "images": []}
+
+        tiny_png_b64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+        with (
+            patch("plugin.framework.client.model_fetcher.is_image_only_model", return_value=False),
+            patch.object(provider.client, "make_chat_request", side_effect=fake_make_chat_request),
+            patch.object(provider.client, "request_with_tools", side_effect=fake_request_with_tools),
+        ):
+            provider.generate(
+                "make it fancier",
+                width=512,
+                height=512,
+                aspect_ratio="square",
+                source_image=tiny_png_b64,
+                image_model="google/gemini-3.1-flash-lite-image",
+            )
+
+        body = captured["body"]
+        assert isinstance(body, dict)
+        self.assertEqual(body["modalities"], ["image"])
+        self.assertNotIn("image_config", body)
 
 
 class TestCanonicalAspectRatio(unittest.TestCase):
@@ -498,6 +537,10 @@ class TestCanonicalAspectRatio(unittest.TestCase):
         self.assertEqual(canonical_resolution(1024, 1024), "1K")
         self.assertEqual(canonical_resolution(2048, 2048), "2K")
         self.assertEqual(canonical_resolution(4096, 4096), "4K")
+        self.assertEqual(canonical_resolution(512, 512, family="openrouter_chat"), "0.5K")
+        self.assertEqual(canonical_resolution(1024, 1024, family="openrouter_chat"), "1K")
+        self.assertEqual(canonical_resolution(2048, 2048, family="openrouter_chat"), "2K")
+        self.assertEqual(canonical_resolution(4096, 4096, family="openrouter_chat"), "4K")
         self.assertEqual(canonical_resolution(512, 512, family="grok"), "1k")
         self.assertEqual(canonical_resolution(1024, 1024, family="grok"), "1k")
         self.assertEqual(canonical_resolution(2048, 2048, family="grok"), "2k")

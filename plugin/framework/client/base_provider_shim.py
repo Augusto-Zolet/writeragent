@@ -83,8 +83,10 @@ def canonical_resolution(
 ) -> str | None:
     """Map max(width, height) to a vendor resolution tier.
 
-    Standard (OpenRouter / Gemini): ``512``, ``1K``, ``2K``, ``4K``.
-    Grok only documents ``1k`` / ``2k``. Imagen only documents ``1K`` / ``2K``.
+    Standard (OpenRouter ``/images`` resolution, Google native): ``512``, ``1K``,
+    ``2K``, ``4K``. OpenRouter chat ``image_config.image_size`` uses ``0.5K`` for
+    the low tier (``family="openrouter_chat"``). Grok only documents ``1k`` /
+    ``2k``. Imagen only documents ``1K`` / ``2K``.
     """
     if not width or not height or width < 1 or height < 1:
         return None
@@ -105,6 +107,9 @@ def canonical_resolution(
         if tier == "4K":
             return "2K"
         return tier
+    # OpenRouter chat modalities path rejects "512"; enum is 0.5K|1K|2K|4K.
+    if family == "openrouter_chat":
+        return "0.5K" if tier == "512" else tier
     return tier
 
 
