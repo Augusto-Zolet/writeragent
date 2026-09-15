@@ -12,7 +12,7 @@ from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
 
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import with_native_doc
-from plugin.writer.images.image_tools import insert_image_into_header_footer
+from plugin.writer.images.image_tools import insert_image, insert_image_into_header_footer
 from plugin.writer.page import _scan_region_content
 
 
@@ -35,6 +35,10 @@ def _logo_path() -> str:
 
 def _standard_style(doc):
     return doc.getStyleFamilies().getByName("PageStyles").getByName("Standard")
+
+
+def _graphic_count(doc) -> int:
+    return len(doc.getGraphicObjects().getElementNames())
 
 
 def _assert_graphic_in_first_not_shared(doc, style, first_prop, shared_prop, graphic):
@@ -91,3 +95,30 @@ def test_insert_image_footer_first_not_shared_footer(ctx, doc):
     _assert_graphic_in_first_not_shared(
         doc, style, "FooterTextFirst", "FooterText", placed["graphic"],
     )
+
+
+@native_test
+@with_native_doc("writer")
+def test_insert_image_compound_undo(ctx, doc):
+    """Frame insert is multi-step UNO; one undo must remove the whole insert."""
+    logo = _logo_path()
+    assert os.path.isfile(logo), "fixture image missing: %s" % logo
+    before = _graphic_count(doc)
+    insert_image(ctx, doc, logo, 64, 64, add_to_gallery=False, add_frame=True)
+    assert _graphic_count(doc) == before + 1
+
+    um = doc.getUndoManager()
+    if um is None:
+        return
+    undo_enabled = False
+    try:
+        undo_enabled = um.isUndoEnabled()
+    except Exception:
+        try:
+            undo_enabled = um.isUndoPossible()
+        except Exception:
+            pass
+    if not undo_enabled:
+        return
+    um.undo()
+    assert _graphic_count(doc) == before, "single undo should remove framed insert"

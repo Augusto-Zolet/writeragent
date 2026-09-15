@@ -375,6 +375,83 @@ class TestReplaceGraphicSource(unittest.TestCase):
         model.getText.return_value.removeTextContent.assert_called_once_with(graphic)
 
 
+class TestImageCompoundUndo(unittest.TestCase):
+    def test_insert_image_groups_undo_before_gallery(self):
+        events: list[object] = []
+
+        class FakeUndo:
+            def __init__(self, doc, title):
+                events.append(("enter", title))
+                self.title = title
+
+            def close(self):
+                events.append(("close", self.title))
+
+        model = MagicMock()
+        ctx = MagicMock()
+        with (
+            patch.object(image_tools, "get_type_doc", return_value="writer"),
+            patch("plugin.doc.visual_helpers.px_to_units", return_value=(1000, 1000)),
+            patch.object(
+                image_tools,
+                "_insert_image_to_writer",
+                side_effect=lambda *a, **k: events.append("insert"),
+            ),
+            patch.object(
+                image_tools,
+                "add_image_to_gallery",
+                side_effect=lambda *a, **k: events.append("gallery"),
+            ),
+            patch("plugin.writer.edit_review.WriterCompoundUndo", FakeUndo),
+        ):
+            image_tools.insert_image(
+                ctx, model, "/tmp/x.png", 64, 64, add_to_gallery=True, add_frame=False,
+            )
+
+        self.assertEqual(
+            events,
+            [
+                ("enter", "WriterAgent: Insert image"),
+                "insert",
+                ("close", "WriterAgent: Insert image"),
+                "gallery",
+            ],
+        )
+
+    def test_replace_graphic_source_groups_undo(self):
+        events: list[object] = []
+
+        class FakeUndo:
+            def __init__(self, doc, title):
+                events.append(("enter", title))
+                self.title = title
+
+            def close(self):
+                events.append(("close", self.title))
+
+        graphic = MagicMock()
+        graphic.getSize.return_value = MagicMock(Width=1000, Height=1000)
+        model = MagicMock()
+        model.supportsService.side_effect = lambda svc: svc == "com.sun.star.text.TextDocument"
+        ctx = MagicMock()
+        with (
+            patch.object(image_tools, "get_type_doc", return_value="writer"),
+            patch.object(image_tools, "_should_link_image_path", return_value=False),
+            patch.object(image_tools, "_safe_set_property", return_value=True),
+            patch("plugin.writer.edit_review.WriterCompoundUndo", FakeUndo),
+        ):
+            ok = image_tools.replace_graphic_source(ctx, model, graphic, "/tmp/cache/x.png")
+
+        self.assertTrue(ok)
+        self.assertEqual(
+            events,
+            [
+                ("enter", "WriterAgent: Replace image"),
+                ("close", "WriterAgent: Replace image"),
+            ],
+        )
+
+
 class TestDrawPageInsertPosition(unittest.TestCase):
     def test_centers_when_xy_omitted(self):
         page = MagicMock()
