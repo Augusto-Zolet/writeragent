@@ -84,6 +84,43 @@ def test_libreharper_manifest_registers_harper_proofreader_only() -> None:
     assert "ai_grammar_proofreader.py" not in body
     assert "CalcAddIns" not in body
     assert "Jobs.xcu" not in body
+    # E: WriterAgent owns the sidebar. Harper file-entries must not claim chat UI.
+    root = ET.parse(path).getroot()
+    full_paths = []
+    for el in root.iter():
+        full = el.get("{http://openoffice.org/2001/manifest}full-path") or el.get("manifest:full-path")
+        if full:
+            full_paths.append(full)
+    joined = "\n".join(full_paths)
+    assert "ChatPanelFactory" not in joined
+    assert "WriterAgentDeck" not in joined
+    assert "ChatPanelDialog" not in joined
+    assert "Factories.xcu" not in joined
+    assert "Sidebar.xcu" not in joined
+    assert "panel_factory.py" not in joined
+
+
+def test_libreharper_bundle_excludes_chatpanel_ui() -> None:
+    from scripts.libreharper_bundle_paths import (
+        LIBREHARPER_FORBIDDEN_CHAT_UI_MARKERS,
+        collect_libreharper_plugin_paths,
+        is_libreharper_forbidden_chat_ui,
+    )
+
+    paths = collect_libreharper_plugin_paths(_repo_root())
+    leaked = [p for p in paths if is_libreharper_forbidden_chat_ui(p)]
+    assert leaked == []
+    assert "plugin/chatbot/panel_factory.py" in LIBREHARPER_FORBIDDEN_CHAT_UI_MARKERS
+    assert is_libreharper_forbidden_chat_ui("registry/org/openoffice/Office/UI/Factories.xcu")
+    assert is_libreharper_forbidden_chat_ui("Dialogs/ChatPanelDialog.xdl")
+    assert is_libreharper_forbidden_chat_ui("plugin/chatbot/panel_factory.py")
+    assert not is_libreharper_forbidden_chat_ui("plugin/writer/locale/harper_proofreader.py")
+    # Harper copies extension-harper/registry (grammar XCU only) and assets, not UI.
+    harper_registry = os.path.join(
+        _repo_root(), "extension-harper", "registry", "org", "openoffice", "Office"
+    )
+    assert os.path.isfile(os.path.join(harper_registry, "LinguisticLibreHarperGrammar.xcu"))
+    assert not os.path.isdir(os.path.join(harper_registry, "UI"))
 
 
 def test_grammar_work_queue_has_no_top_level_framework_client_package_import() -> None:
