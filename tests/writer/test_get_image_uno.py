@@ -54,14 +54,15 @@ def _assert_png_result(res, source):
 @with_native_doc("draw")
 def test_get_image_draw_page_png(ctx, doc):
     _two_pages(doc)
-    page1 = _assert_png_result(_exec(doc, ctx, "draw", page=1), "page 1")
-    page2 = _assert_png_result(_exec(doc, ctx, "draw", page=2), "page 2")
-    assert page1 != page2, "page=1 and page=2 must render different Draw pages"
+    page1 = _assert_png_result(_exec(doc, ctx, "draw", page=0), "page 0")
+    page2 = _assert_png_result(_exec(doc, ctx, "draw", page=1), "page 1")
+    assert page1 != page2, "page=0 and page=1 must render different Draw pages"
 
     missing = _exec(doc, ctx, "draw", page=9)
     assert missing.get("status") == "error"
     assert "page not found" in missing.get("message", "")
     assert "2 page(s)" in missing.get("message", "")
+    assert "0-based" in missing.get("message", "")
 
     unnamed = _exec(doc, ctx, "draw", image="NoSuchGraphic")
     assert unnamed.get("status") == "error"
@@ -76,6 +77,6 @@ def test_get_image_draw_page_png(ctx, doc):
 @with_native_doc("impress")
 def test_get_image_impress_page_png(ctx, doc):
     _two_pages(doc)
-    page1 = _assert_png_result(_exec(doc, ctx, "impress", page=1), "page 1")
-    page2 = _assert_png_result(_exec(doc, ctx, "impress", page=2), "page 2")
-    assert page1 != page2, "page=1 and page=2 must render different Impress slides"
+    page1 = _assert_png_result(_exec(doc, ctx, "impress", page=0), "page 0")
+    page2 = _assert_png_result(_exec(doc, ctx, "impress", page=1), "page 1")
+    assert page1 != page2, "page=0 and page=1 must render different Impress slides"
