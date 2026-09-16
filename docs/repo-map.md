@@ -70,6 +70,7 @@ Start here by task.
 | Reviewable agent edits (surgical redlines, toolbar) | [writer/reviewable-agent-edits.md](writer/reviewable-agent-edits.md) |
 | LO-DOM & Semantic Tree | [writer/lo-dom-semantic-tree.md](writer/lo-dom-semantic-tree.md) |
 | Draw/Impress specialized | [draw/impress-specialized-toolsets.md](draw/impress-specialized-toolsets.md), [draw/shape-support.md](draw/shape-support.md) |
+| Calc `=PROMPT()` | [calc/prompt-function.md](calc/prompt-function.md) |
 | Calc specialized | [calc/specialized-toolsets.md](calc/specialized-toolsets.md) |
 | Calc filters / formatting | [calc/conditional-formatting.md](calc/conditional-formatting.md), [calc/sheet-filter.md](calc/sheet-filter.md) |
 | Calc date / time lifecycle | [calc/date-time-handling.md](calc/date-time-handling.md) |

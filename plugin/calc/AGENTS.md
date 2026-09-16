@@ -10,7 +10,8 @@ default tool lists).
 - `=PYTHON()` / LibrePy: `python/addin.py`, `python/addin_librepy.py`, `python/function.py`
 - Do **not** drop `analyzer.py` from the LibrePy bundle (reserved).
 
-Topic docs: [docs/calc/specialized-toolsets.md](../../docs/calc/specialized-toolsets.md),
+Topic docs: [docs/calc/prompt-function.md](../../docs/calc/prompt-function.md),
+[docs/calc/specialized-toolsets.md](../../docs/calc/specialized-toolsets.md),
 [docs/calc/conditional-formatting.md](../../docs/calc/conditional-formatting.md),
 [docs/calc/sheet-filter.md](../../docs/calc/sheet-filter.md),
 [docs/calc/date-time-handling.md](../../docs/calc/date-time-handling.md),

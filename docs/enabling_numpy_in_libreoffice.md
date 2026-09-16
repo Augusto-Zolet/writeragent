@@ -719,7 +719,7 @@ Uses the same warm worker as Run Python Script ([§2](#2-strategy-decision)). `e
 
 ### Code Oracle (`=PROMPT()` + `=PY()`)
 
-**WriterAgent only.** `=PROMPT("Write a Python formula using numpy for the 95th percentile of B1:B100")` can yield a pasteable `=PY("…")` string — natural-language bridge to data-science formulas without leaving the sheet.
+**WriterAgent only.** `=PROMPT("Write a Python formula using numpy for the 95th percentile of B1:B100")` can yield a pasteable `=PY("…")` string — natural-language bridge to data-science formulas without leaving the sheet. Topic hub (shipped args + proposed live ranges): [calc/prompt-function.md](calc/prompt-function.md).
 
 ### Comparison with LibrePythonista (`PY.C` and `lp()`)
 
