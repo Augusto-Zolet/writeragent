@@ -1,9 +1,10 @@
 # Impress AI headed findings: `inception/mercury-2.5` (space elevator)
 
-**Status:** Findings only — no product fix in this PR  
+**Status:** Findings + root-cause probe — no product fix in this PR  
 **Date:** 2026-09-16  
 **Verdict:** **MIXED**  
-**Related:** [impress-specialized-toolsets.md](impress-specialized-toolsets.md)
+**Related:** [impress-specialized-toolsets.md](impress-specialized-toolsets.md)  
+**Verification:** Root cause and fix A confirmed with a native UNO probe (`tests/draw/test_placeholders_uno.py`) — see [Probe verification](#probe-verification-2026-09-16).
 
 Exploratory headed play (not a formal eval harness). Goal was to see whether Impress chat on tip does a good job with a fast/cheap model, and where tools vs prompts vs model limits show up.
 
@@ -108,6 +109,28 @@ No SEGV in the successful session. Early `UnoObjectError` storm was the LibreHar
 | **Prompts** | Draw/Impress prompt lists tools and says verify `status='error'`, but does not hard-steer “always `list_placeholders` → use **index** if roles empty; set layout before fill.” “Colorful” steers ambition without a default visual recipe. |
 | **Model (mercury-2.5)** | Adequate tool caller for this scoped play; weak at index/layout recovery; no vision. Not the main blocker vs placeholder/layout brittleness. |
 
+## Probe verification (2026-09-16)
+
+`tests/draw/test_placeholders_uno.py` is a native UNO probe (runs via `make test-uno FILTER=tests/draw/test_placeholders_uno.py`). It reproduces the headed failure in one pass and confirms the fix path. It currently prints rather than asserts, so it documents **pre-fix** behavior; convert it to assertions in the PR that lands A.
+
+| Step | Observed |
+|------|----------|
+| Fresh Impress doc | 1 slide, `Layout=0` |
+| `add_slide` | new page idx 1 with **`Layout=20`** and **0 shapes** |
+| `list_placeholders(page=1)` | `count: 0` |
+| `set_placeholder_text(role="title")` | error `"Placeholder 'title' not found."`, `available: []` (exact headed failure) |
+| `page.Layout = 1` (no event loop, no retry) | **2 shapes appear synchronously**: `[0] TitleTextShape`, `[1] OutlinerShape`, both `IsEmptyPresentationObject: true` |
+| `list_placeholders` immediately after | `count: 2` |
+| `set_placeholder_text` title / body | both `ok`; land on index 0 / 1; read back on the right shapes |
+
+Takeaways that change the plan below:
+
+1. **A is the root-cause fix and needs no refresh workaround.** `page.Layout = 1` instantiates the title/body placeholders synchronously. The earlier worry that placeholders only appear “after retries” is unfounded on this build — the retries were the model re-running layout work, not a settle delay.
+2. **`insertNewByIndex` leaves `Layout=20` but no placeholder shapes.** So a fresh slide both lies to `get_slide_layout` (`two_column_and_object`) and gives role lookup nothing to find. Setting a layout on `add_slide` fixes both symptoms.
+3. **Use `"text"` (id 1), not `"title"`, as the Impress content default.** In `_LAYOUTS`, `title`=0 is a title+subtitle title slide, `text`=1 is Title + Content (title + body outline), and `title_only`=10 is title only.
+4. **Placeholder role/class tagging is effectively dead on this LibreOffice build.** `shape.ClassName` and `getPropertyValue("PresObj")` raise, and shape `Name` is empty, so `_list_placeholders` emits `{index, text}` with no `role`/`class`, and `_find_placeholder` matches only via strategy 3 (positional: first text = title, second = body). That is why title/body targeted correctly *after* layout, and why the errors were empty *before*.
+5. **The broad `"Text"` pattern in `_PLACEHOLDER_ROLES["body"]` is latent, not this bug's cause.** It could mis-target the title only on builds that expose `ClassName`; keep it as hardening, not as the failure to chase.
+
 ---
 
 ## Possible solutions (detailed — options, not a mandate)
@@ -138,15 +161,16 @@ Same for `'body'`. Concurrent `list_placeholders` often reported `"count": 0` / 
 
 **Proposed change (concrete)**
 
-1. Extend `add_slide` parameters with optional `layout` (string, Impress-only; default for PresentationDocument something like `"text"` — title + body outline — **or** `"title"` for title-only if that matches LO’s title layout ID better; pick one after checking `_LAYOUTS` on tip).
-2. After `create_slide`, if doc is Impress and layout is set (including the new default), set `page.Layout = _LAYOUTS[layout_name]` the same way `SetSlideLayout.execute` does.
+1. Extend `add_slide` parameters with optional `layout` (string, Impress-only; default **`"text"`** = `_LAYOUTS["text"]`=1 = Title + Content / title+body). Do **not** use `"title"`: it is id 0, a title+subtitle title slide. Verified 2026-09-16.
+2. After `create_slide`, if doc is Impress and layout is set (including the new default), set `page.Layout = _LAYOUTS[layout_name]` the same way `SetSlideLayout.execute` does. The placeholder shapes are created **synchronously** by the assignment (probe: `Layout=1` → 2 shapes with no event loop or retry), so no refresh/`processEvents` step is needed. Prefer extracting the assignment into a shared helper (e.g. `apply_slide_layout(page, name)`) reused by both `AddSlide` and `SetSlideLayout`, rather than duplicating `page.Layout = _LAYOUTS[...]`.
 3. Return in the tool result: `{"status":"ok","active_page_index":N,"layout":"text","placeholders_hint":"call list_placeholders on this page"}` so the model sees the layout was applied.
-4. Keep an explicit escape hatch: `layout: "blank"` (or `layout: null` / `"none"`) to preserve today’s blank-page behavior for draw-heavy asks.
+4. Keep an explicit escape hatch: `layout: "blank"` (not a second `null`/`"none"` spelling) to preserve today’s blank-page behavior for draw-heavy asks.
 
 **Why this vs alternatives**
 
+- **Verified.** The probe shows a fresh `add_slide` page has `Layout=20` and 0 shapes, `list_placeholders` returns 0, and role-set fails with `available: []`; one `page.Layout = 1` fixes all three synchronously.
 - Fixes the failure **before** the first `set_placeholder_text`, so prompt-only steers (B) are less load-bearing.
-- Reuses the existing layout map in `transitions.py` instead of inventing a second layout system.
+- Reuses the existing layout map in `transitions.py` instead of inventing a second layout system; a shared helper keeps `AddSlide` and `SetSlideLayout` from drifting.
 - Cheaper than teaching every model to always delegate `slide_layouts` first.
 
 **Risk / tradeoff**
@@ -154,6 +178,7 @@ Same for `'body'`. Concurrent `list_placeholders` often reported `"count": 0` / 
 - Callers who expect a blank canvas after `add_slide` must pass `layout: "blank"`.
 - Layout name strings must stay aligned with `_LAYOUTS` across LO versions (already a `set_slide_layout` concern).
 - Draw documents must ignore `layout` (tool already shared Drawing+Presentation).
+- Today a fresh page reports `Layout=20` (`two_column_and_object`) with 0 shapes, so any code or prompt that trusts `get_slide_layout` on a just-added slide is already wrong; pinning the layout fixes that too.
 
 **Before / after tool sequence**
 
@@ -167,13 +192,15 @@ delegate(slide_layouts, "assign text layout…")
 list_placeholders / set_placeholder_text × N
 ```
 
-After (intended):
+After (intended; probe-confirmed shape of the result):
 
 ```text
 add_slide()                    → ok, layout=text, active_page_index=k
-list_placeholders(page=k)      → indices/roles present
-set_placeholder_text(role=title|body | index=…) → ok
+list_placeholders(page=k)      → count=2 (index 0 title, index 1 body)
+set_placeholder_text(role=title|body, page=k) → ok
 ```
+
+Note: on the probe build the role/class labels were absent — `_list_placeholders` returned `{index, text}` only — but role lookup still worked via the positional fallback. Expect **indices**; treat `role` as best-effort, not guaranteed.
 
 ---
 
@@ -243,6 +270,8 @@ Placeholder 'title' not found.   details.available = []
 
 That is true but **not actionable**: it does not say “slide has no presentation placeholders; try set_slide_layout('text')” or “shapes exist as TitleTextShape/OutlinerShape — use index / get_draw_tree.” In the successful run’s document snapshot, content often appeared as `TitleTextShape` / `OutlinerShape` even when role lookup failed — `_list_placeholders` only includes shapes with `getString`, and role tagging depends on `ClassName` patterns in `_PLACEHOLDER_ROLES`.
 
+The probe confirmed the mechanism: before layout the slide has **zero** shapes, so `available` is genuinely empty (not a lookup failure); after layout it has `TitleTextShape` + `OutlinerShape`, but `ClassName`/`PresObj` raise and `Name` is empty on this build, so no `role`/`class` is ever attached and `_find_placeholder` resolves by position only. That means C1's hint is the main payoff here, and C2 must not assume clean class tags exist.
+
 **Where**
 
 - `plugin/draw/placeholders.py`
@@ -278,8 +307,8 @@ New parameter `fallback: "none"|"text_shapes"` (default `"none"`). When role mis
 
 **Why this vs alternatives**
 
-- C1 makes B’s recovery path obvious in the tool result the model already checks.
-- C2 matches how Impress often stores text after partial layout (shapes without clean role tags).
+- C1 makes B’s recovery path obvious in the tool result the model already checks; the probe shows the empty `available` is truthful (“no placeholders yet”), so a `suggest_layout: "text"` hint is exactly the missing link.
+- C2 matches how Impress often stores text after partial layout (shapes without clean role tags) — and the probe shows role/class tags are unavailable on this build, so positional/text-shape fallback is doing the real work already.
 - Complements A: A prevents empty layouts; C handles leftover blank/wrong-layout slides.
 
 **Risk / tradeoff**
@@ -414,14 +443,15 @@ Log showed `has_native_vision: model='inception/mercury-2.5' … vision=False`. 
 
 ### Suggested cut order (still Keith’s call)
 
-1. **A or C1** — stop empty-placeholder death spirals (behavior or actionable errors).  
-2. **B** — cheap steer aligned with A/C.  
-3. **D** — index description hygiene.  
-4. **E** — co-install ChatPanel (ops/framework).  
-5. **F** — when judging visual quality, don’t use mercury alone.  
-6. **C2** — only if A+B+C1 still leave TitleTextShape/OutlinerShape gaps.
+1. **A** — probe-confirmed root-cause fix; also convert `tests/draw/test_placeholders_uno.py` from prints to assertions in this PR.  
+2. **C1** — actionable `available: []` error for leftover non-layout slides.  
+3. **B** — cheap steer aligned with A/C.  
+4. **D** — index description hygiene.  
+5. **E** — co-install ChatPanel (ops/framework).  
+6. **F** — when judging visual quality, don’t use mercury alone.  
+7. **C2** — only if A+B+C1 still leave TitleTextShape/OutlinerShape gaps.  
 
-No mega-PR implied.
+No mega-PR implied. A and the probe assertions belong together so the fix is actually pinned.
 
 ## Code map (quick)
 
@@ -434,12 +464,13 @@ No mega-PR implied.
 | Shapes | `plugin/draw/shapes.py` |
 | Layouts / transitions | `plugin/draw/transitions.py` |
 | Tool catalog (human) | `docs/draw/impress-specialized-toolsets.md` |
+| Probe (pre-fix behavior, no assertions yet) | `tests/draw/test_placeholders_uno.py` |
 
 ---
 
 ## Out of scope for this PR
 
-- No product code changes
+- No product code changes (only the diagnostic probe `tests/draw/test_placeholders_uno.py` is added; it prints, it does not assert)
 - No issue close keywords
 - No formal GDPval / string-harness Impress suite
 
