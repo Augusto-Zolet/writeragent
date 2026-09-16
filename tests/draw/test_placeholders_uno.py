@@ -1,112 +1,95 @@
 # WriterAgent - AI Writing Assistant for LibreOffice
+# Copyright (c) 2026 KeithCu
+#
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Native probe: add_slide layout + placeholder discovery.
+"""Native UNO assertions for add_slide default layout + placeholder fill.
 
-Findings-only probe for docs/draw/impress-ai-mercury-2.5-headed-findings.md.
-It answers one question: after ``add_slide`` on an Impress doc, do
-placeholders exist, and does setting ``page.Layout = 1`` ("text", title+body)
-create them immediately? Also checks which shape ``role="body"`` targets.
+Pins the headed mercury failure: insertNewByIndex left Layout=20 with 0
+shapes, so list_placeholders/set_placeholder_text saw available=[].
+Default add_slide now applies layout 'text' (id 1) synchronously.
+
+Replaces the print-only probe from master (48bf73c1) with assertions.
 """
 import json
 
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
-from plugin.draw.placeholders import _list_placeholders
 
 
-def _dv(value):
-    """UNO enum / struct / anything -> something json can print."""
-    try:
-        if hasattr(value, "value"):
-            return value.value
-    except Exception:
-        pass
-    return value
-
-
-def _describe(page):
-    rows = []
-    for i in range(page.getCount()):
-        shape = page.getByIndex(i)
-        row = {"index": i}
-        for attr in ("Name", "ClassName", "ShapeType"):
-            try:
-                row[attr] = str(getattr(shape, attr))
-            except Exception:
-                row[attr] = "-"
-        try:
-            row["text"] = shape.getString()
-        except Exception:
-            row["text"] = None
-        for prop in ("PresObj", "IsEmptyPresentationObject", "PresObjType"):
-            try:
-                row[prop] = _dv(shape.getPropertyValue(prop))
-            except Exception:
-                row[prop] = "-"
-        rows.append(row)
-    return rows
-
-
-def _p(label, payload):
-    print("PROBE %s: %s" % (label, json.dumps(payload, default=str)), flush=True)
+def _exec_tool(doc, ctx, name, args):
+    res = TestingFactory.execute_tool(doc, ctx, name, args, doc_type="impress")
+    return res if isinstance(res, dict) else json.loads(res)
 
 
 @native_test
 @with_native_doc("impress")
-def test_add_slide_placeholder_probe(ctx, doc):
-    pages = doc.getDrawPages()
-    _p("start", {"count": pages.getCount(), "slide0_layout": _dv(pages.getByIndex(0).Layout)})
+def test_add_slide_default_text_layout_placeholders_and_roles(ctx, doc):
+    """Fresh add_slide (no blank) gets Title+Content placeholders; role set works."""
+    added = _exec_tool(doc, ctx, "add_slide", {})
+    assert added.get("status") == "ok", added
+    assert added.get("layout") == "text", added
+    page_idx = added["active_page_index"]
+    assert page_idx == doc.getDrawPages().getCount() - 1, added
+    page = doc.getDrawPages().getByIndex(page_idx)
+    assert page.Layout == 1, "Layout=%s page_idx=%s added=%s" % (page.Layout, page_idx, added)
+    assert page.getCount() >= 2
 
-    res = TestingFactory.execute_tool(doc, ctx, "add_slide", {}, doc_type="impress")
-    _p("add_slide", res)
+    listed = _exec_tool(doc, ctx, "list_placeholders", {"page": page_idx})
+    assert listed.get("status") == "ok", listed
+    assert listed.get("count") >= 2, listed
 
-    idx = pages.getCount() - 1
-    page = pages.getByIndex(idx)
-    _p("new_page", {"idx": idx, "shape_count": page.getCount(), "layout": _dv(page.Layout)})
-    _p("before.layout_shapes", _describe(page))
-
-    res = TestingFactory.execute_tool(doc, ctx, "list_placeholders", {"page": idx}, doc_type="impress")
-    _p("list_placeholders(before)", res)
-
-    res = TestingFactory.execute_tool(
-        doc, ctx, "set_placeholder_text",
-        {"page": idx, "role": "title", "text": "T-before"}, doc_type="impress",
+    title = _exec_tool(
+        doc, ctx, "set_placeholder_text", {"page": page_idx, "role": "title", "text": "Probe Title"}
     )
-    _p("set_title(before.layout)", res)
-
-    # The hypothesis: a fresh insertNewByIndex page has no autolayout, so no
-    # placeholders. Setting Layout to 1 ("text" = title + content outline)
-    # should instantiate them via the same path SetSlideLayout uses.
-    page.Layout = 1
-    _p("after.set_layout_immediate", {
-        "layout": _dv(page.Layout),
-        "shape_count": page.getCount(),
-        "shapes": _describe(page),
-        "list_placeholders": _list_placeholders(page),
-    })
-
-    res = TestingFactory.execute_tool(doc, ctx, "list_placeholders", {"page": idx}, doc_type="impress")
-    _p("list_placeholders(after.layout)", res)
-
-    res = TestingFactory.execute_tool(
-        doc, ctx, "set_placeholder_text",
-        {"page": idx, "role": "title", "text": "TITLE_MARKER"}, doc_type="impress",
+    assert title.get("status") == "ok", title
+    body = _exec_tool(
+        doc, ctx, "set_placeholder_text", {"page": page_idx, "role": "body", "text": "Probe Body"}
     )
-    _p("set_title(after.layout)", res)
+    assert body.get("status") == "ok", body
+    assert title.get("index") != body.get("index")
 
-    res = TestingFactory.execute_tool(
-        doc, ctx, "set_placeholder_text",
-        {"page": idx, "role": "body", "text": "BODY_MARKER"}, doc_type="impress",
-    )
-    _p("set_body(after.layout)", res)
+    read_title = _exec_tool(doc, ctx, "get_placeholder_text", {"page": page_idx, "role": "title"})
+    read_body = _exec_tool(doc, ctx, "get_placeholder_text", {"page": page_idx, "role": "body"})
+    assert read_title.get("text") == "Probe Title", read_title
+    assert read_body.get("text") == "Probe Body", read_body
 
-    final = _describe(page)
-    _p("final_shapes", final)
-    for row in final:
-        if row.get("text") in ("TITLE_MARKER", "BODY_MARKER"):
-            _p("marker_landing", {
-                "text": row["text"],
-                "index": row["index"],
-                "class": row.get("ClassName"),
-                "name": row.get("Name"),
-            })
+
+@native_test
+@with_native_doc("impress")
+def test_add_slide_blank_and_none_escape_empty(ctx, doc):
+    """layout=blank / none keep the empty-page contract."""
+    for layout_name in ("blank", "none"):
+        added = _exec_tool(doc, ctx, "add_slide", {"layout": layout_name})
+        assert added.get("status") == "ok", added
+        assert added.get("layout") == "blank", added
+        page_idx = added["active_page_index"]
+        assert page_idx == doc.getDrawPages().getCount() - 1, added
+        page = doc.getDrawPages().getByIndex(page_idx)
+        # Escape hatch leaves insertNewByIndex (empty), not _LAYOUTS["blank"]=11.
+        assert page.getCount() == 0, "shapes=%s Layout=%s added=%s" % (page.getCount(), page.Layout, added)
+        listed = _exec_tool(doc, ctx, "list_placeholders", {"page": page_idx})
+        assert listed.get("status") == "ok", listed
+        assert listed.get("count") == 0, listed
+        miss = _exec_tool(
+            doc, ctx, "set_placeholder_text", {"page": page_idx, "role": "title", "text": "nope"}
+        )
+        assert miss.get("status") == "error", miss
+
+
+@native_test
+@with_native_doc("impress")
+def test_set_slide_layout_text_creates_placeholders_synchronously(ctx, doc):
+    """Root-cause path: Layout=1 instantiates placeholders with no event loop."""
+    added = _exec_tool(doc, ctx, "add_slide", {"layout": "blank"})
+    page_idx = added["active_page_index"]
+    listed = _exec_tool(doc, ctx, "list_placeholders", {"page": page_idx})
+    assert listed.get("count") == 0, listed
+
+    applied = _exec_tool(doc, ctx, "set_slide_layout", {"page": page_idx, "layout": "text"})
+    assert applied.get("status") == "ok", applied
+    assert applied.get("layout") == "text"
+    page = doc.getDrawPages().getByIndex(page_idx)
+    assert page.Layout == 1
+    assert page.getCount() >= 2
+    listed = _exec_tool(doc, ctx, "list_placeholders", {"page": page_idx})
+    assert listed.get("count") >= 2, listed
