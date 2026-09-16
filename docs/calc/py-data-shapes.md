@@ -17,13 +17,14 @@ Code: [`plugin/scripting/calc_range.py`](../../plugin/scripting/calc_range.py), 
 ## Table of contents
 
 1. [Data handoff and shaping](#data-handoff-and-shaping)
-2. [Multi-range support (varargs)](#multi-range-support-varargs)
-3. [Empty cells vs NaN](#empty-cells-vs-nan)
-4. [Cell types and logicals](#cell-types-and-logicals)
-5. [Dates and datetimes](#dates-and-datetimes)
-6. [Pandas egress (DataFrame / Series)](#pandas-egress)
-7. [Rectangular shape rules](#rectangular-shape-rules)
-8. [Deferred upgrades](#deferred-upgrades)
+2. [Why CalcRange, not DataFrame by default](#why-calcrange-not-dataframe-by-default)
+3. [Multi-range support (varargs)](#multi-range-support-varargs)
+4. [Empty cells vs NaN](#empty-cells-vs-nan)
+5. [Cell types and logicals](#cell-types-and-logicals)
+6. [Dates and datetimes](#dates-and-datetimes)
+7. [Pandas egress (DataFrame / Series)](#pandas-egress)
+8. [Rectangular shape rules](#rectangular-shape-rules)
+9. [Deferred upgrades](#deferred-upgrades)
 
 ---
 
@@ -66,7 +67,52 @@ Returning a **pandas DataFrame** spills/writes with its **column header row** in
 
 Payload size cap: `scripting.python_max_data_cells` ([serialization config](../scripting/numpy-serialization.md#subprocess-module-map-and-config)). Host↔venv pipeline: [Current pipeline](../scripting/numpy-serialization.md#current-pipeline-and-costs).
 
-**Gaps vs LibrePythonista (workarounds):** chat tool still single `data_range` (use multiple `=PY` cells or formula varargs); no `collapse` (tighter range or strip `None` in Python); DataFrame conversion is explicit via `data.to_pandas()` (not automatic).
+**Gaps vs LibrePythonista (workarounds):** chat tool still single `data_range` (use multiple `=PY` cells or formula varargs); no `collapse` (tighter range or strip `None` in Python); DataFrame conversion is explicit via `data.to_pandas()` — [why that is the default](#why-calcrange-not-dataframe-by-default).
+
+---
+
+## Why CalcRange, not DataFrame by default {#why-calcrange-not-dataframe-by-default}
+
+**Locked for now.** Ingress `data` / `ranges` stay [`CalcRange`](../../plugin/scripting/calc_range.py). Pandas is an **explicit conversion** (`data.to_pandas(…)`) and a **return type** ([pandas egress](#pandas-egress)). Do not inject a DataFrame as `data`. Do not add a Settings flag that switches the injected type.
+
+LibrePythonista’s `lp("A1:B10")` and Excel Python’s `xl(…)` usually hand the script a DataFrame. That is a reasonable default for *their* product (pandas-in-the-sheet). It is the wrong default for *this* one (numpy-in-Calc, with pandas as a door). The two documented happy paths cannot share one DataFrame ingress:
+
+```calc
+=PY("np.mean(data)"; A1:A10)
+=PY("df = data.to_pandas(); result = float(df['Sales'].mean())"; A1:C10)
+```
+
+A sheet range **is** a rectangular grid (`None` blanks, orientation preserved, 1×1 scalar-ish ops). `CalcRange` is that grid plus `__array__` so `np.mean(data)` works. A DataFrame is a grid **plus a header policy**. There is no header policy that serves both formulas.
+
+### Silent breaks if `data` were a DataFrame
+
+| Code | Today (`CalcRange`) | If `data` were a DataFrame |
+| --- | --- | --- |
+| `np.mean(data)` on `A1:A10` | Mean of the column (`__array__`) | `header_row=0` turns the first cell into a **column name**; `header_row=None` yields `col_0` and a different `mean` shape |
+| `data[0]` | First **row** | Column labeled `0`, or `KeyError` |
+| `len(data)` | Row count | **Column** count |
+| `=PY("data * 4"; B1)` | 1×1 arithmetic | 1×1 DataFrame, not a scalar |
+| `data.to_pandas()` | Opt-in, with an explicit header policy | Already a DataFrame — the call is noise or a second conversion |
+
+`to_pandas()` defaults `header_row=0` (first row → names). That is correct for a table and wrong for a numeric column. `header_row=None` is correct for `np.mean` and wrong for `df['Sales']`. LibrePythonista papers over that with `headers=True` **on the call**. We already have the same flag: **type it at the conversion**, not on the ingress object. The Excel rewriter follows that rule: `xl(…, headers=True/False)` → `.to_pandas(…)` / `.to_pandas(header_row=None)`; omitted headers stay bare `data`.
+
+### Other reasons the grid stays the injected type
+
+- **Host stays NumPy/pandas-free.** Pandas is imported only inside `to_pandas()`, in the venv ([`calc_range.py`](../../plugin/scripting/calc_range.py) module doc). Collabora’s compute path is JSON grids. Injecting a DataFrame makes pandas a hard dependency of **every** range eval, including Online and “I only wanted `np.mean`.”
+- **Recalc cost.** Every dirty `=PY` would build a DataFrame. Fine once for a table; noisy for a geometric chain of numeric columns ([geometric recalc](geometric-recalc-order.md)).
+- **Polymorphic `data`.** One formula arg → that `CalcRange`; two or more → the same list as `ranges`. `data[i]` already means **binding index** on the multi-arg path and **row** on a single `CalcRange`. A DataFrame would add a third reading (column label). Geometric predecessor strip ([§4](geometric-recalc-order.md#4-data-binding--do-not-shadow-data)) assumes the injected value is still a grid list, not a pandas object.
+
+### What to do instead
+
+| Need | Do this |
+| --- | --- |
+| Table / `df['Sales']` | `df = data.to_pandas()` (or `header_row=None` / `date_cols=…`) |
+| Numeric column / numpy | Use `data` (or `data.to_numpy()`) |
+| Excel `xl(…, headers=True)` import | Rewriter already emits `.to_pandas()` |
+| LibrePythonista `lp("A1:B10")` import (researched, not shipped) | Emit `data.to_pandas(header_row=None)`; `headers=True` → `data.to_pandas()`. Do **not** change global ingress to make that import shorter. |
+| Authoring UX | Snippet / Monaco “insert as DataFrame” that writes `df = data.to_pandas()` **and** the range arg — not a second injected type |
+
+A Settings switch “inject DataFrames” would be two dialects, two meanings of `data[i]`, and a split tutorial. File converters (Excel, future LP) rewrite **call sites**; they do not move the ingress type.
 
 ---
 
@@ -257,6 +303,7 @@ Hierarchical Calc tables, object cards, and “include index by default” are *
 
 Not planned unless a real product need appears. **Do not treat the list below as open codec work**, and do not propose new `split_grid` payload kinds for inf / NaN / Decimal / datetime64 / empty DataFrames / MultiIndex — those are covered above.
 
+- Do **not** switch ingress `data` to pandas DataFrame by default — [Why CalcRange](#why-calcrange-not-dataframe-by-default).
 - Blank side-channel on `split_grid` + masked-array ingress so pass-through blanks stay empty and `np.mean` auto-ignores Calc blanks (upgrade can be atomic; wire already carries NaN slots).
 - Formula parameters: 3rd arg `extras` for recalc deps; `collapse` on conversion; host `lp()` bridge; per-formula `timeout_sec`.
 - Range alignment helper for mismatched multi-range shapes before `np.corrcoef` / element-wise math — see [Calc UX backlog](../enabling_numpy_in_libreoffice.md#calc-ux-backlog).
