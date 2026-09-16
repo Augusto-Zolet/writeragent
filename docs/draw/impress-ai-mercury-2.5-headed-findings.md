@@ -162,9 +162,10 @@ Same for `'body'`. Concurrent `list_placeholders` often reported `"count": 0` / 
 **Proposed change (concrete)**
 
 1. Extend `add_slide` parameters with optional `layout` (string, Impress-only; default **`"text"`** = `_LAYOUTS["text"]`=1 = Title + Content / title+body). Do **not** use `"title"`: it is id 0, a title+subtitle title slide. Verified 2026-09-16.
-2. After `create_slide`, if doc is Impress and layout is set (including the new default), set `page.Layout = _LAYOUTS[layout_name]` the same way `SetSlideLayout.execute` does. The placeholder shapes are created **synchronously** by the assignment (probe: `Layout=1` → 2 shapes with no event loop or retry), so no refresh/`processEvents` step is needed. Prefer extracting the assignment into a shared helper (e.g. `apply_slide_layout(page, name)`) reused by both `AddSlide` and `SetSlideLayout`, rather than duplicating `page.Layout = _LAYOUTS[...]`.
-3. Return in the tool result: `{"status":"ok","active_page_index":N,"layout":"text","placeholders_hint":"call list_placeholders on this page"}` so the model sees the layout was applied.
-4. Keep an explicit escape hatch: `layout: "blank"` (not a second `null`/`"none"` spelling) to preserve today’s blank-page behavior for draw-heavy asks.
+2. After `create_slide`, if doc is Impress and layout is set (including the new default), set `page.Layout = _LAYOUTS[layout_name]` the same way `SetSlideLayout.execute` does. The placeholder shapes are created **synchronously** by the assignment (probe: `Layout=1` → 2 shapes with no event loop or retry), so no refresh/`processEvents` step is needed. Prefer extracting the assignment into a shared helper — e.g. `apply_slide_layout(page, name)` plus `layout_id(name)` — reused by both `AddSlide` and `SetSlideLayout`, rather than duplicating `page.Layout = _LAYOUTS[...]`.
+3. Guard for Impress only (e.g. `hasattr(doc, "getPresentation")` or the `PresentationDocument` service check), since `add_slide` is shared with Draw and Draw must ignore `layout`.
+4. Return in the tool result: `{"status":"ok","active_page_index":N,"layout":"text","placeholders_hint":"call list_placeholders on this page"}` so the model sees the layout was applied.
+5. Keep an explicit escape hatch: `layout: "blank"` (accept `"none"` as an alias) to preserve today’s blank-page behavior for draw-heavy asks.
 
 **Why this vs alternatives**
 
@@ -201,6 +202,36 @@ set_placeholder_text(role=title|body, page=k) → ok
 ```
 
 Note: on the probe build the role/class labels were absent — `_list_placeholders` returned `{index, text}` only — but role lookup still worked via the positional fallback. Expect **indices**; treat `role` as best-effort, not guaranteed.
+
+---
+
+### A2. Fix placeholder role matching (`body` can match the title)
+
+**Problem**
+
+`_PLACEHOLDER_ROLES["body"]` includes the very broad `"Text"` pattern (`plugin/draw/placeholders.py:27`). In `_find_placeholder` strategy 1 the loop is shape-outer / candidate-inner (`placeholders.py:42-57`), so for `role="body"` on a slide whose first shape is `TitleTextShape`, `"text" in "titletextshape"` matches and the **title is returned as the body**. This is latent on the probe build (it never exposes `ClassName`, so strategy 1 does not fire) but is a real wrong-target bug on any build that does.
+
+**Where**
+
+- `plugin/draw/placeholders.py` — `_PLACEHOLDER_ROLES` (line 27), `_find_placeholder` strategy 1 (lines 42–57); `_list_placeholders` uses the same map for labels.
+
+**Proposed change (concrete)**
+
+- Drop `"Text"` from `_PLACEHOLDER_ROLES["body"]` (keep `"Outline"` / `"Body"`), **or** — preferred — replace substring-any-candidate matching with a class→role map evaluated in priority order (`TitleText`→title, `SubTitle`→subtitle, `Outliner`→body). A single map also removes the shape-order dependence in strategy 1.
+
+**Why this vs alternatives**
+
+- Cheapest hardening; position-only slides are unaffected.
+- Complements A: A gives the slide a clean layout; A2 stops role lookup from choosing the wrong shape when class tags do exist.
+
+**Risk / tradeoff**
+
+- Changing `_PLACEHOLDER_ROLES` also changes `_list_placeholders` labels, so cover both with a unit test (class→role mapping needs no live doc).
+
+**Before / after**
+
+Before: `role="body"` can select the first `TitleTextShape`.  
+After: class→role is deterministic by pattern priority, independent of shape order.
 
 ---
 
@@ -444,12 +475,13 @@ Log showed `has_native_vision: model='inception/mercury-2.5' … vision=False`. 
 ### Suggested cut order (still Keith’s call)
 
 1. **A** — probe-confirmed root-cause fix; also convert `tests/draw/test_placeholders_uno.py` from prints to assertions in this PR.  
-2. **C1** — actionable `available: []` error for leftover non-layout slides.  
-3. **B** — cheap steer aligned with A/C.  
-4. **D** — index description hygiene.  
-5. **E** — co-install ChatPanel (ops/framework).  
-6. **F** — when judging visual quality, don’t use mercury alone.  
-7. **C2** — only if A+B+C1 still leave TitleTextShape/OutlinerShape gaps.  
+2. **A2** — role-pattern fix so `role="body"` cannot select the title (unit-testable, no live doc).  
+3. **C1** — actionable `available: []` error for leftover non-layout slides.  
+4. **B** — cheap steer aligned with A/A2/C.  
+5. **D** — index description hygiene.  
+6. **E** — co-install ChatPanel (ops/framework).  
+7. **F** — when judging visual quality, don’t use mercury alone.  
+8. **C2** — only if A+A2+C1 still leave TitleTextShape/OutlinerShape gaps.  
 
 No mega-PR implied. A and the probe assertions belong together so the fix is actually pinned.
 
