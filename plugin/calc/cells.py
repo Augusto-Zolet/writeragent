@@ -421,7 +421,18 @@ class WriteCellRange(ToolBase):
                     "(e.g. '[\"a\", \"b\"]' for 2 cells). Repeating the same "
                     "=B2*…-style formula in every element pins every row to the "
                     "first ref — use one formula string over the whole column "
-                    "range instead. Empty string/array clears the range."
+                    "range instead. Empty string/array clears the range. "
+                    "A top-level FILTER/SORT/UNIQUE (or SEQUENCE and other "
+                    "array functions) is entered as an array formula over its "
+                    "result; occupied cells besides the origin are refused. "
+                    "=PY() is still the spill path for Python reductions."
+                ),
+            },
+            "array": {
+                "type": "boolean",
+                "description": (
+                    "Optional. true forces an array formula even for LET/XLOOKUP; "
+                    "false forces a scalar formula (setFormula / fill-down)."
                 ),
             },
             "source": {
@@ -510,13 +521,22 @@ class WriteCellRange(ToolBase):
                         _values_length_mismatch_message(r, n_vals, n_cells, rows, cols)
                     )
 
+        array_flag = kwargs.get("array")
+        if array_flag is not None and not isinstance(array_flag, bool):
+            if isinstance(array_flag, str) and array_flag.strip().lower() in ("true", "false"):
+                array_flag = array_flag.strip().lower() == "true"
+            else:
+                return self._tool_error("array must be a boolean")
+
         try:
             with WriterCompoundUndo(ctx.doc, "WriterAgent: Write formulas"):
                 if len(rn) == 1:
-                    result = manipulator.write_formula_range(rn[0], fov)
+                    result = manipulator.write_formula_range(rn[0], fov, array=array_flag)
+                    if isinstance(result, dict):
+                        return {"status": "ok", **result}
                     return {"status": "ok", "message": result}
                 for r in rn:
-                    manipulator.write_formula_range(r, fov)
+                    manipulator.write_formula_range(r, fov, array=array_flag)
                 return {"status": "ok", "message": f"Wrote to {len(rn)} ranges"}
         except Exception as e:
             return self._tool_error(str(e))

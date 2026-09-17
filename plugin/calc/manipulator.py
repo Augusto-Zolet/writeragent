@@ -46,6 +46,8 @@ else:
 
 
 from plugin.calc import CalcError
+from plugin.calc.address_utils import index_to_column
+from plugin.calc.array_formula import MAX_ARRAY_CELLS, result_range, returns_array
 from plugin.calc.formula_fill import expand_single_formula
 from plugin.calc.datetime_wire import (
     coalesce_temporal_apply_rects,
@@ -678,7 +680,7 @@ class CellManipulator:
             applied += (r1 - r0 + 1) * (c1 - c0 + 1)
         return applied
 
-    def write_formula_range(self, range_str: str, formula_or_values):
+    def write_formula_range(self, range_str: str, formula_or_values, array=None):
         """Write formula(s) or value(s) to a cell range.
 
         ISO date/time strings matching the wire gate become Calc serials with
@@ -692,9 +694,14 @@ class CellManipulator:
                 relative A1 adjust. ``=PY`` uses a span-peek (multi-row
                 DataRange stays verbatim). A 2-D range plus one formula
                 is an error — pass an explicit array instead.
+                A top-level FILTER/SORT/UNIQUE (or ``array=True``) is
+                entered with ``setArrayFormula`` so the whole result shows.
+            array: Optional override. ``True`` forces an array formula
+                (LET/XLOOKUP); ``False`` forces scalar ``setFormula``.
 
         Returns:
-            Summary of the operation.
+            Summary string, or a dict with ``array_range`` / ``rows`` /
+            ``cols`` when an array formula was written.
         """
         try:
             # Handle empty values as a clear_range operation
@@ -704,7 +711,7 @@ class CellManipulator:
                 return f"Range {range_str} cleared."
 
             cell_range = self.bridge.resolve_range_or_address(range_str)
-            addr = cell_range.getRangeAddress()
+            addr = _uno_range_address(cell_range)
             start = (addr.StartColumn, addr.StartRow)
             end = (addr.EndColumn, addr.EndRow)
 
@@ -721,6 +728,14 @@ class CellManipulator:
                 parsed = _parse_formula_or_values_string(formula_or_values, single_cell_range=single_cell_range)
                 if parsed is not None:
                     formula_or_values = parsed
+
+            # LibreOffice does not spill. setFormula on =SORT(FILTER(...))
+            # used to return ok and show one value (nelson-mcp afc8cbd8 / #2631).
+            # Detect top-level array functions and enter setArrayFormula
+            # instead of fill-down. =SUM(FILTER()) stays scalar.
+            if isinstance(formula_or_values, str) and returns_array(formula_or_values, array):
+                sheet = self.bridge.get_active_document().getSheets().getByIndex(addr.Sheet)
+                return self._write_array_formula(sheet, formula_or_values, start, end)
 
             if isinstance(formula_or_values, (list, tuple)):
                 if len(formula_or_values) > 0 and isinstance(formula_or_values[0], (list, tuple)):
@@ -914,11 +929,172 @@ class CellManipulator:
             msg = f"Range {range_str} filled with {n_vals} {values_word}{detail}{format_warning}."
             log.info("%s", msg)
             return msg
+        except CalcError:
+            # Occupied-target / formula-error refusals are the caller's input,
+            # not a write-path fault.
+            raise
         except Exception as e:
             # UNO often yields str(e) == ""; keep a usable message for the agent.
             msg = str(e) or getattr(e, "Message", None) or type(e).__name__
             log.exception("Range formula write failed for %s", range_str)
             raise CalcError(msg) from e
+
+    def _measure_array(self, sheet, formula: str, *, avoid_col: int) -> tuple[int, int]:
+        """``(rows, columns)`` of *formula*'s result, measured by LibreOffice.
+
+        ``=ROWS(expr)`` and ``=COLUMNS(expr)`` are entered as array formulas
+        in two scratch cells to the right of the used area (and the target),
+        read, then cleared. Raises ``CalcError`` when the formula itself fails.
+        """
+        cursor = sheet.createCursor()
+        cursor.gotoEndOfUsedArea(False)
+        used = cursor.getRangeAddress()
+        col = min(max(used.EndColumn, avoid_col) + 2, 16383)
+        expr = formula[1:] if formula.startswith("=") else formula
+        sizes: list[int] = []
+        try:
+            for row, fn in ((0, "ROWS"), (1, "COLUMNS")):
+                probe = sheet.getCellRangeByPosition(col, row, col, row)
+                probe.setArrayFormula("=%s(%s)" % (fn, expr))
+                cell = sheet.getCellByPosition(col, row)
+                err = int(cell.Error)
+                if err:
+                    shown = cell.getString()
+                    raise CalcError(
+                        "The formula returns an error (%s, code %d) — e.g. "
+                        "FILTER with no matching row gives #CALC!."
+                        % (shown or "error", err)
+                    )
+                sizes.append(int(round(cell.getValue())))
+        finally:
+            for row in (0, 1):
+                try:
+                    probe = sheet.getCellRangeByPosition(col, row, col, row)
+                    probe.setArrayFormula("")
+                    probe.clearContents(23)
+                except Exception:
+                    pass
+        return sizes[0], sizes[1]
+
+    @staticmethod
+    def _array_block(sheet, col: int, row: int):
+        """Range address of the array formula covering (*col*, *row*), or None."""
+        try:
+            cursor = sheet.createCursorByRange(
+                sheet.getCellRangeByPosition(col, row, col, row)
+            )
+            cursor.collapseToCurrentArray()
+            addr = cursor.getRangeAddress()
+            rng = sheet.getCellRangeByPosition(
+                addr.StartColumn, addr.StartRow, addr.EndColumn, addr.EndRow
+            )
+            if not rng.getArrayFormula():
+                return None
+            return addr
+        except Exception:
+            return None
+
+    def _write_array_formula(self, sheet, formula: str, start: tuple[int, int], end: tuple[int, int]) -> dict[str, Any]:
+        """Enter *formula* as an array formula so its whole result shows.
+
+        From a single cell, the result range is sized from the result and
+        must be empty except the origin (an array formula already anchored
+        there is replaced). On an explicit range, that range is used as
+        given; the answer says if the result is larger (rows cut) or
+        smaller (#N/A padding).
+        """
+        c1, r1 = start
+        c2, r2 = end
+        explicit = (c1, r1) != (c2, r2)
+        rows, cols = self._measure_array(sheet, formula, avoid_col=c2)
+
+        def block_name(a: int, b: int, c: int, d: int) -> str:
+            return "%s%d:%s%d" % (
+                index_to_column(a), b + 1, index_to_column(c), d + 1,
+            )
+
+        notes: list[str] = []
+        if explicit:
+            target = (c1, r1, c2, r2)
+            height, width = r2 - r1 + 1, c2 - c1 + 1
+            if rows > height or cols > width:
+                notes.append(
+                    "The result is %d x %d but the range is %d x %d: "
+                    "the rest is cut (result_does_not_fit)."
+                    % (rows, cols, height, width)
+                )
+            elif rows < height or cols < width:
+                notes.append(
+                    "The result is %d x %d, smaller than the range: "
+                    "the extra cells show #N/A." % (rows, cols)
+                )
+        else:
+            if rows * cols > MAX_ARRAY_CELLS:
+                raise CalcError(
+                    "The result is %d x %d cells, over the %d-cell limit."
+                    % (rows, cols, MAX_ARRAY_CELLS)
+                )
+            target = result_range(c1, r1, rows, cols)
+
+        # Rewriting the same array formula in place is an update.
+        existing = self._array_block(sheet, c1, r1)
+        if (
+            existing is not None
+            and (existing.StartColumn, existing.StartRow) == (c1, r1)
+        ):
+            sheet.getCellRangeByPosition(
+                existing.StartColumn, existing.StartRow,
+                existing.EndColumn, existing.EndRow,
+            ).setArrayFormula("")
+
+        t_c1, t_r1, t_c2, t_r2 = target
+        occupied: list[tuple[int, int]] = []
+        for row in range(t_r1, t_r2 + 1):
+            for col in range(t_c1, t_c2 + 1):
+                if (col, row) == (c1, r1):
+                    continue
+                cell = sheet.getCellByPosition(col, row)
+                if cell.getFormula() or cell.getString():
+                    occupied.append((col, row))
+        if occupied:
+            block_c, block_r = occupied[0]
+            raise CalcError(
+                "The result needs %s, but %d cell(s) there are not empty "
+                "(first: %s). Nothing was written; clear them or start "
+                "elsewhere."
+                % (
+                    block_name(*target),
+                    len(occupied),
+                    "%s%d" % (index_to_column(block_c), block_r + 1),
+                )
+            )
+
+        rng = sheet.getCellRangeByPosition(*target)
+        rng.setArrayFormula(formula)
+        anchor = sheet.getCellByPosition(t_c1, t_r1)
+        if int(anchor.Error):
+            try:
+                rng.setArrayFormula("")
+                rng.clearContents(23)
+            except Exception:
+                pass
+            raise CalcError(
+                "The formula returns an error (%s, code %d)."
+                % (anchor.getString() or "error", int(anchor.Error))
+            )
+        preview = [list(r) for r in rng.getDataArray()[:5]]
+        payload: dict[str, Any] = {
+            "message": "Array formula entered on %s (%d x %d)."
+            % (block_name(*target), rows, cols),
+            "array_range": block_name(*target),
+            "rows": rows,
+            "cols": cols,
+            "preview": preview,
+        }
+        if notes:
+            payload["warning"] = " ".join(notes)
+        log.info("%s", payload["message"])
+        return payload
 
     def copy_formula_range(self, source_str: str, dest_str: str) -> dict[str, Any]:
         """Copy formulas and values from *source_str* onto *dest_str* start.
