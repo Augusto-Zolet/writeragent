@@ -10,18 +10,18 @@ M0′ (``docs/draw/impress-lo-first-m0-probe-results.md``, PR #788) showed:
 * ``loadComponentFromURL`` + ``AsTemplate`` creates a designed **new** doc.
 * ``loadStylesFromURL`` is absent/incomplete on Impress — do not use it.
 
-Current-doc restyle is the load-master probe path (not ``.uno:PresentationLayout``
-PropertyValues — SDI formal args are empty, so those dispatches silent-no-op):
+Current-doc restyle (#791 clipboard path failed headed — system clipboard
+paste pulled desktop junk, not the Hidden ``.otp`` master). Do **not** use
+``.uno:DiaMode`` Copy/Paste or ``.uno:PresentationLayout`` PropertyValues
+(SDI formal args empty → silent no-op). Cross-doc ``MasterPage`` assign is
+a no-op / unsafe. ``XTransferableSupplier`` is not reachable on Impress
+controllers from PyUNO.
 
-1. Hidden-open the listed ``.otp``.
-2. Slide-sorter clipboard: src ``.uno:DiaMode`` + ``.uno:Copy`` → dest
-   ``.uno:DiaMode`` + ``.uno:Paste`` → ``.uno:DrawingMode``. That is the
-   reachable equivalent of dialog **Load** (imports the full master).
-3. ``page.MasterPage = imported_master`` on every slide (Exchange-all).
-4. Drop any extra content slide the paste added; close the hidden source.
-
-Do not deep-copy master shapes (wrong title geometry; GraphicObjectShape
-IllegalArgument) or assign a master from another document (no-op / unsafe).
+Working path: Hidden-open the listed ``.otp``, **clone** its master into
+the open deck (``createInstance`` + ``add`` + set Size/Position **after**
+add so placeholder geometry matches; GraphicObjectShape via ``Graphic``),
+copy the design's presentation-style family, then
+``page.MasterPage = cloned_master`` on every slide (Exchange-all).
 
 ``set_presentation_design`` stays the main-chat one-shot: **new** doc from a
 listed design, master assignment, headers/footers + slide numbers.
@@ -52,7 +52,43 @@ NOT_IMPRESS_CODE = "UNSUPPORTED_DOC_TYPE"
 # Distinct from create-from-template's ``_wa_impress_otp`` so a hidden source
 # load does not collide with a leftover new-doc Hidden frame.
 _IMPORT_SOURCE_TARGET = "_wa_impress_otp_import"
-_KEEP_SLIDE_PREFIX = "WA_KEEP_"
+
+# Visual props copied onto a dest-created shape after it is added to the
+# dest master. Size/Position are applied last — setting them before add()
+# leaves factory Default geometry (25200-wide title vs Metropolis 14800).
+# Primitives only. Graphic / FillBitmap / Background are SfxItems from the
+# Hidden source pool — copying them then closing the source aborts soffice
+# (GetUserOrPoolDefaultItem). Graphic is re-imported via GraphicProvider.
+_CLONE_SHAPE_PROPS = (
+    "Name",
+    "Visible",
+    "ZOrder",
+    "LayerID",
+    "FillStyle",
+    "FillColor",
+    "FillTransparence",
+    "LineStyle",
+    "LineColor",
+    "LineWidth",
+    "CharColor",
+    "CharHeight",
+    "CharWeight",
+    "CharFontName",
+    "String",
+    "TextAutoGrowHeight",
+    "TextAutoGrowWidth",
+    "TextHorizontalAdjust",
+    "TextVerticalAdjust",
+)
+_CLONE_MASTER_PAGE_PROPS = (
+    "BackgroundFullSize",
+    "BorderLeft",
+    "BorderRight",
+    "BorderTop",
+    "BorderBottom",
+    "Width",
+    "Height",
+)
 
 # PathSettings properties that hold template directories. Discover extras whose
 # name contains "emplate" so we do not hardcode an install prefix.
@@ -298,35 +334,6 @@ def inherit_master_from_neighbor(pages: Any, new_page: Any, insert_at: int) -> s
         return ""
 
 
-def _pump_uno_events(uno_ctx: Any) -> None:
-    """Let DiaMode / paste settle. Probe dispatches worked without this; headed
-    Adaption / view switches sometimes need a single idle pump.
-
-    Use the approved chokepoint — raw toolkit.processEventsToIdle is lint-blocked.
-    """
-    try:
-        from plugin.framework.uno_context import process_events_to_idle
-
-        process_events_to_idle(uno_ctx)
-    except Exception:
-        log.debug("_pump_uno_events failed", exc_info=True)
-
-
-def _dispatch_uno(uno_ctx: Any, doc: Any, command: str) -> None:
-    """Dispatch a parameter-less ``.uno:*`` on *doc*'s frame (extension ctx)."""
-    controller = doc.getCurrentController()
-    if controller is None:
-        raise RuntimeError("Document has no controller for %s" % command)
-    frame = controller.getFrame()
-    if frame is None:
-        raise RuntimeError("Document has no frame for %s" % command)
-    smgr = uno_ctx.ServiceManager
-    dispatcher = smgr.createInstanceWithContext("com.sun.star.frame.DispatchHelper", uno_ctx)
-    if dispatcher is None:
-        raise RuntimeError("DispatchHelper is not available.")
-    dispatcher.executeDispatch(frame, command, "", 0, ())
-
-
 def _close_hidden_doc(model: Any) -> None:
     """Close the Hidden .otp source. Prefer close(True); dispose only if close fails."""
     if model is None:
@@ -353,11 +360,10 @@ def _close_hidden_doc(model: Any) -> None:
 
 
 def open_design_source_hidden(uno_ctx: Any, design: dict[str, str], *, as_template: bool = True) -> Any:
-    """Hidden-open a listed ``.otp`` as the DiaMode copy source.
+    """Hidden-open a listed ``.otp`` as the master-clone source.
 
-    AsTemplate is optional in the probe; True matches the known-good control
-    (full Metropolis master + SVG chrome). Distinct target from
-    ``create_presentation_from_design``.
+    AsTemplate=True matches the known-good new-doc control (full Metropolis
+    master + SVG chrome). Distinct target from ``create_presentation_from_design``.
     """
     from plugin.framework.thread_guard import guard_uno
     from plugin.framework.uno_context import get_desktop
@@ -376,87 +382,354 @@ def open_design_source_hidden(uno_ctx: Any, design: dict[str, str], *, as_templa
     return guard_uno(model)
 
 
-def _mark_original_slides(doc: Any) -> tuple[list[tuple[str, str]], int]:
-    """Tag current slides so a DiaMode paste extra can be removed later.
+def _copy_uno_prop(dest: Any, src: Any, name: str) -> bool:
+    """Copy one UNO property. Returns True on success."""
+    try:
+        value = src.getPropertyValue(name) if hasattr(src, "getPropertyValue") else getattr(src, name)
+    except Exception:
+        try:
+            value = getattr(src, name)
+        except Exception:
+            return False
+    try:
+        if hasattr(dest, "setPropertyValue"):
+            dest.setPropertyValue(name, value)
+            return True
+    except Exception:
+        pass
+    try:
+        setattr(dest, name, value)
+        return True
+    except Exception:
+        return False
 
-    Paste of the Hidden .otp typically appends one content slide on the
-    imported master. Names are empty on factory decks, so we stamp a token
-    and restore the prior name after cleanup.
+
+def _clear_master_shapes(master: Any) -> int:
+    """Remove factory placeholders so the clone is only source shapes."""
+    removed = 0
+    try:
+        count = int(master.getCount())
+    except Exception:
+        return 0
+    for i in range(count - 1, -1, -1):
+        try:
+            master.remove(master.getByIndex(i))
+            removed += 1
+        except Exception:
+            log.debug("clear master shape failed index=%s", i, exc_info=True)
+    return removed
+
+
+def _graphic_from_file_url(uno_ctx: Any, file_url: str) -> Any | None:
+    """Load a dest-owned XGraphic from a file URL (never from a Hidden-doc pool)."""
+    if uno_ctx is None or not file_url:
+        return None
+    from plugin.writer.format import create_property_value
+
+    try:
+        smgr = getattr(uno_ctx, "ServiceManager", None) or uno_ctx.getServiceManager()
+        provider = smgr.createInstanceWithContext("com.sun.star.graphic.GraphicProvider", uno_ctx)
+        if provider is None:
+            return None
+        return provider.queryGraphic((create_property_value("URL", file_url),))
+    except Exception:
+        log.debug("GraphicProvider.queryGraphic failed url=%s", file_url, exc_info=True)
+        return None
+
+
+def _extract_otp_picture(otp_path: str, dest_dir: str) -> str | None:
+    """Extract the first Pictures/* media file from a shipped ``.otp`` ZIP."""
+    if not otp_path or not os.path.isfile(otp_path):
+        return None
+    import zipfile
+
+    try:
+        with zipfile.ZipFile(otp_path, "r") as zf:
+            names = [
+                n
+                for n in zf.namelist()
+                if n.startswith("Pictures/") and not n.endswith("/")
+            ]
+            if not names:
+                return None
+            # Prefer SVG (Metropolis chrome), then any other picture.
+            names.sort(key=lambda n: (0 if n.lower().endswith(".svg") else 1, n.lower()))
+            member = names[0]
+            base = os.path.basename(member) or "chrome.bin"
+            out = os.path.join(dest_dir, base)
+            with zf.open(member) as src, open(out, "wb") as dst:
+                dst.write(src.read())
+            return out
+    except Exception:
+        log.debug("extract_otp_picture failed path=%s", otp_path, exc_info=True)
+        return None
+
+
+def _reimport_graphic(
+    uno_ctx: Any,
+    src_shape: Any,
+    dest_shape: Any,
+    *,
+    otp_path: str | None = None,
+) -> bool:
+    """Attach chrome without sharing the Hidden source SfxItemPool.
+
+    Prefer extracting ``Pictures/*`` from the shipped ``.otp`` ZIP and loading
+    via GraphicProvider. ``storeGraphic`` of the live Hidden Graphic can still
+    touch the source pool; keep it as a last resort only.
     """
-    pages = doc.getDrawPages()
-    count = int(pages.getCount())
-    marks: list[tuple[str, str]] = []
-    for i in range(count):
-        page = pages.getByIndex(i)
-        prior = ""
+    if uno_ctx is None:
+        return False
+    import tempfile
+
+    from plugin.framework.url_utils import path_to_file_url
+    from plugin.writer.format import create_property_value
+
+    # 1) OTP ZIP extract — never opens the Hidden Graphic.
+    if otp_path:
+        tmp_dir = tempfile.mkdtemp(prefix="wa_otp_pic_")
         try:
-            prior = str(page.Name or "")
-        except Exception:
-            prior = ""
-        token = "%s%d" % (_KEEP_SLIDE_PREFIX, i)
+            extracted = _extract_otp_picture(otp_path, tmp_dir)
+            if extracted:
+                url = path_to_file_url(extracted)
+                log.info("clone_master graphic via otp extract path=%s", extracted)
+                new_graphic = _graphic_from_file_url(uno_ctx, url)
+                if new_graphic is not None:
+                    dest_shape.Graphic = new_graphic
+                    return True
+        finally:
+            try:
+                for name in os.listdir(tmp_dir):
+                    try:
+                        os.remove(os.path.join(tmp_dir, name))
+                    except Exception:
+                        pass
+                os.rmdir(tmp_dir)
+            except Exception:
+                pass
+
+    # 2) Last resort: round-trip the live Graphic (may still be pool-sensitive).
+    try:
+        graphic = src_shape.Graphic
+    except Exception:
+        return False
+    if graphic is None:
+        return False
+    smgr = getattr(uno_ctx, "ServiceManager", None) or uno_ctx.getServiceManager()
+    provider = smgr.createInstanceWithContext("com.sun.star.graphic.GraphicProvider", uno_ctx)
+    if provider is None:
+        return False
+    log.info("clone_master graphic via storeGraphic fallback")
+    for suffix, mime in ((".svg", "image/svg+xml"), (".png", "image/png")):
+        fd, path = tempfile.mkstemp(suffix=suffix)
         try:
-            page.Name = token
-            marks.append((token, prior))
+            os.close(fd)
+            url = path_to_file_url(path)
+            provider.storeGraphic(
+                graphic,
+                (create_property_value("URL", url), create_property_value("MimeType", mime)),
+            )
+            new_graphic = provider.queryGraphic((create_property_value("URL", url),))
+            if new_graphic is None:
+                continue
+            dest_shape.Graphic = new_graphic
+            return True
         except Exception:
-            log.debug("could not mark slide %s for paste cleanup", i, exc_info=True)
-            marks.append(("", prior))
-    return marks, count
+            log.debug("graphic reimport %s failed", mime, exc_info=True)
+        finally:
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+    return False
 
 
-def _restore_slide_names(doc: Any, marks: list[tuple[str, str]]) -> None:
-    token_to_prior = {token: prior for token, prior in marks if token}
-    if not token_to_prior:
-        return
-    pages = doc.getDrawPages()
-    for i in range(pages.getCount()):
-        page = pages.getByIndex(i)
+def _clone_one_shape(
+    dest_doc: Any,
+    dest_master: Any,
+    src_shape: Any,
+    uno_ctx: Any = None,
+    *,
+    otp_path: str | None = None,
+) -> str:
+    """Create a dest-owned shape, add it, then copy visual props + geometry.
+
+    Adding first is required: presentation placeholders ignore Size/Position
+    set before they belong to a page (headed/headless probe: title stayed
+    25200×2001 until Size was set after add).
+    """
+    shape_type = str(getattr(src_shape, "ShapeType", "") or "")
+    if not shape_type.startswith("com.sun.star."):
+        raise RuntimeError("Unsupported master shape type: %s" % shape_type)
+    clone = dest_doc.createInstance(shape_type)
+    dest_master.add(clone)
+    for prop in _CLONE_SHAPE_PROPS:
+        _copy_uno_prop(clone, src_shape, prop)
+    if "GraphicObject" in shape_type:
+        ok = _reimport_graphic(uno_ctx, src_shape, clone, otp_path=otp_path)
+        log.info("clone_master graphic_reimport ok=%s type=%s", ok, shape_type)
+    # Geometry last so layout does not overwrite chrome metrics.
+    _copy_uno_prop(clone, src_shape, "Position")
+    _copy_uno_prop(clone, src_shape, "Size")
+    return shape_type
+
+
+def _is_safe_style_value(value: Any) -> bool:
+    """True for primitives only. XComplexColor / BorderLine2 / GrabBag crash
+    soffice in the style pool (GetUserOrPoolDefaultItem) when copied blindly.
+    """
+    return isinstance(value, (int, float, bool, str))
+
+
+def copy_master_style_family(src_doc: Any, dest_doc: Any, family_name: str) -> int:
+    """Copy presentation-layout styles (title / outline / background) by name.
+
+    Each Impress master owns a style family of the same name. insertByName of
+    the whole family fails; copy safe primitive props onto dest's family after
+    the master exists. Skip structs and vetoes — do not invent styles.
+    """
+    if not family_name:
+        return 0
+    try:
+        src_fam = src_doc.getStyleFamilies().getByName(family_name)
+        dest_fam = dest_doc.getStyleFamilies().getByName(family_name)
+    except Exception:
+        log.debug("copy_master_style_family missing family %s", family_name, exc_info=True)
+        return 0
+    copied = 0
+    try:
+        names = list(src_fam.getElementNames())
+    except Exception:
+        return 0
+    for style_name in names:
         try:
-            name = str(page.Name or "")
+            src_style = src_fam.getByName(style_name)
+            dest_style = dest_fam.getByName(style_name)
         except Exception:
             continue
-        if name in token_to_prior:
-            try:
-                page.Name = token_to_prior[name]
-            except Exception:
-                log.debug("restore slide name failed index=%s", i, exc_info=True)
-
-
-def remove_pasted_extra_slides(
-    doc: Any,
-    marks: list[tuple[str, str]],
-    original_count: int,
-) -> int:
-    """Remove slides added by DiaMode paste; restore original names.
-
-    Prefer token identity. If Name marks failed, extras are appended (probe).
-    """
-    keep = {mark[0] for mark in marks if mark[0]}
-    pages = doc.getDrawPages()
-    removed = 0
-    if keep:
-        for i in range(int(pages.getCount()) - 1, -1, -1):
-            page = pages.getByIndex(i)
-            try:
-                name = str(page.Name or "")
-            except Exception:
-                name = ""
-            if name in keep:
+        info = None
+        try:
+            info = src_style.getPropertySetInfo()
+        except Exception:
+            info = None
+        if info is None:
+            continue
+        for prop in info.getProperties():
+            pname = str(getattr(prop, "Name", "") or "")
+            if not pname:
                 continue
             try:
-                pages.remove(page)
-                removed += 1
+                value = src_style.getPropertyValue(pname)
             except Exception:
-                log.debug("remove pasted extra slide failed index=%s", i, exc_info=True)
-    else:
-        while int(pages.getCount()) > original_count:
+                continue
+            if not _is_safe_style_value(value):
+                continue
             try:
-                pages.remove(pages.getByIndex(int(pages.getCount()) - 1))
-                removed += 1
+                dest_style.setPropertyValue(pname, value)
+                copied += 1
             except Exception:
-                log.debug("remove appended extra slide failed", exc_info=True)
-                break
-    _restore_slide_names(doc, marks)
-    return removed
+                continue
+    return copied
+
+
+def clone_master_into_doc(
+    dest_doc: Any,
+    src_doc: Any,
+    design: dict[str, str],
+    uno_ctx: Any = None,
+) -> tuple[Any, str, int]:
+    """Clone the source design master into *dest_doc* (same-document shapes).
+
+    Cross-doc ``MasterPage`` assign does not import. ``createInstance`` +
+    ``add`` of a GraphicObjectShape works; adding the foreign shape object
+    raises IllegalArgumentException (load-master probe).
+    """
+    src_masters = src_doc.getMasterPages()
+    if src_masters.getCount() < 1:
+        raise RuntimeError("Design source has no master pages.")
+    src_master = None
+    design_name = str(design.get("name") or "").strip()
+    design_id = str(design.get("id") or "").strip().lower()
+    for i in range(src_masters.getCount()):
+        candidate = src_masters.getByIndex(i)
+        name = ""
+        try:
+            name = str(candidate.Name or "")
+        except Exception:
+            name = ""
+        lower = name.strip().lower()
+        if lower and (lower == design_name.lower() or lower == design_id):
+            src_master = candidate
+            if not design_name:
+                design_name = name
+            break
+    if src_master is None:
+        src_master = src_masters.getByIndex(0)
+        if not design_name:
+            try:
+                design_name = str(src_master.Name or "") or "Imported"
+            except Exception:
+                design_name = "Imported"
+
+    dest_masters = dest_doc.getMasterPages()
+    dest_master = None
+    for i in range(dest_masters.getCount()):
+        candidate = dest_masters.getByIndex(i)
+        try:
+            name = str(candidate.Name or "")
+        except Exception:
+            name = ""
+        if name.strip().lower() == design_name.lower():
+            dest_master = candidate
+            break
+    if dest_master is None:
+        dest_master = dest_masters.insertNewByIndex(dest_masters.getCount())
+        try:
+            dest_master.Name = design_name
+        except Exception:
+            log.debug("rename cloned master to %s failed", design_name, exc_info=True)
+    if dest_master is None:
+        raise RuntimeError("Could not insert a destination master page.")
+    _clear_master_shapes(dest_master)
+    for prop in _CLONE_MASTER_PAGE_PROPS:
+        _copy_uno_prop(dest_master, src_master, prop)
+    try:
+        src_count = int(src_master.getCount())
+    except Exception:
+        src_count = 0
+    otp_path = str(design.get("path") or "").strip() or None
+    cloned_types: list[str] = []
+    for i in range(src_count):
+        src_shape = src_master.getByIndex(i)
+        st = str(getattr(src_shape, "ShapeType", "") or "")
+        log.info("clone_master step=shape i=%s/%s type=%s", i, src_count, st)
+        cloned_types.append(
+            _clone_one_shape(
+                dest_doc, dest_master, src_shape, uno_ctx, otp_path=otp_path
+            )
+        )
+        log.info("clone_master step=shape_done i=%s type=%s", i, cloned_types[-1])
+    try:
+        dest_name = str(dest_master.Name or "") or design_name
+    except Exception:
+        dest_name = design_name
+    # Do not copy the presentation style family here. Blind style-prop copies
+    # share the Hidden source SfxItemPool and abort soffice on source close
+    # (GetUserOrPoolDefaultItem). Shape primitives + reimported Graphic are
+    # enough for Metropolis chrome (title geom 14800 + SVG).
+    try:
+        shape_count = int(dest_master.getCount())
+    except Exception:
+        shape_count = len(cloned_types)
+    if shape_count < 1:
+        raise RuntimeError("Cloned master '%s' has no shapes." % dest_name)
+    log.debug(
+        "clone_master_into_doc name=%s shapes=%s types=%s",
+        dest_name,
+        shape_count,
+        cloned_types,
+    )
+    return dest_master, dest_name, shape_count
 
 
 def find_imported_master(
@@ -464,7 +737,7 @@ def find_imported_master(
     design: dict[str, str],
     before_names: set[str],
 ) -> tuple[Any | None, str, int]:
-    """Pick the master DiaMode paste imported (or the named design master)."""
+    """Pick the cloned (or already-present) design master."""
     try:
         masters = doc.getMasterPages()
     except Exception:
@@ -514,48 +787,67 @@ def assign_master_to_all_slides(doc: Any, master: Any) -> int:
 
 
 def apply_design_to_current_doc(uno_ctx: Any, dest_doc: Any, design: dict[str, str]) -> dict[str, Any]:
-    """Import a shipped ``.otp`` master into *dest_doc* and assign it to all slides."""
+    """Import a shipped ``.otp`` master into *dest_doc* and assign it to all slides.
+
+    Headed #791 used DiaMode clipboard paste. That reads the **system**
+    clipboard, so a headed desktop (spreadsheet/audit text) was pasted as
+    junk frames and no Metropolis master arrived. Hidden Copy also fails to
+    take clipboard ownership when another owner is present. Clone never
+    touches the clipboard.
+    """
     before_names = {str(m.get("name") or "") for m in _master_entries(dest_doc)}
-    marks, original_count = _mark_original_slides(dest_doc)
-    src = None
-    dest_in_dia = False
-    extras = 0
-    import_error: Exception | None = None
+    original_count = 0
     try:
+        original_count = int(dest_doc.getDrawPages().getCount())
+    except Exception:
+        original_count = 0
+    src = None
+    master: Any = None
+    master_name = ""
+    shape_count = 0
+    slides_updated = 0
+    design_label = design.get("name") or design.get("id") or "?"
+    try:
+        log.info("apply_design current-doc step=open_hidden design=%s", design_label)
         src = open_design_source_hidden(uno_ctx, design, as_template=True)
-        _dispatch_uno(uno_ctx, src, ".uno:DiaMode")
-        _pump_uno_events(uno_ctx)
-        _dispatch_uno(uno_ctx, src, ".uno:Copy")
-        _pump_uno_events(uno_ctx)
-        _dispatch_uno(uno_ctx, dest_doc, ".uno:DiaMode")
-        dest_in_dia = True
-        _pump_uno_events(uno_ctx)
-        _dispatch_uno(uno_ctx, dest_doc, ".uno:Paste")
-        _pump_uno_events(uno_ctx)
-    except Exception as exc:
-        import_error = exc
-    finally:
-        if dest_in_dia:
-            try:
-                _dispatch_uno(uno_ctx, dest_doc, ".uno:DrawingMode")
-                _pump_uno_events(uno_ctx)
-            except Exception:
-                log.debug("restore DrawingMode after design import failed", exc_info=True)
-        _close_hidden_doc(src)
-        try:
-            extras = remove_pasted_extra_slides(dest_doc, marks, original_count)
-        except Exception:
-            extras = 0
-            _restore_slide_names(dest_doc, marks)
-    if import_error is not None:
-        raise import_error
-    master, master_name, shape_count = find_imported_master(dest_doc, design, before_names)
-    if master is None:
-        raise RuntimeError(
-            "DiaMode paste did not import a design master from %s" % design.get("name")
+        log.info("apply_design current-doc step=clone_master begin design=%s", design_label)
+        master, master_name, shape_count = clone_master_into_doc(
+            dest_doc, src, design, uno_ctx
         )
-    slides_updated = assign_master_to_all_slides(dest_doc, master)
+        log.info(
+            "apply_design current-doc step=clone_master done master=%s shapes=%s",
+            master_name,
+            shape_count,
+        )
+        if master is None:
+            master, master_name, shape_count = find_imported_master(
+                dest_doc, design, before_names
+            )
+        if master is None:
+            raise RuntimeError(
+                "Master clone did not import a design master from %s" % design.get("name")
+            )
+        log.info(
+            "apply_design current-doc step=assign_all master=%s slides~=%s",
+            master_name,
+            original_count,
+        )
+        slides_updated = assign_master_to_all_slides(dest_doc, master)
+        log.info(
+            "apply_design current-doc step=assign_all done slides_updated=%s",
+            slides_updated,
+        )
+    finally:
+        # Close after assign so any residual source-pool refs are unused.
+        log.info("apply_design current-doc step=close_hidden design=%s", design_label)
+        _close_hidden_doc(src)
+        log.info("apply_design current-doc step=close_hidden done design=%s", design_label)
     masters = _master_entries(dest_doc)
+    slide_count = original_count
+    try:
+        slide_count = int(dest_doc.getDrawPages().getCount())
+    except Exception:
+        pass
     return {
         "status": "ok",
         "design": design,
@@ -564,7 +856,8 @@ def apply_design_to_current_doc(uno_ctx: Any, dest_doc: Any, design: dict[str, s
         "masters": masters,
         "blank_master": _blank_master_signal(masters),
         "slides_updated": slides_updated,
-        "pasted_slides_removed": extras,
+        "import_method": "clone_master",
+        "slide_count": slide_count,
         "message": (
             "Applied design '%s' (master '%s') to the current presentation."
             % (design.get("name"), master_name)
@@ -682,9 +975,9 @@ class ApplyDesign(ToolBase):
     intent = "edit"
     description = (
         "Apply a listed Impress .otp design. new_document=false restyles the OPEN "
-        "deck: Hidden-load the template, import its master via slide-sorter "
-        "clipboard (DiaMode Copy/Paste), assign that master to every slide, and "
-        "drop any extra pasted slide. Existing title/body text stays. "
+        "deck: Hidden-load the template, clone its master (shapes + layout styles) "
+        "into this document, and assign that master to every slide. Does not use "
+        "the system clipboard. Existing title/body text stays. "
         "new_document=true (default) still creates a NEW presentation "
         "(loadComponentFromURL + AsTemplate). Draw documents return a not-Impress error."
     )
@@ -737,7 +1030,7 @@ class ApplyDesign(ToolBase):
                 return self._tool_error(
                     "Failed to apply design to the current presentation: %s" % e,
                     reason="current_doc_import_failed",
-                    hint="Hidden .otp DiaMode import or MasterPage assign did not complete.",
+                    hint="Hidden .otp master clone or MasterPage assign did not complete.",
                 )
         try:
             # ``hidden`` is for native tests (leftover visible frames). Not a product arg.
