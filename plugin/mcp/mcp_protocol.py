@@ -196,6 +196,14 @@ def _get_request_protocol_version(handler) -> str | None:
     return None
 
 
+def _get_request_session_id(handler) -> str | None:
+    for name in ("Mcp-Session-Id", "mcp-session-id", "MCP-Session-Id"):
+        value = handler.headers.get(name)
+        if value:
+            return value.strip()
+    return None
+
+
 def _validate_http_protocol_version(handler):
     """Return (status, jsonrpc_body) when the HTTP Mcp-Protocol-Version header is unsupported."""
     requested = _get_request_protocol_version(handler)
@@ -318,8 +326,46 @@ class BusyError(WriterAgentException):
     code: str = "SERVER_BUSY"
 
 
-# Session management
+# One session id for the whole soffice process, shared by every MCP client.
+# Minted on first successful initialize; never rotated; never cleared on DELETE.
 _mcp_session_id = None
+_mcp_session_lock = threading.Lock()
+_SESSION_EXPIRED_MSG = "Session expired (server restarted). Call initialize again."
+
+
+def _mint_session_id_once() -> str:
+    """Assign uuid4 on first successful initialize; later calls keep that id."""
+    global _mcp_session_id
+    with _mcp_session_lock:
+        if _mcp_session_id is None:
+            _mcp_session_id = str(uuid.uuid4())
+        return _mcp_session_id
+
+
+def _reject_stale_session(handler, msg=None) -> bool:
+    """Write HTTP 404 when Mcp-Session-Id is present and not the process id.
+
+    Spec clients re-initialize on 404, not 409 or silent success. No header is
+    allowed (CLI / first contact). A single ``initialize`` is always allowed —
+    that is recovery after restart. A stale header on a batch 404s the whole
+    request so we never process some items.
+    """
+    incoming = _get_request_session_id(handler)
+    if incoming is None:
+        return False
+    if isinstance(msg, dict) and msg.get("method") == "initialize":
+        return False
+    if incoming == _mcp_session_id:
+        return False
+    req_id = msg.get("id") if isinstance(msg, dict) else None
+    log.info("[MCP] stale session id %r (current=%r) — 404", incoming, _mcp_session_id)
+    write_http_json(
+        handler,
+        404,
+        wire_types.jsonrpc_failure(req_id, wire_types.INVALID_REQUEST, _SESSION_EXPIRED_MSG),
+        extra_headers=lambda h: _send_mcp_response_headers(h, session_id=_mcp_session_id),
+    )
+    return True
 
 
 class MCPProtocolHandler:
@@ -357,6 +403,8 @@ class MCPProtocolHandler:
     def handle_mcp_sse(self, handler):
         """GET /mcp — SSE notification stream (keepalive)."""
         log_mcp_transport_entry(handler, "mcp-sse")
+        if _reject_stale_session(handler):
+            return
         accept = handler.headers.get("Accept", "")
         if "text/event-stream" not in accept:
             self._send_json(handler, 406, {"error": "Not Acceptable: must Accept text/event-stream"})
@@ -369,12 +417,25 @@ class MCPProtocolHandler:
         self._run_sse_keepalive_loop(handler)
 
     def handle_mcp_delete(self, handler):
-        """DELETE /mcp — session termination."""
+        """DELETE /mcp — not supported: one process-wide session must stay alive."""
+        # Bugfix: Nelson a3d69e68 / GitHub #38. Streamable HTTP lets a client
+        # DELETE the session URL to end it. WriterAgent has one session id for
+        # the whole soffice process, shared by every client. Returning 200
+        # claimed the session ended when it did not; clearing the id would cut
+        # every other client off. 405 tells spec clients the session is still
+        # here. They recover on 404 (stale id after restart), not 409 or 200.
         log_mcp_transport_entry(handler, "mcp")
-        write_http_empty(handler, 200, extra_headers=_send_mcp_response_headers)
+
+        def _headers(h):
+            _send_mcp_response_headers(h)
+            h.send_header("Allow", "GET, POST, OPTIONS")
+
+        write_http_empty(handler, 405, extra_headers=_headers)
 
     def handle_sse_stream(self, handler):
         """GET /sse — legacy SSE transport (keepalive only)."""
+        if _reject_stale_session(handler):
+            return
         try:
             handler.send_response(200)
             handler.send_header("Content-Type", "text/event-stream")
@@ -435,19 +496,7 @@ class MCPProtocolHandler:
         if body is None:
             return
         document_url = handler.headers.get("X-Document-URL") or None
-        msg = body
-        method = msg.get("method", "?") if isinstance(msg, dict) else "batch"
-        req_id = msg.get("id") if isinstance(msg, dict) else None
-        log.info("[SSE] POST <<< %s (id=%s)", method, req_id)
-
-        result = self._process_jsonrpc(msg, document_url=document_url)
-        if result is None:
-            write_http_empty(handler, 202, extra_headers=_send_mcp_response_headers)
-            return
-
-        status, response = result
-        log.info("[SSE] POST >>> %s (id=%s) -> %d", method, req_id, status)
-        write_http_json(handler, status, response, extra_headers=_send_mcp_response_headers)
+        self._handle_mcp(body, handler, document_url=document_url)
 
     # ── Simple handlers (body, headers, query) -> (status, dict) ─────
 
@@ -505,11 +554,12 @@ class MCPProtocolHandler:
 
     def _handle_mcp(self, msg, handler, document_url=None):
         """Route MCP JSON-RPC request(s) — single or batch."""
-        global _mcp_session_id
-
         method = msg.get("method", "?") if isinstance(msg, dict) else "batch"
         req_id = msg.get("id") if isinstance(msg, dict) else None
         log.info("[MCP] <<< %s (id=%s)", method, req_id)
+
+        if _reject_stale_session(handler, msg):
+            return
 
         is_initialize = isinstance(msg, dict) and msg.get("method") == "initialize"
 
@@ -535,7 +585,7 @@ class MCPProtocolHandler:
         status, response = result
 
         if is_initialize and status == 200:
-            _mcp_session_id = str(uuid.uuid4())
+            _mint_session_id_once()
 
         log.info("[MCP] >>> %s (id=%s) -> %d", method, req_id, status)
         write_http_json(

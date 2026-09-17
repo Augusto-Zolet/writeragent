@@ -106,6 +106,10 @@ Browser MCP clients send an `Origin` header (e.g. `https://localai.local`). The 
 
 Homelab / LocalAI setups typically need **no** entries in `mcp.cors_allowed_origins`. Implementation: [`plugin/mcp/cors.py`](../plugin/mcp/cors.py).
 
+**Session (shipped):** One `Mcp-Session-Id` for the whole soffice process, minted on first successful `initialize` and never rotated. `DELETE /mcp` returns **405** (`Allow: GET, POST, OPTIONS`) and does **not** terminate that id — every client shares it. A later POST/GET whose `Mcp-Session-Id` does not match (LibreOffice restarted, or a second `initialize` used to rotate the id) returns **HTTP 404** JSON-RPC `INVALID_REQUEST` (“Session expired… Call initialize again.”). Spec clients recover on 404, not 409. Missing session header is still allowed (CLI / curl / first contact). `initialize` with a stale or missing id is always allowed.
+
+**Planned (not shipped):** HTTP 403 when `Origin` is present and not safe (today the request still runs; ACAO is only omitted). Implementation brief: [`mcp-nelson-014-selected-ports.md`](mcp-nelson-014-selected-ports.md).
+
 **Troubleshooting — OPTIONS succeeds but MCP never connects**
 
 1. In the browser Network tab, confirm a **`POST /mcp`** appears **after** OPTIONS. If POST is missing, the browser rejected preflight (wrong `Allow-Headers`, missing `Allow-Origin`, or non-loopback `Origin`).
