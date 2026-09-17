@@ -33,7 +33,13 @@ from dataclasses import dataclass
 
 from plugin.framework.uno_context import get_runtime_uid, normalize_doc_url
 from plugin.framework.queue_executor import QueueExecutor
-from plugin.framework.errors import WriterAgentException, safe_json_loads
+from plugin.framework.errors import (
+    WriterAgentException,
+    _resolve_exception_message,
+    format_error_payload,
+    make_tool_error,
+    safe_json_loads,
+)
 from plugin.mcp.cors import send_cors_headers
 from plugin.mcp.http_trace import log_mcp_transport_entry, log_unsupported_protocol_version
 from plugin.mcp.server import write_http_empty, write_http_json
@@ -761,20 +767,25 @@ class MCPProtocolHandler:
                         else:
                             res = self._execute_with_backpressure(effect.tool_name, effect.arguments, document_url=effect.document_url)
                         events_to_process.append(MCPEvent(kind=EventKind.TOOL_COMPLETED, data={"result": res}))
-                    except (BusyError, TimeoutError, WriterAgentException) as e:
-                        # Re-raise standard json-rpc errors to be caught in _process_jsonrpc
-                        raise e
+                    except BusyError:
+                        raise
+                    except TimeoutError:
+                        raise
                     except Exception as e:
-                        # Do not swallow as INTERNAL_ERROR with a 100-char log: Hermes then
-                        # retries (apply_style did this ~150× in 0.5s and froze Writer).
-                        from plugin.framework.errors import _resolve_exception_message, make_tool_error
-
+                        # Tool failures must be MCP tool results (isError), not JSON-RPC
+                        # INTERNAL_ERROR. Clients treat HTTP 500 as transient and retry
+                        # (Hermes retried apply_style ~150× in 0.5s). BusyError/TimeoutError
+                        # stay 429/504 above. WriterAgentException used to re-raise into
+                        # _process_jsonrpc as HTTP 500 — that is the retryable path.
                         log.exception("MCP tool %s raised unexpectedly", effect.tool_name)
+                        code = getattr(e, "code", None) or "TOOL_EXECUTION_ERROR"
+                        if code == "INTERNAL_ERROR":
+                            code = "TOOL_EXECUTION_ERROR"
                         events_to_process.append(MCPEvent(
                             kind=EventKind.TOOL_COMPLETED,
                             data={"result": make_tool_error(
                                 _resolve_exception_message(e),
-                                code="TOOL_EXECUTION_ERROR",
+                                code=code,
                                 tool_name=effect.tool_name,
                                 error_type=type(e).__name__,
                             )},
@@ -833,8 +844,6 @@ class MCPProtocolHandler:
 
         if handler is None:
             return (400, wire_types.jsonrpc_failure(req_id, wire_types.METHOD_NOT_FOUND, "Unknown method: %s" % method))
-
-        from plugin.framework.errors import WriterAgentException, format_error_payload
 
         try:
             if method == "tools/list":

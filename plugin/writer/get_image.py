@@ -14,6 +14,7 @@ On Draw/Impress, page=N is the vision screenshot (0-based, same as list_pages / 
 
 import base64
 
+from plugin.doc.text_helpers import clone_text_range
 from plugin.framework.tool import ToolBase
 from plugin.writer.images.image_tools import export_graphic_object_to_bytes, get_selected_image_base64
 
@@ -70,7 +71,7 @@ def _render_writer_page_png(doc, page):
     try:
         # Same save/restore idiom as get_page_objects (structural.py). If the cursor sits in nested
         # text (table cell / frame) this raises and we simply skip the best-effort restore.
-        saved = vc.getText().createTextCursorByRange(vc.getStart())
+        saved = clone_text_range(vc)
     except Exception:
         saved = None
 

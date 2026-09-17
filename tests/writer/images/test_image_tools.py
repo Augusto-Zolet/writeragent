@@ -174,6 +174,7 @@ class TestWriterImageCursorConversion(unittest.TestCase):
 
         view_cursor = MagicMock(name="view_cursor")
         view_cursor.getStart.return_value = "range-start"
+        view_cursor.getText.return_value = doc_text
         view_cursor.jumpToStartOfPage = MagicMock()
 
         model = MagicMock()
@@ -201,7 +202,7 @@ class TestWriterImageCursorConversion(unittest.TestCase):
                 add_frame=False,
             )
 
-        doc_text.createTextCursorByRange.assert_called_once_with("range-start")
+        doc_text.createTextCursorByRange.assert_called_once_with(model.CurrentController.ViewCursor)
         doc_text.insertTextContent.assert_called_once_with(text_cursor, image_instance, False)
         image_instance.GraphicURL = "file:////home/user/photo.png"
 
@@ -267,6 +268,7 @@ class TestWriterImageCursorConversion(unittest.TestCase):
 
         view_cursor = MagicMock(name="view_cursor")
         view_cursor.getStart.side_effect = ["range1", "range2"]
+        view_cursor.getText.return_value = doc_text
         view_cursor.jumpToStartOfPage = MagicMock()
 
         model = MagicMock()
@@ -305,11 +307,14 @@ class TestWriterImageCursorConversion(unittest.TestCase):
 
         view_cursor = MagicMock(name="view_cursor")
         view_cursor.getStart.return_value = "range-start"
+        view_cursor.getText.return_value = doc_text
         view_cursor.jumpToStartOfPage = MagicMock()
 
         model = MagicMock()
         model.getText.return_value = doc_text
         model.supportsService.side_effect = lambda svc: svc == "com.sun.star.text.TextDocument"
+        model.CurrentController = MagicMock()
+        model.CurrentController.ViewCursor = view_cursor
 
         text_frame_instance = MagicMock(name="text_frame")
         frame_text_obj = MagicMock(name="frame_text_obj")

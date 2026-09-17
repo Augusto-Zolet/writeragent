@@ -312,6 +312,17 @@ def test_draw_prompt_keeps_get_image_when_model_has_vision():
     assert DRAW_GET_IMAGE_TOOL_LINE in prompt
 
 
+def test_get_core_directives_for_type_is_string_only():
+    from plugin.framework.prompts import get_core_directives_for_type
+
+    assert get_core_directives_for_type("writer") == WRITER_CORE_DIRECTIVES
+    assert get_core_directives_for_type("calc") == CALC_CORE_DIRECTIVES
+    assert get_core_directives_for_type("draw") == DRAW_CORE_DIRECTIVES
+    assert get_core_directives_for_type("impress") == DRAW_CORE_DIRECTIVES
+    assert get_core_directives_for_type(None) == WRITER_CORE_DIRECTIVES
+    assert get_core_directives_for_type("") == WRITER_CORE_DIRECTIVES
+
+
 def test_get_core_directives_writer():
     model = MagicMock()
     model.supportsService.return_value = False

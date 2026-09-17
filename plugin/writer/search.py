@@ -20,7 +20,7 @@ import logging
 import re as re_mod
 from typing import Any, Literal, overload
 
-from plugin.doc.text_helpers import get_string_without_tracked_deletions, normalize_linebreaks
+from plugin.doc.text_helpers import clone_text_range, get_string_without_tracked_deletions, normalize_linebreaks
 from plugin.framework.tool import ToolBase, ToolBaseDummy
 from plugin.framework.uno_context import uno_same
 
@@ -904,7 +904,7 @@ def _build_page_map(doc):
         vc = controller.getViewCursor()
         saved = None
         try:
-            saved = vc.getText().createTextCursorByRange(vc.getStart())
+            saved = clone_text_range(vc)
         except Exception:
             pass
 

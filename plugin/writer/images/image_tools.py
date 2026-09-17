@@ -27,6 +27,7 @@ from com.sun.star.text.TextContentAnchorType import AS_CHARACTER, AT_FRAME
 from com.sun.star.awt import Size, Point
 from com.sun.star.beans import PropertyValue
 from plugin.doc import visual_helpers
+from plugin.doc.text_helpers import clone_text_range
 
 log = logging.getLogger(__name__)
 
@@ -322,17 +323,17 @@ def _insert_embedded_at_writer_cursor(
 
     view_cursor = model.CurrentController.ViewCursor
 
-    def to_text_cursor(vc):
-        return doc_text.createTextCursorByRange(vc.getStart())
+    def insert_at_view(vc):
+        host = vc.getText()
+        tc = clone_text_range(vc)
+        host.insertTextContent(tc, image, False)
 
     try:
-        tc = to_text_cursor(view_cursor)
-        doc_text.insertTextContent(tc, image, False)
+        insert_at_view(view_cursor)
     except Exception as e:
         log.debug("_insert_embedded_at_writer_cursor fallback: %s", e)
         view_cursor.jumpToStartOfPage()
-        tc = to_text_cursor(view_cursor)
-        doc_text.insertTextContent(tc, image, False)
+        insert_at_view(view_cursor)
     return image
 
 
@@ -353,7 +354,6 @@ def _insert_image_to_writer(ctx, model, img_path, width, height, title, descript
 
 
 def _insert_frame(ctx, model, img_path, width, height, title, description):
-    doc_text = model.getText()
     view_cursor = model.CurrentController.ViewCursor
     text_frame = model.createInstance("com.sun.star.text.TextFrame")
     frame_size = Size()
@@ -363,13 +363,15 @@ def _insert_frame(ctx, model, img_path, width, height, title, description):
     text_frame.setPropertyValue("AnchorType", AT_FRAME)
 
     try:
-        text_cursor = doc_text.createTextCursorByRange(view_cursor.getStart())
-        doc_text.insertTextContent(text_cursor, text_frame, False)
+        host = view_cursor.getText()
+        text_cursor = clone_text_range(view_cursor)
+        host.insertTextContent(text_cursor, text_frame, False)
     except Exception as e:
         log.debug("_insert_frame insertTextContent fallback: %s", e)
         view_cursor.jumpToStartOfPage()
-        text_cursor = doc_text.createTextCursorByRange(view_cursor.getStart())
-        doc_text.insertTextContent(text_cursor, text_frame, False)
+        host = view_cursor.getText()
+        text_cursor = clone_text_range(view_cursor)
+        host.insertTextContent(text_cursor, text_frame, False)
 
     frame_text = text_frame.getText()
     frame_cursor = frame_text.createTextCursor()

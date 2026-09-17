@@ -18,6 +18,7 @@
 
 (Index refresh, field refresh, and bookmark list/cleanup live in specialized domains.)"""
 
+from plugin.doc.text_helpers import clone_text_range
 from plugin.framework.prompts import PARAGRAPH_INDEX_DIRECTIVE
 from plugin.framework.tool import ToolBase, ToolBaseDummy
 
@@ -101,7 +102,7 @@ class GetPageObjects(ToolBase):
         saved = None
         try:
             # Nested XText (table cell / frame): body getText() cannot clone this range.
-            saved = vc.getText().createTextCursorByRange(vc.getStart())
+            saved = clone_text_range(vc)
         except Exception:
             pass
 

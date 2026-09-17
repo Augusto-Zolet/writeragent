@@ -815,15 +815,24 @@ def get_peer_inner_choice_block(uno_ctx, doc) -> str:
         return ""
 
 
+def get_core_directives_for_type(doc_type: str | None) -> str:
+    """Core directives from a cached doc-type label (no UNO / no document model)."""
+    label = (doc_type or "writer").strip().lower()
+    if label == "calc":
+        return CALC_CORE_DIRECTIVES
+    if label in ("draw", "impress"):
+        return DRAW_CORE_DIRECTIVES
+    return WRITER_CORE_DIRECTIVES
+
+
 def get_core_directives(model) -> str:
     """Return the application-specific core directives dynamically based on document type."""
     from plugin.doc.doc_type import is_calc, is_draw
     if is_calc(model):
-        return CALC_CORE_DIRECTIVES
-    elif is_draw(model):
-        return DRAW_CORE_DIRECTIVES
-    else:
-        return WRITER_CORE_DIRECTIVES
+        return get_core_directives_for_type("calc")
+    if is_draw(model):
+        return get_core_directives_for_type("draw")
+    return get_core_directives_for_type("writer")
 
 
 def _catalog_entries_from_base(base_cls, *, agent_label: str | None = None, ctx=None,

@@ -30,7 +30,7 @@ from plugin.framework.errors import (
 from plugin.framework.config import get_api_config, get_config, get_config_int_safe
 from plugin.framework.config_schema import as_bool
 from plugin.framework.client.llm_client import LlmClient
-from plugin.framework.prompts import get_core_directives
+from plugin.framework.prompts import get_core_directives_for_type
 from plugin.chatbot.agent_manual import full_manual
 from plugin.framework.queue_executor import llm_request_lane
 from plugin.agent_backend import get_backend
@@ -375,10 +375,9 @@ class SendHandlersMixin:
         if cancel_scope is not None and hasattr(adapter, "stop"):
             cancel_scope.register_on_cancel(adapter.stop)
 
-        # UNO: get_core_directives -> is_calc/is_draw -> get_document_type.
-        # Must run on this UI thread. run_agent is chatbot-send-handler; calling
-        # get_document_type there raises a thread-violation dialog and aborts the send.
-        core_dirs = get_core_directives(model)
+        # String-only: classifying the live model hits get_document_type (UNO).
+        # run_agent is chatbot-send-handler; do not classify the document here.
+        core_dirs = get_core_directives_for_type(doc_type_str or "writer")
 
         def run_agent():
             try:

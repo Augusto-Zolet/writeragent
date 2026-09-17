@@ -590,6 +590,17 @@ def get_document_length(model):
         return 0
 
 
+def clone_text_range(text_range):
+    """Clone *text_range* via its own XText (nested table/frame safe).
+
+    ``doc.getText().createTextCursorByRange(range)`` raises UNO
+    RuntimeException ("End of content node doesn't have the proper start node")
+    when the range lives in a table cell or frame. The range's XText is the
+    cell, frame, or body that actually owns it.
+    """
+    return text_range.getText().createTextCursorByRange(text_range)
+
+
 @main_thread_only
 def get_text_cursor_at_range(model, start_offset, end_offset):
     """Return a text cursor that selects the character range [start_offset, end_offset).

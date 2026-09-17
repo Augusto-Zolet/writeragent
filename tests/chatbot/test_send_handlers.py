@@ -1077,7 +1077,7 @@ def test_run_librarian_switch_mode_calls_finished_callback():
 
 
 def test_agent_backend_worker_does_not_call_get_document_type():
-    """run_agent must not call get_core_directives / full_manual_for_model (UNO)."""
+    """run_agent must not classify the document (UNO)."""
     from pathlib import Path
 
     src = Path(__file__).resolve().parents[2].joinpath("plugin", "chatbot", "send_handlers.py").read_text(encoding="utf-8")
@@ -1086,7 +1086,8 @@ def test_agent_backend_worker_does_not_call_get_document_type():
     stopped = src.index("def on_stopped():", run)
     before = src[start:run]
     worker = src[run:stopped]
-    assert "core_dirs = get_core_directives(model)" in before
+    assert "get_core_directives_for_type(doc_type_str" in before
+    assert "get_core_directives(model)" not in src[start:stopped]
     assert "get_core_directives" not in worker
     assert "full_manual_for_model(model)" not in worker
     assert "get_document_type" not in worker

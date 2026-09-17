@@ -14,6 +14,7 @@ from typing import Any
 
 from plugin.chatbot.dialogs import msgbox
 from plugin.doc.doc_type import is_writer
+from plugin.doc.text_helpers import clone_text_range
 from plugin.framework.async_stream import BlockingWaitStopped, run_blocking_in_thread
 from plugin.framework.constants import EXTENSION_ID_WRITERAGENT
 from plugin.framework.i18n import _
@@ -1083,7 +1084,7 @@ def update_in_prompt(doc: Any, cell: NotebookCodeCell, execution_count: int | No
 def _save_view_cursor(doc: Any) -> Any | None:
     try:
         vc = doc.getCurrentController().getViewCursor()
-        return doc.getText().createTextCursorByRange(vc)
+        return clone_text_range(vc)
     except Exception:
         return None
 

@@ -29,6 +29,7 @@ from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
 
 from ..specialized_base import ToolWriterFormBase
 from plugin.doc.doc_type import is_calc, is_draw
+from plugin.doc.text_helpers import clone_text_range
 from plugin.doc.visual_helpers import get_active_draw_page
 from plugin.draw.tree import coerce_control_state
 from plugin.framework.errors import format_error_payload, ToolExecutionError
@@ -453,7 +454,7 @@ Output ONLY the HTML content. No explanations. No Markdown like # Header.
         from ..html_import import insert_html_fragment_at_cursor
 
         vc = doc.getCurrentController().getViewCursor()
-        cursor = doc.getText().createTextCursorByRange(vc)
+        cursor = clone_text_range(vc)
         insert_html_fragment_at_cursor(cursor, text, wrap=False)
 
     def _parse_field_tag(self, tag):

@@ -41,6 +41,9 @@ class FakeViewCursor:
     def getStart(self):
         return "start-range"
 
+    def getText(self):
+        return FakeText()
+
     def gotoRange(self, rng, expand):
         self.restored_to = rng
 
@@ -99,7 +102,7 @@ def test_page_not_found_reports_real_total():
 def test_page_not_found_restores_view_cursor():
     doc = FakeDoc(page_count=20)
     _render_page_png(object(), doc, 999)
-    assert doc._vc.restored_to == ("saved", "start-range")
+    assert doc._vc.restored_to == ("saved", doc._vc)
 
 
 @pytest.mark.parametrize("bad_page", [999, 21])

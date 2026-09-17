@@ -2,12 +2,29 @@ from unittest.mock import MagicMock, patch
 
 from plugin.doc.text_helpers import (
     _visible_portions,
+    clone_text_range,
     get_document_path,
     get_full_writer_text,
     get_string_without_tracked_deletions,
     normalize_file_url,
     normalize_linebreaks,
 )
+
+
+def test_clone_text_range_uses_range_own_xtext():
+    """Must not clone through the body XText — that fails inside table cells."""
+    own = MagicMock()
+    cloned = MagicMock(name="cloned")
+    own.createTextCursorByRange.return_value = cloned
+    rng = MagicMock()
+    rng.getText.return_value = own
+    body = MagicMock()
+    body.createTextCursorByRange.side_effect = RuntimeError(
+        "End of content node doesn't have the proper start node"
+    )
+    assert clone_text_range(rng) is cloned
+    own.createTextCursorByRange.assert_called_once_with(rng)
+    body.createTextCursorByRange.assert_not_called()
 
 
 def test_normalize_linebreaks():
