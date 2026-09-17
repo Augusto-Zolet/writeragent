@@ -70,13 +70,20 @@ def log_cors_preflight(handler, path: str) -> None:
         "reflect" if allow_origin else "omit",
         merge_allow_headers(requested_headers),
     )
-    if origin and not allow_origin:
-        log.warning(
-            "[MCP-CORS] OPTIONS %s: Origin %r is not allowed — browser will block POST (no Access-Control-Allow-Origin). "
-            "Enable mcp.cors_allow_private_origins or add the origin to mcp.cors_allowed_origins in writeragent.json.",
-            path,
-            origin,
-        )
+
+
+def log_forbidden_origin(handler) -> None:
+    """Origin present and not on the allow list — request rejected with HTTP 403."""
+    origin = _header(handler, "Origin")
+    method = handler.command if hasattr(handler, "command") else "?"
+    path = getattr(handler, "path", "?")
+    log.warning(
+        "[MCP-CORS] %s %s: Origin %r forbidden — HTTP 403 (no Access-Control-*). "
+        "Enable mcp.cors_allow_private_origins or add the origin to mcp.cors_allowed_origins in writeragent.json.",
+        method,
+        path,
+        origin,
+    )
 
 
 def log_mcp_transport_entry(handler, transport: str) -> None:

@@ -106,13 +106,13 @@ Browser MCP clients send an `Origin` header (e.g. `https://localai.local`). The 
 
 Homelab / LocalAI setups typically need **no** entries in `mcp.cors_allowed_origins`. Implementation: [`plugin/mcp/cors.py`](../plugin/mcp/cors.py).
 
-**Session (shipped):** One `Mcp-Session-Id` for the whole soffice process, minted on first successful `initialize` and never rotated. `DELETE /mcp` returns **405** (`Allow: GET, POST, OPTIONS`) and does **not** terminate that id — every client shares it. A later POST/GET whose `Mcp-Session-Id` does not match (LibreOffice restarted, or a second `initialize` used to rotate the id) returns **HTTP 404** JSON-RPC `INVALID_REQUEST` (“Session expired… Call initialize again.”). Spec clients recover on 404, not 409. Missing session header is still allowed (CLI / curl / first contact). `initialize` with a stale or missing id is always allowed.
+**Origin ACL (shipped):** If `Origin` is present and **not** `is_safe_origin()`, every method and path (`/mcp`, `/health`, `/debug`, …) returns **HTTP 403**, empty body, **no** `Access-Control-*` headers. Requests with **no** `Origin` (Claude Code, curl, most MCP clients) are unchanged. Loopback and private/LAN defaults stay as above — this is not Nelson’s empty allow list. Implementation: `origin_is_forbidden` / `reject_forbidden_origin` in [`plugin/mcp/cors.py`](../plugin/mcp/cors.py). Tests: [`tests/mcp/test_cors.py`](../tests/mcp/test_cors.py).
 
-**Planned (not shipped):** HTTP 403 when `Origin` is present and not safe (today the request still runs; ACAO is only omitted). Implementation brief: [`mcp-nelson-014-selected-ports.md`](mcp-nelson-014-selected-ports.md).
+**Session (shipped):** One `Mcp-Session-Id` for the whole soffice process, minted on first successful `initialize` and never rotated. `DELETE /mcp` returns **405** (`Allow: GET, POST, OPTIONS`) and does **not** terminate that id — every client shares it. A later POST/GET whose `Mcp-Session-Id` does not match (LibreOffice restarted, or a second `initialize` used to rotate the id) returns **HTTP 404** JSON-RPC `INVALID_REQUEST` (“Session expired… Call initialize again.”). Spec clients recover on 404, not 409. Missing session header is still allowed (CLI / curl / first contact). `initialize` with a stale or missing id is always allowed.
 
 **Troubleshooting — OPTIONS succeeds but MCP never connects**
 
-1. In the browser Network tab, confirm a **`POST /mcp`** appears **after** OPTIONS. If POST is missing, the browser rejected preflight (wrong `Allow-Headers`, missing `Allow-Origin`, or non-loopback `Origin`).
+1. In the browser Network tab, confirm OPTIONS is **204** (not **403**) and a **`POST /mcp`** appears after it. **403** means `Origin` is present and not on the allow list. If OPTIONS is 204 but POST is missing, the browser rejected preflight (wrong `Allow-Headers` or missing `Allow-Origin`).
 2. On POST, check response headers include **`Mcp-Session-Id`** (after `initialize`) and **`Mcp-Protocol-Version`**, and that **`Access-Control-Expose-Headers`** lists both (otherwise JS cannot read them).
 3. Ensure the client URL includes the **`/mcp`** path and MCP is enabled in Settings.
 
@@ -120,7 +120,7 @@ Homelab / LocalAI setups typically need **no** entries in `mcp.cors_allowed_orig
 
 | Log line | Meaning |
 |----------|---------|
-| `[MCP-CORS] OPTIONS /mcp … safe=False` or `allow_origin=omit` | Origin not allowed — enable `mcp.cors_allow_private_origins` or add host to `mcp.cors_allowed_origins` in `writeragent.json`. |
+| `[MCP-CORS] … Origin … forbidden — HTTP 403` | Origin present and not allowed — enable `mcp.cors_allow_private_origins` or add host to `mcp.cors_allowed_origins` in `writeragent.json`. |
 | `[MCP-CORS] OPTIONS /mcp` only, **no** `[MCP-HTTP] POST /mcp` | Preflight reached server; **POST never arrived** (CORS or client config). |
 | `[MCP-HTTP] POST /mcp` but **no** `[MCP] <<< initialize` | POST hit HTTP layer then failed parsing, routing, or protocol version (see `rejected unsupported Mcp-Protocol-Version`). |
 | `[MCP-HTTP] POST /mcp` + `[MCP] <<< initialize` + `[MCP] >>> initialize -> 200` | Server side OK; failure is likely in the host app reading session headers or later JSON-RPC calls. |

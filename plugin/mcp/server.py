@@ -38,7 +38,7 @@ from typing import Any, cast
 from plugin.framework.url_utils import get_url_path, get_url_query_dict
 from plugin.framework.errors import safe_json_loads
 from plugin.framework.worker_pool import run_in_background
-from plugin.mcp.cors import send_cors_headers
+from plugin.mcp.cors import reject_forbidden_origin, send_cors_headers
 from plugin.mcp.http_trace import log_cors_preflight, log_http_request, log_no_route
 
 log = logging.getLogger("writeragent.framework.http_server")
@@ -146,11 +146,15 @@ class GenericRequestHandler(BaseHTTPRequestHandler):
         self._dispatch("DELETE")
 
     def do_OPTIONS(self):
+        if reject_forbidden_origin(self):
+            return
         path = get_url_path(self.path)
         log_cors_preflight(self, path)
         write_http_empty(self, 204, extra_headers=lambda h: send_cors_headers(h, preflight=True))
 
     def _dispatch(self, method):
+        if reject_forbidden_origin(self):
+            return
         path = get_url_path(self.path)
         log_http_request(self, method, path)
         route = self.route_registry.match(method, path) if self.route_registry else None

@@ -265,6 +265,43 @@ def is_safe_origin(origin: str) -> bool:
     return False
 
 
+def origin_is_forbidden(handler) -> bool:
+    """True when Origin is present and not on the allow list.
+
+    Missing Origin is allowed (CLI / curl / most MCP clients). Do not call
+    ``is_safe_origin`` until the value passes ``_deal_origin_ok`` — junk or
+    huge Origins would raise ``deal.PreContractError`` into a 500.
+    """
+    origin = handler.headers.get("Origin")
+    if not origin:
+        return False
+    if not _deal_origin_ok(origin):
+        return True
+    return not is_safe_origin(origin)
+
+
+def reject_forbidden_origin(handler) -> bool:
+    """If Origin is present and unsafe, write 403 and return True.
+
+    Bug: CORS only omitted Access-Control-Allow-Origin for unsafe browser
+    Origins; OPTIONS still returned 204 and POST still ran JSON-RPC. A
+    non-preflighted or CORS-ignoring client could mutate. Nelson ca7c2d32
+    (0.13.0) 403s any present-and-unsafe Origin with no CORS headers so
+    the request never reaches a route. WriterAgent keeps loopback +
+    private/LAN defaults; only the already-unsafe set is refused.
+    """
+    if not origin_is_forbidden(handler):
+        return False
+    from plugin.mcp.http_trace import log_forbidden_origin
+
+    log_forbidden_origin(handler)
+    # No Access-Control-* — a reflected ACAO would let the browser read the 403.
+    handler.send_response(403)
+    handler.send_header("Content-Length", "0")
+    handler.end_headers()
+    return True
+
+
 @deal.pre(
     lambda access_control_request_headers: access_control_request_headers is None
     or _deal_allow_headers_ok(access_control_request_headers)

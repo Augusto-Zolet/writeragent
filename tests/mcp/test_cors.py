@@ -7,16 +7,20 @@
 # (at your option) any later version.
 
 import json
+import urllib.error
 import urllib.request
 
 import pytest
 
+import plugin.mcp.mcp_protocol as mcp_protocol
+from plugin.framework.deal_shim import DEAL_MAX_ORIGIN
 from plugin.mcp.cors import (
     is_private_browser_origin,
     is_safe_origin,
     merge_allow_headers,
     normalize_cors_origin,
     normalize_origins_list,
+    origin_is_forbidden,
     set_allow_private_origins,
     set_extra_allowed_origins,
 )
@@ -135,6 +139,26 @@ def test_is_safe_origin_ipv6_and_ports():
     assert not is_safe_origin("http://evil.localhost")
 
 
+class _OriginHandler:
+    def __init__(self, origin):
+        self.headers = {} if origin is None else {"Origin": origin}
+
+
+def test_origin_is_forbidden_missing_and_loopback():
+    assert origin_is_forbidden(_OriginHandler(None)) is False
+    assert origin_is_forbidden(_OriginHandler("")) is False
+    assert origin_is_forbidden(_OriginHandler("http://localhost:3000")) is False
+    assert origin_is_forbidden(_OriginHandler("http://127.0.0.1:8080")) is False
+
+
+def test_origin_is_forbidden_public_and_junk():
+    assert origin_is_forbidden(_OriginHandler("http://example.com")) is True
+    assert origin_is_forbidden(_OriginHandler("https://evil.example")) is True
+    # Alphabet / length fail _deal_origin_ok — must not raise into is_safe_origin.
+    assert origin_is_forbidden(_OriginHandler("http://example.com/?x")) is True
+    assert origin_is_forbidden(_OriginHandler("h" * (DEAL_MAX_ORIGIN + 1))) is True
+
+
 def _expose_headers(response) -> str:
     return response.headers.get("Access-Control-Expose-Headers", "")
 
@@ -227,6 +251,13 @@ def test_options_mcp_extra_allowed_origin(mcp_server):
         set_extra_allowed_origins([])
 
 
+def _assert_forbidden_origin(err: urllib.error.HTTPError) -> None:
+    assert err.code == 403
+    assert read_http_error_body(err) == b""
+    assert err.headers.get("Access-Control-Allow-Origin") is None
+    assert err.headers.get("Access-Control-Allow-Methods") is None
+
+
 def test_options_mcp_unsafe_origin_no_allow_origin(mcp_server):
     req = urllib.request.Request(
         f"{mcp_server}/mcp",
@@ -236,9 +267,84 @@ def test_options_mcp_unsafe_origin_no_allow_origin(mcp_server):
             "Access-Control-Request-Method": "POST",
         },
     )
+    with pytest.raises(urllib.error.HTTPError) as exc_info:
+        urllib.request.urlopen(req, timeout=5)
+    _assert_forbidden_origin(exc_info.value)
+
+
+def test_options_mcp_junk_origin_is_403_not_500(mcp_server):
+    req = urllib.request.Request(
+        f"{mcp_server}/mcp",
+        method="OPTIONS",
+        headers={
+            "Origin": "http://example.com/?x",
+            "Access-Control-Request-Method": "POST",
+        },
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc_info:
+        urllib.request.urlopen(req, timeout=5)
+    _assert_forbidden_origin(exc_info.value)
+
+
+def test_post_mcp_unsafe_origin_is_403_without_jsonrpc(mcp_server):
+    before = mcp_protocol._mcp_session_id
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {"protocolVersion": MCP_PROTOCOL_VERSION, "capabilities": {}, "clientInfo": {"name": "evil", "version": "0"}},
+    }
+    req = urllib.request.Request(
+        f"{mcp_server}/mcp",
+        method="POST",
+        data=json.dumps(payload).encode("utf-8"),
+    )
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Origin", "https://evil.example")
+    with pytest.raises(urllib.error.HTTPError) as exc_info:
+        urllib.request.urlopen(req, timeout=5)
+    err = exc_info.value
+    _assert_forbidden_origin(err)
+    assert err.headers.get("Mcp-Session-Id") is None
+    assert mcp_protocol._mcp_session_id == before
+
+
+def test_post_mcp_no_origin_still_succeeds(mcp_server):
+    payload = {"jsonrpc": "2.0", "id": 1, "method": "ping"}
+    req = urllib.request.Request(
+        f"{mcp_server}/mcp",
+        method="POST",
+        data=json.dumps(payload).encode("utf-8"),
+    )
+    req.add_header("Content-Type", "application/json")
     with urllib.request.urlopen(req, timeout=5) as response:
-        assert response.status == 204
-        assert response.headers.get("Access-Control-Allow-Origin") is None
+        assert response.status == 200
+        body = json.loads(response.read().decode("utf-8"))
+        assert body.get("result") == {}
+
+
+def test_get_health_unsafe_origin_is_403(mcp_server):
+    req = urllib.request.Request(
+        f"{mcp_server}/health",
+        method="GET",
+        headers={"Origin": "https://evil.example"},
+    )
+    with pytest.raises(urllib.error.HTTPError) as exc_info:
+        urllib.request.urlopen(req, timeout=5)
+    _assert_forbidden_origin(exc_info.value)
+
+
+def test_post_debug_unsafe_origin_is_403(mcp_server):
+    req = urllib.request.Request(
+        f"{mcp_server}/debug",
+        method="POST",
+        data=json.dumps({"action": "services"}).encode("utf-8"),
+    )
+    req.add_header("Content-Type", "application/json")
+    req.add_header("Origin", "https://evil.example")
+    with pytest.raises(urllib.error.HTTPError) as exc_info:
+        urllib.request.urlopen(req, timeout=5)
+    _assert_forbidden_origin(exc_info.value)
 
 
 def test_options_mcp_no_origin_header(mcp_server):
