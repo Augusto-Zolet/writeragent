@@ -268,6 +268,72 @@ def test_wait_while_pumping_under_drain_owner_still_waits():
     toolkit.processEventsToIdle.assert_not_called()
 
 
+def test_wait_while_pumping_off_main_posts_instead_of_pe2i():
+    """Writer doProofreading is Dummy-*; PE2I on that stack is a thread violation."""
+    from plugin.framework.uno_context import wait_while_pumping
+
+    done = threading.Event()
+    posts: list[object] = []
+    pe2i_threads: list[str] = []
+    result: dict[str, bool] = {}
+
+    def _pe2i(_ctx: object, rounds: int = 1, force: bool = False) -> bool:
+        del rounds, force
+        pe2i_threads.append(threading.current_thread().name)
+        return True
+
+    def _post(fn: object, *args: object, **kwargs: object) -> None:
+        del args, kwargs
+        posts.append(fn)
+        done.set()
+
+    def _waiter() -> None:
+        with (
+            patch("plugin.framework.uno_context.process_events_to_idle", side_effect=_pe2i),
+            patch("plugin.framework.queue_executor.post_to_main_thread", side_effect=_post),
+        ):
+            result["ok"] = wait_while_pumping(done, MagicMock(), timeout=1.0, poll_sec=0.01)
+
+    worker = threading.Thread(target=_waiter, name="Dummy-21")
+    worker.start()
+    worker.join(timeout=2.0)
+    assert result.get("ok") is True
+    assert posts
+    assert pe2i_threads == []
+
+
+def test_wait_while_pumping_off_main_post_fallback_skips_pe2i():
+    """QueueExecutor.post can run the callback on the waiter; still no PE2I off-main."""
+    from plugin.framework.uno_context import wait_while_pumping
+
+    done = threading.Event()
+    pe2i_threads: list[str] = []
+    result: dict[str, bool] = {}
+
+    def _pe2i(_ctx: object, rounds: int = 1, force: bool = False) -> bool:
+        del rounds, force
+        pe2i_threads.append(threading.current_thread().name)
+        return True
+
+    def _post(fn: object, *args: object, **kwargs: object) -> None:
+        del args, kwargs
+        fn()  # type: ignore[operator]
+        done.set()
+
+    def _waiter() -> None:
+        with (
+            patch("plugin.framework.uno_context.process_events_to_idle", side_effect=_pe2i),
+            patch("plugin.framework.queue_executor.post_to_main_thread", side_effect=_post),
+        ):
+            result["ok"] = wait_while_pumping(done, MagicMock(), timeout=1.0, poll_sec=0.01)
+
+    worker = threading.Thread(target=_waiter, name="Dummy-21")
+    worker.start()
+    worker.join(timeout=2.0)
+    assert result.get("ok") is True
+    assert pe2i_threads == []
+
+
 def test_resolve_package_extension_id_prefers_librepy():
     from plugin.framework.constants import EXTENSION_ID_LIBREPY
     from plugin.framework.uno_context import (

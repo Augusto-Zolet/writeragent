@@ -38,7 +38,7 @@ Module: [`plugin/framework/uno_context.py`](../../plugin/framework/uno_context.p
 | `get_desktop` | `com.sun.star.frame.Desktop` from the extension context. |
 | `get_toolkit` | `com.sun.star.awt.Toolkit` (event pump / focus). |
 | `process_events_to_idle` | Drain VCL via the approved toolkit pump (skips when a chat/MCP drain owner is active). |
-| `wait_while_pumping` | Secondary wait loop: PE2I (`force=False`) then a short `Event.wait` until done or timeout. Drain-owner waits stay on `pump_ui_idle` / `run_blocking_in_thread`. |
+| `wait_while_pumping` | Secondary wait loop: PE2I (`force=False`) on the VCL thread, else **post** PE2I to main (Writer linguistic `Dummy-*` waiters). Drain-owner waits stay on `pump_ui_idle` / `run_blocking_in_thread`. |
 | `get_package_info` | `PackageInformationProvider` singleton. |
 | `set_package_extension_id` / `resolve_package_extension_id` | Pin / detect LibrePy vs WriterAgent vs LibreHarper OXT id. |
 | `get_extension_url` | Package location URL, else `vnd.sun.star.extension://<id>`. |

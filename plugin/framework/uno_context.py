@@ -642,6 +642,20 @@ def process_events_to_idle(ctx, rounds: int = 1, force: bool = False) -> bool:
     return pumped
 
 
+def _post_secondary_idle(ctx: Any) -> None:
+    """Enqueue one PE2I tick on the VCL thread. Must not run PE2I on the waiter."""
+    from plugin.framework.queue_executor import post_to_main_thread
+
+    def _pump() -> None:
+        # QueueExecutor.post can fall back onto the caller when AsyncCallback
+        # is missing. process_events_to_idle is @main_thread_only — skip.
+        if not on_main_thread():
+            return
+        process_events_to_idle(ctx, force=False)
+
+    post_to_main_thread(_pump)
+
+
 def wait_while_pumping(
     done: "threading.Event",
     ctx: Any,
@@ -651,23 +665,31 @@ def wait_while_pumping(
 ) -> bool:
     """Wait for *done* while pumping VCL as a secondary caller.
 
-    Each tick calls :func:`process_events_to_idle` with ``force=False`` so a
-    chat/MCP drain owner suppresses nested VCL. Drain-owner wait loops must
-    keep using :func:`~plugin.framework.queue_executor.pump_ui_idle` /
+    On the LibreOffice main thread, each tick calls :func:`process_events_to_idle`
+    with ``force=False`` so a chat/MCP drain owner suppresses nested VCL.
+    Off the main thread (Writer ``doProofreading`` linguistic workers are
+    ``Dummy-*``, not VCL) PE2I is **posted** to the main thread — never called
+    on the waiter. Calling PE2I on Dummy-21 popped a UNO thread-violation
+    dialog every poll tick (the wait loop from #778). Drain-owner wait loops
+    must keep using :func:`~plugin.framework.queue_executor.pump_ui_idle` /
     ``run_blocking_in_thread``, not this helper.
 
     Default *poll_sec* is 75ms (stay inside 50–100ms; same band as the
     linguistic PE2I-in-proofread wait). Returns True if *done* was set, False
-    if *timeout* elapsed first. PE2I failures (thread-guard, missing toolkit)
-    are swallowed so a pump miss cannot abort the wait.
+    if *timeout* elapsed first. Post/PE2I failures are swallowed so a pump
+    miss cannot abort the wait.
     """
+    pump_on_caller = on_main_thread()
     deadline = time.monotonic() + max(0.0, timeout)
     while not done.is_set():
         remaining = deadline - time.monotonic()
         if remaining <= 0:
             return False
         try:
-            process_events_to_idle(ctx, force=False)
+            if pump_on_caller:
+                process_events_to_idle(ctx, force=False)
+            else:
+                _post_secondary_idle(ctx)
         except Exception:
             log.debug("wait_while_pumping process_events_to_idle failed", exc_info=True)
         if done.is_set():

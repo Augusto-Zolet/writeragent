@@ -553,11 +553,14 @@ def harper_try_lint(text: str, user_config_dir: str, bcp47: str = "en-US", *, ct
 
     When ``ctx`` is set (``doProofreading``), the blocking LSP wait runs on a
     dedicated worker and the caller uses ``wait_while_pumping`` so typing stays
-    alive. Nested ``doProofreading`` / ``harper_try_lint`` while that wait is
-    active fail soft (``None``) and log ``harper_wait_reenter``. Missing
-    ``ctx`` falls back to a blocking wait (no pump). Grammar-queue
-    ``run_harper_check`` does not pass ``ctx``: that thread is already a
-    worker and paints status via ``_pump_grammar_status_ui``.
+    alive. Writer runs ``doProofreading`` on a linguistic worker (``Dummy-*``),
+    not VCL: the helper posts PE2I to the main thread instead of pumping on
+    this stack (in-loop PE2I there was a thread-violation dialog). Nested
+    ``doProofreading`` / ``harper_try_lint`` while that wait is active fail
+    soft (``None``) and log ``harper_wait_reenter``. Missing ``ctx`` falls
+    back to a blocking wait (no pump). Grammar-queue ``run_harper_check``
+    does not pass ``ctx``: that thread is already a worker and paints status
+    via ``_pump_grammar_status_ui``.
     """
     from plugin.writer.locale.grammar_obs import grammar_obs
 
