@@ -24,6 +24,7 @@ import logging
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.service import ServiceBase
 from typing import Any
+from plugin.doc.document_helpers import is_cacheable_doc_key
 from plugin.doc.text_helpers import get_string_without_tracked_deletions
 
 
@@ -42,12 +43,16 @@ class TreeService(ServiceBase):
         self._tree_cache = {}  # doc_key -> root node
         events.subscribe("document:cache_invalidated", self._on_cache_invalidated)
 
-    def _on_cache_invalidated(self, doc=None, **_kw):
-        if doc is None:
+    def _on_cache_invalidated(self, doc=None, key=None, **_kw):
+        # Prefer the stored key so close/unload can pop without calling
+        # doc_key() on a disposed model. key= must be checked before
+        # doc is None (emit(key=...) leaves doc defaulted to None).
+        if key is not None:
+            self._tree_cache.pop(key, None)
+        elif doc is None:
             self._tree_cache.clear()
         else:
-            key = self._doc_svc.doc_key(doc)
-            self._tree_cache.pop(key, None)
+            self._tree_cache.pop(self._doc_svc.doc_key(doc), None)
 
     # ── Tree building ──────────────────────────────────────────────
 
@@ -59,7 +64,7 @@ class TreeService(ServiceBase):
              "children": [...], "body_paragraphs": N}
         """
         key = self._doc_svc.doc_key(doc)
-        if key in self._tree_cache:
+        if is_cacheable_doc_key(key) and key in self._tree_cache:
             return self._tree_cache[key]
 
         text = doc.getText()
@@ -93,7 +98,8 @@ class TreeService(ServiceBase):
             para_index += 1
             self._doc_svc.yield_to_gui()
 
-        self._tree_cache[key] = root
+        if is_cacheable_doc_key(key):
+            self._tree_cache[key] = root
         return root
 
     def _count_all_children(self, node):

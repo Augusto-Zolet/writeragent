@@ -28,6 +28,7 @@ import unicodedata
 
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.service import ServiceBase
+from plugin.doc.document_helpers import is_cacheable_doc_key
 from plugin.writer.locale.stop_words import STOP_WORDS as _STOP_WORDS
 from plugin.writer.locale.stop_words import STOP_WORDS_FALLBACK as _STOP_WORDS_FALLBACK
 from plugin.doc.text_helpers import get_string_without_tracked_deletions
@@ -183,8 +184,11 @@ class IndexService(ServiceBase):
         self._stemmers = {}  # lang -> StemmerInstance
         events.subscribe("document:cache_invalidated", self._on_cache_invalidated)
 
-    def _on_cache_invalidated(self, doc=None, **_kw):
-        if doc is None:
+    def _on_cache_invalidated(self, doc=None, key=None, **_kw):
+        # key= first: close/unload emits the stored key without a live model.
+        if key is not None:
+            self._cache.pop(key, None)
+        elif doc is None:
             self._cache.clear()
         else:
             self._cache.pop(self._doc_svc.doc_key(doc), None)
@@ -230,9 +234,10 @@ class IndexService(ServiceBase):
     def _get_index(self, doc):
         """Get or build the inverted index. Returns (index, was_cached)."""
         key = self._doc_svc.doc_key(doc)
-        cached = self._cache.get(key)
-        if cached is not None:
-            return cached, True
+        if is_cacheable_doc_key(key):
+            cached = self._cache.get(key)
+            if cached is not None:
+                return cached, True
 
         t0 = time.perf_counter()
         lang = self._detect_language(doc)
@@ -267,7 +272,8 @@ class IndexService(ServiceBase):
 
         idx.para_count = para_i
         idx.build_ms = round((time.perf_counter() - t0) * 1000, 1)
-        self._cache[key] = idx
+        if is_cacheable_doc_key(key):
+            self._cache[key] = idx
         log.info("Index built [%s]: %d paras, %d stems, %.1fms", lang, para_i, len(idx.terms), idx.build_ms)
         return idx, False
 

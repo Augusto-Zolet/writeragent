@@ -429,7 +429,7 @@ The MCP server is **implemented and opt-in** (default off). Live summary (paths 
   - **Preferred:** `document_url` in `tools/call` arguments (popped before tool dispatch). Best for multi-document clients (Cursor, Hermes, custom agents).
   - **Fallback:** `X-Document-URL` HTTP header.
   - **RuntimeUID:** `document_url` may be a file URL **or** session `RuntimeUID` (untitled docs). Discover via `list_open_documents` (`url` + `uid`).
-  - **Per-result echo / mutation gates:** resolved target echoed as `document: {name, uid}` when the tool does not supply its own; concurrent mutating calls serialize per `uid:` / `url:` key. See `_resolve_mcp_doc_key` / `_mcp_tools_call` in `mcp_protocol.py`.
+  - **Per-result echo / mutation gates:** resolved target echoed as `document: {name, uid}` when the tool does not supply its own; concurrent mutating calls serialize per `uid:` / `url:` key. See `_resolve_mcp_doc_key` / `_mcp_tools_call` in `mcp_protocol.py`. Writer heading-tree / proximity / FTS caches share that `uid:` / `url:` identity (`DocumentService.doc_key`); document edits and unload emit `document:cache_invalidated`.
   - Companion guidance: https://github.com/KeithCu/cursor-libreoffice , https://github.com/KeithCu/libreoffice-skill
 - **Config:** `mcp.mcp_enabled` (default false), `mcp.mcp_port` (default **18765**) in [`plugin/framework/config.py`](../plugin/framework/config.py) / `writeragent.json`.
 - **UI:** Settings Page 1 (enable + port); menu Toggle / Status under WriterAgent; auto-start when Settings saves with MCP enabled.

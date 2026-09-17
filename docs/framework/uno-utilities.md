@@ -116,7 +116,7 @@ Module: [`plugin/doc/document_helpers.py`](../../plugin/doc/document_helpers.py)
 | `get_document_context_for_chat` | module function + `get_ctx()` |
 | `get_paragraph_ranges` / `find_paragraph_for_range` / `resolve_locator` | `paragraph_search` / module `resolve_locator` |
 
-`get_page_for_paragraph` / `get_page_count` are Writer view-cursor walks (lockControllers + restore). `doc_key` is `id(doc)` — **not** RuntimeUID (see overlap).
+`get_page_for_paragraph` / `get_page_count` are Writer view-cursor walks (lockControllers + restore). `doc_key` is `uid:<RuntimeUID>` then `url:<normalized>` (same shape as MCP `_resolve_mcp_doc_key`); empty both → `"unknown"` and do not cache.
 
 ### 1.5 Type guards
 
@@ -301,7 +301,7 @@ Untitled documents have `getURL() == ""`. Identity then **must** use RuntimeUID.
 | `get_document_path` | Returns `None` (not a `file:` URL after repair). |
 | `document_scripts_identity` | Empty string for untitled (URL-only; **no** uid). |
 | MCP `_resolve_mcp_doc_key` | Prefers `uid:<RuntimeUID>`; else `url:<normalized>`; else active-document sentinel. Survives Save As. |
-| `DocumentService.doc_key` | `id(doc)` — proxy-unsafe; **not** uid. |
+| `DocumentService.doc_key` | Prefers `uid:<RuntimeUID>`; else `url:<normalized>`; else `"unknown"` (do not cache). Survives Save As. Modify + `OnUnload` emit `document:cache_invalidated`. |
 | `_is_same_document` | Compares RuntimeUID first (guard proxies break `==`). |
 
 `plugin/framework/tool.py` documents `document_url` as “URL or RuntimeUID from `list_open_documents`”.
@@ -453,7 +453,7 @@ Unifying `detect_doc_type` onto `doc_type_label_for_enum` would change unknown �
 
 **Document identity keys**
 
-`get_runtime_uid` (session-stable) vs `DocumentService.doc_key` (`id(doc)`, breaks across guard proxies) vs `document_scripts_identity` (URL only, empty if untitled). `_is_same_document` already documents why `==` fails on guard builds.
+`get_runtime_uid` (session-stable) vs `DocumentService.doc_key` (`uid:` / `url:`, same as MCP) vs `document_scripts_identity` (URL only, empty if untitled). `_is_same_document` already documents why `==` fails on guard builds.
 
 **Property existence**
 
@@ -511,7 +511,7 @@ Do **not** re-merge a monolithic `uno_helpers.py`. Prefer the smallest existing 
 10. GraphicProvider icon load: `main.py` vs `librepy/sidebar_menus.py` (LibrePy’s filesystem fallback is the extra behavior).
 11. Point remaining `uno.systemPathToFileUrl` image/math sites at the P1 helper **after** a Windows smoke check.
 12. Notebook `file://` strip fallback → same URL→path helper.
-13. `DocumentService.doc_key` → `get_runtime_uid` (or uid-or-url like MCP). This is a behavior change for any cache keyed on `id(doc)`.
+13. `DocumentService.doc_key` → `get_runtime_uid` (or uid-or-url like MCP). **Landed.** Tree / proximity / FTS caches key on `uid:` / `url:`; modify and unload emit `document:cache_invalidated`. Tests: `tests/writer/test_document_helpers.py`, `tests/writer/test_tree.py`, `tests/writer/test_tree_uno.py`.
 14. Promote `uno_context._normalize_doc_url` to public name when P1 lands. **Landed** as `normalize_doc_url`.
 
 ### Explicit non-goals for later refactors

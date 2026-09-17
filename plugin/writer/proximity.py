@@ -25,6 +25,7 @@ import logging
 
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.service import ServiceBase
+from plugin.doc.document_helpers import is_cacheable_doc_key
 import typing
 
 
@@ -44,8 +45,11 @@ class ProximityService(ServiceBase):
         self._flat_cache = {}  # doc_key -> [flat entries]
         events.subscribe("document:cache_invalidated", self._on_cache_invalidated)
 
-    def _on_cache_invalidated(self, doc=None, **_kw):
-        if doc is None:
+    def _on_cache_invalidated(self, doc=None, key=None, **_kw):
+        # key= first: close/unload emits the stored key without a live model.
+        if key is not None:
+            self._flat_cache.pop(key, None)
+        elif doc is None:
             self._flat_cache.clear()
         else:
             self._flat_cache.pop(self._doc_svc.doc_key(doc), None)
@@ -56,12 +60,13 @@ class ProximityService(ServiceBase):
 
     def _flatten_tree(self, root, doc):
         key = self._doc_svc.doc_key(doc)
-        if key in self._flat_cache:
+        if is_cacheable_doc_key(key) and key in self._flat_cache:
             return self._flat_cache[key]
 
         flat = []
         self._flatten_recurse(root["children"], None, flat)
-        self._flat_cache[key] = flat
+        if is_cacheable_doc_key(key):
+            self._flat_cache[key] = flat
         return flat
 
     def _flatten_recurse(self, children, parent_entry, flat):

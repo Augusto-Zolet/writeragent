@@ -27,6 +27,9 @@ re-export of ``get_calc_context_for_chat`` would pull ``SheetAnalyzer`` at
 import time and break LibrePy.
 """
 import logging
+import weakref
+from contextlib import contextmanager
+from typing import Any, cast
 
 from plugin.doc import doc_type as _doc_type
 from plugin.doc import text_helpers as _text_helpers
@@ -42,7 +45,41 @@ from plugin.framework.errors import (
 )
 from plugin.framework.service import ServiceBase
 from plugin.framework.thread_guard import main_thread_only
-from plugin.framework.uno_context import get_active_document, get_ctx, resolve_document_by_url as _resolve_document_by_url
+from plugin.framework.uno_context import (
+    get_active_document,
+    get_ctx,
+    get_runtime_uid,
+    normalize_doc_url,
+    resolve_document_by_url as _resolve_document_by_url,
+)
+log = logging.getLogger("writeragent.document")
+
+# Cache key when RuntimeUID and URL are both missing. Must not collide across
+# docs — callers must not store under this sentinel (see is_cacheable_doc_key).
+UNKNOWN_DOC_KEY = "unknown"
+
+# One modify+unload pair per open document, keyed by doc_key (not id(doc)).
+# Module-level so extra DocumentService() objects in tests do not double-attach.
+_CACHE_LISTENERS: dict[str, "_CacheListenerPair"] = {}
+_IGNORE_DEPTH = 0
+
+# Do not import uno_listeners here: that module imports unohelper at load,
+# which breaks the isolated document_helpers import (LibrePy / no soffice).
+_unohelper: Any = None
+_XDocumentEventListener: Any = object
+_XModifyListener: Any = object
+_HAVE_UNO_LISTENERS = False
+try:
+    import unohelper as _unohelper_impl
+    from com.sun.star.document import XDocumentEventListener as _XDocumentEventListener_impl
+    from com.sun.star.util import XModifyListener as _XModifyListener_impl
+
+    _unohelper = _unohelper_impl
+    _XDocumentEventListener = _XDocumentEventListener_impl
+    _XModifyListener = _XModifyListener_impl
+    _HAVE_UNO_LISTENERS = True
+except Exception:
+    pass
 
 
 @main_thread_only
@@ -255,6 +292,164 @@ def resolve_locator(model, locator: str):
     return {"para_index": 0}
 
 
+def is_cacheable_doc_key(key: str) -> bool:
+    """False for the empty-identity sentinel — do not store or attach listeners."""
+    return bool(key) and key != UNKNOWN_DOC_KEY
+
+
+def _compute_doc_key(doc) -> str:
+    """uid:<RuntimeUID> then url:<normalized>; never id(doc)."""
+    if doc is None:
+        return UNKNOWN_DOC_KEY
+    uid = get_runtime_uid(doc)
+    if uid:
+        return "uid:%s" % uid
+    try:
+        raw = doc.getURL()
+    except Exception:
+        raw = ""
+    url = normalize_doc_url(raw) if isinstance(raw, str) else ""
+    if url:
+        return "url:%s" % url
+    return UNKNOWN_DOC_KEY
+
+
+def _emit_cache_invalidated(*, doc=None, key=None) -> None:
+    from plugin.framework.event_bus import get_event_bus
+
+    payload: dict[str, Any] = {}
+    if key is not None:
+        payload["key"] = key
+    if doc is not None:
+        payload["doc"] = doc
+    get_event_bus().emit("document:cache_invalidated", **payload)
+
+
+class _CacheListenerPair:
+    def __init__(self, key: str, modify: Any, unload: Any, model: Any) -> None:
+        self.key = key
+        self.modify = modify
+        self.unload = unload
+        try:
+            self._model_ref: Any = weakref.ref(model)
+        except TypeError:
+            self._model_ref = None
+            self._model = model
+
+    def model(self):
+        if self._model_ref is not None:
+            return self._model_ref()
+        return getattr(self, "_model", None)
+
+
+class _CacheModifyListener:
+    """Drops Writer tree / proximity / FTS caches when the model changes.
+
+    PyUNO wrappers are not stable identity (see doc_key). Store the key at
+    attach so disposing() can emit without calling getURL() / RuntimeUID on a
+    half-dead model.
+    """
+
+    def __init__(self, key: str) -> None:
+        self._doc_key_val = key
+
+    def modified(self, aEvent) -> None:  # noqa: N802, N803 -- UNO signature
+        try:
+            if _IGNORE_DEPTH > 0:
+                return
+            model = getattr(aEvent, "Source", None)
+            _emit_cache_invalidated(doc=model)
+        except Exception:
+            log.debug("cache invalidate modify handler failed", exc_info=True)
+
+    def disposing(self, Source) -> None:  # noqa: N802, N803 -- UNO signature
+        _teardown_cache_listener(self._doc_key_val, owner_modify=self)
+
+
+class _CacheUnloadListener:
+    def __init__(self, key: str) -> None:
+        self._doc_key_val = key
+
+    def documentEventOccured(self, Event: Any) -> None:  # noqa: N802, N803 -- UNO spelling
+        try:
+            name = getattr(Event, "EventName", "") or ""
+            if name == "OnUnload":
+                _teardown_cache_listener(self._doc_key_val, owner_unload=self)
+        except Exception:
+            log.debug("cache invalidate unload handler failed", exc_info=True)
+
+    def disposing(self, Source: Any) -> None:  # noqa: N802, N803 -- UNO signature
+        _teardown_cache_listener(self._doc_key_val, owner_unload=self)
+
+
+def _teardown_cache_listener(key: str, owner_modify=None, owner_unload=None) -> None:
+    pair = _CACHE_LISTENERS.get(key)
+    if pair is None:
+        return
+    # Recycled RuntimeUID: a late disposing() from the old listener must not
+    # evict the newer pair (review_toolbar._ReviewModifyListener).
+    if owner_modify is not None and pair.modify is not owner_modify:
+        return
+    if owner_unload is not None and pair.unload is not owner_unload:
+        return
+    popped = _CACHE_LISTENERS.pop(key, None)
+    if popped is None:
+        return
+    _emit_cache_invalidated(key=key)
+    model = popped.model()
+    if model is None:
+        return
+    try:
+        if hasattr(model, "removeModifyListener"):
+            model.removeModifyListener(popped.modify)
+    except Exception:
+        log.debug("cache modify listener removal failed", exc_info=True)
+    try:
+        if hasattr(model, "removeDocumentEventListener"):
+            model.removeDocumentEventListener(popped.unload)
+    except Exception:
+        log.debug("cache unload listener removal failed", exc_info=True)
+
+
+def _uno_listener(logic_cls, iface: Any, key: str) -> Any:
+    """Attach-time UNO subclass so module import stays soffice-free."""
+    if not _HAVE_UNO_LISTENERS:
+        return logic_cls(key)
+    base = cast("Any", _unohelper).Base
+    cls = type("_UnoCacheListener", (base, iface, logic_cls), {})
+    return cls(key)
+
+
+def _ensure_cache_listener(doc, key: str) -> None:
+    if key in _CACHE_LISTENERS:
+        return
+    can_modify = hasattr(doc, "addModifyListener")
+    can_unload = hasattr(doc, "addDocumentEventListener")
+    if not can_modify and not can_unload:
+        return
+    modify = _uno_listener(_CacheModifyListener, _XModifyListener, key)
+    unload = _uno_listener(_CacheUnloadListener, _XDocumentEventListener, key)
+    try:
+        if can_modify:
+            doc.addModifyListener(modify)
+        if can_unload:
+            doc.addDocumentEventListener(unload)
+    except Exception:
+        log.debug("cache listener registration failed", exc_info=True)
+        try:
+            if can_modify:
+                doc.removeModifyListener(modify)
+        except Exception:
+            pass
+        try:
+            if can_unload:
+                doc.removeDocumentEventListener(unload)
+        except Exception:
+            pass
+        return
+    _CACHE_LISTENERS[key] = _CacheListenerPair(key, modify, unload, doc)
+
+
 class DocumentService(ServiceBase):
     name = "document"
 
@@ -343,8 +538,35 @@ class DocumentService(ServiceBase):
             return 0
 
     def doc_key(self, doc):
-        """Return a stable key for the document for use in caches."""
-        return id(doc)
+        """Stable cache key for one open document.
+
+        PyUNO hands out a new Python wrapper on almost every lookup of the same
+        UNO document. Keying caches with ``id(doc)`` therefore almost never
+        hits; after GC, CPython can reuse that id and a lookup can return
+        another document's tree (or a disposed one). Nelson mcp ``039ade49`` /
+        ``e9d3aa36`` (#2642). RuntimeUID (then URL) matches MCP
+        ``_resolve_mcp_doc_key``. Empty both → ``UNKNOWN_DOC_KEY`` (do not
+        cache). First call lazily attaches one modify + OnUnload listener.
+        """
+        key = _compute_doc_key(doc)
+        if is_cacheable_doc_key(key):
+            _ensure_cache_listener(doc, key)
+        return key
+
+    @contextmanager
+    def ignore_cache_invalidation(self):
+        """Suppress modify-driven cache drops (reentrant).
+
+        Item 4 wraps ``_mcp_`` bookmark insert/strip so those mutations do not
+        thrash the heading tree. Nested ``with`` is required (strip then
+        restore during save). Queued modifies are dropped, not flushed.
+        """
+        global _IGNORE_DEPTH
+        _IGNORE_DEPTH += 1
+        try:
+            yield
+        finally:
+            _IGNORE_DEPTH -= 1
 
     def get_paragraph_ranges(self, doc):
         """Return list of top-level paragraph elements."""
