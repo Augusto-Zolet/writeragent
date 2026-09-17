@@ -16,20 +16,144 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """BookmarkService and tools for Writer documents."""
 
+from __future__ import annotations
+
+import contextlib
 import logging
 import uuid
 
+from plugin.doc.document_helpers import is_cacheable_doc_key
 from plugin.doc.paragraph_search import find_paragraph_for_range, get_paragraph_ranges
 from plugin.framework.service import ServiceBase
+from plugin.framework.uno_listeners import BaseDocumentEventListener
 from ..specialized_base import ToolWriterBookmarkBase
 
 log = logging.getLogger("writeragent.writer.nav.bookmarks")
+
+# In-flight strip records keyed by DocumentService.doc_key (uid: survives Save As).
+_PENDING_STRIPS: dict[str, _PendingStrip] = {}
+_SAVE_LISTENERS: dict[str, _BookmarkSaveListener] = {}
+# True while a save-hook strip/restore runs so ensure does not restore mid-write.
+_SAVE_HOOK_DEPTH = 0
+
+
+class _PendingStrip:
+    __slots__ = ("names", "was_modified", "doc")
+
+    def __init__(self, names, was_modified, doc):
+        self.names = dict(names)
+        self.was_modified = bool(was_modified)
+        self.doc = doc
+
+
+@contextlib.contextmanager
+def _in_save_hook():
+    global _SAVE_HOOK_DEPTH
+    _SAVE_HOOK_DEPTH += 1
+    try:
+        yield
+    finally:
+        _SAVE_HOOK_DEPTH -= 1
+
+
+class _BookmarkSaveListener(BaseDocumentEventListener):
+    """Strip ``_mcp_`` heading bookmarks just before the file is written.
+
+    Nelson ``4c92ea12`` / #2644: insert used to dirty the document, leave
+    undo steps, and persist agent locators into ``.odt`` / ``.docx``. Strip
+    on ``OnSave*`` (not only ``OnSaveDone``) so the written file is clean;
+    restore the same names after ``*Done``.
+    """
+
+    def __init__(self, svc: BookmarkService, doc_key: str) -> None:
+        super().__init__()
+        self._svc = svc
+        self._doc_key = doc_key
+
+    def on_document_event(self, Event) -> None:
+        try:
+            name = getattr(Event, "EventName", "") or ""
+        except Exception:
+            return
+        source = getattr(Event, "Source", None)
+        # storeToURL ("Save a Copy") is OnCopyTo / OnCopyToDone, not OnSaveTo.
+        # UI Save a Copy may still emit OnSaveTo; handle both.
+        if name in ("OnPrepareSave", "OnSave", "OnSaveAs", "OnSaveTo", "OnCopyTo"):
+            with _in_save_hook():
+                self._svc.strip_for_save(source)
+        elif name in ("OnSaveDone", "OnSaveAsDone"):
+            with _in_save_hook():
+                self._svc.restore_after_save(source, saved=True)
+        elif name in ("OnSaveToDone", "OnCopyToDone"):
+            with _in_save_hook():
+                self._svc.restore_after_save(source, saved=False)
+        elif name == "OnUnload":
+            self._svc._teardown_save_listener(self._doc_key, source)
+
+    def on_disposing(self, Source) -> None:
+        self._svc._teardown_save_listener(self._doc_key, Source)
 
 
 class BookmarkService(ServiceBase):
     """Manage _mcp_ bookmarks on headings for stable addressing."""
 
     name = "writer_bookmarks"
+
+    def __init__(self, services=None):
+        # Optional so unit/UNO tests can still call BookmarkService().
+        # ServiceRegistry passes the registry; document is used for
+        # ignore_cache_invalidation() and doc_key().
+        self._doc_svc = getattr(services, "document", None) if services is not None else None
+
+    def _doc_key(self, doc):
+        if self._doc_svc is not None:
+            return self._doc_svc.doc_key(doc)
+        from plugin.doc.document_helpers import _compute_doc_key
+
+        return _compute_doc_key(doc)
+
+    def _ignore_cache(self):
+        if self._doc_svc is not None:
+            return self._doc_svc.ignore_cache_invalidation()
+        return contextlib.nullcontext()
+
+    @contextlib.contextmanager
+    def _untracked(self, doc):
+        """Lock undo, ignore cache invalidation, restore isModified.
+
+        insertTextContent / removeTextContent mark the document modified and
+        push undo steps. Outline reads must not do either: a user who only
+        asked for the heading tree would see "Save changes?" and Ctrl+Z
+        would undo a bookmark instead of their last edit.
+        """
+        was = False
+        try:
+            was = bool(doc.isModified())
+        except Exception:
+            was = False
+        manager = None
+        try:
+            manager = doc.getUndoManager()
+            manager.lock()
+        except Exception:
+            manager = None
+        try:
+            with self._ignore_cache():
+                yield
+        finally:
+            if manager is not None:
+                try:
+                    manager.unlock()
+                except Exception:
+                    log.warning(
+                        "BookmarkService: undo manager unlock failed; the undo "
+                        "manager may be left locked",
+                        exc_info=True,
+                    )
+            try:
+                doc.setModified(was)
+            except Exception:
+                log.debug("BookmarkService: setModified(%s) failed", was, exc_info=True)
 
     def get_mcp_bookmark_map(self, doc):
         """Return {para_index: bookmark_name} for all _mcp_ bookmarks."""
@@ -58,7 +182,10 @@ class BookmarkService(ServiceBase):
 
     def ensure_heading_bookmarks(self, doc):
         """Ensure every heading has an _mcp_ bookmark. Returns map."""
+        if _SAVE_HOOK_DEPTH == 0:
+            self._restore_abandoned(doc)
         existing_map = self.get_mcp_bookmark_map(doc)
+
         text = doc.getText()
         enum = text.createEnumeration()
         para_index = 0
@@ -80,19 +207,16 @@ class BookmarkService(ServiceBase):
                         needs_bookmark.append((para_index, element.getStart()))
             para_index += 1
 
-        for para_idx, start_range in needs_bookmark:
-            bm_name = "_mcp_%s" % uuid.uuid4().hex[:8]
-            bookmark = doc.createInstance("com.sun.star.text.Bookmark")
-            bookmark.Name = bm_name
-            cursor = text.createTextCursorByRange(start_range)
-            text.insertTextContent(cursor, bookmark, False)
-            bookmark_map[para_idx] = bm_name
+        if needs_bookmark:
+            with self._untracked(doc):
+                for para_idx, start_range in needs_bookmark:
+                    bm_name = "_mcp_%s" % uuid.uuid4().hex[:8]
+                    if self._insert_named_bookmark(doc, text, bm_name, start_range):
+                        bookmark_map[para_idx] = bm_name
 
-        # Deliberately NO doc.store() here: this runs inside READ tools (get_document_tree,
-        # proximity reads), and saving would silently persist the user's unsaved manual edits
-        # and pending tracked changes to disk. The bookmarks live in the document model and are
-        # persisted whenever the USER next saves; on a discarded session they vanish with the
-        # rest of the unsaved state, which is exactly what not-saving means.
+        # No doc.store(): this runs inside READ tools. Locators stay in
+        # memory and are stripped from the next user Save.
+        self._ensure_save_listener(doc)
         return bookmark_map
 
     def find_nearest_heading_bookmark(self, para_index, bookmark_map):
@@ -105,28 +229,154 @@ class BookmarkService(ServiceBase):
             return {"bookmark": bookmark_map[best_idx], "heading_para_index": best_idx}
         return None
 
+    def _remove_mcp_bookmarks(self, doc):
+        """Remove all ``_mcp_*`` bookmarks. No undo/modified/cache handling."""
+        removed = 0
+        if not hasattr(doc, "getBookmarks"):
+            return removed
+        bookmarks = doc.getBookmarks()
+        names = bookmarks.getElementNames()
+        text = doc.getText()
+        for name in names:
+            if name.startswith("_mcp_"):
+                try:
+                    bm = bookmarks.getByName(name)
+                    text.removeTextContent(bm)
+                    removed += 1
+                except Exception:
+                    pass
+        return removed
+
     def cleanup_mcp_bookmarks(self, doc):
         """Remove all _mcp_* bookmarks from the document."""
         removed = 0
         try:
-            if not hasattr(doc, "getBookmarks"):
-                return removed
-            bookmarks = doc.getBookmarks()
-            names = bookmarks.getElementNames()
-            text = doc.getText()
-            for name in names:
-                if name.startswith("_mcp_"):
-                    try:
-                        bm = bookmarks.getByName(name)
-                        text.removeTextContent(bm)
-                        removed += 1
-                    except Exception:
-                        pass
-            # No doc.store() (same reason as ensure_heading_bookmarks: a maintenance path must
-            # never persist the user's unsaved work as a side effect).
+            with self._untracked(doc):
+                removed = self._remove_mcp_bookmarks(doc)
         except Exception:
             log.exception("Failed to cleanup bookmarks")
         return removed
+
+    def _insert_named_bookmark(self, doc, text, name, start_range):
+        """Insert a point bookmark. Skip and log on name collision."""
+        try:
+            if hasattr(doc, "getBookmarks") and doc.getBookmarks().hasByName(name):
+                log.info("Heading bookmark %s already exists; skip insert", name)
+                return False
+        except Exception:
+            pass
+        try:
+            bookmark = doc.createInstance("com.sun.star.text.Bookmark")
+            bookmark.Name = name
+            cursor = text.createTextCursorByRange(start_range)
+            text.insertTextContent(cursor, bookmark, False)
+            return True
+        except Exception:
+            log.exception("Failed to insert heading bookmark %s", name)
+            return False
+
+    def _pending_key(self, doc):
+        if doc is None:
+            return None
+        key = self._doc_key(doc)
+        if key in _PENDING_STRIPS:
+            return key
+        from plugin.framework.uno_context import uno_same
+
+        for stored_key, rec in _PENDING_STRIPS.items():
+            if rec.doc is not None and uno_same(doc, rec.doc):
+                return stored_key
+        return None
+
+    def _restore_abandoned(self, doc):
+        """LibreOffice has no OnSaveFailed; Done never firing leaves locators missing."""
+        if self._pending_key(doc) is None:
+            return
+        self.restore_after_save(doc, saved=False)
+
+    def strip_for_save(self, doc):
+        """Remove ``_mcp_`` bookmarks just before the file is written."""
+        if doc is None:
+            return
+        key = self._pending_key(doc)
+        if key is None:
+            key = self._doc_key(doc)
+            if not is_cacheable_doc_key(key):
+                return
+            was = False
+            try:
+                was = bool(doc.isModified())
+            except Exception:
+                was = False
+            _PENDING_STRIPS[key] = _PendingStrip(self.get_mcp_bookmark_map(doc), was, doc)
+        rec = _PENDING_STRIPS.get(key)
+        if rec is None or not rec.names:
+            return
+        with self._untracked(doc):
+            self._remove_mcp_bookmarks(doc)
+
+    def restore_after_save(self, doc, saved):
+        """Re-insert remembered names. ``saved=True`` keeps a successful Save clean."""
+        key = self._pending_key(doc)
+        if key is None:
+            return
+        rec = _PENDING_STRIPS.pop(key, None)
+        if rec is None:
+            return
+        target = doc if doc is not None else rec.doc
+        if target is None:
+            return
+        with self._untracked(target):
+            self._reinsert_named(target, rec.names)
+        try:
+            if saved:
+                target.setModified(False)
+            else:
+                target.setModified(rec.was_modified)
+        except Exception:
+            log.debug("BookmarkService: post-restore setModified failed", exc_info=True)
+
+    def _reinsert_named(self, doc, names):
+        if not names:
+            return
+        text = doc.getText()
+        paras = get_paragraph_ranges(doc)
+        for para_idx, name in names.items():
+            if para_idx < 0 or para_idx >= len(paras):
+                continue
+            element = paras[para_idx]
+            try:
+                if not element.supportsService("com.sun.star.text.Paragraph"):
+                    continue
+                start_range = element.getStart()
+            except Exception:
+                continue
+            self._insert_named_bookmark(doc, text, name, start_range)
+
+    def _ensure_save_listener(self, doc):
+        if not hasattr(doc, "addDocumentEventListener"):
+            return
+        key = self._doc_key(doc)
+        if not is_cacheable_doc_key(key) or key in _SAVE_LISTENERS:
+            return
+        listener = _BookmarkSaveListener(self, key)
+        try:
+            doc.addDocumentEventListener(listener)
+        except Exception:
+            log.exception("Failed to attach heading-bookmark save listener")
+            return
+        _SAVE_LISTENERS[key] = listener
+
+    def _teardown_save_listener(self, key, source=None):
+        _PENDING_STRIPS.pop(key, None)
+        listener = _SAVE_LISTENERS.pop(key, None)
+        if listener is None or source is None:
+            return
+        if hasattr(source, "removeDocumentEventListener"):
+            try:
+                source.removeDocumentEventListener(listener)
+            except Exception:
+                pass
 
 
 # ── Bookmark Tools ────────────────────────────────────────────────────

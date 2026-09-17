@@ -106,4 +106,12 @@ def bookmark_rename(doc, old_name, new_name):
 *   **Point vs. Span:** A bookmark can either be a single point (cursor collapsed) or span a range of text (cursor has a selection). When inserting with `insertTextContent(cursor, bookmark, bAbsorb)`, if `bAbsorb` is True and the cursor is a selection, the bookmark spans the selection. If `bAbsorb` is False, the bookmark is inserted as a point.
 *   **Uniqueness:** Bookmark names *must* be unique within the document. Trying to rename a bookmark to a name that already exists will cause an error or overwrite. Creating a bookmark with a duplicate name might fail or throw an exception during insertion.
 *   **Internal Bookmarks:** LibreOffice and external integrations (like MCP) often prefix internal bookmarks with an underscore or specific string (e.g., `_mcp_`). Tools manipulating user-facing bookmarks might need to filter these out.
+
+## Heading `_mcp_` bookmarks (WriterAgent)
+
+`BookmarkService.ensure_heading_bookmarks` inserts `_mcp_<hex>` point bookmarks on headings so agents can address sections after edits. They are always session-only: created in memory, omitted from the saved file, and restored with the same names after Save so locators stay valid.
+
+Create / strip / restore lock the undo manager, restore `isModified()`, and run inside `DocumentService.ignore_cache_invalidation()` so an outline read does not dirty the file, pollute Ctrl+Z, or thrash the heading-tree cache. Nelson `4c92ea12` / #2644.
+
+Save-hook events: `OnPrepareSave` / `OnSave` / `OnSaveAs` / `OnSaveTo` (and `OnCopyTo` for programmatic `storeToURL`) strip; the matching `*Done` events restore. Save a Copy keeps the pre-save modified flag.
 *   **Table Cells:** If a bookmark needs to be inserted inside a table cell, you must obtain the `XText` interface of that specific cell (`cell.getText()` or `cell` directly if it implements `XText`), and use the cell's `insertTextContent`, not the main document text.

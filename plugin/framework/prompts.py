@@ -419,7 +419,7 @@ WRITER_SEARCH_RULES = """SEARCH:
 - When pointing the user to a match, quote the first words of its text and its location — never an internal paragraph index."""
 
 WRITER_NAVIGATION_RULES = """NAVIGATING LARGE DOCUMENTS (map first, then drill — don't dump):
-- get_document_tree(content_strategy='heading_only') gives the heading outline plus stats and stable _mcp_ bookmark ids.
+- get_document_tree(content_strategy='heading_only') gives the heading outline plus stats and stable _mcp_ bookmark ids (session-only; not written to disk).
 - nav_heading_children (structural domain; locator='bookmark:_mcp_…' or 'heading:1.2') reads one section on demand.
 - search_in_document jumps to specific text.
 - Reserve get_document_content(scope='full') for short documents or a deliberate full read."""

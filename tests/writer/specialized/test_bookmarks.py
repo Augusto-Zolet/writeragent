@@ -24,6 +24,7 @@ from plugin.writer.specialized.bookmarks import (
     BookmarkRename,
     BookmarkGet,
     BookmarkList,
+    BookmarkService,
 )
 
 
@@ -168,3 +169,18 @@ def test_list_bookmarks_error(mock_ctx):
     res = BookmarkList().execute(mock_ctx)
     assert res["status"] == "error"
     assert "Failed to list bookmarks" in res["message"]
+
+
+def test_untracked_restores_modified_and_unlocks_on_error():
+    doc = MagicMock()
+    doc.isModified.return_value = False
+    um = MagicMock()
+    doc.getUndoManager.return_value = um
+
+    with pytest.raises(RuntimeError):
+        with BookmarkService()._untracked(doc):
+            raise RuntimeError("insert failed")
+
+    um.lock.assert_called_once()
+    um.unlock.assert_called_once()
+    doc.setModified.assert_called_with(False)

@@ -42,7 +42,8 @@ class GetDocumentTree(ToolBase):
         "Get the document heading tree with bookmarks and content previews, plus document statistics. "
         "The stats object includes character_count, word_count, paragraph_count, page_count, and heading_count. "
         'Use strategy="heading_only" for a simple outline (headings hierarchy). '
-        "Creates _mcp_ bookmarks on headings for stable addressing. "
+        "Creates session-only _mcp_ bookmarks on headings for stable addressing "
+        "(omitted from saved files). "
         "Strategies: heading_only, first_lines (default), full. "
         "depth=0 for unlimited, depth=1 (default) for top-level only. "
         "IMPORTANT: para_index is an INTERNAL addressing index — NEVER cite paragraph numbers to "
