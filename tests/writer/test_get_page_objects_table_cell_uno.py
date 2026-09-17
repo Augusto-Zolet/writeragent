@@ -6,7 +6,9 @@
 
 Cloning the view cursor through doc.getText() after jumpToEndOfPage used to raise
 UNO RuntimeException "End of content node doesn't have the proper start node".
-lockControllers() made gotoRange/getPage fail when the cursor started in a cell.
+lockControllers() made gotoRange/getPage fail when the cursor started in a cell;
+leave via body getStart() first, unlock before restore. Table-anchor hops while
+locked leave getPage() at 0 — that is stale layout, not an empty page.
 """
 import uno  # noqa: F401
 

@@ -106,12 +106,26 @@ class GetPageObjects(ToolBase):
         except Exception:
             pass
 
-        # Do not lockControllers: XTextViewCursor.gotoRange/getPage then fail
-        # silently when the cursor started in a table cell (nested XText), and
-        # the scan reports no tables. Restore the saved range after the scan.
+        # lockControllers freezes flicker while we gotoRange every object, but
+        # locking while the cursor sits in a table cell makes getPage fail.
+        # jumpToPage is a no-op on the same page (the cell). Leave nested XText
+        # via the body start first (unlocked), then lock. Unlock before
+        # restoring — gotoRange into a cell fails while locked. If the hop
+        # fails, scan unlocked. Empty page is valid; do not treat a failed hop
+        # as "must be a cell."
+        in_body = False
+        try:
+            vc.gotoRange(doc.getText().getStart(), False)
+            in_body = True
+        except Exception:
+            pass
+        if in_body:
+            doc.lockControllers()
         try:
             objects = self._scan_page(ctx, doc, vc, page)
         finally:
+            if in_body:
+                doc.unlockControllers()
             if saved is not None:
                 try:
                     vc.gotoRange(saved, False)
@@ -119,23 +133,35 @@ class GetPageObjects(ToolBase):
                     pass
         return {"status": "ok", "page": page, **objects}
 
-    def _scan_page(self, ctx, doc, vc, page):
-        # Classification uses gotoRange(anchor). That fails when the view cursor
-        # already sits in a nested XText (table cell / frame) — UNO cannot walk
-        # from the cell to a body anchor. Land on the target page first (no
-        # jumpToEndOfPage / body clone). execute() still restores the saved range.
-        try:
-            vc.jumpToPage(page)
-        except Exception:
-            pass
+    def _page_at_range(self, doc, vc, rng):
+        """View-cursor page of *rng*. Pages are 1-based.
 
+        After leave-then-lock, getPage() is fine at body text, but
+        gotoRange(table/frame getAnchor()) leaves getPage() at 0 (the cursor
+        does not enter the table — TextTable stays empty). Unlock, hop again,
+        relock. That is stale layout, not an empty page.
+        """
+        vc.gotoRange(rng, False)
+        page_no = vc.getPage()
+        if page_no != 0:
+            return page_no
+        has_locked = getattr(doc, "hasControllersLocked", None)
+        if has_locked is None or not has_locked():
+            return page_no
+        doc.unlockControllers()
+        try:
+            vc.gotoRange(rng, False)
+            return vc.getPage()
+        finally:
+            doc.lockControllers()
+
+    def _scan_page(self, ctx, doc, vc, page):
         images = []
         if hasattr(doc, "getGraphicObjects"):
             for name in doc.getGraphicObjects().getElementNames():
                 try:
                     g = doc.getGraphicObjects().getByName(name)
-                    vc.gotoRange(g.getAnchor(), False)
-                    if vc.getPage() == page:
+                    if self._page_at_range(doc, vc, g.getAnchor()) == page:
                         size = g.getPropertyValue("Size")
                         images.append({"name": name, "width_mm": size.Width // 100, "height_mm": size.Height // 100, "title": g.getPropertyValue("Title")})
                 except Exception:
@@ -146,8 +172,7 @@ class GetPageObjects(ToolBase):
             for name in doc.getTextTables().getElementNames():
                 try:
                     t = doc.getTextTables().getByName(name)
-                    vc.gotoRange(t.getAnchor(), False)
-                    if vc.getPage() == page:
+                    if self._page_at_range(doc, vc, t.getAnchor()) == page:
                         tables.append({"name": name, "rows": t.getRows().getCount(), "cols": t.getColumns().getCount()})
                 except Exception:
                     pass
@@ -157,8 +182,7 @@ class GetPageObjects(ToolBase):
             for fname in doc.getTextFrames().getElementNames():
                 try:
                     fr = doc.getTextFrames().getByName(fname)
-                    vc.gotoRange(fr.getAnchor(), False)
-                    if vc.getPage() == page:
+                    if self._page_at_range(doc, vc, fr.getAnchor()) == page:
                         size = fr.getPropertyValue("Size")
                         frames.append({"name": fname, "width_mm": size.Width // 100, "height_mm": size.Height // 100})
                 except Exception:
@@ -182,10 +206,8 @@ class GetPageObjects(ToolBase):
                             include_shape = True
                     elif anchor_type in (AT_PARAGRAPH, AT_CHARACTER, AS_CHARACTER):
                         anchor = shape.getAnchor()
-                        if anchor:
-                            vc.gotoRange(anchor, False)
-                            if vc.getPage() == page:
-                                include_shape = True
+                        if anchor and self._page_at_range(doc, vc, anchor) == page:
+                            include_shape = True
                 except Exception:
                     pass
 
