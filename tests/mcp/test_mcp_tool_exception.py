@@ -53,3 +53,48 @@ def test_writeragent_exception_is_tool_result_not_jsonrpc_internal():
     assert payload["code"] == "TOOL_EXECUTION_ERROR"
     assert payload["message"] == "max index out of range in table cell"
     assert "error" not in body or body.get("error") is None
+
+
+def _tools_call(handler):
+    return handler._process_jsonrpc({
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": "apply_style", "arguments": {"style": "Heading 1"}},
+    })
+
+
+def test_busy_error_stays_http_429():
+    from plugin.mcp.mcp_protocol import BusyError
+    from plugin.mcp import wire_types
+
+    handler = _handler()
+    with patch.object(handler, "_execute_with_backpressure", side_effect=BusyError("busy")):
+        status, body = _tools_call(handler)
+    assert status == 429
+    assert body["error"]["code"] == wire_types.SERVER_BUSY
+    assert body["error"].get("data", {}).get("retryable") is True
+
+
+def test_timeout_error_stays_http_504():
+    from plugin.mcp import wire_types
+
+    handler = _handler()
+    with patch.object(handler, "_execute_with_backpressure", side_effect=TimeoutError("slow")):
+        status, body = _tools_call(handler)
+    assert status == 504
+    assert body["error"]["code"] == wire_types.EXECUTION_TIMEOUT
+
+
+def test_writeragent_internal_error_code_is_remapped():
+    """Default WriterAgentException.code is INTERNAL_ERROR; tools/call must not keep it."""
+    from plugin.framework.errors import WriterAgentException
+
+    handler = _handler()
+    boom = WriterAgentException("max index out of range in table cell", code="INTERNAL_ERROR")
+    with patch.object(handler, "_execute_with_backpressure", side_effect=boom):
+        status, body = _tools_call(handler)
+    assert status == 200
+    payload = json.loads(body["result"]["content"][0]["text"])
+    assert payload["code"] == "TOOL_EXECUTION_ERROR"
+    assert "INTERNAL_ERROR" not in payload["code"]

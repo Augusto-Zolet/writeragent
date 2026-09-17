@@ -42,6 +42,7 @@ def test_scan_page_does_not_clone_via_body_text():
     assert result == {"images": [], "tables": [], "frames": [], "shapes": []}
     body.createTextCursorByRange.assert_not_called()
     vc.jumpToEndOfPage.assert_not_called()
+    vc.jumpToPage.assert_called_with(1)
 
 
 def test_scan_page_includes_paragraph_anchored_shape_on_page(monkeypatch):
@@ -81,3 +82,40 @@ def test_scan_page_includes_paragraph_anchored_shape_on_page(monkeypatch):
     assert len(result["shapes"]) == 1
     assert result["shapes"][0]["name"] == "Box"
     vc.gotoRange.assert_called_once()
+
+
+def test_execute_clones_view_cursor_via_own_text():
+    """execute() save/restore must clone via vc.getText(), not the body XText."""
+    tool = GetPageObjects()
+    body = MagicMock()
+    body.createTextCursorByRange.side_effect = RuntimeError(
+        "End of content node doesn't have the proper start node"
+    )
+    own = MagicMock()
+    saved = MagicMock(name="saved")
+    own.createTextCursorByRange.return_value = saved
+
+    vc = MagicMock()
+    vc.getText.return_value = own
+    vc.getPage.return_value = 1
+    vc.jumpToPage.return_value = True
+
+    doc = MagicMock()
+    doc.getText.return_value = body
+    doc.getGraphicObjects.return_value = _empty_named_collection()
+    doc.getTextTables.return_value = _empty_named_collection()
+    doc.getTextFrames.return_value = _empty_named_collection()
+    draw = MagicMock()
+    draw.getCount.return_value = 0
+    doc.getDrawPage.return_value = draw
+    controller = MagicMock()
+    controller.getViewCursor.return_value = vc
+    doc.getCurrentController.return_value = controller
+
+    ctx = MagicMock()
+    ctx.doc = doc
+    result = tool.execute(ctx, page=1)
+    assert result.get("status") == "ok"
+    body.createTextCursorByRange.assert_not_called()
+    own.createTextCursorByRange.assert_called_once_with(vc)
+    vc.gotoRange.assert_called_with(saved, False)

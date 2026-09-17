@@ -1077,18 +1077,39 @@ def test_run_librarian_switch_mode_calls_finished_callback():
 
 
 def test_agent_backend_worker_does_not_call_get_document_type():
-    """run_agent must not classify the document (UNO)."""
-    from pathlib import Path
+    """run_agent must not classify the document (UNO thread violation)."""
+    panel = DummyChatbotPanel()
+    panel.session.document_context = "doc-ctx"
+    panel._get_mcp_url = MagicMock(return_value=None)
+    model = MagicMock()
+    model.getURL.return_value = "file:///tmp/doc.odt"
 
-    src = Path(__file__).resolve().parents[2].joinpath("plugin", "chatbot", "send_handlers.py").read_text(encoding="utf-8")
-    start = src.index("def _execute_agent_backend_effect")
-    run = src.index("def run_agent():", start)
-    stopped = src.index("def on_stopped():", run)
-    before = src[start:run]
-    worker = src[run:stopped]
-    assert "get_core_directives_for_type(doc_type_str" in before
-    assert "get_core_directives(model)" not in src[start:stopped]
-    assert "get_core_directives" not in worker
-    assert "full_manual_for_model(model)" not in worker
-    assert "get_document_type" not in worker
-    assert "full_manual(doc_type_str" in worker
+    adapter = MagicMock()
+    adapter.is_available.return_value = True
+
+    def run_worker(_q, worker_fn, *_args, **_kwargs):
+        worker_fn()
+
+    def cfg(key, *_args, **_kwargs):
+        if key == "agent_backend.backend_id":
+            return "hermes"
+        if key == "additional_instructions":
+            return ""
+        if key == "mcp.mcp_enabled":
+            return False
+        return None
+
+    with (
+        patch("plugin.chatbot.send_handlers.get_config", side_effect=cfg),
+        patch("plugin.chatbot.send_handlers.get_backend", return_value=adapter),
+        patch.object(panel, "_run_unified_worker_drain_loop", side_effect=run_worker),
+        patch("plugin.doc.doc_type.get_document_type") as mock_gdt,
+        patch("plugin.framework.prompts.get_core_directives") as mock_gcd,
+        patch("plugin.chatbot.agent_manual.full_manual_for_model") as mock_fmm,
+    ):
+        panel._execute_agent_backend_effect("hi", model, "writer", MagicMock(), MagicMock())
+
+    adapter.send.assert_called_once()
+    mock_gdt.assert_not_called()
+    mock_gcd.assert_not_called()
+    mock_fmm.assert_not_called()

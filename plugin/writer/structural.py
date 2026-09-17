@@ -106,7 +106,9 @@ class GetPageObjects(ToolBase):
         except Exception:
             pass
 
-        doc.lockControllers()
+        # Do not lockControllers: XTextViewCursor.gotoRange/getPage then fail
+        # silently when the cursor started in a table cell (nested XText), and
+        # the scan reports no tables. Restore the saved range after the scan.
         try:
             objects = self._scan_page(ctx, doc, vc, page)
         finally:
@@ -115,10 +117,18 @@ class GetPageObjects(ToolBase):
                     vc.gotoRange(saved, False)
                 except Exception:
                     pass
-            doc.unlockControllers()
         return {"status": "ok", "page": page, **objects}
 
     def _scan_page(self, ctx, doc, vc, page):
+        # Classification uses gotoRange(anchor). That fails when the view cursor
+        # already sits in a nested XText (table cell / frame) — UNO cannot walk
+        # from the cell to a body anchor. Land on the target page first (no
+        # jumpToEndOfPage / body clone). execute() still restores the saved range.
+        try:
+            vc.jumpToPage(page)
+        except Exception:
+            pass
+
         images = []
         if hasattr(doc, "getGraphicObjects"):
             for name in doc.getGraphicObjects().getElementNames():

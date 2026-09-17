@@ -6,6 +6,7 @@
 
 Cloning the view cursor through doc.getText() after jumpToEndOfPage used to raise
 UNO RuntimeException "End of content node doesn't have the proper start node".
+lockControllers() made gotoRange/getPage fail when the cursor started in a cell.
 """
 import uno  # noqa: F401
 
@@ -24,8 +25,16 @@ def test_get_page_objects_with_table_at_page_end_uno(ctx, doc):
     for name in tbl.getCellNames():
         tbl.getCellByName(name).setString("cell " + name)
 
+    cell = tbl.getCellByName("A1")
+    vc = doc.getCurrentController().getViewCursor()
+    vc.gotoRange(cell, False)
+
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     res = GetPageObjects().execute(tool_ctx, page=1)
     assert res.get("status") == "ok", res
     names = [t.get("name") for t in res.get("tables") or []]
-    assert tbl.getName() in names
+    assert tbl.getName() in names, res
+    # Save/restore must leave the view cursor in the nested cell XText.
+    restored = vc.getPropertyValue("TextTable")
+    assert restored is not None
+    assert restored.getName() == tbl.getName()
