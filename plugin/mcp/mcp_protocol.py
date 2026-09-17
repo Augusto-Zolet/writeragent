@@ -715,7 +715,20 @@ class MCPProtocolHandler:
                         # Re-raise standard json-rpc errors to be caught in _process_jsonrpc
                         raise e
                     except Exception as e:
-                        events_to_process.append(MCPEvent(kind=EventKind.REQUEST_ERROR, data={"message": str(e), "code": "INTERNAL_ERROR"}))
+                        # Do not swallow as INTERNAL_ERROR with a 100-char log: Hermes then
+                        # retries (apply_style did this ~150× in 0.5s and froze Writer).
+                        from plugin.framework.errors import _resolve_exception_message, make_tool_error
+
+                        log.exception("MCP tool %s raised unexpectedly", effect.tool_name)
+                        events_to_process.append(MCPEvent(
+                            kind=EventKind.TOOL_COMPLETED,
+                            data={"result": make_tool_error(
+                                _resolve_exception_message(e),
+                                code="TOOL_EXECUTION_ERROR",
+                                tool_name=effect.tool_name,
+                                error_type=type(e).__name__,
+                            )},
+                        ))
 
                 elif isinstance(effect, StreamResponseEffect):
                     event_bus = getattr(self, "event_bus", None)
@@ -780,7 +793,9 @@ class MCPProtocolHandler:
                 result = self._mcp_tools_call(params, document_url=document_url)
             else:
                 result = handler(params)
-            log.debug(f"*** MCP RESULT: {str(result)[:100]} ***")
+            preview = str(result)
+            cap = 2000 if (isinstance(result, dict) and result.get("isError")) else 100
+            log.debug("*** MCP RESULT: %s ***", preview[:cap])
             if result is None:
                 return (500, wire_types.jsonrpc_failure(req_id, wire_types.INTERNAL_ERROR, "No result from MCP handler"))
             return (200, wire_types.jsonrpc_success(req_id, result))

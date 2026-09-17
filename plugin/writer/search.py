@@ -904,7 +904,7 @@ def _build_page_map(doc):
         vc = controller.getViewCursor()
         saved = None
         try:
-            saved = doc.getText().createTextCursorByRange(vc.getStart())
+            saved = vc.getText().createTextCursorByRange(vc.getStart())
         except Exception:
             pass
 

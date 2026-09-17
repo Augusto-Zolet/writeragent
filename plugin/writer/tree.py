@@ -300,7 +300,7 @@ class TreeService(ServiceBase):
                 vc = controller.getViewCursor()
                 saved = None
                 try:
-                    saved = doc.getText().createTextCursorByRange(vc.getStart())
+                    saved = vc.getText().createTextCursorByRange(vc.getStart())
                 except Exception:
                     pass
 

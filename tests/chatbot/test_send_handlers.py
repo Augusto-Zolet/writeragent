@@ -1074,3 +1074,20 @@ def test_run_librarian_switch_mode_calls_finished_callback():
                 panel._run_librarian("Done", model)  # type: ignore
 
     panel.on_librarian_session_finished.assert_called_once()
+
+
+def test_agent_backend_worker_does_not_call_get_document_type():
+    """run_agent must not call get_core_directives / full_manual_for_model (UNO)."""
+    from pathlib import Path
+
+    src = Path(__file__).resolve().parents[2].joinpath("plugin", "chatbot", "send_handlers.py").read_text(encoding="utf-8")
+    start = src.index("def _execute_agent_backend_effect")
+    run = src.index("def run_agent():", start)
+    stopped = src.index("def on_stopped():", run)
+    before = src[start:run]
+    worker = src[run:stopped]
+    assert "core_dirs = get_core_directives(model)" in before
+    assert "get_core_directives" not in worker
+    assert "full_manual_for_model(model)" not in worker
+    assert "get_document_type" not in worker
+    assert "full_manual(doc_type_str" in worker

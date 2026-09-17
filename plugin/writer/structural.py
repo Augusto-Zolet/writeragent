@@ -100,7 +100,8 @@ class GetPageObjects(ToolBase):
         vc = controller.getViewCursor()
         saved = None
         try:
-            saved = doc.getText().createTextCursorByRange(vc.getStart())
+            # Nested XText (table cell / frame): body getText() cannot clone this range.
+            saved = vc.getText().createTextCursorByRange(vc.getStart())
         except Exception:
             pass
 
@@ -109,7 +110,10 @@ class GetPageObjects(ToolBase):
             objects = self._scan_page(ctx, doc, vc, page)
         finally:
             if saved is not None:
-                vc.gotoRange(saved, False)
+                try:
+                    vc.gotoRange(saved, False)
+                except Exception:
+                    pass
             doc.unlockControllers()
         return {"status": "ok", "page": page, **objects}
 
@@ -149,54 +153,41 @@ class GetPageObjects(ToolBase):
                 except Exception:
                     pass
 
+        # Do not jumpToEndOfPage + body createTextCursorByRange: end-of-page often sits in a
+        # table/frame, and the body XText then raises RuntimeException ("End of content node
+        # doesn't have the proper start node"). Same view-cursor page check as tables/images.
         shapes = []
         if hasattr(doc, "getDrawPage"):
             draw_page = doc.getDrawPage()
             from com.sun.star.text.TextContentAnchorType import AT_PAGE, AT_PARAGRAPH, AT_CHARACTER, AS_CHARACTER
 
-            doc_svc = ctx.services.document
-            para_ranges = doc_svc.get_paragraph_ranges(doc)
-            text_obj = doc.getText()
+            for i in range(draw_page.getCount()):
+                shape = draw_page.getByIndex(i)
+                include_shape = False
+                try:
+                    anchor_type = shape.getPropertyValue("AnchorType")
+                    if anchor_type == AT_PAGE:
+                        if shape.getPropertyValue("AnchorPageNo") == page:
+                            include_shape = True
+                    elif anchor_type in (AT_PARAGRAPH, AT_CHARACTER, AS_CHARACTER):
+                        anchor = shape.getAnchor()
+                        if anchor:
+                            vc.gotoRange(anchor, False)
+                            if vc.getPage() == page:
+                                include_shape = True
+                except Exception:
+                    pass
 
-            # Find starting and ending paragraphs for the physical page
-            if vc.jumpToPage(page):
-                vc.jumpToStartOfPage()
-                page_start = text_obj.createTextCursorByRange(vc.getStart())
-                vc.jumpToEndOfPage()
-                page_end = text_obj.createTextCursorByRange(vc.getEnd())
-
-                start_idx = doc_svc.find_paragraph_for_range(page_start.getStart(), para_ranges, text_obj)
-                end_idx = doc_svc.find_paragraph_for_range(page_end.getEnd(), para_ranges, text_obj)
-
-                for i in range(draw_page.getCount()):
-                    shape = draw_page.getByIndex(i)
-                    include_shape = False
-                    anchor = shape.getAnchor()
-
+                if include_shape:
+                    shape_type = shape.getShapeType().replace("com.sun.star.drawing.", "")
+                    shape_info = {"type": shape_type, "name": getattr(shape, "Name", ""), "text": shape.getString().strip() if hasattr(shape, "getString") else ""}
                     try:
-                        anchor_type = shape.getPropertyValue("AnchorType")
-
-                        if anchor_type == AT_PAGE:
-                            shape_page_no = shape.getPropertyValue("AnchorPageNo")
-                            if shape_page_no == page:
-                                include_shape = True
-                        elif anchor_type in (AT_PARAGRAPH, AT_CHARACTER, AS_CHARACTER) and anchor:
-                            shape_para_idx = doc_svc.find_paragraph_for_range(anchor.getStart(), para_ranges, text_obj)
-                            if start_idx <= shape_para_idx <= end_idx:
-                                include_shape = True
+                        pos = shape.getPosition()
+                        size = shape.getSize()
+                        shape_info["geometry"] = {"x": pos.X, "y": pos.Y, "width": size.Width, "height": size.Height}
                     except Exception:
                         pass
-
-                    if include_shape:
-                        shape_type = shape.getShapeType().replace("com.sun.star.drawing.", "")
-                        shape_info = {"type": shape_type, "name": getattr(shape, "Name", ""), "text": shape.getString().strip() if hasattr(shape, "getString") else ""}
-                        try:
-                            pos = shape.getPosition()
-                            size = shape.getSize()
-                            shape_info["geometry"] = {"x": pos.X, "y": pos.Y, "width": size.Width, "height": size.Height}
-                        except Exception:
-                            pass
-                        shapes.append(shape_info)
+                    shapes.append(shape_info)
 
         return {"images": images, "tables": tables, "frames": frames, "shapes": shapes}
 

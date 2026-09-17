@@ -144,6 +144,9 @@ sys.modules["com.sun.star.text"].__path__ = []
 sys.modules["com.sun.star.text.TextContentAnchorType"] = _create_mock_module("com.sun.star.text.TextContentAnchorType")
 setattr(sys.modules["com.sun.star.text.TextContentAnchorType"], "AS_CHARACTER", MockBase)
 setattr(sys.modules["com.sun.star.text.TextContentAnchorType"], "AT_FRAME", MockBase)
+setattr(sys.modules["com.sun.star.text.TextContentAnchorType"], "AT_PAGE", MockBase)
+setattr(sys.modules["com.sun.star.text.TextContentAnchorType"], "AT_PARAGRAPH", MockBase)
+setattr(sys.modules["com.sun.star.text.TextContentAnchorType"], "AT_CHARACTER", MockBase)
 
 linguistic = _create_mock_module("com.sun.star.linguistic2")
 setattr(linguistic, "XProofreader", MockXProofreader)

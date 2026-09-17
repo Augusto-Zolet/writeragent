@@ -31,7 +31,7 @@ from plugin.framework.config import get_api_config, get_config, get_config_int_s
 from plugin.framework.config_schema import as_bool
 from plugin.framework.client.llm_client import LlmClient
 from plugin.framework.prompts import get_core_directives
-from plugin.chatbot.agent_manual import full_manual_for_model
+from plugin.chatbot.agent_manual import full_manual
 from plugin.framework.queue_executor import llm_request_lane
 from plugin.agent_backend import get_backend
 from plugin.agent_backend.registry import normalize_backend_id
@@ -375,6 +375,11 @@ class SendHandlersMixin:
         if cancel_scope is not None and hasattr(adapter, "stop"):
             cancel_scope.register_on_cancel(adapter.stop)
 
+        # UNO: get_core_directives -> is_calc/is_draw -> get_document_type.
+        # Must run on this UI thread. run_agent is chatbot-send-handler; calling
+        # get_document_type there raises a thread-violation dialog and aborts the send.
+        core_dirs = get_core_directives(model)
+
         def run_agent():
             try:
 
@@ -389,12 +394,12 @@ class SendHandlersMixin:
                         f"\n\n[MCP SERVER AVAILABLE]\nA Model Context Protocol (MCP) server is running at: {mcp_url}\nYou can discover and use all LibreOffice tools (Writer, Calc, Draw) via this server.\nTarget the current document by passing the 'X-Document-URL' header: {document_url}\n"
                     )
 
-                core_dirs = get_core_directives(model)
                 # Inject the FULL shared manual: the same prompt pieces (constants) that feed the
                 # sidebar's hybrid prompt and get_guidance's topics, concatenated by agent_manual
                 # WITH the MCP extras (this backend talks to the HTTP server, so e.g. the 429
                 # concurrency contract applies here, unlike the in-process sidebar).
-                lean_system_prompt = f"{core_dirs}\n\n{full_manual_for_model(model)}\n\nYou are currently interacting with a LibreOffice document.\n{mcp_instructions}\nPlease proceed with the user's request."
+                # full_manual(doc_type_str) is string-only — do not classify the document here.
+                lean_system_prompt = f"{core_dirs}\n\n{full_manual(doc_type_str or 'writer')}\n\nYou are currently interacting with a LibreOffice document.\n{mcp_instructions}\nPlease proceed with the user's request."
 
                 # Add optional instructions from settings
                 extra = str(get_config("additional_instructions") or "").strip()

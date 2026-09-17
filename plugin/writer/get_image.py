@@ -70,7 +70,7 @@ def _render_writer_page_png(doc, page):
     try:
         # Same save/restore idiom as get_page_objects (structural.py). If the cursor sits in nested
         # text (table cell / frame) this raises and we simply skip the best-effort restore.
-        saved = doc.getText().createTextCursorByRange(vc.getStart())
+        saved = vc.getText().createTextCursorByRange(vc.getStart())
     except Exception:
         saved = None
 
