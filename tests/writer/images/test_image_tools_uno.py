@@ -12,6 +12,7 @@ from com.sun.star.text.TextContentAnchorType import AS_CHARACTER
 
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import with_native_doc
+from plugin.doc.visual_helpers import GENERATED_IMAGE_MAX_DISPLAY_MM, px_to_units
 from plugin.writer.images.image_tools import insert_image, insert_image_into_header_footer
 from plugin.writer.page import _scan_region_content
 
@@ -164,3 +165,24 @@ def test_insert_image_compound_undo(ctx, doc):
         return
     um.undo()
     assert _graphic_count(doc) == before, "single undo should remove framed insert"
+
+
+@native_test
+@with_native_doc("writer")
+def test_insert_image_caps_1024_display_size(ctx, doc):
+    """1024px at 96 DPI is ~10.7\"; insert must stay at the 135mm longer-edge cap."""
+    logo = _logo_path()
+    assert os.path.isfile(logo), "fixture image missing: %s" % logo
+    raw_w, raw_h = px_to_units(1024, 1024)
+    assert max(raw_w, raw_h) > GENERATED_IMAGE_MAX_DISPLAY_MM * 100
+    before = set(doc.getGraphicObjects().getElementNames())
+    insert_image(ctx, doc, logo, 1024, 1024, add_to_gallery=False, add_frame=False)
+    names = [n for n in doc.getGraphicObjects().getElementNames() if n not in before]
+    assert names, "expected an inserted graphic"
+    graphic = doc.getGraphicObjects().getByName(names[0])
+    width = int(graphic.getPropertyValue("Width"))
+    height = int(graphic.getPropertyValue("Height"))
+    # LO can report cap+1 after setSize (13500 set → Width 13501).
+    assert max(width, height) <= GENERATED_IMAGE_MAX_DISPLAY_MM * 100 + 2
+    assert max(width, height) >= 13000
+    assert max(width, height) < min(raw_w, raw_h)
