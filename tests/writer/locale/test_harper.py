@@ -925,8 +925,7 @@ def test_run_harper_check_continues_when_pump_post_times_out() -> None:
     """Regression: status UI pump must not abort Harper when main-thread post fails."""
     ctx = MagicMock()
 
-    def _fake_lint(text, config_dir, *, bcp47="en-US", heartbeat_fn=None, ctx=None):
-        del ctx
+    def _fake_lint(text, config_dir, *, bcp47="en-US", heartbeat_fn=None):
         if heartbeat_fn is not None:
             heartbeat_fn({"message": "Downloading harper-ls…"})
         return {"errors": [{"n_error_start": 0, "n_error_length": 4}]}
@@ -952,8 +951,7 @@ def test_run_harper_check_pumps_ui_after_start_and_heartbeat() -> None:
     def _record_pump(c: object) -> None:
         pump_calls.append(c)
 
-    def _fake_lint(text, config_dir, *, bcp47="en-US", heartbeat_fn=None, ctx=None):
-        del ctx
+    def _fake_lint(text, config_dir, *, bcp47="en-US", heartbeat_fn=None):
         if heartbeat_fn is not None:
             heartbeat_fn({"message": "Downloading harper-ls v2.7.0…"})
         return {"errors": []}
@@ -975,8 +973,7 @@ def test_run_harper_check_pumps_ui_after_start_and_heartbeat() -> None:
 def test_run_harper_check_heartbeat_skips_empty_message() -> None:
     ctx = MagicMock()
 
-    def _fake_lint(text, config_dir, *, bcp47="en-US", heartbeat_fn=None, ctx=None):
-        del ctx
+    def _fake_lint(text, config_dir, *, bcp47="en-US", heartbeat_fn=None):
         if heartbeat_fn is not None:
             heartbeat_fn({"message": "   "})
         return {"errors": []}
@@ -992,6 +989,20 @@ def test_run_harper_check_heartbeat_skips_empty_message() -> None:
     mock_emit.assert_called_once_with("Hi.", "Starting Harper…")
     # Start pump once; empty heartbeat must not emit or pump again
     assert mock_pump.call_count == 1
+
+
+def test_run_harper_check_does_not_pass_ctx_to_lint() -> None:
+    """Grammar-queue lint stays on the drain thread; PE2I wait is doProofreading only."""
+    ctx = MagicMock()
+    with (
+        patch("plugin.writer.locale.grammar_obs.emit_harper_worker_status"),
+        patch("plugin.writer.locale.harper._pump_grammar_status_ui"),
+        patch("plugin.writer.locale.harper.run_harper_lint", return_value={"errors": []}) as mock_lint,
+        patch("plugin.framework.uno_context.wait_while_pumping") as mock_wait,
+    ):
+        run_harper_check(ctx, "Hi.", "/tmp/cfg")
+    assert "ctx" not in mock_lint.call_args.kwargs
+    mock_wait.assert_not_called()
 
 
 def test_normalize_spaces_1to1() -> None:

@@ -39,9 +39,6 @@ _INIT_PARAMS = {"processId": os.getpid(), "rootUri": "file:///tmp", "capabilitie
 
 _LINT_BUDGET_SEC = 15.0
 _INIT_BUDGET_SEC = 5.0
-# Linguistic wait loop: PE2I then a short Event.wait so typing can proceed
-# without spinning. Stay inside 50–100ms (Keith PE2I-in-proofread prior art).
-_LINT_POLL_SEC = 0.075
 
 # LibreHarper often logs at WARN only. One line when lint+normalize exceeds
 # this budget so slowness shows up in writeragent_debug.log; faster calls stay quiet.
@@ -554,11 +551,13 @@ def harper_try_lint(text: str, user_config_dir: str, bcp47: str = "en-US", *, ct
     Never downloads or ``Popen``s on the caller thread (UNO ``doProofreading``).
     A ``None`` return is never silent: failures log ERROR, not-ready walks emit obs.
 
-    When ``ctx`` is set (proofreader / ``run_harper_check``), the blocking LSP
-    wait runs on a dedicated worker and the caller pumps ``process_events_to_idle``
-    so typing stays alive. Nested ``doProofreading`` / ``harper_try_lint`` while
-    that wait is active fail soft (``None``) and log ``harper_wait_reenter``.
-    Missing ``ctx`` falls back to today's blocking wait (no pump).
+    When ``ctx`` is set (``doProofreading``), the blocking LSP wait runs on a
+    dedicated worker and the caller uses ``wait_while_pumping`` so typing stays
+    alive. Nested ``doProofreading`` / ``harper_try_lint`` while that wait is
+    active fail soft (``None``) and log ``harper_wait_reenter``. Missing
+    ``ctx`` falls back to a blocking wait (no pump). Grammar-queue
+    ``run_harper_check`` does not pass ``ctx``: that thread is already a
+    worker and paints status via ``_pump_grammar_status_ui``.
     """
     from plugin.writer.locale.grammar_obs import grammar_obs
 
@@ -684,7 +683,7 @@ def _lint_ready_client(
     *,
     ctx: Any,
 ) -> dict:
-    """Lint a READY client. With ``ctx``, worker waits; caller pumps PE2I.
+    """Lint a READY client. With ``ctx``, worker waits; caller pumps VCL.
 
     Without ``ctx`` there is nothing to pump: block on the caller thread
     (tests / scripts). The wait-active flag is already set by ``harper_try_lint``.
@@ -727,7 +726,9 @@ def _run_lint_off_caller_thread(
 
     handle = run_in_background(_worker, name="harper-lint-wait", dedicated=True)
     deadline = time.monotonic() + _LINT_BUDGET_SEC
-    _pump_or_join_lint_wait(done, handle, deadline, ctx)
+    from plugin.framework.uno_context import wait_while_pumping
+
+    wait_while_pumping(done, ctx, timeout=_deadline_remaining(deadline))
     if not done.is_set():
         # Budget ended while lint still ran (its own ``_LINT_BUDGET_SEC``).
         # Join leftover without PE2I so wait-active is not cleared under an
@@ -739,27 +740,6 @@ def _run_lint_off_caller_thread(
     if result is None:
         raise TimeoutError("Harper LSP operation timed out")
     return result
-
-
-def _pump_or_join_lint_wait(done: threading.Event, handle: Any, deadline: float, ctx: Any) -> None:
-    """Pump VCL while a Harper lint worker is outstanding; no-ctx joins only."""
-    if ctx is None:
-        handle.join(timeout=_deadline_remaining(deadline))
-        return
-    from plugin.framework.uno_context import process_events_to_idle
-
-    while not done.is_set() and _deadline_remaining(deadline) > 0:
-        try:
-            # force=False: skip VCL when a chat/MCP drain owner is active.
-            process_events_to_idle(ctx, force=False)
-        except Exception:
-            # Thread-guard / toolkit misses must not abort lint; fall through
-            # to the poll so a missing main-thread affinity cannot livelock.
-            log.debug("[harper] process_events_to_idle during lint wait failed", exc_info=True)
-        remaining = _deadline_remaining(deadline)
-        if remaining <= 0 or done.is_set():
-            break
-        done.wait(timeout=min(_LINT_POLL_SEC, remaining))
 
 
 def _lint_with_client(
@@ -805,9 +785,13 @@ def run_harper_lint(
     bcp47: str = "en-US",
     *,
     heartbeat_fn: Callable[[dict[str, str]], None] | None = None,
-    ctx: Any = None,
 ) -> dict:
-    """Run harper-ls on a text segment and return parsed errors (no LibreOffice UI)."""
+    """Run harper-ls on a text segment and return parsed errors (no LibreOffice UI).
+
+    Grammar-queue entry: already a worker thread, so lint under ``_HARPER_LOCK``
+    on the caller. Linguistic ``doProofreading`` pumping lives in
+    ``harper_try_lint`` (``ctx``), not here.
+    """
     try:
         harper_bin = _get_harper_binary(user_config_dir, heartbeat_fn=heartbeat_fn)
     except Exception as e:
@@ -817,17 +801,7 @@ def run_harper_lint(
     with _HARPER_LOCK:
         client = _get_or_create_client(harper_bin, user_config_dir, bcp47, heartbeat_fn=heartbeat_fn)
         _set_state(HarperRuntimeState.READY)
-        if ctx is None:
-            return _lint_with_client(client, text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
-    # Grammar-queue path with ctx: do not hold the lock across PE2I / LSP wait.
-    acquired_wait = _try_begin_harper_wait()
-    try:
-        return _run_lint_off_caller_thread(
-            client, text, bcp47=bcp47, ctx=ctx, restart=True, heartbeat_fn=heartbeat_fn
-        )
-    finally:
-        if acquired_wait:
-            _end_harper_wait()
+        return _lint_with_client(client, text, bcp47=bcp47, heartbeat_fn=heartbeat_fn)
 
 
 def _pump_grammar_status_ui(ctx: Any) -> None:
@@ -864,4 +838,4 @@ def run_harper_check(ctx: Any, text: str, config_dir: str, *, bcp47: str = "en-U
             emit_harper_worker_status(text, message)
             _pump_grammar_status_ui(ctx)
 
-    return run_harper_lint(text, config_dir, bcp47=bcp47, heartbeat_fn=_on_progress, ctx=ctx)
+    return run_harper_lint(text, config_dir, bcp47=bcp47, heartbeat_fn=_on_progress)

@@ -1,6 +1,8 @@
 
 import builtins
 import sys
+import threading
+import time
 from plugin.testing_runner import native_test
 from unittest.mock import MagicMock, patch
 from plugin.tests.testing_utils import setup_uno_mocks
@@ -198,6 +200,72 @@ def test_process_events_to_idle_force_under_drain_owner():
             assert process_events_to_idle(MagicMock(), rounds=2, force=True) is True
 
     assert toolkit.processEventsToIdle.call_count == 2
+
+
+def test_wait_while_pumping_returns_true_when_event_set():
+    from plugin.framework.uno_context import wait_while_pumping
+
+    done = threading.Event()
+    pumps: list[bool] = []
+
+    def _pe2i(_ctx: object, rounds: int = 1, force: bool = False) -> bool:
+        del rounds
+        pumps.append(force)
+        done.set()
+        return True
+
+    with patch("plugin.framework.uno_context.process_events_to_idle", side_effect=_pe2i):
+        assert wait_while_pumping(done, MagicMock(), timeout=1.0) is True
+    assert pumps
+    assert all(force is False for force in pumps)
+
+
+def test_wait_while_pumping_timeout_returns_false():
+    from plugin.framework.uno_context import wait_while_pumping
+
+    done = threading.Event()
+    with patch("plugin.framework.uno_context.process_events_to_idle", return_value=False):
+        assert wait_while_pumping(done, MagicMock(), timeout=0.05, poll_sec=0.01) is False
+    assert not done.is_set()
+
+
+def test_wait_while_pumping_swallows_pe2i_errors():
+    from plugin.framework.uno_context import wait_while_pumping
+
+    done = threading.Event()
+    n = {"i": 0}
+
+    def _pe2i(_ctx: object, rounds: int = 1, force: bool = False) -> bool:
+        del rounds, force
+        n["i"] += 1
+        if n["i"] == 1:
+            raise RuntimeError("no toolkit")
+        done.set()
+        return True
+
+    with patch("plugin.framework.uno_context.process_events_to_idle", side_effect=_pe2i):
+        assert wait_while_pumping(done, MagicMock(), timeout=1.0) is True
+
+
+def test_wait_while_pumping_under_drain_owner_still_waits():
+    from plugin.framework.queue_executor import drain_owner_scope, reset_suppressed_vcl_pump_count
+    from plugin.framework.uno_context import wait_while_pumping
+
+    reset_suppressed_vcl_pump_count()
+    done = threading.Event()
+    toolkit = MagicMock()
+
+    def _set_done() -> None:
+        time.sleep(0.02)
+        done.set()
+
+    worker = threading.Thread(target=_set_done)
+    with patch("plugin.framework.uno_context.get_toolkit", return_value=toolkit):
+        with drain_owner_scope("stream"):
+            worker.start()
+            assert wait_while_pumping(done, MagicMock(), timeout=1.0, poll_sec=0.01) is True
+            worker.join()
+    toolkit.processEventsToIdle.assert_not_called()
 
 
 def test_resolve_package_extension_id_prefers_librepy():

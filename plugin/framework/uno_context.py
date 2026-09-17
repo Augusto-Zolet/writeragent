@@ -36,8 +36,12 @@ document model safe from any thread — wrap document access with
 import logging
 import os
 import sys
+import time
 from contextlib import contextmanager
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    import threading
 
 from plugin.framework.constants import (
     EXTENSION_ID_LIBREHARPER,
@@ -614,7 +618,8 @@ def process_events_to_idle(ctx, rounds: int = 1, force: bool = False) -> bool:
     notebook import) cannot nest ``processEventsToIdle`` inside the drain loop.
     Pass force=True (e.g. for RichTextControl caret reveal) to pump VCL even when
     under a drain owner.
-    Returns True if at least one VCL pump ran.
+    Returns True if at least one VCL pump ran. Blocking secondary waits should
+    use :func:`wait_while_pumping` rather than a local PE2I loop.
     """
     from plugin.framework.queue_executor import _note_suppressed_vcl_pump, _pump_vcl_events, get_drain_owner
 
@@ -635,6 +640,43 @@ def process_events_to_idle(ctx, rounds: int = 1, force: bool = False) -> bool:
         except Exception:
             log.debug("process_events_to_idle failed", exc_info=True)
     return pumped
+
+
+def wait_while_pumping(
+    done: "threading.Event",
+    ctx: Any,
+    *,
+    timeout: float,
+    poll_sec: float = 0.075,
+) -> bool:
+    """Wait for *done* while pumping VCL as a secondary caller.
+
+    Each tick calls :func:`process_events_to_idle` with ``force=False`` so a
+    chat/MCP drain owner suppresses nested VCL. Drain-owner wait loops must
+    keep using :func:`~plugin.framework.queue_executor.pump_ui_idle` /
+    ``run_blocking_in_thread``, not this helper.
+
+    Default *poll_sec* is 75ms (stay inside 50–100ms; same band as the
+    linguistic PE2I-in-proofread wait). Returns True if *done* was set, False
+    if *timeout* elapsed first. PE2I failures (thread-guard, missing toolkit)
+    are swallowed so a pump miss cannot abort the wait.
+    """
+    deadline = time.monotonic() + max(0.0, timeout)
+    while not done.is_set():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        try:
+            process_events_to_idle(ctx, force=False)
+        except Exception:
+            log.debug("wait_while_pumping process_events_to_idle failed", exc_info=True)
+        if done.is_set():
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        done.wait(timeout=min(poll_sec, remaining))
+    return True
 
 
 def normalize_doc_url(url):
