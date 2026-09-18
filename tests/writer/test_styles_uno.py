@@ -83,6 +83,27 @@ def test_update_style_parent_uno(ctx, doc):
 
 @native_test
 @with_native_doc("writer")
+def test_update_style_para_adjust_and_missing_font_uno(ctx, doc):
+    """ParaAdjust words write the UNO integer; a missing font is stored with a warning."""
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
+    style_name = "AgentAdjustFont"
+    para_styles = doc.getStyleFamilies().getByName("ParagraphStyles")
+    para_styles.insertByName(style_name, doc.createInstance("com.sun.star.style.ParagraphStyle"))
+
+    res = StyleUpdate().execute(
+        tool_ctx, style=style_name,
+        property_updates={"ParaAdjust": "center", "CharFontName": "DefinitelyMissingFontXYZ"},
+    )
+    assert res["status"] == "ok", f"Tool failed: {res.get('message') or res}"
+    style = para_styles.getByName(style_name)
+    assert int(style.getPropertyValue("ParaAdjust")) == 3
+    assert res["after"]["ParaAdjust"] == "center"
+    assert style.getPropertyValue("CharFontName") == "DefinitelyMissingFontXYZ"
+    assert "DefinitelyMissingFontXYZ" in (res.get("warning") or "")
+
+
+@native_test
+@with_native_doc("writer")
 def test_list_styles_uno(ctx, doc):
     tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
     

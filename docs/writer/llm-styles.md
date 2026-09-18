@@ -133,7 +133,7 @@ If the user has a preferred template file (.ott or .odt), the agent can import a
 
 ### Setting Colors and Properties
 
-When updating styles, the LLM sets underlying **LibreOffice UNO API properties**. The `style_update` tool has built-in support to parse common web hex colors (like `#FF0000` or `FF0000`) into the 24-bit integers that LibreOffice expects.
+When updating styles, the LLM sets underlying **LibreOffice UNO API properties**. The `style_update` tool has built-in support to parse common web hex colors (like `#FF0000` or `FF0000`) into the 24-bit integers that LibreOffice expects. `ParaAdjust` is `left` / `center` / `right` / `justify` — not `0/1/2/3` (those integers are hostile: `1` is right, `2` is justify). A misspelled style name gets a close-name hint. `before` / `after` echo the keys that were set. If `CharFontName` is not installed, the result warns that LibreOffice will substitute.
 
 **Key Color Properties (CharacterStyles and ParagraphStyles):**
 * `CharColor`: The main text color.
@@ -148,7 +148,8 @@ When updating styles, the LLM sets underlying **LibreOffice UNO API properties**
   "property_updates": {
     "CharColor": "#0055A4",
     "CharWeight": 150,
-    "ParaTopMargin": 500
+    "ParaTopMargin": 500,
+    "ParaAdjust": "center"
   }
 }
 ```

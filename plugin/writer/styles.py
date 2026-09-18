@@ -93,7 +93,11 @@ _PARA_PROPERTY_SCHEMA = {
     "ParaLeftMargin": {"type": "integer", "description": "Left margin in 1/100th mm."},
     "ParaRightMargin": {"type": "integer", "description": "Right margin in 1/100th mm."},
     "ParaFirstLineIndent": {"type": "integer", "description": "First line indent in 1/100th mm."},
-    "ParaAdjust": {"type": "integer", "description": "Paragraph alignment (0=Left, 1=Right, 2=Block, 3=Center)."},
+    "ParaAdjust": {
+        "type": "string",
+        "enum": ["left", "center", "right", "justify"],
+        "description": "Paragraph alignment: left, center, right, or justify.",
+    },
     "ParaBackColor": {"type": "string", "description": "Paragraph background color (hex string)."},
     "ParaKeepTogether": {"type": "boolean", "description": "Keep lines of the paragraph together."},
     "ParaSplit": {"type": "boolean", "description": "Whether the paragraph is allowed to split across pages."}
@@ -112,12 +116,134 @@ _FAMILY_PROPS = {
 }
 
 
+# ParaAdjust 0/1/2/3 is hostile (1 is right, 2 is justify, 3 is center). Schema
+# is the words; these maps are the UNO integers (ParagraphAdjust).
+_PARA_ADJUST_TO_UNO = {"left": 0, "right": 1, "justify": 2, "center": 3}
+_PARA_ADJUST_FROM_INT = {0: "left", 1: "right", 2: "justify", 3: "center", 4: "justify"}
+_PARA_ADJUST_FROM_ENUM = {
+    "LEFT": "left", "RIGHT": "right", "BLOCK": "justify",
+    "CENTER": "center", "STRETCH": "justify",
+}
+
+
 def _get_bool_prop(obj, prop_name, default=False):
     """Safely get a boolean property from a UNO object."""
     try:
         return bool(obj.getPropertyValue(prop_name))
     except Exception:
         return default
+
+
+def _close_style_names(wanted, names):
+    """Best hint first: exact case-insensitive, then prefix, then substring.
+
+    Shortest name wins on prefix/substring ('body text' → 'Body Text', not
+    'Body Text Indent 2'). Same ranking as apply_style.
+    """
+    low = wanted.lower()
+    exact = [n for n in names if n.lower() == low]
+    prefix = sorted((n for n in names if n.lower().startswith(low)), key=len)
+    contains = sorted((n for n in names if low in n.lower()), key=len)
+    return exact or prefix or contains
+
+
+def _missing_style_error(tool, style_name, family, style_family, *, label="Style"):
+    """Not-found error with a Did-you-mean hint and a short sample of names."""
+    try:
+        names = [str(n) for n in style_family.getElementNames()]
+    except Exception:
+        names = []
+    close = _close_style_names(style_name, names) if names else []
+    hint = (" Did you mean '%s'?" % close[0]) if close else ""
+    sample = (" Available styles include: %s." % ", ".join(sorted(names)[:15])) if names else ""
+    if label == "parent_style":
+        return tool._tool_error(
+            "parent_style '%s' is not a %s style.%s%s" % (style_name, family, hint, sample))
+    return tool._tool_error(
+        "Style '%s' not found in %s.%s%s" % (style_name, family, hint, sample))
+
+
+def _para_adjust_to_uno(value):
+    """Schema word → UNO integer. Integers are refused (the old 0/1/2/3 trap)."""
+    if isinstance(value, str):
+        key = value.strip().lower()
+        if key in _PARA_ADJUST_TO_UNO:
+            return _PARA_ADJUST_TO_UNO[key], None
+    return None, (
+        "ParaAdjust must be one of left, center, right, justify "
+        "(not 0/1/2/3 — 1 is right, 2 is justify, 3 is center), got %r" % (value,)
+    )
+
+
+def _para_adjust_from_uno(raw):
+    """UNO ParaAdjust (int or enum) → schema word, or None if unknown."""
+    if raw is None:
+        return None
+    name = getattr(raw, "value", None)
+    if isinstance(name, str):
+        return _PARA_ADJUST_FROM_ENUM.get(name)
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        return _PARA_ADJUST_FROM_INT.get(raw)
+    return None
+
+
+def _get_style_prop(style, prop_name):
+    try:
+        return style.getPropertyValue(prop_name)
+    except Exception:
+        return None
+
+
+def _schema_prop_value(prop_name, raw):
+    """Read-back form that matches the write schema (ParaAdjust as a word)."""
+    if prop_name == "ParaAdjust":
+        return _para_adjust_from_uno(raw)
+    return raw
+
+
+def _normalize_property_updates(property_updates):
+    """Copy updates and translate ParaAdjust. Returns (dict, error_message)."""
+    if not isinstance(property_updates, dict):
+        return {}, None
+    updates = dict(property_updates)
+    if "ParaAdjust" not in updates:
+        return updates, None
+    uno_adj, err = _para_adjust_to_uno(updates["ParaAdjust"])
+    if err:
+        return {}, err
+    updates["ParaAdjust"] = uno_adj
+    return updates, None
+
+
+def _installed_font_names(ctx):
+    """Casefolded names LibreOffice can use, or None if the list is unavailable."""
+    try:
+        from plugin.framework.uno_context import get_toolkit
+
+        toolkit = get_toolkit(getattr(ctx, "ctx", None))
+        if toolkit is None:
+            return None
+        device = toolkit.createScreenCompatibleDevice(1, 1)
+        if device is None:
+            return None
+        return {str(f.Name).casefold() for f in device.getFontDescriptors() if getattr(f, "Name", None)}
+    except Exception:
+        log.debug("font list unavailable", exc_info=True)
+        return None
+
+
+def _font_not_installed_warning(ctx, font_name):
+    """Warn when CharFontName was stored but LO will substitute. None if unknown."""
+    wanted = str(font_name or "").strip()
+    if not wanted:
+        return None
+    installed = _installed_font_names(ctx)
+    if installed is None or wanted.casefold() in installed:
+        return None
+    return (
+        "Font '%s' is not installed here: LibreOffice keeps the "
+        "name but displays a substitute." % wanted
+    )
 
 
 class StyleList(ToolWriterStyleBase):
@@ -276,6 +402,11 @@ class StyleGetInfo(ToolWriterStyleBase):
                 except Exception:
                     pass
 
+        if "ParaAdjust" in info:
+            word = _para_adjust_from_uno(info["ParaAdjust"])
+            if word is not None:
+                info["ParaAdjust"] = word
+
         return {"status": "ok", **info}
 
 
@@ -384,18 +515,7 @@ class ApplyStyle(FrameworkToolBase):
             try:
                 fam = ctx.doc.getStyleFamilies().getByName(family)
                 if not fam.hasByName(uno_value):
-                    names = [str(n) for n in fam.getElementNames()]
-                    low = uno_value.lower()
-                    # Best hint first: exact case-insensitive, then prefix, then substring —
-                    # shortest name wins ('body text' -> 'Body Text 2', not 'Body Text Indent 2').
-                    exact = [n for n in names if n.lower() == low]
-                    prefix = sorted((n for n in names if n.lower().startswith(low)), key=len)
-                    contains = sorted((n for n in names if low in n.lower()), key=len)
-                    close = exact or prefix or contains
-                    hint = (" Did you mean '%s'?" % close[0]) if close else ""
-                    sample = ", ".join(sorted(names)[:15])
-                    return self._tool_error(
-                        "Style '%s' not found in %s.%s Available styles include: %s." % (style_name, family, hint, sample))
+                    return _missing_style_error(self, style_name, family, fam)
             except Exception:
                 pass  # can't enumerate styles (exotic doc) -> let the apply path report
 
@@ -505,7 +625,8 @@ class StyleUpdate(ToolWriterStyleBase):
         "Update the properties of an existing style. "
         "Provide 'family' (ParagraphStyles or CharacterStyles), 'style_name', and "
         "'property_updates': a dictionary of UNO property names to values "
-        "(e.g. {'CharColor': '#FF0000', 'CharWeight': 150}). "
+        "(e.g. {'CharColor': '#FF0000', 'CharWeight': 150, 'ParaAdjust': 'center'}). "
+        "ParaAdjust is left/center/right/justify, not 0/1/2/3. "
         "Colors can be provided as hex strings or integers. "
         "You can also update the 'parent_style' separately."
     )
@@ -535,18 +656,42 @@ class StyleUpdate(ToolWriterStyleBase):
         parent_style = kwargs.get("parent_style")
         property_updates = kwargs.get("property_updates", {})
 
+        updates, adj_err = _normalize_property_updates(property_updates)
+        if adj_err:
+            return self._tool_error(adj_err)
+
         doc = ctx.doc
         style_family = self.get_item(doc, "getStyleFamilies", family, missing_msg="Document does not support style families.", not_found_msg="Unknown style family: %s" % family)
         if isinstance(style_family, dict):
             return style_family
 
         if not style_family.hasByName(style_name):
-            return self._tool_error("Style '%s' not found in %s." % (style_name, family))
+            return _missing_style_error(self, style_name, family, style_family)
+
+        if parent_style is not None:
+            parent_style = str(parent_style).strip()
+            if not parent_style:
+                return self._tool_error("parent_style is empty.")
+            if not style_family.hasByName(parent_style):
+                return _missing_style_error(
+                    self, parent_style, family, style_family, label="parent_style")
 
         style = style_family.getByName(style_name)
 
         applied = {}
         failed = {}
+        snapshot_keys = list(updates)
+        if parent_style is not None:
+            snapshot_keys = ["ParentStyle"] + snapshot_keys
+        before = {}
+        for key in snapshot_keys:
+            if key == "ParentStyle":
+                try:
+                    before[key] = style.getParentStyle()
+                except Exception:
+                    before[key] = None
+            else:
+                before[key] = _schema_prop_value(key, _get_style_prop(style, key))
 
         if parent_style is not None:
             try:
@@ -556,24 +701,42 @@ class StyleUpdate(ToolWriterStyleBase):
                 log.warning("Failed to set ParentStyle on %s: %s", style_name, e, exc_info=True)
                 failed["ParentStyle"] = str(e)
 
-        if isinstance(property_updates, dict):
-            for prop_name, prop_val in property_updates.items():
-                # Handle color conversions (None = unparseable; do not pass raw strings to UNO).
-                if prop_name in ("CharColor", "CharBackColor", "CharUnderlineColor"):
-                    parsed = parse_color_to_uno_int(prop_val)
-                    if parsed is None:
-                        failed[prop_name] = "Invalid color: %r" % (prop_val,)
-                        continue
-                    prop_val = parsed
+        for prop_name, prop_val in updates.items():
+            # Handle color conversions (None = unparseable; do not pass raw strings to UNO).
+            if prop_name in ("CharColor", "CharBackColor", "CharUnderlineColor"):
+                parsed = parse_color_to_uno_int(prop_val)
+                if parsed is None:
+                    failed[prop_name] = "Invalid color: %r" % (prop_val,)
+                    continue
+                prop_val = parsed
 
+            try:
+                style.setPropertyValue(prop_name, prop_val)
+                applied[prop_name] = (
+                    _para_adjust_from_uno(prop_val) if prop_name == "ParaAdjust" else prop_val
+                )
+            except Exception as e:
+                log.warning("Failed to set property %s on %s: %s", prop_name, style_name, e, exc_info=True)
+                hint = ""
+                close = _close_style_names(prop_name, list(_ALL_KNOWN_PROPERTIES))
+                if close and close[0] != prop_name:
+                    hint = " Did you mean '%s'?" % close[0]
+                failed[prop_name] = "%s%s" % (e, hint)
+
+        after = {}
+        for key in snapshot_keys:
+            if key == "ParentStyle":
                 try:
-                    style.setPropertyValue(prop_name, prop_val)
-                    applied[prop_name] = prop_val
-                except Exception as e:
-                    log.warning("Failed to set property %s on %s: %s", prop_name, style_name, e, exc_info=True)
-                    failed[prop_name] = str(e)
+                    after[key] = style.getParentStyle()
+                except Exception:
+                    after[key] = applied.get("ParentStyle")
+            else:
+                after[key] = _schema_prop_value(key, _get_style_prop(style, key))
 
         result = {"status": "ok", "style_name": style_name, "family": family}
+        if snapshot_keys:
+            result["before"] = before
+            result["after"] = after
         if applied:
             result["updated_properties"] = applied
         if failed:
@@ -581,6 +744,10 @@ class StyleUpdate(ToolWriterStyleBase):
             if not applied:
                 result["status"] = "error"
                 result["message"] = "Failed to apply any updates."
+        if "CharFontName" in applied:
+            warning = _font_not_installed_warning(ctx, applied["CharFontName"])
+            if warning:
+                result["warning"] = warning
 
         # Style changes don't produce tracked changes, so the agent can't review them like a
         # text edit -- flag it (matches ApplyStyle) so the agent tells the user it changed a style.
@@ -640,6 +807,10 @@ class StyleCreate(ToolWriterStyleBase):
         property_updates = kwargs.get("property_updates", {})
         conditional_rules = kwargs.get("conditional_rules")
 
+        updates, adj_err = _normalize_property_updates(property_updates)
+        if adj_err:
+            return self._tool_error(adj_err)
+
         doc = ctx.doc
         style_families = doc.getStyleFamilies()
         if not style_families.hasByName(family):
@@ -649,22 +820,25 @@ class StyleCreate(ToolWriterStyleBase):
         if style_family.hasByName(style_name):
             return self._tool_error("Style '%s' already exists in %s." % (style_name, family))
 
-        try:
-            # Service choice: ConditionalParagraphStyle vs ParagraphStyle vs CharacterStyle
-            service = "com.sun.star.style.ParagraphStyle"
-            if family == "ParagraphStyles" and conditional_rules:
-                service = "com.sun.star.style.ConditionalParagraphStyle"
-            elif family == "CharacterStyles":
-                service = "com.sun.star.style.CharacterStyle"
+        # Service choice: ConditionalParagraphStyle vs ParagraphStyle vs CharacterStyle
+        service = "com.sun.star.style.ParagraphStyle"
+        if family == "ParagraphStyles" and conditional_rules:
+            service = "com.sun.star.style.ConditionalParagraphStyle"
+        elif family == "CharacterStyles":
+            service = "com.sun.star.style.CharacterStyle"
 
+        actual_parent = str(parent_style).strip() if parent_style is not None else ""
+        if not actual_parent and service == "com.sun.star.style.ConditionalParagraphStyle":
+            actual_parent = "Standard"
+        if actual_parent and not style_family.hasByName(actual_parent):
+            return _missing_style_error(
+                self, actual_parent, family, style_family, label="parent_style")
+
+        applied_font = None
+        try:
             new_style = doc.createInstance(service)
             if not new_style:
                 return self._tool_error("Failed to create style instance for %s" % service)
-
-            # Set parent style
-            actual_parent = parent_style
-            if not actual_parent and service == "com.sun.star.style.ConditionalParagraphStyle":
-                actual_parent = "Standard"
 
             if actual_parent:
                 try:
@@ -673,18 +847,20 @@ class StyleCreate(ToolWriterStyleBase):
                     log.warning("Failed to set parent_style '%s' on new style", actual_parent, exc_info=True)
 
             # Apply properties
-            if isinstance(property_updates, dict):
-                for prop_name, prop_val in property_updates.items():
-                    if prop_name in ("CharColor", "CharBackColor", "CharUnderlineColor"):
-                        parsed = parse_color_to_uno_int(prop_val)
-                        if parsed is None:
-                            log.warning("Skipping invalid color for %s on new style: %r", prop_name, prop_val)
-                            continue
-                        prop_val = parsed
-                    try:
-                        new_style.setPropertyValue(prop_name, prop_val)
-                    except Exception:
-                        log.warning("Failed to set property %s on new style", prop_name, exc_info=True)
+            applied_font = None
+            for prop_name, prop_val in updates.items():
+                if prop_name in ("CharColor", "CharBackColor", "CharUnderlineColor"):
+                    parsed = parse_color_to_uno_int(prop_val)
+                    if parsed is None:
+                        log.warning("Skipping invalid color for %s on new style: %r", prop_name, prop_val)
+                        continue
+                    prop_val = parsed
+                try:
+                    new_style.setPropertyValue(prop_name, prop_val)
+                    if prop_name == "CharFontName":
+                        applied_font = prop_val
+                except Exception:
+                    log.warning("Failed to set property %s on new style", prop_name, exc_info=True)
 
             # Register style
             style_family.insertByName(style_name, new_style)
@@ -711,6 +887,10 @@ class StyleCreate(ToolWriterStyleBase):
             return self._tool_error("Failed to create style: %s" % msg)
 
         result = {"status": "ok", "style_name": style_name, "family": family, "service": service}
+        if applied_font is not None:
+            warning = _font_not_installed_warning(ctx, applied_font)
+            if warning:
+                result["warning"] = warning
         # Style changes aren't reviewable as tracked changes -- flag it for the agent (matches ApplyStyle).
         from plugin.writer.edit_review import review_recording_enabled
 

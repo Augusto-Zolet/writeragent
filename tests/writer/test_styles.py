@@ -142,6 +142,28 @@ def test_get_style_info():
     assert res["is_in_use"] is True
 
 
+def test_get_style_info_para_adjust_is_word():
+    """Inspect must use the same ParaAdjust words as style_update."""
+    style = create_mock_style("Text body", is_in_use=True)
+    props = {
+        "DisplayName": "Text body",
+        "IsPhysical": True,
+        "IsHidden": False,
+        "ParentStyle": "Default",
+        "Category": 0,
+        "ParaAdjust": 2,
+    }
+    style.getPropertyValue.side_effect = lambda p: props.get(p)
+    style.getParentStyle.return_value = "Default"
+    family = _style_family({"Text body": style})
+    mock_ctx = _ctx_with_families(ParagraphStyles=family)
+
+    res = StyleGetInfo().execute(mock_ctx, style="Text body", family="ParagraphStyles")
+
+    assert res["status"] == "ok"
+    assert res["ParaAdjust"] == "justify"
+
+
 def _page_style_for_info():
     """Page-style mock with the UNO properties get_page_style_properties reads."""
     style = MagicMock()
@@ -356,7 +378,8 @@ def test_apply_default_character_style(mock_resolve, mock_preserve, mock_ctx):
 
 def test_update_style_with_parent():
     style = MagicMock()
-    family = _style_family({"MyStyle": style})
+    style.getParentStyle.return_value = "Standard"
+    family = _style_family({"MyStyle": style, "Standard": MagicMock()})
     mock_ctx = _ctx_with_families(ParagraphStyles=family)
 
     tool = StyleUpdate()
@@ -365,11 +388,78 @@ def test_update_style_with_parent():
     assert res["status"] == "ok"
     style.setParentStyle.assert_called_once_with("Standard")
     style.setPropertyValue.assert_called_once_with("CharWeight", 150)
+    assert "CharWeight" in res["before"]
+    assert res["after"]["ParentStyle"] == "Standard"
+
+
+def test_style_update_schema_para_adjust_is_words():
+    schema = StyleUpdate.parameters["properties"]["property_updates"]["properties"]["ParaAdjust"]
+    assert schema["type"] == "string"
+    assert schema["enum"] == ["left", "center", "right", "justify"]
+
+
+def test_update_style_para_adjust_words():
+    """ParaAdjust 0/1/2/3 is hostile (1=right); schema is left/center/right/justify."""
+    props = {"ParaAdjust": 0, "CharWeight": 100}
+    style = MagicMock()
+    style.getPropertyValue.side_effect = lambda n: props.get(n)
+    style.getParentStyle.return_value = "Standard"
+
+    def _set(name, value):
+        props[name] = value
+
+    style.setPropertyValue.side_effect = _set
+    family = _style_family({"MyStyle": style})
+    mock_ctx = _ctx_with_families(ParagraphStyles=family)
+
+    res = StyleUpdate().execute(mock_ctx, style="MyStyle", property_updates={"ParaAdjust": "center"})
+
+    assert res["status"] == "ok"
+    style.setPropertyValue.assert_called_once_with("ParaAdjust", 3)
+    assert res["before"]["ParaAdjust"] == "left"
+    assert res["after"]["ParaAdjust"] == "center"
+    assert res["updated_properties"]["ParaAdjust"] == "center"
+
+
+def test_update_style_rejects_para_adjust_integer():
+    style = MagicMock()
+    family = _style_family({"MyStyle": style})
+    mock_ctx = _ctx_with_families(ParagraphStyles=family)
+
+    res = StyleUpdate().execute(mock_ctx, style="MyStyle", property_updates={"ParaAdjust": 2})
+
+    assert res["status"] == "error"
+    assert "left" in res["message"]
+    style.setPropertyValue.assert_not_called()
+
+
+def test_update_style_unknown_suggests_close_name():
+    style = MagicMock()
+    family = _style_family({"Heading 1": style, "Text body": style})
+    mock_ctx = _ctx_with_families(ParagraphStyles=family)
+
+    res = StyleUpdate().execute(mock_ctx, style="heading 1", property_updates={"CharWeight": 150})
+
+    assert res["status"] == "error"
+    assert "Did you mean 'Heading 1'" in res["message"]
+
+
+def test_update_style_warns_when_font_not_installed():
+    style = MagicMock()
+    family = _style_family({"MyStyle": style})
+    mock_ctx = _ctx_with_families(ParagraphStyles=family)
+
+    with patch("plugin.writer.styles._installed_font_names", return_value={"liberation serif"}):
+        res = StyleUpdate().execute(
+            mock_ctx, style="MyStyle", property_updates={"CharFontName": "DefinitelyMissingFont"})
+
+    assert res["status"] == "ok"
+    assert "DefinitelyMissingFont" in res["warning"]
+    assert "substitute" in res["warning"]
 
 
 def test_create_style_standard():
-    family = _style_family(exists=False)
-    family.hasByName.return_value = False
+    family = _style_family({"Standard": MagicMock()})
     mock_ctx = _ctx_with_families(ParagraphStyles=family)
     new_style = MagicMock()
     mock_ctx.doc._created["com.sun.star.style.ParagraphStyle"] = new_style
@@ -384,10 +474,32 @@ def test_create_style_standard():
     family.insertByName.assert_called_once_with("NewStyle", new_style)
 
 
+def test_create_style_parent_not_found_suggests():
+    family = _style_family({"Standard": MagicMock(), "Heading 1": MagicMock()})
+    mock_ctx = _ctx_with_families(ParagraphStyles=family)
+
+    res = StyleCreate().execute(mock_ctx, style="NewStyle", parent_style="heading 1")
+
+    assert res["status"] == "error"
+    assert "Did you mean 'Heading 1'" in res["message"]
+    family.insertByName.assert_not_called()
+
+
+def test_create_style_rejects_para_adjust_integer():
+    family = _style_family({"Standard": MagicMock()})
+    mock_ctx = _ctx_with_families(ParagraphStyles=family)
+
+    res = StyleCreate().execute(
+        mock_ctx, style="NewStyle", parent_style="Standard", property_updates={"ParaAdjust": 3})
+
+    assert res["status"] == "error"
+    assert "justify" in res["message"] or "center" in res["message"]
+    family.insertByName.assert_not_called()
+
+
 @patch("plugin.writer.styles.NamedValue")
 def test_create_style_conditional(mock_nv):
-    family = _style_family(exists=False)
-    family.hasByName.return_value = False
+    family = _style_family({"Standard": MagicMock(), "Heading 1": MagicMock()})
     mock_ctx = _ctx_with_families(ParagraphStyles=family)
     new_style = MagicMock()
     mock_ctx.doc._created["com.sun.star.style.ConditionalParagraphStyle"] = new_style
