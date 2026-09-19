@@ -1219,9 +1219,9 @@ class _WriterProxy:
         """Add a comment/annotation."""
         return _rpc_call("add_comment", content=content, search=search, occurrence=occurrence, author=author, parent_name=parent_name)
 
-    def apply_document_content(self, content: list, *, target: str | None = None, old_content: str | None = None, all_matches: bool | None = None, position: str | None = None, dry_run: bool | None = None, regex: bool | None = None, case_sensitive: bool | None = None) -> dict:
+    def apply_document_content(self, content: list, *, target: str | None = None, old_content: str | None = None, all_matches: bool | None = None, occurrence: int | None = None, position: str | None = None, dry_run: bool | None = None, regex: bool | None = None, case_sensitive: bool | None = None) -> dict:
         """Insert or replace content."""
-        return _rpc_call("apply_document_content", content=content, target=target, old_content=old_content, all_matches=all_matches, position=position, dry_run=dry_run, regex=regex, case_sensitive=case_sensitive)
+        return _rpc_call("apply_document_content", content=content, target=target, old_content=old_content, all_matches=all_matches, occurrence=occurrence, position=position, dry_run=dry_run, regex=regex, case_sensitive=case_sensitive)
 
     def apply_style(self, style: str, *, family: str | None = None, target: str | None = None, old_content: str | None = None, all_matches: bool | None = None, occurrence: int | None = None, clear_direct: str = 'style_props') -> dict:
         """Apply a style to a target."""

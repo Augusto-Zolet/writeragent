@@ -693,7 +693,7 @@ The mutating edit tools return **structured, machine-readable fields** alongside
 
 **`apply_document_content`** (search path)
 - `replaced_count` — how many occurrences were actually replaced. **`replaced_count: 0` returns `status: "error"`** (a search that matched nothing is no longer a silent "ok"); `> 0` returns `status: "ok"`.
-- `occurrence` — optional 0-based selector for one replaceable Writer text match when `target="search"`; it cannot be combined with `all_matches=true`. Successful edits echo `occurrence`; `dry_run` also returns `selected_occurrence`, `selected_match`, and `replaceable_count`.
+- `occurrence` — optional 0-based selector for one replaceable Writer text match when `target="search"`; it cannot be combined with `all_matches=true`. Successful edits (replace and `position=before/after`) echo `occurrence`. Out of range uses `code: OCCURRENCE_OUT_OF_RANGE` and `use 0..N-1`. Empty replaceable ranges fall through to the existing miss / drawing-shape path (same as omitting `occurrence`).
 - If a replacement raises mid-`all_matches`, the existing abort behavior stands (no partial-replace handling — the call surfaces the error).
 
 **`apply_style`** — `applied` (bool), `target`, and `matched` (only when `target="search"`; a search miss returns `status:"error"`, `applied:false`, `matched:false`).
@@ -946,7 +946,10 @@ Parameters: `pattern` (required), `regex` (default **false**), `case_sensitive` 
 no shapes/comments). Invalid regex with zero hits returns `code: INVALID_REGEX`.
 
 `apply_document_content` `dry_run=true` previews edit-reachable matches plus shape/comment counts
-(see `edit_reach_note` in the result). Regex on the edit path uses the same INVALID_REGEX check.
+(see `edit_reach_note` in the result). Replaceable body/table/frame rows include `occurrence` (0-based,
+the index to pass back); shape/comment rows do not. `replaceable_count` is the edit-path index space.
+An out-of-range `occurrence` returns `OCCURRENCE_OUT_OF_RANGE` with those `matches` in `details` so the
+caller can recover. Regex on the edit path uses the same INVALID_REGEX check.
 
 #### 4b. (historical) Collabora `context_paragraphs` comparison
 

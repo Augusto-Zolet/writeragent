@@ -228,7 +228,7 @@ def test_search_occurrence_out_of_range(monkeypatch):
     assert res["status"] == "error", res
     assert res["code"] == "OCCURRENCE_OUT_OF_RANGE", res
     assert res["details"]["count"] == 2, res
-    assert "only 2 replaceable match(es)" in res["message"]
+    assert "use 0..1" in res["message"]
 
 
 def test_search_occurrence_dry_run_selects_without_editing(monkeypatch):
@@ -272,3 +272,168 @@ def test_search_occurrence_dry_run_selects_without_editing(monkeypatch):
     assert res["replaceable_count"] == 2, res
     assert res["selected_occurrence"] == 1, res
     assert res["selected_match"]["location"] == "second", res
+    assert res["matches"][0]["occurrence"] == 0, res
+    assert res["matches"][1]["occurrence"] == 1, res
+
+
+def test_search_occurrence_rejects_non_search_target():
+    res = ApplyDocumentContent().execute(
+        _ctx(),
+        target="end",
+        content="BAR",
+        occurrence=0,
+    )
+
+    assert res["status"] == "error", res
+    assert res["code"] == "INVALID_PARAM", res
+    assert "only applies to target='search'" in res["message"]
+
+
+def test_search_occurrence_rejects_bool():
+    res = ApplyDocumentContent().execute(
+        _ctx(),
+        target="search",
+        old_content="foo",
+        content="BAR",
+        occurrence=True,
+    )
+
+    assert res["status"] == "error", res
+    assert res["code"] == "INVALID_PARAM", res
+    assert "non-negative integer" in res["message"]
+
+
+def test_search_occurrence_regex_selects_requested_match(monkeypatch):
+    first = MockRange()
+    second = MockRange()
+    selected = []
+
+    monkeypatch.setattr(
+        search_mod,
+        "find_ranges_regex_case",
+        lambda *args, **kwargs: [first, second],
+    )
+    def unused_find_all(doc, s):
+        raise AssertionError("regex path must not use find_all_ranges")
+
+    monkeypatch.setattr(search_mod, "find_all_ranges", unused_find_all)
+    monkeypatch.setattr(
+        "plugin.writer.content.record_preserve_replace",
+        lambda session, doc, found, content, ctx, reviewable: selected.append(found),
+    )
+
+    res = ApplyDocumentContent().execute(
+        _ctx(),
+        target="search",
+        old_content="foo.",
+        content="BAR",
+        occurrence=1,
+        regex=True,
+    )
+
+    assert res["status"] == "ok", res
+    assert res["occurrence"] == 1, res
+    assert selected == [second]
+
+
+def test_search_occurrence_position_after_uses_selected_match(monkeypatch):
+    first = MagicMock()
+    second = MagicMock()
+    cursor = MagicMock()
+    cursor.getPropertyValue.return_value = None
+    second.getText.return_value.createTextCursorByRange.return_value = cursor
+
+    monkeypatch.setattr(
+        search_mod,
+        "find_all_ranges",
+        lambda doc, s: [first, second],
+    )
+    monkeypatch.setattr("plugin.writer.content.collapsed_anchor", lambda found: None)
+    monkeypatch.setattr(format_mod, "html_fragment_contains_mixed_math", lambda content: False)
+    monkeypatch.setattr(format_mod, "content_has_markup", lambda *args, **kwargs: True)
+    inserted = []
+    monkeypatch.setattr(
+        format_mod,
+        "insert_html_at_cursor",
+        lambda *args, **kwargs: inserted.append(True),
+    )
+    monkeypatch.setattr(
+        "plugin.writer.content.record_html_atomically",
+        lambda session, doc, mutate, *rest, **kwargs: mutate(),
+    )
+
+    res = ApplyDocumentContent().execute(
+        _ctx(),
+        target="search",
+        old_content="foo",
+        content=["<p>novo</p>"],
+        occurrence=1,
+        position="after",
+    )
+
+    assert res["status"] == "ok", res
+    assert res["inserted"] is True, res
+    assert res["position"] == "after", res
+    assert res["occurrence"] == 1, res
+    assert "replaced_count" not in res
+    assert inserted
+    second.getEnd.assert_called()
+
+
+def test_search_occurrence_empty_ranges_falls_through_to_not_found(monkeypatch):
+    monkeypatch.setattr(search_mod, "find_all_ranges", lambda doc, s: [])
+
+    res = ApplyDocumentContent().execute(
+        _ctx(),
+        target="search",
+        old_content="zzz",
+        content="BAR",
+        occurrence=0,
+    )
+
+    assert res["status"] == "error", res
+    assert res.get("code") != "OCCURRENCE_OUT_OF_RANGE", res
+    assert res["replaced_count"] == 0, res
+
+
+def test_search_occurrence_dry_run_oor_includes_matches(monkeypatch):
+    first = MockRange()
+    second = MockRange()
+
+    monkeypatch.setattr(
+        search_mod,
+        "find_all_ranges",
+        lambda doc, s: [first, second],
+    )
+    monkeypatch.setattr(
+        search_mod,
+        "describe_match_location",
+        lambda found, doc, label_cache=None:
+            "first" if found is first else "second",
+    )
+    monkeypatch.setattr(
+        search_mod,
+        "sweep_draw_shape_preview_matches",
+        lambda *args, **kwargs: [],
+    )
+    monkeypatch.setattr(
+        search_mod,
+        "sweep_comment_preview_matches",
+        lambda *args, **kwargs: [],
+    )
+
+    res = ApplyDocumentContent().execute(
+        _ctx(),
+        target="search",
+        old_content="foo",
+        content="BAR",
+        occurrence=5,
+        dry_run=True,
+    )
+
+    assert res["status"] == "error", res
+    assert res["code"] == "OCCURRENCE_OUT_OF_RANGE", res
+    assert res["details"]["replaceable_count"] == 2, res
+    assert res["details"]["matches"][0]["occurrence"] == 0, res
+    assert res["details"]["matches"][1]["location"] == "second", res
+    assert "use 0..1" in res["message"]

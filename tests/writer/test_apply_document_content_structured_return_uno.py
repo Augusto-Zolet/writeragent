@@ -148,4 +148,26 @@ def test_search_occurrence_dry_run_does_not_edit_uno(ctx, doc):
     assert res.get("dry_run") is True, res
     assert res.get("selected_occurrence") == 1, res
     assert res.get("replaceable_count") == 2, res
+    assert res.get("matches")[0].get("occurrence") == 0, res
+    assert res.get("matches")[1].get("occurrence") == 1, res
+    assert doc.getText().getString() == before
+
+
+@native_test
+@with_native_doc("writer")
+def test_search_occurrence_out_of_range_uno(ctx, doc):
+    """OOR names the valid 0-based range and does not edit."""
+    _set_body(doc, "foo | foo")
+    before = doc.getText().getString()
+    tool_ctx = TestingFactory.create_context(doc=doc, ctx=ctx, env="native")
+    res = ApplyDocumentContent().execute(
+        tool_ctx,
+        target="search",
+        old_content="foo",
+        content="BAR",
+        occurrence=2,
+    )
+    assert res.get("status") == "error", res
+    assert res.get("code") == "OCCURRENCE_OUT_OF_RANGE", res
+    assert "use 0..1" in res.get("message", ""), res
     assert doc.getText().getString() == before
