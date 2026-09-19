@@ -6,7 +6,8 @@
 
 We extract byte-for-byte ``<math>...</math>`` so LibreOffice's MathML importer sees
 the same markup the model sent. TeX islands use ``$...$``, ``$$...$$``,
-``\\(...\\)``, and ``\\[...\\]`` (conservative rules for ``$`` vs currency).
+``\\(...\\)``, and ``\\[...\\]``. Single ``$`` follows Pandoc's conservative rules
+plus currency guards, so ``R$ 12.798,82`` stays prose.
 Unclosed ``<math`` tails are surfaced as a final HTML chunk (nothing silently
 dropped). Incomplete TeX delimiters are left as HTML by advancing the scan.
 """
@@ -52,26 +53,52 @@ def _is_escaped(s: str, idx: int) -> bool:
     return _preceding_backslashes(s, idx) % 2 == 1
 
 
+# What was wrong: a single ``$`` opened a TeX region unless the very next
+# character was a digit. How it happened: that guard only covers ``$100``; in
+# ``R$ 12.798,82`` a space follows the sign, so the first ``R$`` opened math and
+# the *second* ``R$`` in the same sentence closed it — the prose between them was
+# handed to ``convert_latex_to_starmath`` and inserted as a Math OLE object, one
+# ``<mi>`` per letter (italic, spaces eaten), and it vanished from the text layer.
+# Why this fixes it: money and inline TeX differ in shape, so the guards below
+# test both sides of the delimiter (Pandoc's rules plus currency prefixes)
+# instead of the single character after it. See docs/writer/math-tex.md.
+def _is_currency_dollar(s: str, idx: int) -> bool:
+    """True when ``$`` at *idx* reads as currency and must not open TeX math.
+
+    Covers the shapes money actually takes in prose: a letter-prefixed code
+    (``R$``, ``US$``, ``A$``), an amount right after (``$100``, ``$ 12.798,82``,
+    ``$.50``), and an amount right before (``100$``). TeX inline math never
+    opens on a space or a digit, so nothing legitimate is lost.
+    """
+    prev = s[idx - 1] if idx > 0 else ""
+    if prev.isalnum():
+        return True
+    nxt = s[idx + 1 : idx + 2]
+    return not nxt or nxt.isspace() or nxt.isdigit() or nxt in ".,"
+
+
+def _is_tex_dollar_close(s: str, body_start: int, j: int) -> bool:
+    """True when ``$`` at *j* can close the inline region opened at *body_start*.
+
+    Pandoc's rule: the closing ``$`` needs a non-space character to its left and
+    must not be followed by a digit, so a later ``R$ 500,00`` cannot terminate a
+    run that started elsewhere.
+    """
+    if j <= body_start or s[j - 1].isspace():
+        return False
+    nxt = s[j + 1 : j + 2]
+    return not nxt.isdigit()
+
+
 def html_fragment_contains_tex_math(fragment: str) -> bool:
-    """Fast check for common TeX math delimiters (conservative ``$`` rules)."""
+    """True only when a *complete* TeX region exists (conservative ``$`` rules).
+
+    Mirrors :func:`segment_html_with_mixed_math` exactly, so the router never
+    sends currency prose down the math path.
+    """
     if not fragment or not isinstance(fragment, str):
         return False
-    if "$$" in fragment or "\\[" in fragment or "\\(" in fragment:
-        return True
-    i = 0
-    while True:
-        j = fragment.find("$", i)
-        if j < 0:
-            return False
-        if _is_escaped(fragment, j):
-            i = j + 1
-            continue
-        if j + 1 < len(fragment) and fragment[j + 1] == "$":
-            return True
-        if j + 1 < len(fragment) and fragment[j + 1].isdigit():
-            i = j + 1
-            continue
-        return True
+    return _next_complete_tex_region(fragment, 0) is not None
 
 
 def html_fragment_contains_mixed_math(fragment: str) -> bool:
@@ -134,7 +161,7 @@ def _scan_next_tex_open(s: str, pos: int) -> tuple[int, Literal["$$", "$", "\\["
         if i + 1 < n and s[i : i + 2] == "\\(":
             return (i, "\\(", False)
         if s[i] == "$":
-            if i + 1 < n and s[i + 1].isdigit():
+            if _is_currency_dollar(s, i):
                 i += 1
                 continue
             return (i, "$", False)
@@ -177,7 +204,7 @@ def _try_close_tex(s: str, open_start: int, delim: Literal["$$", "$", "\\[", "\\
         if _is_escaped(s, j):
             j += 1
             continue
-        if s[j] == "$":
+        if s[j] == "$" and _is_tex_dollar_close(s, body_start, j):
             return (j + 1, s[body_start:j])
         j += 1
     return None

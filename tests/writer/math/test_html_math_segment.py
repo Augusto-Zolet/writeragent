@@ -114,6 +114,44 @@ class TestHtmlMathSegment(unittest.TestCase):
         self.assertEqual([s.kind for s in segs], ["math", "html", "tex"])
         self.assertTrue(segs[0].text.lower().startswith("<math"))
 
+    def test_currency_does_not_open_tex(self):
+        """``R$ 1.234,56`` pairs must stay prose (issue: Writer inserted a formula)."""
+        brl = (
+            "<p>Requer a condena\u00e7\u00e3o em R$ 12.798,82, como montante "
+            "indenizat\u00f3rio, evitando-se, assim, o enriquecimento, al\u00e9m "
+            "de R$ 500,00 de custas.</p>"
+        )
+        self.assertFalse(html_fragment_contains_tex_math(brl))
+        self.assertFalse(html_fragment_contains_mixed_math(brl))
+        segs = segment_html_with_mixed_math(brl)
+        self.assertEqual([s.kind for s in segs], ["html"])
+        self.assertEqual(segs[0].text, brl)
+
+    def test_currency_shapes_are_not_tex(self):
+        for text in (
+            "R$12.798,82 e R$500,00",
+            "US$ 1,00 at\u00e9 US$ 9,00",
+            "custa 100$ ou 200$",
+            "total: $ 5,00 e $ 9,00",
+            "$.50 e $.75",
+        ):
+            with self.subTest(text=text):
+                self.assertFalse(html_fragment_contains_tex_math(text))
+                self.assertEqual([s.kind for s in segment_html_with_mixed_math(text)], ["html"])
+
+    def test_real_tex_still_segments_next_to_currency(self):
+        h = "valor R$ 5,00 e a f\u00f3rmula $x^2$ aqui"
+        self.assertTrue(html_fragment_contains_tex_math(h))
+        segs = segment_html_with_mixed_math(h)
+        self.assertEqual([s.kind for s in segs], ["html", "tex", "html"])
+        self.assertEqual(segs[1].text, "x^2")
+
+    def test_unclosed_dollar_is_not_tex(self):
+        self.assertFalse(html_fragment_contains_tex_math(r"$\alpha with no close"))
+        self.assertEqual(
+            [s.kind for s in segment_html_with_mixed_math(r"$\alpha with no close")], ["html"]
+        )
+
     def test_tex_before_mathml(self):
         h = r'$\pi$<math><mi>x</mi></math>'
         segs = segment_html_with_mixed_math(h)
