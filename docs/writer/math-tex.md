@@ -288,6 +288,26 @@ Handle common sources where the HTML contains TeX source or TeX-style delimiters
 - `\[...\]`
 - TeX annotations preserved in upstream KaTeX/MathJax output (**not** auto-mined yet; prefer embedded `<math>` when present)
 
+#### Single `$` vs. currency
+
+A lone `$` is ambiguous: prose written by the model (and by users in most of the
+world) contains money far more often than inline TeX. `html_math_segment.py`
+therefore applies Pandoc's inline-math rules plus currency guards before a `$`
+is allowed to open a region:
+
+| Shape | Treated as | Rule that decides it |
+|-------|-----------|----------------------|
+| `R$ 12.798,82`, `US$ 1,00` | currency | opener preceded by an alphanumeric (currency code) |
+| `$100`, `$ 12.798,82`, `$.50` | currency | opener followed by whitespace, a digit, `.` or `,` |
+| `100$` | currency | opener preceded by an alphanumeric |
+| `$x^2$` | TeX | opener preceded by a non-alphanumeric, followed by a non-space non-digit |
+
+The closing `$` must additionally have a non-space character to its left and no
+digit to its right, so a later `R$ 500,00` cannot terminate a region opened
+elsewhere. `html_fragment_contains_tex_math` reports `True` only for a
+**complete** region, so it never routes currency prose down the math path.
+`$$`, `\(` and `\[` are unambiguous and keep their original handling.
+
 ### Tasks
 
 1. [x] TeX source detection (`html_fragment_contains_tex_math`, `html_fragment_contains_mixed_math`)

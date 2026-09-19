@@ -46,6 +46,34 @@ class TestWriterMathPreservation(unittest.TestCase):
                 tex_chunk = mock_convert_tex.call_args[0][1]
                 self.assertEqual(tex_chunk, r"\nabla \cdot \mathbf{E}")
 
+    def test_brl_currency_never_becomes_a_formula(self):
+        """End-to-end insert path: ``R$ 1.234,56`` pairs must not build a Math object.
+
+        Regression for the Writer corruption where the text between two ``R$``
+        amounts was swallowed into a formula (italic serif, spaces eaten).
+        """
+        ctx = MagicMock()
+        model = MagicMock()
+        cursor = MagicMock()
+
+        content = (
+            "<p>Requer a condena\u00e7\u00e3o em R$ 12.798,82, como montante "
+            "indenizat\u00f3rio por ventura arbitrado, evitando-se, assim, o "
+            "enriquecimento sem causa, al\u00e9m de R$ 500,00 de custas.</p>"
+        )
+
+        with patch('plugin.writer.html_import._insert_starwriter_html_at_cursor') as mock_insert_html:
+            with patch('plugin.writer.html_import.convert_latex_to_starmath') as mock_convert_tex:
+                with patch('plugin.writer.html_import.insert_writer_math_formula') as mock_formula:
+                    _insert_mixed_or_plain_html(model, ctx, cursor, content)
+
+        mock_convert_tex.assert_not_called()
+        mock_formula.assert_not_called()
+        inserted = "".join(c[0][2] for c in mock_insert_html.call_args_list)
+        self.assertIn("R$ 12.798,82", inserted)
+        self.assertIn("R$ 500,00", inserted)
+        self.assertIn("evitando-se, assim", inserted)
+
     def test_plain_html_expansion(self):
         """Verify that expansion still happens when no math is present."""
         ctx = MagicMock()
