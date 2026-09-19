@@ -488,8 +488,7 @@ class WriterAgentAiGrammarProofreader(unohelper.Base, XProofreader, XServiceInfo
             if not _GRAMMAR_DISABLED_NOTICE_EMITTED:
                 _GRAMMAR_DISABLED_NOTICE_EMITTED = True
                 log.info("[grammar] doProofreading: disabled (Doc tab → Enable AI grammar checker)")
-            # Commented out to avoid excessive noise in debug logs when the AI grammar checker is disabled
-            # grammar_obs("do_proofreading_skip", reason="grammar_disabled", doc_id=a_doc_id, len_aText=len(a_text), n_start_lo=n_start, n_suggested_behind_end=n_suggested_end, locale_raw=loc_raw)
+            # do_proofreading_skip for grammar_disabled omitted to avoid log noise
             return None
 
         _GRAMMAR_DISABLED_NOTICE_EMITTED = False

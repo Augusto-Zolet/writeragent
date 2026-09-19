@@ -37,6 +37,7 @@ from plugin.writer.locale.harper_binary import (
 )
 import plugin.writer.locale.harper as harper_module
 import plugin.writer.locale.harper_binary as harper_binary_module
+from tests.strip_bundle import module_source_contains
 
 
 @pytest.fixture(autouse=True)
@@ -1374,10 +1375,14 @@ def test_harper_try_lint_reenter_during_wait_logs_and_returns_none(caplog: pytes
     assert len(warn_recs) == 1
     assert "wait_age_ms=" in warn_recs[0].message
     assert "provider=" in warn_recs[0].message
-    assert any(
-        r.levelno == logging.DEBUG and "harper_wait_reenter" in r.message
-        for r in caplog.records
-    )
+    # Bugfix: in stripped release bundles, scripts/strip_code.py strips out grammar_obs(...)
+    # call sites from plugin code, so the grammar_obs debug record is not emitted.
+    # We only assert on the debug record when running against unstripped source.
+    if module_source_contains(harper_module, "grammar_obs("):
+        assert any(
+            r.levelno == logging.DEBUG and "harper_wait_reenter" in r.message
+            for r in caplog.records
+        )
 
 
 def test_harper_close_does_not_block_on_stuck_stdin() -> None:

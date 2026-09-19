@@ -415,8 +415,14 @@ def set_designated_main_thread(thread: Any) -> None:
 def get_designated_main_thread() -> Any:
     return None
 
+# Bugfix: on_main_thread() previously returned True unconditionally.
+# This caused background threads (e.g. Writer linguistic worker Dummy-21) calling
+# wait_while_pumping to falsely believe they were on the main thread and skip
+# posting PE2I events to the main thread. Checking threading.current_thread()
+# is threading.main_thread() correctly identifies background worker threads in release bundles.
 def on_main_thread() -> bool:
-    return True
+    return threading.current_thread() is threading.main_thread()
+
 
 def _wrap_uno(obj: Any) -> Any:
     return obj

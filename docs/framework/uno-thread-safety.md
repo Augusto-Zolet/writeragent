@@ -115,7 +115,7 @@ def assert_main_thread(what: str) -> None:
 - Decorates primary UNO entry points (`get_desktop`, `get_active_document`, `confirm_unsaved_cell_edit`, etc.).
 - **Dev Builds (`GUARD_ON=1`)**: Displays a deduplicated modal error box on the UI thread and raises `RuntimeError`.
 - **Dev Builds with Guard Disabled (`GUARD_ON=0`)**: Logs `log.warning(msg, stack_info=True)` so call sites are captured in logs without crashing user sessions.
-- **Production Release OXTs (`make release`)**: Code packaging via `scripts/strip_code.py` replaces `thread_guard.py` with a minimal zero-overhead stub (`GUARD_ON = False`, `assert_main_thread` no-op, proxy unwrapped), while keeping `sync_host_dispatch()` and `in_sync_host_dispatch()` active for deadlock prevention.
+- **Production Release OXTs (`make release`)**: Code packaging via `scripts/strip_code.py` replaces `thread_guard.py` with a minimal zero-overhead stub (`GUARD_ON = False`, `assert_main_thread` no-op, proxy unwrapped), while keeping `sync_host_dispatch()` and `in_sync_host_dispatch()` active for deadlock prevention, and `on_main_thread()` checking `threading.current_thread() is threading.main_thread()` so secondary wait pumps off-main still marshal to the UI thread.
 
 ### A2. Thread Tagging at Birth
 In `run_in_background`, a thread-local task name is stamped on the worker thread for the duration of the task. Pooled workers (`wa-bg-*`) clear the tag in a `finally` block so recycled threads do not carry stale task identifiers. The runtime error message explicitly names the culprit task (e.g. `"touched UNO from background task 'web-search-embeddings'"`).

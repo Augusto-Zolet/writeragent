@@ -80,6 +80,19 @@ def mock_bi():
 
 from plugin.writer.locale import ai_grammar_proofreader as proofreader
 from plugin.writer.locale import grammar_proofread_cache as gc
+from tests.strip_bundle import is_release_build, module_source_contains
+
+
+def _grammar_obs_call_sites_present() -> bool:
+    """True when ``grammar_obs(...)`` call sites exist in ai_grammar_proofreader.
+
+    ``make release`` runs pytest against a stripped bundle (``scripts/strip_code.py`` removes
+    only ``grammar_obs`` expression statements).
+    """
+    if is_release_build():
+        return False
+    return module_source_contains(proofreader, "grammar_obs(")
+
 from plugin.writer.locale.grammar_proofread_locale import (
     GRAMMAR_PARTIAL_MIN_NONSPACE_CHARS,
     count_nonspace_chars,
@@ -234,6 +247,10 @@ def test_rule_ids_sample_empty_and_truncated() -> None:
     assert sample == "r0,r1,r2,+7"
 
 
+@pytest.mark.skipif(
+    not _grammar_obs_call_sites_present(),
+    reason="Stripped release bundle removes grammar_obs(...) call sites (scripts/strip_code.py)",
+)
 def test_obs_result_window_emits_final_counts_and_rule_ids() -> None:
     from plugin.writer.locale.ai_grammar_proofreader import _obs_result_window
 
@@ -270,6 +287,10 @@ def test_obs_result_window_emits_final_counts_and_rule_ids() -> None:
     assert kwargs["doc_id"] == "doc-1"
 
 
+@pytest.mark.skipif(
+    not _grammar_obs_call_sites_present(),
+    reason="Stripped release bundle removes grammar_obs(...) call sites (scripts/strip_code.py)",
+)
 def test_obs_result_window_empty_lint_omits_rule_ids() -> None:
     from plugin.writer.locale.ai_grammar_proofreader import _obs_result_window
 
@@ -671,6 +692,10 @@ class TestTypingIntegration:
             (off2, "harper||s2"),
         }
 
+    @pytest.mark.skipif(
+        not _grammar_obs_call_sites_present(),
+        reason="Stripped release bundle removes grammar_obs(...) call sites (scripts/strip_code.py)",
+    )
     def test_harper_fast_path_result_window_obs_is_final_after_lint(
         self, mock_config_fixture, mock_locale_fixture, mock_queue_fixture
     ) -> None:
@@ -720,6 +745,10 @@ class TestTypingIntegration:
         assert partial[0].kwargs["cache_error_count"] == 0
         assert "errors_returned" not in partial[0].kwargs
 
+    @pytest.mark.skipif(
+        not _grammar_obs_call_sites_present(),
+        reason="Stripped release bundle removes grammar_obs(...) call sites (scripts/strip_code.py)",
+    )
     def test_harper_fast_path_empty_lint_result_window_is_final_zero(
         self, mock_config_fixture, mock_locale_fixture, mock_queue_fixture
     ) -> None:
