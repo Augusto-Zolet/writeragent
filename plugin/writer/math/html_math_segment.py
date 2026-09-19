@@ -80,9 +80,11 @@ def _is_currency_dollar(s: str, idx: int) -> bool:
 def _is_tex_dollar_close(s: str, body_start: int, j: int) -> bool:
     """True when ``$`` at *j* can close the inline region opened at *body_start*.
 
-    Pandoc's rule: the closing ``$`` needs a non-space character to its left and
-    must not be followed by a digit, so a later ``R$ 500,00`` cannot terminate a
-    run that started elsewhere.
+    Pandoc's close rule only: a non-space on the left and no digit on the right.
+    A later ``$ 500`` (space before the sign) cannot close; a letter-prefixed
+    ``R$`` still can, because ``R`` is a non-space. Do not reuse
+    :func:`_is_currency_dollar` here — it is true for the closer in ``$x$``
+    (``x`` is alphanumeric) and would kill real inline math.
     """
     if j <= body_start or s[j - 1].isspace():
         return False

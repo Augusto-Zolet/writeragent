@@ -152,6 +152,26 @@ class TestHtmlMathSegment(unittest.TestCase):
             [s.kind for s in segment_html_with_mixed_math(r"$\alpha with no close")], ["html"]
         )
 
+    def test_letter_prefixed_currency_can_close_an_open_run(self):
+        """Closer is not ``_is_currency_dollar``: letter-prefixed ``R$`` can still close.
+
+        Two currency amounts still cannot pair (those ``$`` never open). Reusing
+        the opener helper on the closer would also reject ``$x$`` (``x`` is
+        alphanumeric) and kill real inline math.
+        """
+        h = r"$\alpha with no close and R$ 500,00"
+        self.assertTrue(html_fragment_contains_tex_math(h))
+        segs = segment_html_with_mixed_math(h)
+        self.assertEqual([s.kind for s in segs], ["tex", "html"])
+        self.assertEqual(segs[0].text, r"\alpha with no close and R")
+        self.assertEqual(segs[1].text, " 500,00")
+
+        spaced = r"$\alpha with no close and $ 500"
+        self.assertFalse(html_fragment_contains_tex_math(spaced))
+        self.assertEqual(
+            [s.kind for s in segment_html_with_mixed_math(spaced)], ["html"]
+        )
+
     def test_tex_before_mathml(self):
         h = r'$\pi$<math><mi>x</mi></math>'
         segs = segment_html_with_mixed_math(h)

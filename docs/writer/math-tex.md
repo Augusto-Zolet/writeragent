@@ -303,9 +303,11 @@ is allowed to open a region:
 | `$x^2$` | TeX | opener preceded by a non-alphanumeric, followed by a non-space non-digit |
 
 The closing `$` must additionally have a non-space character to its left and no
-digit to its right, so a later `R$ 500,00` cannot terminate a region opened
-elsewhere. `html_fragment_contains_tex_math` reports `True` only for a
-**complete** region, so it never routes currency prose down the math path.
+digit to its right. That means a later `$ 500` (space before the sign) cannot
+close an already-open run; a letter-prefixed `R$` still can (`R` is a
+non-space). Two currency amounts cannot pair because those `$` never open.
+`html_fragment_contains_tex_math` reports `True` only for a **complete**
+region, so it never routes currency prose down the math path.
 `$$`, `\(` and `\[` are unambiguous and keep their original handling.
 
 ### Tasks
