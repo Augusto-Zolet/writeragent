@@ -2,7 +2,7 @@
 # Copyright (c) 2026 KeithCu
 #
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""The 'tables' specialized domain: list/get/set cells + manage_table_structure.
+"""The 'tables' specialized domain: list/get/set cells + insert/delete + manage_table_structure.
 Fakes implement the minimal XTextTable protocol; no LibreOffice required."""
 from types import SimpleNamespace
 
@@ -10,7 +10,9 @@ from plugin.tests.testing_utils import setup_uno_mocks
 setup_uno_mocks()
 
 from plugin.writer.specialized.tables import (
+    TableDelete,
     TableGetCells,
+    TableInsert,
     TableList,
     ManageTableStructure,
     TableSetCell,
@@ -38,10 +40,24 @@ class FakeBand:
 
 
 class FakeTable:
-    def __init__(self, rows, cols, cells=None):
+    def __init__(self, rows, cols, cells=None, name="T", anchor_text=None):
         self._rows = FakeBand(rows)
         self._cols = FakeBand(cols)
         self._cells = cells or {}
+        self._name = name
+        self._anchor_text = anchor_text
+
+    def getName(self):
+        return self._name
+
+    def initialize(self, rows, cols):
+        self._rows = FakeBand(rows)
+        self._cols = FakeBand(cols)
+
+    def getAnchor(self):
+        if self._anchor_text is None:
+            raise RuntimeError("no anchor")
+        return SimpleNamespace(getText=lambda: self._anchor_text)
 
     def getRows(self):
         return self._rows
@@ -60,6 +76,9 @@ class FakeTable:
             getString=lambda: self._cells.get(name, ""),
             setString=lambda v: self._cells.__setitem__(name, v),
         )
+
+    def getCellByPosition(self, col, row):
+        return self.getCellByName(_cell_name(col, row))
 
 
 class FakeEnumeration:
@@ -91,15 +110,87 @@ class FakeTextTableElement:
 
 
 class FakeParentTable(FakeTable):
-    def __init__(self, rows, cols, cells=None, nested_by_cell=None):
-        super().__init__(rows, cols, cells=cells)
+    def __init__(self, rows, cols, cells=None, nested_by_cell=None, name="Parent"):
+        super().__init__(rows, cols, cells=cells, name=name)
         self._nested_by_cell = nested_by_cell or {}
+        self.cell_inserts = []
+        self.cell_removes = []
 
     def getCellByName(self, name):
         cell = super().getCellByName(name)
         elements = self._nested_by_cell.get(name, [])
-        cell.createEnumeration = lambda: FakeEnumeration(elements)
+        cell.createEnumeration = lambda: FakeEnumeration(list(elements))
+        cell.getEnd = lambda: "CELL_END"
+        cell.getStart = lambda: "CELL_START"
+
+        def insertTextContent(cursor, table, absorb):
+            self.cell_inserts.append((name, cursor, table, absorb))
+            nested_name = ""
+            try:
+                nested_name = str(table.getName() or "")
+            except Exception:
+                nested_name = ""
+            if nested_name:
+                self._nested_by_cell.setdefault(name, []).append(FakeTextTableElement(nested_name))
+
+        def removeTextContent(table):
+            self.cell_removes.append((name, table))
+            nested_name = ""
+            try:
+                nested_name = str(table.getName() or "")
+            except Exception:
+                nested_name = ""
+            hosted = self._nested_by_cell.get(name, [])
+            self._nested_by_cell[name] = [el for el in hosted if el.getName() != nested_name]
+
+        cell.insertTextContent = insertTextContent
+        cell.removeTextContent = removeTextContent
         return cell
+
+
+class FakeBodyText:
+    def __init__(self):
+        self.inserts = []
+        self.removed = []
+
+    def getEnd(self):
+        return "BODY_END"
+
+    def insertTextContent(self, cursor, table, absorb):
+        self.inserts.append((cursor, table, absorb))
+
+    def removeTextContent(self, table):
+        self.removed.append(table)
+
+
+class FakeWriterDoc:
+    """Minimal Writer doc for table_insert / table_delete unit tests."""
+
+    def __init__(self, tables, *, body=None, view_cursor=None, view_error=None):
+        self._tables_map = tables
+        self._body = body or FakeBodyText()
+        self._view_cursor = view_cursor
+        self._view_error = view_error
+        self._next = 1
+        self.created = []
+
+    def getTextTables(self):
+        return FakeTables(self._tables_map)
+
+    def getText(self):
+        return self._body
+
+    def createInstance(self, unused_service):
+        name = "Table%d" % self._next
+        self._next += 1
+        table = FakeTable(1, 1, name=name)
+        self.created.append(table)
+        return table
+
+    def getCurrentController(self):
+        if self._view_error is not None:
+            raise self._view_error
+        return SimpleNamespace(getViewCursor=lambda: self._view_cursor)
 
 
 class FakeTables:
@@ -414,6 +505,107 @@ def test_manage_table_structure_bad_action_or_axis():
     assert tool.execute(ctx, action="insert", axis="diagonal", name="T", index=0)["status"] == "error"
 
 
+# ---- insert / delete --------------------------------------------------------
+
+def test_table_insert_nests_into_parent_cell():
+    parent = FakeParentTable(2, 2, name="Parent")
+    doc = FakeWriterDoc({"Parent": parent})
+    res = TableInsert().execute(SimpleNamespace(doc=doc), rows=2, columns=2, parent="Parent", cell="B2")
+    assert res["status"] == "ok"
+    assert res["nesting"] == {"is_nested": True, "parent_table": "Parent", "parent_cell": "B2"}
+    assert parent.cell_inserts
+    cell_name, cursor, table, absorb = parent.cell_inserts[-1]
+    assert cell_name == "B2" and cursor == "CELL_END" and absorb is False
+    assert table.getRows().n == 2 and table.getColumns().n == 2
+    assert doc._body.inserts == []
+
+
+def test_table_insert_parent_xor_cell_errors():
+    parent = FakeParentTable(2, 2, name="Parent")
+    ctx = SimpleNamespace(doc=FakeWriterDoc({"Parent": parent}))
+    tool = TableInsert()
+    only_parent = tool.execute(ctx, rows=1, columns=1, parent="Parent")
+    assert only_parent["status"] == "error" and "cell" in only_parent["message"]
+    only_cell = tool.execute(ctx, rows=1, columns=1, cell="B2")
+    assert only_cell["status"] == "error" and "parent" in only_cell["message"]
+
+
+def test_table_insert_unknown_parent_or_cell():
+    parent = FakeParentTable(2, 2, name="Parent")
+    ctx = SimpleNamespace(doc=FakeWriterDoc({"Parent": parent}))
+    tool = TableInsert()
+    ghost = tool.execute(ctx, rows=1, columns=1, parent="Ghost", cell="A1")
+    assert ghost["status"] == "error" and "Ghost" in ghost["message"]
+    bad_cell = tool.execute(ctx, rows=1, columns=1, parent="Parent", cell="Z9")
+    assert bad_cell["status"] == "error" and "Its cells are:" in bad_cell["message"]
+
+
+def test_table_insert_body_uses_view_cursor_or_end():
+    doc = FakeWriterDoc({}, view_cursor="VIEW")
+    res = TableInsert().execute(SimpleNamespace(doc=doc), rows=1, columns=1)
+    assert res["status"] == "ok"
+    assert res["nesting"]["is_nested"] is False
+    assert doc._body.inserts[-1][0] == "VIEW"
+    doc_no_view = FakeWriterDoc({}, view_error=RuntimeError("no controller"))
+    res_end = TableInsert().execute(SimpleNamespace(doc=doc_no_view), rows=1, columns=1)
+    assert res_end["status"] == "ok"
+    assert doc_no_view._body.inserts[-1][0] == "BODY_END"
+
+
+def test_table_insert_wrong_start_node_tells_caller_to_pass_parent_cell():
+    body = FakeBodyText()
+
+    def boom(cursor, table, absorb):
+        raise RuntimeError("End of content node doesn't have the proper start node")
+
+    body.insertTextContent = boom
+    doc = FakeWriterDoc({}, body=body, view_cursor="IN_CELL")
+    res = TableInsert().execute(SimpleNamespace(doc=doc), rows=1, columns=1)
+    assert res["status"] == "error"
+    assert "parent" in res["message"] and "cell" in res["message"]
+
+
+def test_table_delete_nested_via_anchor():
+    host = FakeBodyText()
+    child = FakeTable(1, 1, name="Child", anchor_text=host)
+    parent = FakeParentTable(2, 2, nested_by_cell={"B2": [FakeTextTableElement("Child")]}, name="Parent")
+    ctx = SimpleNamespace(doc=FakeWriterDoc({"Parent": parent, "Child": child}))
+    res = TableDelete().execute(ctx, name="Child")
+    assert res["status"] == "ok"
+    assert res["nesting"] == {"is_nested": True, "parent_table": "Parent", "parent_cell": "B2"}
+    assert host.removed == [child]
+
+
+def test_table_delete_top_level_via_anchor():
+    body = FakeBodyText()
+    table = FakeTable(2, 2, name="T", anchor_text=body)
+    ctx = SimpleNamespace(doc=FakeWriterDoc({"T": table}, body=body))
+    res = TableDelete().execute(ctx, name="T")
+    assert res["status"] == "ok"
+    assert res["nesting"]["is_nested"] is False
+    assert body.removed == [table]
+
+
+def test_table_delete_nesting_fallback_when_anchor_fails():
+    child = FakeTable(1, 1, name="Child")  # getAnchor raises
+    parent = FakeParentTable(2, 2, nested_by_cell={"B2": [FakeTextTableElement("Child")]}, name="Parent")
+    ctx = SimpleNamespace(doc=FakeWriterDoc({"Parent": parent, "Child": child}))
+    res = TableDelete().execute(ctx, name="Child")
+    assert res["status"] == "ok"
+    assert parent.cell_removes and parent.cell_removes[-1][0] == "B2"
+    assert parent.cell_removes[-1][1] is child
+
+
+def test_table_delete_unknown_name_lists_open_tables():
+    res = TableDelete().execute(SimpleNamespace(doc=FakeWriterDoc({"Real": FakeTable(1, 1, name="Real")})), name="Ghost")
+    assert res["status"] == "error" and "Real" in res["message"]
+
+
+def test_table_delete_requires_name():
+    res = TableDelete().execute(SimpleNamespace(doc=FakeWriterDoc({})), name="")
+    assert res["status"] == "error" and "name is required" in res["message"]
+
+
 # ---- domain registration ----------------------------------------------------
 
 def test_tables_are_specialized_domain():
@@ -422,6 +614,8 @@ def test_tables_are_specialized_domain():
         TableGetCells,
         TableSetCell,
         ManageTableStructure,
+        TableInsert,
+        TableDelete,
     ):
         assert cls.tier == "specialized"
         assert cls.specialized_domain == "tables"

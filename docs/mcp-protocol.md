@@ -664,6 +664,7 @@ to its own embedded AI:
 `style_list`, `style_get_info`, `comment_list`, `add_comment`, `comment_delete`,
 `track_changes_start` / `stop` / `list` / `show`, `manage_tracked_changes`,
 `table_list`, `table_get_cells`, `table_set_cell`, `manage_table_structure`,
+`table_insert`, `table_delete`,
 `image_generate` (create or edit with `source_image='selection'`).
 
 **Calc / Draw**: Core-tier tools registered from `plugin/calc/` and `plugin/draw/` (same registry MCP `tools/list` uses).

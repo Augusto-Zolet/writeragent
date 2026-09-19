@@ -315,3 +315,18 @@ def insert_draw_table(ctx, **kwargs) -> dict[str, Any]:
         "columns": columns,
         "cells_written": written,
     }
+
+
+def delete_draw_table(doc, *, name: str = "", page=None, index=None) -> dict[str, Any]:
+    """Remove a TableShape from its Draw/Impress page. Returns a tool-result dict."""
+    entry = resolve_draw_table(doc, name=name, page=page, index=index)
+    pages = doc.getDrawPages()
+    page_obj = pages.getByIndex(int(entry["page"]))
+    page_obj.remove(entry["shape"])
+    return {
+        "status": "ok",
+        "message": "Table deleted",
+        "table_name": entry.get("name") or name,
+        "page": entry.get("page"),
+        "index": entry.get("index"),
+    }

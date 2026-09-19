@@ -11,6 +11,7 @@ import os
 import sys
 import threading
 import uuid
+from typing import Any
 from plugin.framework.constants import WORKFLOW_TASK_PREFIXES as _WORKFLOW_TASK_PREFIXES
 from plugin.scripting.ipc import DEFAULT_MAX_PAYLOAD_BYTES, read_pickle_frame, write_pickle_frame
 
@@ -96,6 +97,7 @@ DOMAIN_TOOLS = {   'bookmark': [   'bookmark_cleanup',
     'conditional_formatting': ['add_conditional_format', 'list_conditional_formats', 'remove_conditional_formats'],
     'core': [   'find_tools',
                 'get_guidance',
+                'get_image',
                 'list_open_documents',
                 'redo',
                 'specialized_workflow_finished',
@@ -103,14 +105,20 @@ DOMAIN_TOOLS = {   'bookmark': [   'bookmark_cleanup',
                 'upsert_memory',
                 'web_research'],
     'deep_research': ['deep_research_web'],
-    'document_research': ['delegate_read_document', 'grep_nearby_files', 'list_nearby_files', 'search_nearby_files'],
+    'document_research': [   'delegate_read_document',
+                             'grep_nearby_files',
+                             'list_nearby_files',
+                             'search_nearby_files',
+                             'send_peer_message'],
     'draw': [   'add_slide',
+                'apply_design',
                 'delegate_to_specialized_draw_toolset',
                 'delete_slide',
                 'duplicate_slide',
                 'get_draw_tree',
                 'get_placeholder_text',
                 'get_presentation_info',
+                'list_designs',
                 'list_pages',
                 'list_placeholders',
                 'move_slide',
@@ -200,7 +208,12 @@ DOMAIN_TOOLS = {   'bookmark': [   'bookmark_cleanup',
                       'section_list',
                       'section_read'],
     'styles': ['style_create', 'style_get_info', 'style_import', 'style_list', 'style_update'],
-    'table': ['manage_table_structure', 'table_get_cells', 'table_insert', 'table_list', 'table_set_cell'],
+    'table': [   'manage_table_structure',
+                 'table_delete',
+                 'table_get_cells',
+                 'table_insert',
+                 'table_list',
+                 'table_set_cell'],
     'textframe': ['frame_get_info', 'frame_list', 'frame_set_properties'],
     'tracking': [   'manage_tracked_changes',
                     'track_changes_comment_delete',
@@ -217,7 +230,6 @@ DOMAIN_TOOLS = {   'bookmark': [   'bookmark_cleanup',
                   'delegate_to_specialized_writer_toolset',
                   'get_document_content',
                   'get_document_tree',
-                  'get_image',
                   'get_page_objects',
                   'search_in_document',
                   'set_selection'],
@@ -311,9 +323,9 @@ class _CalcProxy:
         """Applies style and formatting to the specified cell(s) or range(s)."""
         return _rpc_call("set_style", range=range_name, bold=bold, italic=italic, font_size=font_size, bg_color=bg_color, font_color=font_color, h_align=h_align, v_align=v_align, wrap_text=wrap_text, border_color=border_color, number_format=number_format)
 
-    def write_formula_range(self, range_name: list, values: str) -> dict:
+    def write_formula_range(self, range_name: list, *, values: str | None = None, array: bool | None = None, source: str | None = None) -> dict:
         """Writes formulas or values to a cell range(s) efficiently."""
-        return _rpc_call("write_formula_range", range=range_name, values=values)
+        return _rpc_call("write_formula_range", range=range_name, values=values, array=array, source=source)
 
 calc = _CalcProxy()
 
@@ -403,6 +415,10 @@ class _CoreProxy:
         """Read WriterAgent's how-to-use manual on demand."""
         return _rpc_call("get_guidance", topic=topic)
 
+    def get_image(self, *, image: str | None = None, selection: bool | None = None, page: int | None = None) -> dict:
+        """Return an image so you can SEE it (vision-capable models)."""
+        return _rpc_call("get_image", image=image, selection=selection, page=page)
+
     def list_open_documents(self) -> dict:
         """List all currently open documents in LibreOffice."""
         return _rpc_call("list_open_documents")
@@ -459,15 +475,23 @@ class _DocumentResearchProxy:
         """Search the active folder index (keyword BM25/NEAR + semantic embeddings, fused ranking)."""
         return _rpc_call("search_nearby_files", query=query, k=k, near_slop=near_slop, file_subset=file_subset)
 
+    def send_peer_message(self, document_url: str, message: str, *, peer_ask_id: str | None = None) -> dict:
+        """Send a natural-language turn to another already-open Writer, Calc, or Draw sidebar (not Impress)."""
+        return _rpc_call("send_peer_message", document_url=document_url, message=message, peer_ask_id=peer_ask_id)
+
 document_research = _DocumentResearchProxy()
 
 
 class _DrawProxy:
     """Proxy for draw tools."""
 
-    def add_slide(self, *, page: int | None = None, activate: bool | None = None) -> dict:
+    def add_slide(self, *, page: int | None = None, activate: bool | None = None, layout: str | None = None) -> dict:
         """Inserts a new slide (page) at the specified index."""
-        return _rpc_call("add_slide", page=page, activate=activate)
+        return _rpc_call("add_slide", page=page, activate=activate, layout=layout)
+
+    def apply_design(self, design: str) -> dict:
+        """Restyle the OPEN Impress deck from a listed .otp: Hidden-load the template, clone its master (shapes + layout styles) into this document, and assign that master to every slide."""
+        return _rpc_call("apply_design", design=design)
 
     def delegate_to_specialized_draw_toolset(self, domain: str, task: str) -> dict:
         """Delegates a specialized Draw task."""
@@ -482,7 +506,7 @@ class _DrawProxy:
         return _rpc_call("duplicate_slide", page=page, activate=activate)
 
     def get_draw_tree(self, *, page: int | None = None) -> dict:
-        """Returns a semantic tree (DOM) of the shapes on the active or specified draw page."""
+        """Read the page as a shape tree so you can fill blanks and see widgets without a screenshot."""
         return _rpc_call("get_draw_tree", page=page)
 
     def get_placeholder_text(self, *, role: str | None = None, index: int | None = None, page: int | None = None) -> dict:
@@ -492,6 +516,10 @@ class _DrawProxy:
     def get_presentation_info(self) -> dict:
         """Get presentation metadata: slide count, dimensions, master slide names, and whether it is an Impress document."""
         return _rpc_call("get_presentation_info")
+
+    def list_designs(self) -> dict:
+        """List shipped Impress .otp designs from LibreOffice PathSettings template directories (id, name, path, url, look)."""
+        return _rpc_call("list_designs")
 
     def list_pages(self) -> dict:
         """Lists all pages (slides) in the document."""
@@ -608,27 +636,27 @@ class _FormsProxy:
     """Proxy for forms tools."""
 
     def create(self, fields: list) -> dict:
-        """Creates multiple form controls at once from a list of field definitions."""
+        """Create several live form widgets in one call (Writer/Calc/Draw/Impress)."""
         return _rpc_call("form_create", fields=fields)
 
-    def create_control(self, control: str, name: str, *, label: str | None = None, group_name: str | None = None, items: list | None = None, placeholder: str | None = None, default_value: str | None = None, width: int | None = None, height: int | None = None) -> dict:
-        """Creates a single interactive form control (checkbox, text field, radio button, date field, combobox, or button)."""
-        return _rpc_call("form_create_control", control=control, label=label, name=name, group_name=group_name, items=items, placeholder=placeholder, default_value=default_value, width=width, height=height)
+    def create_control(self, control: str, name: str, *, label: str | None = None, group_name: str | None = None, items: list | None = None, placeholder: str | None = None, default_value: str | None = None, width: int | None = None, height: int | None = None, page: int | None = None) -> dict:
+        """Create one live LibreOffice form widget (checkbox, text field, radio, date, combobox, or button) because the user asked for an interactive ControlShape."""
+        return _rpc_call("form_create_control", control=control, label=label, name=name, group_name=group_name, items=items, placeholder=placeholder, default_value=default_value, width=width, height=height, page=page)
 
-    def delete_control(self, index: int | None = None, *, name: str | None = None, page: int | None = None) -> dict:
+    def delete_control(self, *, index: int | None = None, name: str | None = None, page: int | None = None) -> dict:
         """Delete a live form widget by name (preferred) or draw-page index."""
         return _rpc_call("form_delete_control", index=index, name=name, page=page)
 
-    def edit_control(self, index: int | None = None, *, name: str | None = None, new_name: str | None = None, label: str | None = None, text: str | None = None, state: int | None = None, items: list | None = None, x: int | None = None, y: int | None = None, width: int | None = None, height: int | None = None, page: int | None = None) -> dict:
+    def edit_control(self, *, index: int | None = None, name: str | None = None, new_name: str | None = None, label: str | None = None, text: str | None = None, state: int | None = None, items: list | None = None, x: int | None = None, y: int | None = None, width: int | None = None, height: int | None = None, page: int | None = None) -> dict:
         """Edit a live form widget by name (preferred) or draw-page index from form_list_controls."""
         return _rpc_call("form_edit_control", index=index, name=name, new_name=new_name, label=label, text=text, state=state, items=items, x=x, y=y, width=width, height=height, page=page)
 
     def generate(self, description: str) -> dict:
-        """Generates a document or sheet layout with interactive form fields from a description."""
+        """Generate a layout with interactive form widgets from a description."""
         return _rpc_call("form_generate", description=description)
 
     def list_controls(self, *, page: int | None = None) -> dict:
-        """List live form widgets (ControlShapes) with name, type, current text/State, and draw-page index."""
+        """List live form widgets (ControlShapes) with name, type, current text/State, and draw-page index so you can edit or delete by name."""
         return _rpc_call("form_list_controls", page=page)
 
 forms = _FormsProxy()
@@ -693,7 +721,7 @@ images = _ImagesProxy()
 class _IndexProxy:
     """Proxy for index tools."""
 
-    def add_mark(self, text: str, *, kind: str | None = None, primary_key: str | None = None, secondary_key: str | None = None, identifier: str | None = None, author: str | None = None, title: str | None = None, year: str | int | None = None, pages: str | None = None, bibliographic_type: str | int | None = None, fields: dict | None = None, target: str | None = None, old_content: str | None = None) -> dict:
+    def add_mark(self, text: str, *, kind: str | None = None, primary_key: str | None = None, secondary_key: str | None = None, identifier: str | None = None, author: str | None = None, title: str | None = None, year: Any | None = None, pages: str | None = None, bibliographic_type: Any | None = None, fields: dict | None = None, target: str | None = None, old_content: str | None = None) -> dict:
         """Insert an index mark or a bibliography cite at target."""
         return _rpc_call("indexes_add_mark", text=text, kind=kind, primary_key=primary_key, secondary_key=secondary_key, identifier=identifier, author=author, title=title, year=year, pages=pages, bibliographic_type=bibliographic_type, fields=fields, target=target, old_content=old_content)
 
@@ -867,8 +895,8 @@ class _RangeProxy:
         """Lists named ranges and their formulas/reference targets."""
         return _rpc_call("named_range_list", scope=scope)
 
-    def sort_range(self, range_name: list, *, sort_column: int | None = None, ascending: bool | None = None, has_header: bool | None = None) -> dict:
-        """Sorts the specified range(s) by a column."""
+    def sort_range(self, range_name: list, has_header: bool, *, sort_column: int | None = None, ascending: bool | None = None) -> dict:
+        """Stable one-column sort of the specified range(s) by values in one column."""
         return _rpc_call("sort_range", range=range_name, sort_column=sort_column, ascending=ascending, has_header=has_header)
 
 range = _RangeProxy()
@@ -912,7 +940,7 @@ class _ShapeProxy:
         return _rpc_call("distribute_shapes", page=page, indices=indices, axis=axis)
 
     def fill_draw_fields(self, fields: list, *, page: int | None = None) -> dict:
-        """Fill existing empty text boxes (paper-form fields) or ControlShape values on a Draw/Impress page."""
+        """Fill existing empty text boxes (paper-form fields) or ControlShape values on a Draw/Impress page so a GMP-style stand-in can be completed in one call."""
         return _rpc_call("fill_draw_fields", page=page, fields=fields)
 
     def group(self, indices: list, *, page: int | None = None) -> dict:
@@ -942,7 +970,7 @@ class _SheetProxy:
         return _rpc_call("clear_sheet_filter", range=range_name, has_header=has_header)
 
     def create_sheet(self, sheet: str, *, position: int | None = None) -> dict:
-        """Creates a new sheet."""
+        """Creates a new empty sheet (tab exists; no cells copied)."""
         return _rpc_call("create_sheet", sheet=sheet, position=position)
 
     def delete_sheet(self, sheet: str) -> dict:
@@ -954,7 +982,7 @@ class _SheetProxy:
         return _rpc_call("get_sheet_filter", range=range_name)
 
     def list_sheets(self) -> dict:
-        """Lists all sheet names in the workbook."""
+        """Lists user-visible sheet names in the workbook (omits LibreOffice internal tabs)."""
         return _rpc_call("list_sheets")
 
     def protect_sheet(self, *, sheet: str | None = None, protect: bool | None = None) -> dict:
@@ -1091,24 +1119,28 @@ styles = _StylesProxy()
 class _TableProxy:
     """Proxy for table tools."""
 
+    def delete(self, *, name: str | None = None, page: int | None = None, index: int | None = None) -> dict:
+        """Delete a table by name."""
+        return _rpc_call("table_delete", name=name, page=page, index=index)
+
     def get_cells(self, *, name: str | None = None, page: int | None = None, index: int | None = None) -> dict:
-        """Return a table's cell text as a row-major matrix. Writer also reports nesting and nested_in_cells."""
+        """Return a table's cell text as a row-major matrix (matrix[row][col]) by position — not by cell name."""
         return _rpc_call("table_get_cells", name=name, page=page, index=index)
 
-    def insert(self, rows: int, columns: int, *, data: list | None = None, page: int | None = None, x: int | None = None, y: int | None = None, width: int | None = None, height: int | None = None) -> dict:
+    def insert(self, rows: int, columns: int, *, data: list | None = None, parent: str | None = None, cell: str | None = None, page: int | None = None, x: int | None = None, y: int | None = None, width: int | None = None, height: int | None = None) -> dict:
         """Insert a table."""
-        return _rpc_call("table_insert", rows=rows, columns=columns, data=data, page=page, x=x, y=y, width=width, height=height)
+        return _rpc_call("table_insert", rows=rows, columns=columns, data=data, parent=parent, cell=cell, page=page, x=x, y=y, width=width, height=height)
 
     def list(self) -> dict:
-        """List tables with name, dimensions, and Writer nesting / nested_in_cells."""
+        """List tables with name and dimensions (rows x columns)."""
         return _rpc_call("table_list")
 
     def manage_table_structure(self, action: str, axis: str, index: int, *, name: str | None = None, page: int | None = None, shape_index: int | None = None) -> dict:
-        """Insert or delete one table row or column. Writer refuses delete of a band that hosts a nested table."""
+        """Insert or delete one table row or column."""
         return _rpc_call("manage_table_structure", action=action, axis=axis, name=name, index=index, page=page, shape_index=shape_index)
 
     def set_cell(self, cell: str, text: str, *, name: str | None = None, page: int | None = None, index: int | None = None) -> dict:
-        """Set one cell's plain text. Writer refuses a cell that hosts a nested table."""
+        """Set the plain-text content of ONE table cell, addressed A1-style (e.g."""
         return _rpc_call("table_set_cell", name=name, cell=cell, text=text, page=page, index=index)
 
 table = _TableProxy()
@@ -1191,9 +1223,9 @@ class _WriterProxy:
         """Insert or replace content."""
         return _rpc_call("apply_document_content", content=content, target=target, old_content=old_content, all_matches=all_matches, position=position, dry_run=dry_run, regex=regex, case_sensitive=case_sensitive)
 
-    def apply_style(self, style: str, *, family: str | None = None, target: str | None = None, old_content: str | None = None, all_matches: bool | None = None, occurrence: int | None = None) -> dict:
+    def apply_style(self, style: str, *, family: str | None = None, target: str | None = None, old_content: str | None = None, all_matches: bool | None = None, occurrence: int | None = None, clear_direct: str = 'style_props') -> dict:
         """Apply a style to a target."""
-        return _rpc_call("apply_style", style=style, family=family, target=target, old_content=old_content, all_matches=all_matches, occurrence=occurrence)
+        return _rpc_call("apply_style", style=style, family=family, target=target, old_content=old_content, all_matches=all_matches, occurrence=occurrence, clear_direct=clear_direct)
 
     def delegate_to_specialized_writer_toolset(self, domain: str, task: str) -> dict:
         """Delegates a specialized task with a focused toolset."""
@@ -1206,10 +1238,6 @@ class _WriterProxy:
     def get_document_tree(self, *, strategy: str | None = None, depth: int | None = None) -> dict:
         """Get the document heading tree with bookmarks and content previews, plus document statistics."""
         return _rpc_call("get_document_tree", strategy=strategy, depth=depth)
-
-    def get_image(self, *, image: str | None = None, selection: bool | None = None, page: int | None = None) -> dict:
-        """Return an image so you can SEE it (vision-capable models)."""
-        return _rpc_call("get_image", image=image, selection=selection, page=page)
 
     def get_page_objects(self, *, page: int | None = None, locator: str | None = None, paragraph: int | None = None) -> dict:
         """Get images, tables, frames, and Draw shapes visible on a specific physical page."""

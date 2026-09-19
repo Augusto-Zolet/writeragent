@@ -3,8 +3,14 @@
 
 from unittest.mock import MagicMock, patch
 
-from plugin.draw.tables import fill_table_cells, insert_draw_table, parse_a1, _ensure_table_dims
-from plugin.writer.specialized.tables import TableInsert
+from plugin.draw.tables import (
+    delete_draw_table,
+    fill_table_cells,
+    insert_draw_table,
+    parse_a1,
+    _ensure_table_dims,
+)
+from plugin.writer.specialized.tables import TableDelete, TableInsert
 
 
 class _Cell:
@@ -140,3 +146,37 @@ def test_table_insert_tool_dispatches_draw():
             out = TableInsert().execute(ctx, rows=2, columns=2)
     assert out["status"] == "ok"
     ins.assert_called_once()
+
+
+def test_table_insert_draw_rejects_parent_cell():
+    ctx = MagicMock()
+    with patch("plugin.writer.specialized.tables._is_draw_doc", return_value=True):
+        out = TableInsert().execute(ctx, rows=2, columns=2, parent="Outer", cell="A1")
+    assert out["status"] == "error" and "Writer-only" in out["message"]
+
+
+def test_delete_draw_table_removes_shape():
+    page = MagicMock()
+    pages = MagicMock()
+    pages.getByIndex.return_value = page
+    doc = MagicMock()
+    doc.getDrawPages.return_value = pages
+    shape = MagicMock()
+    entry = {"page": 0, "index": 2, "name": "Fees", "shape": shape}
+    with patch("plugin.draw.tables.resolve_draw_table", return_value=entry):
+        out = delete_draw_table(doc, name="Fees")
+    assert out["status"] == "ok"
+    assert out["table_name"] == "Fees"
+    page.remove.assert_called_once_with(shape)
+
+
+def test_table_delete_tool_dispatches_draw():
+    ctx = MagicMock()
+    with patch("plugin.writer.specialized.tables._is_draw_doc", return_value=True):
+        with patch(
+            "plugin.draw.tables.delete_draw_table",
+            return_value={"status": "ok", "table_name": "Fees"},
+        ) as dele:
+            out = TableDelete().execute(ctx, name="Fees")
+    assert out["status"] == "ok"
+    dele.assert_called_once()

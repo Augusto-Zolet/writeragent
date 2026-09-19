@@ -173,6 +173,44 @@ def _writer_nesting(doc: Any) -> tuple[dict[str, dict[str, Any]], dict[str, dict
     return child_nesting, hosted
 
 
+def _nesting_for(doc: Any, name: str) -> dict[str, Any]:
+    """Direct-parent nesting dict for one table name (missing -> not nested)."""
+    nesting_by_name = _writer_nesting(doc)[0]
+    return nesting_by_name.get(name, _not_nested())
+
+
+def _is_wrong_start_node(exc: BaseException) -> bool:
+    """True for the body-XText + cursor-in-cell insert failure.
+
+    ``doc.getText().insertTextContent(viewCursor, table)`` raises when the
+    cursor already sits in a nested XText (table cell, frame). The usual
+    wording is ``End of content node doesn't have the proper start node``.
+    """
+    msg = str(exc).lower()
+    return "start node" in msg or "content node" in msg
+
+
+def _remove_writer_table(doc: Any, table: Any, name: str, nesting: dict[str, Any]) -> None:
+    """Remove a TextTable from the XText that contains it (body or host cell).
+
+    Prefer ``getAnchor()`` (same pattern as bookmarks). If that is unusable,
+    fall back to nesting: host cell for nested tables, ``doc.getText()`` for
+    top-level. Deleting a host table also destroys nested children — that is
+    intentional (``table_delete``), unlike the row/column refuse-guards.
+    """
+    try:
+        table.getAnchor().getText().removeTextContent(table)
+        return
+    except Exception:
+        log.debug("table.getAnchor() remove failed for '%s'; using nesting fallback", name, exc_info=True)
+    if nesting.get("is_nested"):
+        parent = _get_table(doc, str(nesting.get("parent_table") or ""))
+        host = parent.getCellByName(str(nesting.get("parent_cell") or ""))
+        host.removeTextContent(table)
+        return
+    doc.getText().removeTextContent(table)
+
+
 def _hosted_in_band(table: Any, axis_arg: str, idx: int) -> list[str]:
     """Nested table names hosted in the row/column about to be deleted.
 
@@ -502,8 +540,10 @@ class TableInsert(ToolWriterTableBase):
     name = "table_insert"
     intent = "edit"
     description = (
-        "Insert a table. Writer: text table at the view cursor (or document end). "
-        "Draw/Impress: TableShape; position/size in 1/100 mm. Optional data is a 2D array of cell strings."
+        "Insert a table. Writer: text table at the view cursor (or document end); "
+        "pass parent + cell to nest inside an existing table cell (inserts at the cell end). "
+        "Draw/Impress: TableShape; position/size in 1/100 mm. parent/cell are Writer-only. "
+        "Optional data is a 2D array of cell strings."
     )
     parameters = {
         "type": "object",
@@ -514,6 +554,14 @@ class TableInsert(ToolWriterTableBase):
                 "type": "array",
                 "items": {"type": "array", "items": {"type": "string"}},
                 "description": "2D cell strings",
+            },
+            "parent": {
+                "type": "string",
+                "description": "Writer: host table name from table_list (requires cell).",
+            },
+            "cell": {
+                "type": "string",
+                "description": "Writer: A1-style host cell (requires parent).",
             },
             "page": {"type": "integer", "description": "Draw/Impress: 0-based page index (active if omitted)"},
             "x": {"type": "integer", "description": "Draw/Impress: X in 1/100 mm (default: 3000)"},
@@ -526,15 +574,23 @@ class TableInsert(ToolWriterTableBase):
     is_mutation = True
 
     def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
+        parent = str(kwargs.get("parent") or "").strip()
+        cell_raw = str(kwargs.get("cell") or "").strip()
         if _is_draw_doc(ctx.doc):
             from plugin.draw.tables import insert_draw_table
             from plugin.framework.errors import make_tool_error
 
+            if parent or cell_raw:
+                return self._tool_error("parent and cell are Writer-only (Draw has no nested text tables).")
             result = insert_draw_table(ctx, **kwargs)
             if result.get("status") != "ok":
                 return make_tool_error(str(result.get("message") or "Insert failed"), code=str(result.get("code") or "TOOL_EXECUTION_ERROR"))
             return result
 
+        if parent and not cell_raw:
+            return self._tool_error("cell is required when parent is set.")
+        if cell_raw and not parent:
+            return self._tool_error("parent is required when cell is set.")
         rows = kwargs.get("rows")
         columns = kwargs.get("columns")
         if rows is None or columns is None:
@@ -547,15 +603,38 @@ class TableInsert(ToolWriterTableBase):
             doc = ctx.doc
             table = doc.createInstance("com.sun.star.text.TextTable")
             table.initialize(rows, columns)
-            text = doc.getText()
-            cursor = None
-            try:
-                cursor = doc.getCurrentController().getViewCursor()
-            except Exception:
+            host_cell_name = ""
+            if parent:
+                parent_table = _get_table(doc, parent)
+                host_cell_name = _resolve_cell_name(parent_table, cell_raw) or ""
+                if not host_cell_name:
+                    names = list(parent_table.getCellNames())
+                    sample = ", ".join(names[:8]) + ((", …, %s" % names[-1]) if len(names) > 8 else "")
+                    return self._tool_error(
+                        "Cell '%s' not in table '%s'. Its cells are: %s." % (cell_raw, parent, sample)
+                    )
+                host = parent_table.getCellByName(host_cell_name)
+                # After existing cell text so setString-refuse still applies to the host.
+                host.insertTextContent(host.getEnd(), table, False)
+            else:
+                text = doc.getText()
                 cursor = None
-            if cursor is None:
-                cursor = text.getEnd()
-            text.insertTextContent(cursor, table, False)
+                try:
+                    cursor = doc.getCurrentController().getViewCursor()
+                except Exception:
+                    cursor = None
+                if cursor is None:
+                    cursor = text.getEnd()
+                try:
+                    text.insertTextContent(cursor, table, False)
+                except Exception as exc:
+                    # Body XText + cursor already in a cell: do not guess a nest target.
+                    if _is_wrong_start_node(exc):
+                        return self._tool_error(
+                            "Cannot insert a table at the view cursor (it is probably inside a cell). "
+                            "Pass parent and cell to nest, or move the cursor out of the table."
+                        )
+                    raise
             written = 0
             data = kwargs.get("data")
             if data:
@@ -567,6 +646,13 @@ class TableInsert(ToolWriterTableBase):
                 name = str(table.getName() if hasattr(table, "getName") else getattr(table, "Name", "") or "")
             except Exception:
                 pass
+            # Prefer the parent/cell we just used — getTextTables() can lag a nameless insert.
+            if parent and host_cell_name:
+                nesting = {"is_nested": True, "parent_table": parent, "parent_cell": host_cell_name}
+            elif name:
+                nesting = _nesting_for(doc, name)
+            else:
+                nesting = _not_nested()
             return {
                 "status": "ok",
                 "message": "Table inserted",
@@ -574,7 +660,64 @@ class TableInsert(ToolWriterTableBase):
                 "rows": rows,
                 "columns": columns,
                 "cells_written": written,
+                "nesting": nesting,
             }
+        except ValueError as ve:
+            return self._tool_error(str(ve))
         except Exception as e:
             log.exception("Could not insert Writer table")
             return self._tool_error("Could not insert table: %s" % e)
+
+
+class TableDelete(ToolWriterTableBase):
+    name = "table_delete"
+    intent = "edit"
+    description = (
+        "Delete a table by name. Writer: removes a top-level or nested TextTable from its "
+        "containing XText. Nested children of the deleted table are removed with it — this is "
+        "the intentional remove (do not use table_set_cell, which refuses host cells). "
+        "Draw/Impress: removes the TableShape from the page."
+    )
+    parameters = {
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "Table name from table_list."},
+            "page": {"type": "integer", "description": "Draw/Impress: 0-based page index."},
+            "index": {"type": "integer", "description": "Draw/Impress: shape index on the page."},
+        },
+        "required": [],
+    }
+    is_mutation = True
+
+    def execute(self, ctx: Any, **kwargs: Any) -> dict[str, Any]:
+        name = str(kwargs.get("name") or "").strip()
+        try:
+            if _is_draw_doc(ctx.doc):
+                from plugin.draw.tables import delete_draw_table
+                from plugin.framework.errors import make_tool_error
+
+                result = delete_draw_table(
+                    ctx.doc, name=name, page=kwargs.get("page"), index=kwargs.get("index")
+                )
+                if result.get("status") != "ok":
+                    return make_tool_error(
+                        str(result.get("message") or "Delete failed"),
+                        code=str(result.get("code") or "TOOL_EXECUTION_ERROR"),
+                    )
+                return result
+            if not name:
+                return self._tool_error("name is required.")
+            table = _get_table(ctx.doc, name)
+            nesting = _nesting_for(ctx.doc, name)
+            _remove_writer_table(ctx.doc, table, name, nesting)
+            return {
+                "status": "ok",
+                "message": "Table deleted",
+                "table_name": name,
+                "nesting": nesting,
+            }
+        except ValueError as ve:
+            return self._tool_error(str(ve))
+        except Exception as e:
+            log.exception("Could not delete table '%s'", name)
+            return self._tool_error("Could not delete table '%s': %s" % (name, e))

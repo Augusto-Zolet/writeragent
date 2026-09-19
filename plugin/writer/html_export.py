@@ -557,6 +557,7 @@ def _copy_cell_xtext(src_doc, src_cell, dest_doc, dest_cell):
         except Exception:
             break
         if _supports_service(para, "com.sun.star.text.TextTable"):
+            # Nested TextTable skipped — future work: docs/writer/specialized-toolsets.md §5.4.
             continue
         if not first_para:
             try:
