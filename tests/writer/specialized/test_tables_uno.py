@@ -7,7 +7,7 @@ import uno  # noqa: F401
 
 from plugin.testing_runner import native_test
 from plugin.tests.testing_utils import TestingFactory, with_native_doc
-from plugin.writer.specialized.tables import TableGetCells
+from plugin.writer.specialized.tables import ManageTableStructure, TableGetCells, TableList, TableSetCell
 
 
 @native_test
@@ -47,6 +47,7 @@ def test_table_get_cells_reports_nested_parent_relation_uno(ctx, doc):
         "parent_table": "FixtureOuter",
         "parent_cell": "B2",
     }
+    assert nested_res["nested_in_cells"] == {}
 
     standalone_res = TableGetCells().execute(tool_ctx, name="FixtureStandalone")
     assert standalone_res.get("status") == "ok", standalone_res
@@ -56,3 +57,29 @@ def test_table_get_cells_reports_nested_parent_relation_uno(ctx, doc):
         "parent_table": None,
         "parent_cell": None,
     }
+
+    outer_res = TableGetCells().execute(tool_ctx, name="FixtureOuter")
+    assert outer_res.get("status") == "ok", outer_res
+    assert outer_res["nesting"] == {
+        "is_nested": False,
+        "parent_table": None,
+        "parent_cell": None,
+    }
+    assert outer_res["nested_in_cells"] == {"B2": ["FixtureNested"]}
+
+    listed = TableList().execute(tool_ctx)
+    assert listed.get("status") == "ok", listed
+    by = {t["name"]: t for t in listed["tables"]}
+    assert by["FixtureNested"]["nesting"] == nested_res["nesting"]
+    assert by["FixtureOuter"]["nested_in_cells"] == outer_res["nested_in_cells"]
+    assert by["FixtureStandalone"]["nesting"]["is_nested"] is False
+
+    wipe = TableSetCell().execute(tool_ctx, name="FixtureOuter", cell="B2", text="wipe")
+    assert wipe.get("status") == "error" and "FixtureNested" in wipe.get("message", ""), wipe
+    assert nested.getName() == "FixtureNested"
+
+    del_row = ManageTableStructure().execute(
+        tool_ctx, action="delete", axis="row", name="FixtureOuter", index=1
+    )
+    assert del_row.get("status") == "error" and "FixtureNested" in del_row.get("message", ""), del_row
+    assert outer.getRows().getCount() == 2

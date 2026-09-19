@@ -1092,7 +1092,7 @@ class _TableProxy:
     """Proxy for table tools."""
 
     def get_cells(self, *, name: str | None = None, page: int | None = None, index: int | None = None) -> dict:
-        """Return a table's cell text as a row-major matrix (matrix[row][col]) by position — not by cell name."""
+        """Return a table's cell text as a row-major matrix. Writer also reports nesting and nested_in_cells."""
         return _rpc_call("table_get_cells", name=name, page=page, index=index)
 
     def insert(self, rows: int, columns: int, *, data: list | None = None, page: int | None = None, x: int | None = None, y: int | None = None, width: int | None = None, height: int | None = None) -> dict:
@@ -1100,15 +1100,15 @@ class _TableProxy:
         return _rpc_call("table_insert", rows=rows, columns=columns, data=data, page=page, x=x, y=y, width=width, height=height)
 
     def list(self) -> dict:
-        """List tables with name and dimensions (rows x columns)."""
+        """List tables with name, dimensions, and Writer nesting / nested_in_cells."""
         return _rpc_call("table_list")
 
     def manage_table_structure(self, action: str, axis: str, index: int, *, name: str | None = None, page: int | None = None, shape_index: int | None = None) -> dict:
-        """Insert or delete one table row or column."""
+        """Insert or delete one table row or column. Writer refuses delete of a band that hosts a nested table."""
         return _rpc_call("manage_table_structure", action=action, axis=axis, name=name, index=index, page=page, shape_index=shape_index)
 
     def set_cell(self, cell: str, text: str, *, name: str | None = None, page: int | None = None, index: int | None = None) -> dict:
-        """Set the plain-text content of ONE table cell, addressed A1-style (e.g."""
+        """Set one cell's plain text. Writer refuses a cell that hosts a nested table."""
         return _rpc_call("table_set_cell", name=name, cell=cell, text=text, page=page, index=index)
 
 table = _TableProxy()

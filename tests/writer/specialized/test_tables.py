@@ -80,6 +80,9 @@ class FakeTextTableElement:
     def __init__(self, name):
         self._name = name
 
+    def supportsService(self, name):
+        return name == "com.sun.star.text.TextTable"
+
     def getSupportedServiceNames(self):
         return ("com.sun.star.text.TextTable",)
 
@@ -154,6 +157,7 @@ def test_get_table_cells_reports_direct_nested_parent():
         "parent_table": "Parent",
         "parent_cell": "B2",
     }
+    assert res["nested_in_cells"] == {}
 
 
 def test_get_table_cells_reports_top_level_table_as_not_nested():
@@ -165,6 +169,60 @@ def test_get_table_cells_reports_top_level_table_as_not_nested():
         "parent_table": None,
         "parent_cell": None,
     }
+    assert res["nested_in_cells"] == {}
+
+
+def test_list_tables_reports_nesting_and_nested_in_cells():
+    child = FakeTable(1, 1)
+    parent = FakeParentTable(2, 2, nested_by_cell={"B2": [FakeTextTableElement("Child")]})
+    res = TableList().execute(_ctx({"Parent": parent, "Child": child}))
+    assert res["status"] == "ok"
+    by = {t["name"]: t for t in res["tables"]}
+    assert by["Child"]["nesting"] == {
+        "is_nested": True,
+        "parent_table": "Parent",
+        "parent_cell": "B2",
+    }
+    assert by["Child"]["nested_in_cells"] == {}
+    assert by["Parent"]["nesting"] == {
+        "is_nested": False,
+        "parent_table": None,
+        "parent_cell": None,
+    }
+    assert by["Parent"]["nested_in_cells"] == {"B2": ["Child"]}
+
+
+def test_get_table_cells_parent_reports_nested_in_cells():
+    child = FakeTable(1, 1)
+    parent = FakeParentTable(2, 2, nested_by_cell={"B2": [FakeTextTableElement("Child")]})
+    res = TableGetCells().execute(_ctx({"Parent": parent, "Child": child}), name="Parent")
+    assert res["status"] == "ok"
+    assert res["nesting"]["is_nested"] is False
+    assert res["nested_in_cells"] == {"B2": ["Child"]}
+
+
+def test_get_table_cells_triple_nest_reports_direct_parent():
+    """A grandchild reports the mid table, not the outer — no ancestry walk."""
+    inner = FakeTable(1, 1, cells={"A1": "deep"})
+    mid = FakeParentTable(1, 1, nested_by_cell={"A1": [FakeTextTableElement("Inner")]})
+    outer = FakeParentTable(2, 2, nested_by_cell={"B2": [FakeTextTableElement("Mid")]})
+    ctx = _ctx({"Outer": outer, "Mid": mid, "Inner": inner})
+    inner_res = TableGetCells().execute(ctx, name="Inner")
+    assert inner_res["nesting"] == {
+        "is_nested": True,
+        "parent_table": "Mid",
+        "parent_cell": "A1",
+    }
+    mid_res = TableGetCells().execute(ctx, name="Mid")
+    assert mid_res["nesting"] == {
+        "is_nested": True,
+        "parent_table": "Outer",
+        "parent_cell": "B2",
+    }
+    assert mid_res["nested_in_cells"] == {"A1": ["Inner"]}
+    outer_res = TableGetCells().execute(ctx, name="Outer")
+    assert outer_res["nesting"]["is_nested"] is False
+    assert outer_res["nested_in_cells"] == {"B2": ["Mid"]}
 
 
 def test_get_table_cells_unknown_table_lists_names():
@@ -179,6 +237,21 @@ def test_set_table_cell_ok():
     res = TableSetCell().execute(_ctx({"T": t}), name="T", cell="b2", text="new")
     assert res["status"] == "ok" and res["old_text"] == "old" and res["new_text"] == "new"
     assert t._cells["B2"] == "new"
+
+
+def test_set_table_cell_refuses_host_cell():
+    """setString on a host cell would wipe the nested TextTable — refuse and leave it."""
+    parent = FakeParentTable(
+        2, 2, cells={"A1": "keep", "B2": "host"},
+        nested_by_cell={"B2": [FakeTextTableElement("Child")]},
+    )
+    child = FakeTable(1, 1)
+    ctx = _ctx({"Parent": parent, "Child": child})
+    res = TableSetCell().execute(ctx, name="Parent", cell="B2", text="wipe")
+    assert res["status"] == "error" and "Child" in res["message"]
+    assert parent._cells["B2"] == "host"
+    sibling = TableSetCell().execute(ctx, name="Parent", cell="A1", text="ok")
+    assert sibling["status"] == "ok" and parent._cells["A1"] == "ok"
 
 
 def test_set_table_cell_out_of_bounds_lists_real_names():
@@ -237,6 +310,42 @@ def test_delete_last_column_guard():
         _ctx({"T": t}), action="delete", axis="column", name="T", index=0
     )
     assert res["status"] == "error" and "last column" in res["message"]
+
+
+def test_delete_row_refuses_nested_host():
+    """removeByIndex on the host row would destroy the nested table."""
+    parent = FakeParentTable(2, 2, nested_by_cell={"B2": [FakeTextTableElement("Child")]})
+    child = FakeTable(1, 1)
+    ctx = _ctx({"Parent": parent, "Child": child})
+    tool = ManageTableStructure()
+    res = tool.execute(ctx, action="delete", axis="row", name="Parent", index=1)
+    assert res["status"] == "error" and "Child" in res["message"]
+    assert parent._rows.n == 2
+    # The other row has no nested table — delete still works.
+    ok = tool.execute(ctx, action="delete", axis="row", name="Parent", index=0)
+    assert ok["status"] == "ok" and parent._rows.n == 1
+
+
+def test_delete_column_refuses_nested_host():
+    parent = FakeParentTable(2, 2, nested_by_cell={"B2": [FakeTextTableElement("Child")]})
+    child = FakeTable(1, 1)
+    ctx = _ctx({"Parent": parent, "Child": child})
+    tool = ManageTableStructure()
+    res = tool.execute(ctx, action="delete", axis="column", name="Parent", index=1)
+    assert res["status"] == "error" and "Child" in res["message"]
+    assert parent._cols.n == 2
+    ok = tool.execute(ctx, action="delete", axis="column", name="Parent", index=0)
+    assert ok["status"] == "ok" and parent._cols.n == 1
+
+
+def test_insert_row_unaffected_by_nested_table():
+    parent = FakeParentTable(2, 2, nested_by_cell={"B2": [FakeTextTableElement("Child")]})
+    child = FakeTable(1, 1)
+    res = ManageTableStructure().execute(
+        _ctx({"Parent": parent, "Child": child}),
+        action="insert", axis="row", name="Parent", index=2,
+    )
+    assert res["status"] == "ok" and res["rows"] == 3
 
 
 # ---- rows / columns ---------------------------------------------------------
