@@ -2365,3 +2365,34 @@ def test_testing_factory_execute_tool_unknown_name():
         res = TestingFactory.execute_tool(doc, ctx, "bad_tool", {}, doc_type="calc")
     assert res["status"] == "error"
     assert "bad_tool" in res["error"]
+
+
+def test_default_native_doc_reuse():
+    import plugin.tests.testing_utils as tu
+
+    assert tu._default_native_doc_reuse("calc") is True
+    assert tu._default_native_doc_reuse("writer") is True
+    assert tu._default_native_doc_reuse("draw") is False
+    assert tu._default_native_doc_reuse("impress") is False
+
+
+def test_native_doc_pool_clean_tracking():
+    from plugin.tests.testing_utils import _NativeDocPool
+
+    pool = _NativeDocPool()
+    doc1 = object()
+    doc2 = object()
+
+    assert pool.is_clean(doc1) is False
+    pool.mark_clean(doc1, True)
+    assert pool.is_clean(doc1) is True
+    assert pool.is_clean(doc2) is False
+
+    pool.mark_clean(doc1, False)
+    assert pool.is_clean(doc1) is False
+
+    pool["key1"] = doc1
+    pool.mark_clean(doc1, True)
+    pool.clear()
+    assert len(pool) == 0
+    assert pool.is_clean(doc1) is False

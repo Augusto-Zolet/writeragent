@@ -15,7 +15,7 @@ skip inventory (keep / simplify / delete):
 | Path | Reuse? | Open | Close |
 |------|--------|------|-------|
 | Calc `@with_native_doc` | Yes (wipe-and-reuse pool) | Factory only on first use / dead pool | Close only if reset fails |
-| Writer `@with_native_doc` | Windows yes (leftover pool; leftover notebook host uses `_wa_notebook_host`) | Factory on first use / dead pool | `close_doc` (Windows **skips** Writer close while leftovers remain) |
+| Writer `@with_native_doc` | Yes (wipe-and-reuse pool by default across all platforms; pass `reuse=False` for fresh doc; leftover notebook host uses `_wa_notebook_host`) | Factory on first use / dead pool | Close only if reset fails or `reuse=False` (Windows also skips Writer close while leftovers remain) |
 | Draw / Impress | **Never** | Factory each test (`private:factory/sdraw`); Windows **skips** leftover Draw/Impress when leftover_open>2 | Windows leftover_open>0: skip close (`native_doc: teardown skip impress/draw close leftover_open=N`; suite-end recycle). Else `close_draw_family_doc` + `settle_after_draw_family_close` (Windows bare `close(True)`). Math OLE Draw still uses `close_doc` so that skip stays |
 
 `create_native_doc` is a thin `loadComponentFromURL`. Draw tests do **not**

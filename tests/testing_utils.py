@@ -782,9 +782,30 @@ class MockContext:
     def getServiceManager(self):
         return MagicMock()
 
-# Experimental: wipe-and-reuse one hidden document per (ctx, type, hidden).
-# Default ON for Calc only. Writer pooling still leaks CharWeight/HTML styles; pass reuse=True to try it.
-_NATIVE_DOC_POOL: dict = {}
+class _NativeDocPool(dict):
+    """Pool for native LibreOffice documents, tracking clean state across tests."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.clean_doc_ids: set = set()
+
+    def clear(self):
+        super().clear()
+        self.clean_doc_ids.clear()
+
+    def mark_clean(self, doc, clean: bool = True) -> None:
+        if clean:
+            self.clean_doc_ids.add(id(doc))
+        else:
+            self.clean_doc_ids.discard(id(doc))
+
+    def is_clean(self, doc) -> bool:
+        return id(doc) in self.clean_doc_ids
+
+
+_NATIVE_DOC_POOL: _NativeDocPool = _NativeDocPool()
+_BUILTIN_PARA_STYLES: set = set()
+_BUILTIN_CHAR_STYLES: set = set()
 
 # GHA 33703959362: hang after insert_cell_html execute-done, before TEST end.
 # When True, stderr breadcrumbs name reset_native_doc / _reset_calc_doc steps.
@@ -1595,7 +1616,7 @@ def _log_office_health_after_close(ctx, doc_type: str) -> None:
 
 
 def _default_native_doc_reuse(doc_type: str) -> bool:
-    return doc_type == "calc"
+    return doc_type in ("calc", "writer")
 
 
 # Pre-close URP settle after gc.collect() (see close_doc). Draw soak amplifier
@@ -2068,25 +2089,44 @@ def _reset_writer_style_families(doc) -> None:
         families = doc.getStyleFamilies()
     except Exception:
         return
-    for family_name in ("ParagraphStyles", "CharacterStyles"):
+    # Restore "Standard" paragraph style properties (the primary built-in style that picks up bold/char formatting)
+    try:
+        para_styles = families.getByName("ParagraphStyles")
+        if para_styles.hasByName("Standard"):
+            std = para_styles.getByName("Standard")
+            for prop in ("CharWeight", "CharHeight", "CharPosture", "CharUnderline", "CharColor"):
+                try:
+                    std.setPropertyToDefault(prop)
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+    global _BUILTIN_PARA_STYLES, _BUILTIN_CHAR_STYLES
+    for family_name, builtin_set in (
+        ("ParagraphStyles", _BUILTIN_PARA_STYLES),
+        ("CharacterStyles", _BUILTIN_CHAR_STYLES),
+    ):
         try:
             styles = families.getByName(family_name)
         except Exception:
             continue
-        for name in list(styles.getElementNames()):
-            try:
-                style = styles.getByName(name)
-            except Exception:
-                continue
-            try:
-                if bool(style.isUserDefined()):
-                    styles.removeByName(name)
-                    continue
-            except Exception:
-                pass
-            for prop in ("CharWeight", "CharHeight", "CharPosture", "CharUnderline", "CharColor"):
+        try:
+            names = list(styles.getElementNames())
+        except Exception:
+            continue
+        if not builtin_set:
+            for name in names:
                 try:
-                    style.setPropertyToDefault(prop)
+                    st = styles.getByName(name)
+                    if hasattr(st, "isUserDefined") and not bool(st.isUserDefined()):
+                        builtin_set.add(name)
+                except Exception:
+                    builtin_set.add(name)
+        for name in names:
+            if name not in builtin_set:
+                try:
+                    styles.removeByName(name)
                 except Exception:
                     pass
 
@@ -2114,6 +2154,15 @@ def _reset_writer_page_regions(doc) -> None:
                 style = styles.getByName(name)
             except Exception:
                 continue
+            # Fast-path: default page styles have FirstIsShared=True and no headers/footers enabled.
+            try:
+                first_shared = style.getPropertyValue("FirstIsShared")
+                header_on = style.getPropertyValue("HeaderIsOn")
+                footer_on = style.getPropertyValue("FooterIsOn")
+                if first_shared is True and not header_on and not footer_on:
+                    continue
+            except Exception:
+                pass
             for flag in ("FirstIsShared", "HeaderIsShared", "FooterIsShared"):
                 try:
                     style.setPropertyValue(flag, True)
@@ -2266,6 +2315,8 @@ def _reset_writer_doc(doc, ctx) -> None:
             continue
         try:
             container = getattr(doc, getter)()
+            if hasattr(container, "hasElements") and not container.hasElements():
+                continue
             for name in list(container.getElementNames()):
                 try:
                     content = container.getByName(name)
@@ -2481,6 +2532,8 @@ class TestingFactory:
         for key, pooled in list(_NATIVE_DOC_POOL.items()):
             if pooled is doc:
                 del _NATIVE_DOC_POOL[key]
+        if hasattr(_NATIVE_DOC_POOL, "mark_clean"):
+            _NATIVE_DOC_POOL.mark_clean(doc, False)
         try:
             from plugin.scripting.session_manager import clear_active_calc_session
 
@@ -2522,7 +2575,7 @@ class TestingFactory:
     @staticmethod
     @contextlib.contextmanager
     def native_doc(ctx, doc_type="writer", hidden=True, reuse=None):
-        """Yield a native LO document. Calc defaults to experimental wipe-and-reuse; Writer does not."""
+        """Yield a native LO document. Writer and Calc default to wipe-and-reuse pool (pass reuse=False for fresh doc)."""
         if reuse is None:
             reuse = _default_native_doc_reuse(doc_type)
             if doc_type == "writer" and _windows_should_reuse_writer(ctx):
@@ -2555,7 +2608,10 @@ class TestingFactory:
             candidate = _NATIVE_DOC_POOL.get(key)
             if candidate is not None and _native_doc_alive(candidate):
                 try:
-                    reset_native_doc(candidate, doc_type, ctx)
+                    if hasattr(_NATIVE_DOC_POOL, "is_clean") and not _NATIVE_DOC_POOL.is_clean(candidate):
+                        reset_native_doc(candidate, doc_type, ctx)
+                        if hasattr(_NATIVE_DOC_POOL, "mark_clean"):
+                            _NATIVE_DOC_POOL.mark_clean(candidate, True)
                     if doc_type == "writer" and not _writer_pool_is_clean(candidate):
                         if sys.platform == "win32" and _windows_leftover_open() > 0:
                             from plugin.testing_runner import _progress
@@ -2564,6 +2620,8 @@ class TestingFactory:
                             # and keep the leftover-window Writer.
                             _progress("native_doc: leftover writer pool dirty; keep")
                             reset_native_doc(candidate, doc_type, ctx)
+                            if hasattr(_NATIVE_DOC_POOL, "mark_clean"):
+                                _NATIVE_DOC_POOL.mark_clean(candidate, True)
                             doc = candidate
                             pooled = True
                             writer_reused = True
@@ -2588,6 +2646,8 @@ class TestingFactory:
             if doc is None:
                 doc = TestingFactory.create_native_doc(ctx, doc_type=doc_type, hidden=hidden)
                 _NATIVE_DOC_POOL[key] = doc
+                if hasattr(_NATIVE_DOC_POOL, "mark_clean"):
+                    _NATIVE_DOC_POOL.mark_clean(doc, True)
                 pooled = True
                 writer_reused = False
         else:
@@ -2606,6 +2666,8 @@ class TestingFactory:
             except Exception:
                 pass
         try:
+            if hasattr(_NATIVE_DOC_POOL, "mark_clean"):
+                _NATIVE_DOC_POOL.mark_clean(doc, False)
             yield doc
         finally:
             if pooled:
@@ -2616,7 +2678,11 @@ class TestingFactory:
                 )
                 try:
                     reset_native_doc(doc, doc_type, ctx)
+                    if hasattr(_NATIVE_DOC_POOL, "mark_clean"):
+                        _NATIVE_DOC_POOL.mark_clean(doc, True)
                 except Exception:
+                    if hasattr(_NATIVE_DOC_POOL, "mark_clean"):
+                        _NATIVE_DOC_POOL.mark_clean(doc, False)
                     # Do not return from finally: that swallows a failed test
                     # body and warns on 3.12+ (SyntaxWarning: return in finally).
                     _native_teardown_progress(
@@ -2764,8 +2830,8 @@ class TestingFactory:
 def with_native_doc(doc_type="writer", hidden=True, reuse=None):
     """Decorator to inject a native LibreOffice document into a test function and guarantee teardown.
 
-    Calc: experimental wipe-and-reuse of one hidden spreadsheet (faster than factory+close).
-    Writer: factory load/close by default (reuse leaks HTML/CharWeight). Pass reuse=True to try pooling.
+    Writer/Calc: wipe-and-reuse pooled document by default (faster than factory+close). Pass reuse=False
+    when the test requires a virgin factory document.
     Draw/Impress never reuse. Factory-open DisposedException is annotated with
     the previous native test (docs/framework/uno-test-lifecycle.md).
     """
