@@ -15,7 +15,7 @@ from plugin.framework.uno_bootstrap import (
     register_alias_importer,
 )
 from plugin.scripting.venv_worker import PythonWorkerManager
-from tests.testing_utils import setup_uno_mocks
+from plugin.tests.testing_utils import setup_uno_mocks
 
 setup_uno_mocks()
 

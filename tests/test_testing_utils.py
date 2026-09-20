@@ -347,38 +347,30 @@ def test_prepare_windows_writer_factory_keeper_only_still_reactivates(monkeypatc
         tu.set_harness_keeper_uid("")
 
 
-def test_set_harness_keeper_uid_writes_sibling_testing_utils_module(monkeypatch):
-    """GHA 34595675515: runner set tests.testing_utils; factory read plugin.tests copy."""
-    import sys
-    import types
+def test_testing_utils_import_names_are_one_module():
+    """GHA 34595675515: both import names must be one object, not two copies."""
+    import plugin.tests.testing_utils as plugin_tu
+    import tests.testing_utils as tests_tu
 
-    from plugin.tests import testing_utils as tu
-
-    sibling = types.ModuleType("tests.testing_utils")
-    sibling.__file__ = tu.__file__
-    sibling._HARNESS_KEEPER_UID = ""
-    sibling._HARNESS_KEEPER_DOC = None
-    monkeypatch.setitem(sys.modules, "tests.testing_utils", sibling)
+    assert tests_tu is plugin_tu
     keeper_doc = object()
     try:
-        tu.set_harness_keeper_uid("1", keeper_doc)
-        assert tu._HARNESS_KEEPER_UID == "1"
-        assert sibling._HARNESS_KEEPER_UID == "1"
-        assert sibling._HARNESS_KEEPER_DOC is keeper_doc
+        plugin_tu.set_harness_keeper_uid("1", keeper_doc)
+        assert tests_tu._HARNESS_KEEPER_UID == "1"
+        assert tests_tu._HARNESS_KEEPER_DOC is keeper_doc
     finally:
-        tu.set_harness_keeper_uid("")
+        plugin_tu.set_harness_keeper_uid("")
 
 
-def test_prepare_windows_writer_factory_adopts_keeper_from_sibling(monkeypatch):
-    """Same dual-module miss: prepare saw keeper=- and counted uid=1 as leftover."""
-    import sys
-    import types
+def test_prepare_windows_writer_factory_sees_keeper_set_via_other_import_name(
+    monkeypatch,
+):
+    """Keeper set as tests.testing_utils is visible to plugin.tests.testing_utils."""
     from unittest.mock import MagicMock
 
-    from plugin.tests import testing_utils as tu
+    import plugin.tests.testing_utils as plugin_tu
+    import tests.testing_utils as tests_tu
 
-    sibling = types.ModuleType("tests.testing_utils")
-    sibling.__file__ = tu.__file__
     keeper = MagicMock(name="keeper")
     keeper.RuntimeUID = "1"
     keeper.supportsService.side_effect = lambda svc: svc.endswith("TextDocument")
@@ -387,8 +379,6 @@ def test_prepare_windows_writer_factory_adopts_keeper_from_sibling(monkeypatch):
     leftover = MagicMock(name="leftover")
     leftover.RuntimeUID = "26"
     leftover.supportsService.side_effect = lambda svc: svc.endswith("TextDocument")
-    sibling._HARNESS_KEEPER_UID = "1"
-    sibling._HARNESS_KEEPER_DOC = keeper
 
     class _Enum:
         def __init__(self, items):
@@ -404,18 +394,16 @@ def test_prepare_windows_writer_factory_adopts_keeper_from_sibling(monkeypatch):
     desktop.getComponents.return_value.createEnumeration.return_value = _Enum(
         [keeper, leftover]
     )
-    monkeypatch.setitem(sys.modules, "tests.testing_utils", sibling)
     monkeypatch.setattr("plugin.framework.uno_context.get_desktop", lambda _ctx: desktop)
-    tu._HARNESS_KEEPER_UID = ""
-    tu._HARNESS_KEEPER_DOC = None
+    tests_tu.set_harness_keeper_uid("1", keeper)
     try:
-        assert tu.prepare_windows_writer_factory(object()) == 1
+        assert plugin_tu.prepare_windows_writer_factory(object()) == 1
         leftover.close.assert_not_called()
         desktop.setActiveFrame.assert_called_once_with(frame)
-        assert tu._HARNESS_KEEPER_UID == "1"
+        assert plugin_tu._HARNESS_KEEPER_UID == "1"
     finally:
-        tu._set_windows_leftover_open(0)
-        tu.set_harness_keeper_uid("")
+        plugin_tu._set_windows_leftover_open(0)
+        plugin_tu.set_harness_keeper_uid("")
 
 
 def test_windows_factory_load_args_named_for_any_leftover_factory():

@@ -142,7 +142,7 @@ def test_workbook_session_id_off_main_ambiguous_when_two_workbooks() -> None:
 
 def test_cached_calc_document_unambiguous_and_cleared() -> None:
     """Off-main spill may pass through the UI-thread model when one session is recorded."""
-    from tests.testing_utils import CalcDocStub
+    from plugin.tests.testing_utils import CalcDocStub
 
     session_manager.clear_active_calc_session()
     doc = CalcDocStub(url="file:///SpillTest.ods")
@@ -158,7 +158,7 @@ def test_cached_calc_document_unambiguous_and_cleared() -> None:
 
 def test_cached_calc_document_isolated_zero_sessions() -> None:
     """Isolated (no recorded id) still returns the last UI-thread model."""
-    from tests.testing_utils import CalcDocStub
+    from plugin.tests.testing_utils import CalcDocStub
 
     session_manager.clear_active_calc_session()
     doc = CalcDocStub(url="file:///isolated.ods")

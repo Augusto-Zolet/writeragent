@@ -1219,6 +1219,8 @@ def _recycle_harness_office(old_ctx: Any) -> tuple[Any, Any]:
     time.sleep(0.5)
     reset_office_death_signals(clear_proc=True)
     try:
+        # Same object as plugin.tests.testing_utils (alias on first load).
+        # ty cannot resolve the plugin.tests path hack.
         from tests.testing_utils import _NATIVE_DOC_POOL
 
         _NATIVE_DOC_POOL.clear()

@@ -12,7 +12,7 @@ from plugin.calc.python.formula_locator_cache import (
     locate_formula_cell,
     locate_formula_cell_in_doc,
 )
-from tests.testing_utils import CalcDocStub, CalcSheetStub
+from plugin.tests.testing_utils import CalcDocStub, CalcSheetStub
 
 
 def _ctx_with_doc(doc: CalcDocStub):

@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from plugin.calc.python.image_egress import _shape_anchor_matches_cell, insert_image_result_on_sheet
-from tests.testing_utils import CalcCellStub
+from plugin.tests.testing_utils import CalcCellStub
 from plugin.calc.python.venv import RunVenvPythonScript
 from plugin.scripting.payload_codec import PAYLOAD_IMAGE
 

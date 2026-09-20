@@ -7,6 +7,19 @@ import types
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+# GHA 34595675515: ``python -m plugin.testing_runner`` imported
+# ``tests.testing_utils``; suites imported ``plugin.tests.testing_utils``
+# (``plugin/tests/__init__.py`` points ``__path__`` at ``tests/``). Same
+# file, second object — keeper stayed empty on the suite copy. Register
+# both names on first load so the second import hits sys.modules.
+def _register_testing_utils_aliases() -> None:
+    this = sys.modules[__name__]
+    for name in ("plugin.tests.testing_utils", "tests.testing_utils"):
+        sys.modules[name] = this
+
+
+_register_testing_utils_aliases()
+
 # `com.sun.*` names created/updated by setup_uno_mocks (for-loop).
 _COM_SUN_STAR_MOCK_MODULE_KEYS = [
     "com",
@@ -829,78 +842,14 @@ _HARNESS_KEEPER_UID = ""
 _HARNESS_KEEPER_DOC = None
 
 
-def _testing_utils_holders():
-    """Modules that share this file's keeper globals.
-
-    ``python -m plugin.testing_runner`` imports ``tests.testing_utils`` to
-    record the keeper. Suites import ``plugin.tests.testing_utils``
-    (``plugin/tests/__init__.py`` points ``__path__`` at ``tests/``). Same
-    file, second object. GHA 34595675515: every factory prepare printed
-    ``keeper=-`` and treated uid=1 as a leftover — #720 never reactivated.
-    Same dual-module family as #719 recycle. Touch both.
-    """
-    import os
-
-    seen = []
-    try:
-        here_file = os.path.normcase(os.path.realpath(__file__))
-    except Exception:
-        here_file = ""
-    for name in ("tests.testing_utils", "plugin.tests.testing_utils", __name__):
-        mod = sys.modules.get(name)
-        if mod is None or mod in seen:
-            continue
-        other = getattr(mod, "__file__", None)
-        if other and here_file:
-            try:
-                if os.path.normcase(os.path.realpath(other)) != here_file:
-                    continue
-            except Exception:
-                continue
-        seen.append(mod)
-    return seen or [sys.modules[__name__]]
-
-
-def _ensure_testing_utils_aliases() -> None:
-    """Import both sys.modules names so set/adopt can write both copies."""
-    try:
-        import tests.testing_utils as _tests_tu  # noqa: F401
-    except Exception:
-        pass
-    try:
-        import plugin.tests.testing_utils as _plugin_tu  # noqa: F401
-    except Exception:
-        pass
-
-
 def set_harness_keeper_uid(uid: str, doc=None) -> None:
     """Record the hidden keeper Writer (uid + doc) for later setActiveFrame."""
-    _ensure_testing_utils_aliases()
+    global _HARNESS_KEEPER_UID, _HARNESS_KEEPER_DOC
     uid_s = str(uid or "")
     if uid_s == "-":
         uid_s = ""
-    doc_s = doc if uid_s else None
-    for mod in _testing_utils_holders():
-        mod._HARNESS_KEEPER_UID = uid_s
-        mod._HARNESS_KEEPER_DOC = doc_s
-
-
-def _adopt_keeper_from_sibling() -> bool:
-    """Copy keeper uid/doc from the other testing_utils module if we have none."""
-    global _HARNESS_KEEPER_UID, _HARNESS_KEEPER_DOC
-    if _HARNESS_KEEPER_UID:
-        return False
-    here = sys.modules.get(__name__)
-    for mod in _testing_utils_holders():
-        if mod is here:
-            continue
-        uid = str(getattr(mod, "_HARNESS_KEEPER_UID", "") or "")
-        if not uid or uid == "-":
-            continue
-        _HARNESS_KEEPER_UID = uid
-        _HARNESS_KEEPER_DOC = getattr(mod, "_HARNESS_KEEPER_DOC", None)
-        return True
-    return False
+    _HARNESS_KEEPER_UID = uid_s
+    _HARNESS_KEEPER_DOC = doc if uid_s else None
 
 
 def _writer_doc_uid(doc) -> str:
@@ -974,11 +923,6 @@ def reactivate_harness_keeper(desktop=None) -> bool:
     """
     from plugin.testing_runner import _progress
 
-    if _adopt_keeper_from_sibling():
-        _progress(
-            "html_paste_writer: keeper adopted from sibling uid=%s"
-            % (_HARNESS_KEEPER_UID or "-")
-        )
     doc = _HARNESS_KEEPER_DOC
     if doc is None:
         return False
@@ -1020,11 +964,6 @@ def prepare_windows_writer_factory(ctx) -> int:
     from plugin.framework.uno_context import get_desktop
     from plugin.testing_runner import _progress
 
-    if _adopt_keeper_from_sibling():
-        _progress(
-            "html_paste_writer: keeper adopted from sibling uid=%s"
-            % (_HARNESS_KEEPER_UID or "-")
-        )
     desktop = get_desktop(ctx)
     keeper = _HARNESS_KEEPER_UID
     leftover_uids = []
@@ -1049,48 +988,27 @@ def prepare_windows_writer_factory(ctx) -> int:
 _WINDOWS_LEFTOVER_OPEN = 0
 # True when this test's Writer came from the wipe-and-reuse pool (not a
 # factory-fresh load). leftover_open=0 still reuses on win32
-# (GHA 35470191616). Dual-module like leftover_open.
+# (GHA 35470191616).
 _WINDOWS_WRITER_POOL_REUSED = False
 
 
 def _set_windows_leftover_open(n: int) -> None:
-    """Write leftover count on both testing_utils module copies."""
-    n_i = int(n or 0)
-    for mod in _testing_utils_holders():
-        mod._WINDOWS_LEFTOVER_OPEN = n_i
+    """Cache leftover Writer count (prepare writes; close_doc / native_doc read)."""
+    global _WINDOWS_LEFTOVER_OPEN
+    _WINDOWS_LEFTOVER_OPEN = int(n or 0)
 
 
 def _windows_leftover_open() -> int:
-    n = int(_WINDOWS_LEFTOVER_OPEN or 0)
-    if n > 0:
-        return n
-    here = sys.modules.get(__name__)
-    for mod in _testing_utils_holders():
-        if mod is here:
-            continue
-        other = int(getattr(mod, "_WINDOWS_LEFTOVER_OPEN", 0) or 0)
-        if other > 0:
-            return other
-    return 0
+    return int(_WINDOWS_LEFTOVER_OPEN or 0)
 
 
 def _set_windows_writer_pool_reused(on: bool) -> None:
-    """Write pooled-Writer reuse flag on both testing_utils module copies."""
-    flag = bool(on)
-    for mod in _testing_utils_holders():
-        mod._WINDOWS_WRITER_POOL_REUSED = flag
+    global _WINDOWS_WRITER_POOL_REUSED
+    _WINDOWS_WRITER_POOL_REUSED = bool(on)
 
 
 def _windows_writer_pool_reused() -> bool:
-    if bool(_WINDOWS_WRITER_POOL_REUSED):
-        return True
-    here = sys.modules.get(__name__)
-    for mod in _testing_utils_holders():
-        if mod is here:
-            continue
-        if bool(getattr(mod, "_WINDOWS_WRITER_POOL_REUSED", False)):
-            return True
-    return False
+    return bool(_WINDOWS_WRITER_POOL_REUSED)
 
 
 def _windows_should_reuse_writer(ctx) -> bool:
@@ -1399,21 +1317,12 @@ _WINDOWS_HIDDEN_OPEN_BITMAP = False
 
 
 def _set_windows_hidden_open_bitmap(on: bool) -> None:
-    flag = bool(on)
-    for mod in _testing_utils_holders():
-        mod._WINDOWS_HIDDEN_OPEN_BITMAP = flag
+    global _WINDOWS_HIDDEN_OPEN_BITMAP
+    _WINDOWS_HIDDEN_OPEN_BITMAP = bool(on)
 
 
 def _windows_hidden_open_bitmap() -> bool:
-    if bool(_WINDOWS_HIDDEN_OPEN_BITMAP):
-        return True
-    here = sys.modules.get(__name__)
-    for mod in _testing_utils_holders():
-        if mod is here:
-            continue
-        if bool(getattr(mod, "_WINDOWS_HIDDEN_OPEN_BITMAP", False)):
-            return True
-    return False
+    return bool(_WINDOWS_HIDDEN_OPEN_BITMAP)
 
 
 def windows_hidden_open_bitmap_err(err: str | None) -> bool:
@@ -1502,21 +1411,12 @@ _WINDOWS_NOTEBOOK_HOST = False
 
 def set_windows_notebook_host(on: bool) -> None:
     """Leftover factory uses ``_wa_notebook_host`` (not leftover ``_wa_factory``)."""
-    flag = bool(on)
-    for mod in _testing_utils_holders():
-        mod._WINDOWS_NOTEBOOK_HOST = flag
+    global _WINDOWS_NOTEBOOK_HOST
+    _WINDOWS_NOTEBOOK_HOST = bool(on)
 
 
 def _windows_notebook_host() -> bool:
-    if bool(_WINDOWS_NOTEBOOK_HOST):
-        return True
-    here = sys.modules.get(__name__)
-    for mod in _testing_utils_holders():
-        if mod is here:
-            continue
-        if bool(getattr(mod, "_WINDOWS_NOTEBOOK_HOST", False)):
-            return True
-    return False
+    return bool(_WINDOWS_NOTEBOOK_HOST)
 
 
 def windows_notebook_load_args() -> tuple[str, int]:
@@ -1693,11 +1593,11 @@ def mark_windows_math_ole_doc(doc) -> None:
     GHA 34607010446: ``test_insert_math_draw`` body returned, then
     ``close_doc`` ``dispose`` of that Draw killed soffice (exit 0).
     Nine earlier Draw ``close_doc`` calls in the same suite survived.
-    Remember the uid on both testing_utils copies so teardown can skip
-    the close. The runner then defers ``test_draw_uno`` until just
-    before the peer suite so this leftover is not ``close(True)``'d
-    (34607010446). Notebook detect hang is leftover Hidden ``_blank``
-    (34619751330), not this Draw. Not a product fix.
+    Remember the uid so teardown can skip the close. The runner then
+    defers ``test_draw_uno`` until just before the peer suite so this
+    leftover is not ``close(True)``'d (34607010446). Notebook detect
+    hang is leftover Hidden ``_blank`` (34619751330), not this Draw.
+    Not a product fix.
     """
     if sys.platform != "win32" or not doc:
         return
@@ -1707,36 +1607,16 @@ def mark_windows_math_ole_doc(doc) -> None:
         uid = ""
     if not uid:
         return
-    for mod in _testing_utils_holders():
-        uids = getattr(mod, "_WINDOWS_MATH_OLE_UIDS", None)
-        if uids is None:
-            mod._WINDOWS_MATH_OLE_UIDS = set()
-            uids = mod._WINDOWS_MATH_OLE_UIDS
-        uids.add(uid)
+    _WINDOWS_MATH_OLE_UIDS.add(uid)
 
 
 def _windows_math_ole_uids() -> set[str]:
-    uids = set(_WINDOWS_MATH_OLE_UIDS)
-    here = sys.modules.get(__name__)
-    for mod in _testing_utils_holders():
-        if mod is here:
-            continue
-        other = getattr(mod, "_WINDOWS_MATH_OLE_UIDS", None)
-        if other:
-            uids.update(other)
-    return uids
+    return set(_WINDOWS_MATH_OLE_UIDS)
 
 
 def _clear_windows_math_ole_uids() -> None:
-    """Unit-test reset. ``mark_windows_math_ole_doc`` writes both copies."""
+    """Unit-test reset."""
     _WINDOWS_MATH_OLE_UIDS.clear()
-    here = sys.modules.get(__name__)
-    for mod in _testing_utils_holders():
-        if mod is here:
-            continue
-        other = getattr(mod, "_WINDOWS_MATH_OLE_UIDS", None)
-        if other is not None:
-            other.clear()
 
 
 def _draw_doc_has_math_ole(doc) -> bool:

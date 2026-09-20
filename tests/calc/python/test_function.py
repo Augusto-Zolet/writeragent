@@ -194,7 +194,7 @@ def test_insert_image_result_targets_formula_cell_sheet_when_another_sheet_activ
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Issue #385: When Overview is active, plots for formulas on Viz_Gallery land on Viz_Gallery."""
-    from tests.testing_utils import CalcSheetStub
+    from plugin.tests.testing_utils import CalcSheetStub
 
     class _TmpFile:
         name = "/tmp/fake.png"
@@ -260,7 +260,7 @@ def test_insert_image_result_targets_formula_cell_sheet_when_another_sheet_activ
 
 def test_locate_formula_cell_in_doc_finds_on_secondary_sheet() -> None:
     """locate_formula_cell_in_doc locates formula cell on non-active sheet."""
-    from tests.testing_utils import CalcSheetStub
+    from plugin.tests.testing_utils import CalcSheetStub
 
     sheet1 = CalcSheetStub("Overview")
     sheet2 = CalcSheetStub("Viz_Gallery")
@@ -369,7 +369,7 @@ def test_finalize_python_return_triggers_spill(monkeypatch: pytest.MonkeyPatch) 
 
 def test_finalize_python_return_spills_on_secondary_sheet(monkeypatch: pytest.MonkeyPatch) -> None:
     """Auto-spill locates the formula cell and spills correctly even when a different sheet is active."""
-    from tests.testing_utils import CalcSheetStub
+    from plugin.tests.testing_utils import CalcSheetStub
 
     sheet1 = CalcSheetStub("Overview")
     sheet2 = CalcSheetStub("Viz_Gallery")
@@ -613,7 +613,7 @@ def test_spilltest_a1_off_main_paints_full_grid(monkeypatch: pytest.MonkeyPatch)
     document and deferred-spill the neighbors.
     """
     from plugin.scripting import session_manager as sm
-    from tests.testing_utils import CalcSheetStub
+    from plugin.tests.testing_utils import CalcSheetStub
 
     spilltest_code = "result=[[11,22],[33,44]]"
     sheet = CalcSheetStub("SpillTest")
