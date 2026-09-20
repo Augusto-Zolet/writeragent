@@ -353,6 +353,20 @@ def test_testing_utils_import_names_are_one_module():
     import tests.testing_utils as tests_tu
 
     assert tests_tu is plugin_tu
+    import plugin.tests.doc_stubs as plugin_stubs
+    import tests.doc_stubs as tests_stubs
+
+    assert tests_stubs is plugin_stubs
+    assert plugin_tu.CalcDocStub is plugin_stubs.CalcDocStub
+
+
+def test_testing_utils_identity_when_tests_name_imported_first():
+    """Runner loads tests.testing_utils first; suites then import plugin.tests."""
+    import tests.testing_utils as tests_tu
+    import plugin.tests.testing_utils as plugin_tu
+
+    assert tests_tu is plugin_tu
+    assert tests_tu.CalcDocStub is plugin_tu.CalcDocStub
     keeper_doc = object()
     try:
         plugin_tu.set_harness_keeper_uid("1", keeper_doc)
