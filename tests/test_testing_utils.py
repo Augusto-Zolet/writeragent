@@ -410,6 +410,12 @@ def test_windows_factory_load_args_named_for_any_leftover_factory():
     """GHA 34633295036 / 34657826349: leftover Writer/Calc/Draw/Impress names."""
     import plugin.tests.testing_utils as tu
 
+    assert tu._WINDOWS_FACTORY_TARGETS == {
+        "private:factory/swriter": "_wa_factory",
+        "private:factory/scalc": "_wa_scalc",
+        "private:factory/sdraw": "_wa_sdraw",
+        "private:factory/simpress": "_wa_simpress",
+    }
     saved = tu._WINDOWS_FACTORY_SEQ
     tu._WINDOWS_FACTORY_SEQ = 0
     try:

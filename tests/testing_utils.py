@@ -838,18 +838,71 @@ def _native_teardown_progress(msg: str) -> None:
 # (close skipped after paste). Never close those leftovers — GHA
 # 34556185752 hung 30s in leftover close(True). Reactivate this keeper
 # so a later Writer factory is not against a leftover current component.
-_HARNESS_KEEPER_UID = ""
-_HARNESS_KEEPER_DOC = None
+class _HarnessState:
+    """Process-wide leftover / keeper flags. One object (both import names)."""
+
+    __slots__ = (
+        "keeper_uid",
+        "keeper_doc",
+        "leftover_open",
+        "writer_pool_reused",
+        "hidden_open_bitmap",
+        "notebook_host",
+        "factory_seq",
+        "math_ole_uids",
+    )
+
+    def __init__(self) -> None:
+        self.keeper_uid = ""
+        self.keeper_doc = None
+        self.leftover_open = 0
+        self.writer_pool_reused = False
+        self.hidden_open_bitmap = False
+        self.notebook_host = False
+        self.factory_seq = 0
+        self.math_ole_uids: set[str] = set()
+
+
+_STATE = _HarnessState()
+
+# Tests still read/assign the old module names (tu._WINDOWS_LEFTOVER_OPEN).
+_STATE_MODULE_ATTRS = {
+    "_HARNESS_KEEPER_UID": "keeper_uid",
+    "_HARNESS_KEEPER_DOC": "keeper_doc",
+    "_WINDOWS_LEFTOVER_OPEN": "leftover_open",
+    "_WINDOWS_WRITER_POOL_REUSED": "writer_pool_reused",
+    "_WINDOWS_HIDDEN_OPEN_BITMAP": "hidden_open_bitmap",
+    "_WINDOWS_NOTEBOOK_HOST": "notebook_host",
+    "_WINDOWS_FACTORY_SEQ": "factory_seq",
+    "_WINDOWS_MATH_OLE_UIDS": "math_ole_uids",
+}
+
+
+class _TestingUtilsModule(types.ModuleType):
+    def __getattr__(self, name):
+        field = _STATE_MODULE_ATTRS.get(name)
+        if field is not None:
+            return getattr(_STATE, field)
+        raise AttributeError(f"module {self.__name__!r} has no attribute {name!r}")
+
+    def __setattr__(self, name, value):
+        field = _STATE_MODULE_ATTRS.get(name)
+        if field is not None:
+            setattr(_STATE, field, value)
+            return
+        super().__setattr__(name, value)
+
+
+sys.modules[__name__].__class__ = _TestingUtilsModule
 
 
 def set_harness_keeper_uid(uid: str, doc=None) -> None:
     """Record the hidden keeper Writer (uid + doc) for later setActiveFrame."""
-    global _HARNESS_KEEPER_UID, _HARNESS_KEEPER_DOC
     uid_s = str(uid or "")
     if uid_s == "-":
         uid_s = ""
-    _HARNESS_KEEPER_UID = uid_s
-    _HARNESS_KEEPER_DOC = doc if uid_s else None
+    _STATE.keeper_uid = uid_s
+    _STATE.keeper_doc = doc if uid_s else None
 
 
 def _writer_doc_uid(doc) -> str:
@@ -923,7 +976,7 @@ def reactivate_harness_keeper(desktop=None) -> bool:
     """
     from plugin.testing_runner import _progress
 
-    doc = _HARNESS_KEEPER_DOC
+    doc = _STATE.keeper_doc
     if doc is None:
         return False
     try:
@@ -931,12 +984,12 @@ def reactivate_harness_keeper(desktop=None) -> bool:
         if desktop is None:
             desktop = frame.getCreator()
         desktop.setActiveFrame(frame)
-        _progress("html_paste_writer: keeper reactivated uid=%s" % _HARNESS_KEEPER_UID)
+        _progress("html_paste_writer: keeper reactivated uid=%s" % _STATE.keeper_uid)
         return True
     except Exception as exc:
         _progress(
             "html_paste_writer: keeper reactivate failed uid=%s err=%s"
-            % (_HARNESS_KEEPER_UID or "-", type(exc).__name__)
+            % (_STATE.keeper_uid or "-", type(exc).__name__)
         )
         return False
 
@@ -965,7 +1018,7 @@ def prepare_windows_writer_factory(ctx) -> int:
     from plugin.testing_runner import _progress
 
     desktop = get_desktop(ctx)
-    keeper = _HARNESS_KEEPER_UID
+    keeper = _STATE.keeper_uid
     leftover_uids = []
     leftover_frames = []
     for uid, doc in _iter_open_writer_docs(desktop):
@@ -983,32 +1036,27 @@ def prepare_windows_writer_factory(ctx) -> int:
     return leftover_open
 
 
-# Last leftover count from prepare. close_doc / native_doc reuse read this
-# instead of enumerating again (getComponents after paste close can hang).
-_WINDOWS_LEFTOVER_OPEN = 0
-# True when this test's Writer came from the wipe-and-reuse pool (not a
-# factory-fresh load). leftover_open=0 still reuses on win32
-# (GHA 35470191616).
-_WINDOWS_WRITER_POOL_REUSED = False
+# Last leftover count from prepare lives on _STATE. leftover_open.
+# close_doc / native_doc reuse read this instead of enumerating again
+# (getComponents after paste close can hang). leftover_open=0 still
+# reuses Writer on win32 (GHA 35470191616).
 
 
 def _set_windows_leftover_open(n: int) -> None:
     """Cache leftover Writer count (prepare writes; close_doc / native_doc read)."""
-    global _WINDOWS_LEFTOVER_OPEN
-    _WINDOWS_LEFTOVER_OPEN = int(n or 0)
+    _STATE.leftover_open = int(n or 0)
 
 
 def _windows_leftover_open() -> int:
-    return int(_WINDOWS_LEFTOVER_OPEN or 0)
+    return int(_STATE.leftover_open or 0)
 
 
 def _set_windows_writer_pool_reused(on: bool) -> None:
-    global _WINDOWS_WRITER_POOL_REUSED
-    _WINDOWS_WRITER_POOL_REUSED = bool(on)
+    _STATE.writer_pool_reused = bool(on)
 
 
 def _windows_writer_pool_reused() -> bool:
-    return bool(_WINDOWS_WRITER_POOL_REUSED)
+    return bool(_STATE.writer_pool_reused)
 
 
 def _windows_should_reuse_writer(ctx) -> bool:
@@ -1075,7 +1123,12 @@ _WINDOWS_IMPRESS_FACTORY_TARGET = "_wa_simpress"
 # Unknown leftover factory URLs only (not sdraw / simpress). Unique
 # leftover Draw/Impress names hung after notebook leftovers
 # (GHA 34657826349, leftover_open=15, target=_wa_factory_10).
-_WINDOWS_FACTORY_SEQ = 0
+_WINDOWS_FACTORY_TARGETS = {
+    "private:factory/swriter": _WINDOWS_FACTORY_TARGET,
+    "private:factory/scalc": _WINDOWS_CALC_FACTORY_TARGET,
+    "private:factory/sdraw": _WINDOWS_DRAW_FACTORY_TARGET,
+    "private:factory/simpress": _WINDOWS_IMPRESS_FACTORY_TARGET,
+}
 
 
 def _windows_factory_load_args(factory_url: str, leftover_open: int) -> tuple[str, int]:
@@ -1128,23 +1181,17 @@ def _windows_factory_load_args(factory_url: str, leftover_open: int) -> tuple[st
     Leftover ``sdraw`` / ``simpress`` now reuse one CREATE|GLOBAL
     name each (``_wa_sdraw`` / ``_wa_simpress``).
     """
-    global _WINDOWS_FACTORY_SEQ
     if leftover_open <= 0 or not factory_url.startswith("private:factory/"):
         return "_blank", 0
     # One stable name, like rich_html._wa_calc_html. CREATE|GLOBAL finds
     # the empty frame left by the previous leftover-mode Writer close.
-    if factory_url == "private:factory/swriter":
-        if _windows_notebook_host():
-            return _WINDOWS_NOTEBOOK_HOST_TARGET, _WINDOWS_FACTORY_SEARCH_FLAGS
-        return _WINDOWS_FACTORY_TARGET, _WINDOWS_FACTORY_SEARCH_FLAGS
-    if factory_url == "private:factory/scalc":
-        return _WINDOWS_CALC_FACTORY_TARGET, _WINDOWS_FACTORY_SEARCH_FLAGS
-    if factory_url == "private:factory/sdraw":
-        return _WINDOWS_DRAW_FACTORY_TARGET, _WINDOWS_FACTORY_SEARCH_FLAGS
-    if factory_url == "private:factory/simpress":
-        return _WINDOWS_IMPRESS_FACTORY_TARGET, _WINDOWS_FACTORY_SEARCH_FLAGS
-    _WINDOWS_FACTORY_SEQ += 1
-    return "_wa_factory_%s" % _WINDOWS_FACTORY_SEQ, _WINDOWS_FACTORY_SEARCH_FLAGS
+    if factory_url == "private:factory/swriter" and _windows_notebook_host():
+        return _WINDOWS_NOTEBOOK_HOST_TARGET, _WINDOWS_FACTORY_SEARCH_FLAGS
+    target = _WINDOWS_FACTORY_TARGETS.get(factory_url)
+    if target is not None:
+        return target, _WINDOWS_FACTORY_SEARCH_FLAGS
+    _STATE.factory_seq += 1
+    return "_wa_factory_%s" % _STATE.factory_seq, _WINDOWS_FACTORY_SEARCH_FLAGS
 
 
 # Stable CREATE|GLOBAL name for Hidden .ipynb loads. Do not use "_blank"
@@ -1190,6 +1237,14 @@ def note_windows_html_paste_leftover() -> None:
 _WINDOWS_CROSS_APP_LEFTOVER_MAX = 2
 
 
+def _raise_windows_skip(log_line: str, skip_msg: str) -> None:
+    """Print a leftover skip breadcrumb and raise unittest.SkipTest."""
+    import unittest
+
+    print(log_line, file=sys.stderr, flush=True)
+    raise unittest.SkipTest(skip_msg)
+
+
 def windows_cross_app_factory_unsafe(leftover_open: int | None = None) -> bool:
     """True when leftover Draw/Impress factory would hang on Windows."""
     if leftover_open is None:
@@ -1213,17 +1268,10 @@ def skip_windows_cross_app_factory(factory_url: str, leftover_open: int) -> None
         return
     if not windows_cross_app_factory_unsafe(leftover_open):
         return
-    import unittest
-
-    print(
-        "windows leftover skip: leftover %s leftovers=%s"
-        % (factory_url.rsplit("/", 1)[-1], leftover_open),
-        file=sys.stderr,
-        flush=True,
-    )
-    raise unittest.SkipTest(
-        "Windows leftover Draw/Impress skip (%s, leftovers=%s)"
-        % (factory_url.rsplit("/", 1)[-1], leftover_open)
+    app = factory_url.rsplit("/", 1)[-1]
+    _raise_windows_skip(
+        "windows leftover skip: leftover %s leftovers=%s" % (app, leftover_open),
+        "Windows leftover Draw/Impress skip (%s, leftovers=%s)" % (app, leftover_open),
     )
 
 
@@ -1254,16 +1302,10 @@ def skip_windows_leftover_hidden_load(reason: str) -> None:
     """
     if not windows_leftover_hidden_load_unsafe():
         return
-    import unittest
-
-    print(
-        "windows leftover skip: %s leftovers=%s" % (reason, _windows_leftover_open()),
-        file=sys.stderr,
-        flush=True,
-    )
-    raise unittest.SkipTest(
-        "Windows leftover Hidden/AWT skip (%s, leftovers=%s)"
-        % (reason, _windows_leftover_open())
+    leftovers = _windows_leftover_open()
+    _raise_windows_skip(
+        "windows leftover skip: %s leftovers=%s" % (reason, leftovers),
+        "Windows leftover Hidden/AWT skip (%s, leftovers=%s)" % (reason, leftovers),
     )
 
 
@@ -1296,16 +1338,10 @@ def skip_windows_pooled_writer_reuse(reason: str) -> None:
     """
     if not windows_pooled_writer_reuse():
         return
-    import unittest
-
-    print(
-        "windows pool skip: %s leftovers=%s" % (reason, _windows_leftover_open()),
-        file=sys.stderr,
-        flush=True,
-    )
-    raise unittest.SkipTest(
-        "Windows pooled Writer reuse skip (%s, leftovers=%s)"
-        % (reason, _windows_leftover_open())
+    leftovers = _windows_leftover_open()
+    _raise_windows_skip(
+        "windows pool skip: %s leftovers=%s" % (reason, leftovers),
+        "Windows pooled Writer reuse skip (%s, leftovers=%s)" % (reason, leftovers),
     )
 
 
@@ -1313,16 +1349,14 @@ def skip_windows_pooled_writer_reuse(reason: str) -> None:
 # Hidden Budget_read.ods raised ``Could not create system bitmap!`` in
 # ~20ms; the next sibling Hidden open hung 30s. 34652644656 was 3/3 on
 # the same copy path. After a bitmap, do not Hidden-open again.
-_WINDOWS_HIDDEN_OPEN_BITMAP = False
 
 
 def _set_windows_hidden_open_bitmap(on: bool) -> None:
-    global _WINDOWS_HIDDEN_OPEN_BITMAP
-    _WINDOWS_HIDDEN_OPEN_BITMAP = bool(on)
+    _STATE.hidden_open_bitmap = bool(on)
 
 
 def _windows_hidden_open_bitmap() -> bool:
-    return bool(_WINDOWS_HIDDEN_OPEN_BITMAP)
+    return bool(_STATE.hidden_open_bitmap)
 
 
 def windows_hidden_open_bitmap_err(err: str | None) -> bool:
@@ -1348,15 +1382,9 @@ def skip_windows_hidden_open_after_bitmap(reason: str) -> None:
     """
     if not _windows_hidden_open_bitmap():
         return
-    import unittest
-
-    print(
+    _raise_windows_skip(
         "windows hidden skip: %s after system bitmap" % reason,
-        file=sys.stderr,
-        flush=True,
-    )
-    raise unittest.SkipTest(
-        "Windows Hidden skip after system bitmap (%s)" % reason
+        "Windows Hidden skip after system bitmap (%s)" % reason,
     )
 
 
@@ -1384,10 +1412,10 @@ def skip_windows_awt_top_dialog(reason: str) -> None:
     """
     if not windows_awt_top_dialog_unsafe():
         return
-    import unittest
-
-    print("windows awt skip: %s" % reason, file=sys.stderr, flush=True)
-    raise unittest.SkipTest("Windows headless AWT TOP dialog skip (%s)" % reason)
+    _raise_windows_skip(
+        "windows awt skip: %s" % reason,
+        "Windows headless AWT TOP dialog skip (%s)" % reason,
+    )
 
 
 def note_windows_hidden_open_bitmap(err: str | None) -> None:
@@ -1406,17 +1434,15 @@ def note_windows_hidden_open_bitmap(err: str | None) -> None:
 # Not leftover ``_wa_factory`` (reuses paste leftovers) and not
 # import-filter ``_wa_notebook`` (GHA 34643210006 leftover listeners).
 _WINDOWS_NOTEBOOK_HOST_TARGET = "_wa_notebook_host"
-_WINDOWS_NOTEBOOK_HOST = False
 
 
 def set_windows_notebook_host(on: bool) -> None:
     """Leftover factory uses ``_wa_notebook_host`` (not leftover ``_wa_factory``)."""
-    global _WINDOWS_NOTEBOOK_HOST
-    _WINDOWS_NOTEBOOK_HOST = bool(on)
+    _STATE.notebook_host = bool(on)
 
 
 def _windows_notebook_host() -> bool:
-    return bool(_WINDOWS_NOTEBOOK_HOST)
+    return bool(_STATE.notebook_host)
 
 
 def windows_notebook_load_args() -> tuple[str, int]:
@@ -1584,7 +1610,6 @@ def _draw_family_doc_label(doc) -> str:
 # plugin/draw/math_insert.py MATH_CLSID. close_doc of a Draw that still
 # holds this OLE killed soffice (GHA 34607010446, exit 0).
 _MATH_OLE_CLSID = "078B7ABA-54FC-457F-8551-6147e776a997"
-_WINDOWS_MATH_OLE_UIDS: set[str] = set()
 
 
 def mark_windows_math_ole_doc(doc) -> None:
@@ -1607,16 +1632,16 @@ def mark_windows_math_ole_doc(doc) -> None:
         uid = ""
     if not uid:
         return
-    _WINDOWS_MATH_OLE_UIDS.add(uid)
+    _STATE.math_ole_uids.add(uid)
 
 
 def _windows_math_ole_uids() -> set[str]:
-    return set(_WINDOWS_MATH_OLE_UIDS)
+    return set(_STATE.math_ole_uids)
 
 
 def _clear_windows_math_ole_uids() -> None:
     """Unit-test reset."""
-    _WINDOWS_MATH_OLE_UIDS.clear()
+    _STATE.math_ole_uids.clear()
 
 
 def _draw_doc_has_math_ole(doc) -> bool:
@@ -2375,7 +2400,7 @@ class TestingFactory:
                     % (
                         uid or "-",
                         leftover_open,
-                        _HARNESS_KEEPER_UID or "-",
+                        _STATE.keeper_uid or "-",
                         _soffice_pids(),
                     )
                 )

@@ -209,7 +209,8 @@ so every prepare printed `keeper=-` and never `setActiveFrame`. Same
 dual-module family as #719 recycle. First load now registers both
 `sys.modules` names onto one object (`_register_testing_utils_aliases`);
 accidental `tests.testing_utils` no longer creates a second keeper.
-Canonical import is `plugin.tests.testing_utils`.
+Canonical import is `plugin.tests.testing_utils`. Leftover / keeper
+flags live on `_HarnessState` (`_STATE`).
 
 GHA 34597506651 (`054a03e0`, second #722 tip): keeper sync worked.
 `document_research_uno` all three tests passed (`leftovers open=2
