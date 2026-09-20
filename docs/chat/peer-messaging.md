@@ -459,11 +459,38 @@ Splitting `send_peer_message` into **work** vs **result** made polarity teachabl
 
 Ordered preference from design chat (2026-09-20); implement separately after this doc lands.
 
-1. **Context gating (preferred)** — On a specialize whose outer turn / task is a `[Peer work from: …]` reply path, **advertise only `send_peer_result`** (hide `send_peer_work`). On an ask specialize (no envelope), advertise only `send_peer_work`. Wrong tool cannot be chosen if it is not on the wire.
-2. **Gateway reject** — `send_peer_work.execute` errors when the current turn is already a Peer-work reply path (or when the message is clearly a completion ack). Stronger than prompts; needs a crisp detector to avoid false positives.
-3. **Prompt-only tighten** — Already insufficient for Sc8; keep as documentation, not the fix.
-4. **Prove / harness** — Split Scenario 8 Ask 1 (Calc) / Ask 2 (Impress); File→Save before disk asserts. Does not fix product polarity.
-5. **Narrow Scenario 8** — Score Writer↔Calc KPI as the happy path; treat Impress as a separate prove (like Scenario 5).
+1. **Single tool with auto-detect kind (preferred)** — Collapse `send_peer_work` / `send_peer_result` back to one **`send_peer_message(document_url, message)`**. The gateway infers the envelope kind from the target:
+
+   - If the current task contains a `[Peer work from: X]` envelope **and** `document_url` resolves to `X` (same uid) → stamp **result** (`[Peer result from: …]`, no delivery footer).
+   - Otherwise (no envelope, or `document_url` is a **different** peer than the envelope sender) → stamp **work** (`[Peer work from: …]`, with delivery footer).
+
+   **Why preferred over context gating:** context gating hides `send_peer_work` on reply paths, which breaks **fan-out**. If Writer asks Calc and Calc needs Draw to do something, Calc's task has a `[Peer work from: Writer]` envelope — context gating would show only `send_peer_result`, preventing Calc from sending work to Draw. Auto-detect handles this: Calc calling `send_peer_message(draw_uid, ...)` stamps work (Draw ≠ envelope sender); Calc calling `send_peer_message(writer_uid, ...)` stamps result (Writer = envelope sender).
+
+   **Infinite-loop prevention:** result envelopes have no delivery footer and the outer prompt says "apply and stop — no ack specialize." Work envelopes trigger exactly one result reply. The chain is always work → result → stop; fan-out adds branches but each terminates at work → result → stop.
+
+   **What simplifies:**
+   - One tool class instead of two (delete `SendPeerWork` / `SendPeerResult`; `_SendPeerBase` becomes `SendPeerMessage`).
+   - No polarity prompt rules ("use `send_peer_work` on ask path, `send_peer_result` on reply path") — the model just calls `send_peer_message`.
+   - No context gating or schema-time polarity filter needed.
+   - Wrong-tool bug is impossible (there is only one tool).
+   - Descriptions / `PEER_INNER_CHOICE_RULES` get shorter (no ask-vs-reply selection to teach).
+
+   **What stays the same:** envelope format, inject/queue/schedule, live-panel map, `document_url` required every call, outer delegate hint, outer "apply and stop" on result envelopes, `specialized_workflow_finished` after accepted, `is_mutation=False`, tier `"chat"`, `document_research` specialized only.
+
+   **Envelope-sender matching:** parse the `[Peer work from: … | uid=… | url=…]` header in the specialize task to extract the sender uid. On `execute`, resolve `document_url` to a uid. If sender uid is non-empty and matches → result; else → work. If the task has no `[Peer work from:]` header → always work (ask path). Edge case: envelope uid empty or unparseable → fall back to work (safe default; an accidental work-to-the-asker is less harmful than a suppressed reply, and the asker re-delegates).
+
+   ```
+   Writer asks Calc        → send_peer_message(calc_uid, task)     → work  (no envelope)
+   Calc replies to Writer  → send_peer_message(writer_uid, result) → result (writer_uid = envelope sender)
+   Calc also asks Draw     → send_peer_message(draw_uid, task)     → work  (draw_uid ≠ envelope sender)
+   Draw replies to Calc    → send_peer_message(calc_uid, result)   → result (calc_uid = envelope sender)
+   ```
+
+2. **Context gating** — On a specialize whose outer turn / task is a `[Peer work from: …]` reply path, **advertise only `send_peer_result`** (hide `send_peer_work`). On an ask specialize (no envelope), advertise only `send_peer_work`. Wrong tool cannot be chosen if it is not on the wire. **Downside:** blocks fan-out (peer receiving work cannot forward work to a third peer).
+3. **Gateway reject** — `send_peer_work.execute` errors when the current turn is already a Peer-work reply path (or when the message is clearly a completion ack). Stronger than prompts; needs a crisp detector to avoid false positives.
+4. **Prompt-only tighten** — Already insufficient for Sc8; keep as documentation, not the fix.
+5. **Prove / harness** — Split Scenario 8 Ask 1 (Calc) / Ask 2 (Impress); File→Save before disk asserts. Does not fix product polarity.
+6. **Narrow Scenario 8** — Score Writer↔Calc KPI as the happy path; treat Impress as a separate prove (like Scenario 5).
 
 ### What not to confuse with this issue
 
