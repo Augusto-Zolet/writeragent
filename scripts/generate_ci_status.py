@@ -66,6 +66,21 @@ class SuiteSpec:
     name_contains: tuple[str, ...]
 
 
+# Conclusions emitted when an Actions run/job has definitively completed.
+# Non-terminal statuses (e.g. in_progress, queued, waiting) or "no run" must
+# NEVER be cached as checkpoints, otherwise a job inspected while running will
+# permanently lock in "in_progress" (yellow) instead of resolving to "success".
+TERMINAL_CONCLUSIONS: frozenset[str] = frozenset({
+    "success",
+    "failure",
+    "cancelled",
+    "timed_out",
+    "skipped",
+    "neutral",
+    "action_required",
+})
+
+
 @dataclass(frozen=True)
 class StatusRow:
     suite: str
@@ -75,6 +90,7 @@ class StatusRow:
     when: str
     run_url: str
     run_id: int = 0
+    run_attempt: int = 1
 
 
 def suite_specs() -> tuple[SuiteSpec, ...]:
@@ -225,6 +241,7 @@ def _empty_row(spec: SuiteSpec) -> StatusRow:
         when="",
         run_url="",
         run_id=0,
+        run_attempt=1,
     )
 
 
@@ -246,8 +263,14 @@ def parse_cached_rows(
         conclusion = str(item.get("conclusion", ""))
         when = str(item.get("when", ""))
         run_id = int(item.get("run_id", 0) or 0)
-        # Expired cached runs revert to "no run" and are not accepted as hints
-        if conclusion == "no run" or is_expired(when, max_age_days, now):
+        run_attempt = int(item.get("run_attempt", 1) or 1)
+        # Only accept completed/terminal runs as cached hints; in-progress or
+        # non-terminal rows must be re-evaluated against the live Actions API.
+        # Expired cached runs revert to "no run" and are not accepted as hints.
+        if (
+            conclusion not in TERMINAL_CONCLUSIONS
+            or is_expired(when, max_age_days, now)
+        ):
             continue
         cached_by_key[(suite, os_name)] = StatusRow(
             suite=suite,
@@ -257,6 +280,7 @@ def parse_cached_rows(
             when=when,
             run_url=str(item.get("run_url", "")),
             run_id=run_id,
+            run_attempt=run_attempt,
         )
 
     result: dict[int, StatusRow] = {}
@@ -332,6 +356,7 @@ def collect_status(
             run_id = run.get("id")
             if not isinstance(run_id, int):
                 continue
+            run_attempt = int(run.get("run_attempt", 1) or 1)
             run_url = run.get("html_url") if isinstance(run.get("html_url"), str) else ""
             sha = short_sha(run.get("head_sha") if isinstance(run.get("head_sha"), str) else "")
             created_dt = parse_iso_timestamp(str(run.get("created_at", "")))
@@ -339,11 +364,15 @@ def collect_status(
             # Checkpoints from cached hints:
             # If we reach or pass the run_id of a cached hint, no newer run exists
             # for that spec. We retain the cached hint and discard from pending.
+            # If the run was re-run (higher attempt), we must inspect its jobs again.
             for index in list(pending):
                 if index in cached_rows:
                     cached_row = cached_rows[index]
                     if cached_row.run_id and run_id <= cached_row.run_id:
-                        pending.discard(index)
+                        if run_id == cached_row.run_id and run_attempt > cached_row.run_attempt:
+                            pass
+                        else:
+                            pending.discard(index)
                     elif not cached_row.run_id and cached_row.when and created_dt:
                         cached_dt = parse_iso_timestamp(cached_row.when)
                         if cached_dt and created_dt <= cached_dt:
@@ -382,6 +411,7 @@ def collect_status(
                         when=when,
                         run_url=run_url or "",
                         run_id=run_id,
+                        run_attempt=run_attempt,
                     )
                     pending.discard(index)
 
@@ -600,6 +630,7 @@ def render_json(
                 "when": r.when,
                 "run_url": r.run_url,
                 "run_id": r.run_id,
+                "run_attempt": r.run_attempt,
             }
             for r in rows
         ],
