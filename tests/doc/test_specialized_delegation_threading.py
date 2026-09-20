@@ -15,7 +15,7 @@ from plugin.calc.specialized import DelegateToSpecializedCalc
 from plugin.chatbot.smol_agent import SmolToolAdapter
 from plugin.contrib.smolagents.memory import FinalAnswerStep
 from plugin.doc.document_research import get_document_research_workflow_hint
-from plugin.doc.peer_message import SendPeerMessage
+from plugin.doc.peer_message import SendPeerResult, SendPeerWork
 from plugin.framework import thread_guard as tg
 from plugin.framework.prompts import get_peer_inner_choice_block
 from plugin.framework.tool import ToolBase, ToolContext, ToolRegistry
@@ -338,7 +338,7 @@ def test_writer_delegate_marshals_document_research_scaffolding(
 
     assert result["status"] == "ok"
     mock_enqueue_index.assert_called_once_with(ctx.ctx, ctx.services, mock_doc)
-    # Open-docs context plus list_v1_peers (peer catalog / inner PEER vs READ hint),
+    # Open-docs context plus list_v1_peers (peer catalog / inner ASK vs REPLY hint),
     # both gathered on the main thread with get_tools.
     assert mock_get_open_docs.call_count >= 1
     mock_get_open_docs.assert_called_with(ctx.ctx, mock_doc)
@@ -392,8 +392,9 @@ def test_document_research_hint_off_main_does_not_touch_runtime_uid():
 
     assert err is None, f"UNO touch from worker: {err}"
     assert hint and "Budget.ods" in hint
-    assert "send_peer_message" in hint
-    assert "PEER vs READ" in hint
+    assert "send_peer_work" in hint
+    assert "send_peer_result" in hint
+    assert "ASK vs REPLY" in hint
     assert inner and "Budget.ods" in inner
     assert "uid=u2" in inner
 
@@ -429,7 +430,8 @@ def test_document_research_delegate_off_main_does_not_touch_runtime_uid(
 
     registry = ToolRegistry(MagicMock())
     registry.register(_DummyDocResearchTool())
-    registry.register(SendPeerMessage())
+    registry.register(SendPeerWork())
+    registry.register(SendPeerResult())
     registry.register(DelegateToSpecializedWriter())
 
     session = start_uno_thread_safety_session()
@@ -481,12 +483,14 @@ def test_document_research_delegate_off_main_does_not_touch_runtime_uid(
     assert result is not None and result.get("status") == "ok"
     instructions = mock_agent_class.call_args.kwargs["instructions"]
     assert "Budget.ods" in instructions
-    assert "send_peer_message" in instructions
-    assert "PEER vs READ" in instructions
+    assert "send_peer_work" in instructions
+    assert "send_peer_result" in instructions
+    assert "ASK vs REPLY" in instructions
     smol_tools = mock_agent_class.call_args.kwargs.get("tools", [])
     names = {t.name for t in smol_tools}
-    assert "send_peer_message" in names
-    peer_adapter = next(t for t in smol_tools if t.name == "send_peer_message")
+    assert "send_peer_work" in names
+    assert "send_peer_result" in names
+    peer_adapter = next(t for t in smol_tools if t.name == "send_peer_work")
     assert "Budget.ods" in peer_adapter.description
     mock_enqueue_index.assert_called_once()
 

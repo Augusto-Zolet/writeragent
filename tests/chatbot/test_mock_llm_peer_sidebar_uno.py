@@ -266,13 +266,13 @@ def _wait_calc_envelope(timeout: float = 60.0) -> bool:
     """Writer Readys before the peer drain starts — both look idle for a beat."""
     deadline = time.monotonic() + max(0.5, timeout)
     while time.monotonic() <= deadline:
-        if "[Peer from:" in _transcript("calc"):
+        if "[Peer work from:" in _transcript("calc"):
             return True
         if _is_busy("calc"):
             time.sleep(0.15)
             continue
         time.sleep(0.15)
-    return "[Peer from:" in _transcript("calc")
+    return "[Peer work from:" in _transcript("calc")
 
 
 def _wait_both_idle(timeout: float = 90.0) -> bool:
@@ -392,10 +392,10 @@ def _capture_tools() -> list[list[str]]:
 
 
 def _outer_advertised_send_peer() -> bool:
-    """True if a main-chat POST (no specialized finish tool) advertised send_peer_message."""
+    """True if a main-chat POST (no specialized finish tool) advertised a peer send tool."""
     for row in _captures():
         advertised = set(row.get("advertised_tools") or [])
-        if "send_peer_message" not in advertised:
+        if "send_peer_work" not in advertised and "send_peer_result" not in advertised:
             continue
         if "specialized_workflow_finished" in advertised or "final_answer" in advertised:
             continue
@@ -441,7 +441,8 @@ def test_p1_total_row_peer_roundtrip(ctx):
     deadline = time.monotonic() + 90.0
     while time.monotonic() <= deadline:
         decided = [name for row in _capture_tools() for name in row]
-        if decided.count("send_peer_message") >= 2 and (
+        peer_sends = sum(1 for n in decided if n in ("send_peer_work", "send_peer_result"))
+        if peer_sends >= 2 and (
             "write_formula_range" in decided or "delegate_to_specialized_calc_toolset" in decided
         ):
             _wait_both_idle(timeout=8.0)
@@ -450,23 +451,25 @@ def test_p1_total_row_peer_roundtrip(ctx):
     _wait_both_idle(timeout=20.0)
     writer_txt = _transcript("writer")
     calc_txt = _transcript("calc")
-    assert "[Peer from:" in calc_txt, "Calc never received the envelope: %r" % calc_txt[-400:]
+    assert "[Peer work from:" in calc_txt, "Calc never received the envelope: %r" % calc_txt[-400:]
     formula = calc_total_formula(_session.calc_doc)
     assert "SUM" in formula.upper() or "Total" in calc_txt or "total" in writer_txt.lower(), (
         "Calc did not write a Total row: formula=%r calc=%r" % (formula, calc_txt[-300:])
     )
-    assert "[Peer from:" in writer_txt or "Total" in writer_txt or "total" in writer_txt.lower(), (
+    assert "[Peer work from:" in writer_txt or "Total" in writer_txt or "total" in writer_txt.lower(), (
         "Writer follow-up never saw the reply: %r" % writer_txt[-400:]
     )
     snaps = _captures()
     assert finish_immediately_after_peer_sends(snaps), "specialized did not finish immediately after accepted: %r" % [
         row.get("decided_tools") for row in snaps
     ]
-    assert not _outer_advertised_send_peer(), "outer main advertised send_peer_message: %r" % [
-        row.get("advertised_tools") for row in snaps if "send_peer_message" in (row.get("advertised_tools") or [])
+    assert not _outer_advertised_send_peer(), "outer main advertised peer send tools: %r" % [
+        row.get("advertised_tools") for row in snaps
+        if "send_peer_work" in (row.get("advertised_tools") or [])
+        or "send_peer_result" in (row.get("advertised_tools") or [])
     ]
     decided = [name for row in snaps for name in (row.get("decided_tools") or [])]
-    assert "send_peer_message" in decided
+    assert "send_peer_work" in decided or "send_peer_result" in decided
     assert "write_formula_range" in decided or "SUM" in formula.upper()
     assert "delegate_to_specialized_writer_toolset" in decided
     assert "delegate_to_specialized_calc_toolset" in decided
@@ -505,7 +508,7 @@ def test_p2_wait_after_accepted_deadlocks_peer(ctx):
         time.sleep(0.2)
         uno_click(controls["send"])
 
-    # Inject-now may paint [Peer from:] on Calc immediately. Lock the hang:
+    # Inject-now may paint [Peer work from:] on Calc immediately. Lock the hang:
     # while specialized keeps calling discovery (not finish), Calc must not
     # start write_formula_range. Do not wait for max_steps — that Readys Writer
     # and finally-kicks the peer.
@@ -515,7 +518,7 @@ def test_p2_wait_after_accepted_deadlocks_peer(ctx):
     while time.monotonic() <= deadline:
         decided = _capture_tools()
         flat = [name for row in decided for name in row]
-        if "send_peer_message" in flat:
+        if "send_peer_work" in flat or "send_peer_result" in flat:
             saw_send = True
         if saw_send and "list_nearby_files" in flat and "specialized_workflow_finished" not in flat:
             saw_wait_loop = True
@@ -526,7 +529,7 @@ def test_p2_wait_after_accepted_deadlocks_peer(ctx):
     finished_after_send = finish_immediately_after_peer_sends(snaps)
     formula_started = any("write_formula_range" in row for row in decided)
     try:
-        assert saw_send, "specialized never called send_peer_message: %r" % decided
+        assert saw_send, "specialized never called a peer send tool: %r" % decided
         assert saw_wait_loop or _is_busy("writer"), (
             "specialized did not stay in the wait loop after accepted: decided=%r" % decided
         )
@@ -568,7 +571,7 @@ def test_p3_writer_busy_queues_calc_reply(ctx):
     writer_ready = False
     while time.monotonic() <= deadline:
         decided = [name for row in _capture_tools() for name in row]
-        if "send_peer_message" in decided and not _is_busy("writer"):
+        if (("send_peer_work" in decided or "send_peer_result" in decided) and not _is_busy("writer")):
             writer_ready = True
             break
         time.sleep(0.08)
@@ -580,7 +583,7 @@ def test_p3_writer_busy_queues_calc_reply(ctx):
     assert "Total row written" not in ready_txt, (
         "Calc already replied while Writer was idle after first ask: %r" % ready_txt[-300:]
     )
-    sends_at_ready = sum(1 for row in _capture_tools() for name in row if name == "send_peer_message")
+    sends_at_ready = sum(1 for row in _capture_tools() for name in row if name in ("send_peer_work", "send_peer_result"))
 
     # hang the stream half-closes the socket (Writer Readys immediately).
     # keep talking streams ~200 chunks at delay_ms so Stop stays enabled.
@@ -618,10 +621,10 @@ def test_p3_writer_busy_queues_calc_reply(ctx):
         mid = (not finished) and ("word" in writer_txt)
         if mid:
             saw_mid = True
-            if "Total row written" in writer_txt or writer_txt.count("[Peer from:") > busy_txt.count("[Peer from:"):
+            if "Total row written" in writer_txt or writer_txt.count("[Peer work from:") > busy_txt.count("[Peer work from:"):
                 injected_mid = True
                 break
-        sends = sum(1 for row in _capture_tools() for name in row if name == "send_peer_message")
+        sends = sum(1 for row in _capture_tools() for name in row if name in ("send_peer_work", "send_peer_result"))
         if sends > sends_at_ready:
             calc_replied = True
             if injected_mid or finished or saw_mid:
@@ -630,7 +633,7 @@ def test_p3_writer_busy_queues_calc_reply(ctx):
                 writer_txt = _transcript("writer")
                 if (not finished) and "word" in writer_txt and (
                     "Total row written" in writer_txt
-                    or writer_txt.count("[Peer from:") > busy_txt.count("[Peer from:")
+                    or writer_txt.count("[Peer work from:") > busy_txt.count("[Peer work from:")
                 ):
                     injected_mid = True
                 break
@@ -657,7 +660,7 @@ def test_p3_writer_busy_queues_calc_reply(ctx):
         decided = [name for row in _capture_tools() for name in row]
         if (
             "Total row written" in writer_txt
-            or writer_txt.count("[Peer from:") > busy_txt.count("[Peer from:")
+            or writer_txt.count("[Peer work from:") > busy_txt.count("[Peer work from:")
             or "apply_document_content" in decided
         ):
             drained = True
@@ -666,7 +669,7 @@ def test_p3_writer_busy_queues_calc_reply(ctx):
     _wait_both_idle(timeout=30.0)
     writer_txt = _transcript("writer")
     decided = [name for row in _capture_tools() for name in row]
-    assert drained or "[Peer from:" in writer_txt or "Total" in writer_txt, (
+    assert drained or "[Peer work from:" in writer_txt or "Total" in writer_txt, (
         "queued Calc reply never started after Writer Ready: writer=%r decided=%r"
         % (writer_txt[-300:], decided)
     )

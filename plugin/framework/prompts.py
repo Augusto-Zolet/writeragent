@@ -604,21 +604,22 @@ PEER_OUTER_IDLE_AFTER_SEND = (
     "Why: the peer reply arrives as a later user turn; more document_research, python, or query tools in this turn race the peer."
 )
 
-# Outer main chat only — no send_peer_message on this loop. {delegate} is the
-# Writer/Calc/Draw specialized gateway. Shown when a v1 peer is open.
+# Outer main chat only — no send_peer_work / send_peer_result on this loop.
+# {delegate} is the Writer/Calc/Draw specialized gateway. Shown when a v1 peer is open.
 PEER_OUTER_DELEGATE_HINT = (
     "Do {delegate}(domain=\"document_research\") for sibling Writer/Calc/Draw work. "
     "Why: the inner agent chooses a silent read vs asking the peer sidebar; this loop must not invent the other app's tools.\n"
     "After that inner result means a peer message was sent/accepted, or the answer says waiting for a peer reply: "
     f"{PEER_OUTER_IDLE_AFTER_SEND} "
     "A short chat line that the peer was asked is OK.\n"
-    "When this turn is a [Peer from: …] envelope: do the local work with your tools. "
-    "Do {delegate}(domain=\"document_research\") to send a peer reply only when the peer asked for work that needs an answer back "
-    "(one string: envelope uid or url, peer_ask_id, and the HTML or result — not a JSON array). "
-    "Why: only that inner agent can send the peer reply; do not narrate an answer-back only in this sidebar.\n"
-    "If this envelope is already a data/result reply to our earlier ask (for example a result table or HTML payload to insert): "
-    "apply or insert locally and stop. Do not delegate an ack specialize. "
-    "Why: the peer did not ask for more work."
+    "When this turn is a [Peer work from: …] envelope: do the local work with your tools "
+    "(nested domains such as ranges, sheets, charts, … are fine for that local work); "
+    "finishing those specializes is not delivery — you MUST still Do {delegate}(domain=\"document_research\") "
+    "to deliver via send_peer_result "
+    "(one string: envelope uid or url, and the HTML or result — not a JSON array). "
+    "Why: only that inner agent can deliver the peer result; finishing with only a local sidebar answer never reaches the asking peer.\n"
+    "When this turn is a [Peer result from: …] envelope: apply or insert locally and stop. Do not delegate an ack specialize. "
+    "Why: this is the answer to your earlier work request, not a new work request."
 )
 
 # Inner answer / tool-result text that means the outer should idle (not keep researching).
@@ -637,6 +638,26 @@ def looks_like_peer_wait_outcome(text: str) -> bool:
     """True when specialize/research text means a peer ask was accepted or is pending."""
     blob = (text or "").lower()
     return any(marker in blob for marker in _PEER_WAIT_OUTCOME_MARKERS)
+
+
+# Outer must keep going after a nested specialize on a Peer-work receiving turn.
+# ranges/sheets/charts/… finishing (or document_research without send_peer_result)
+# is local work only — not peer delivery.
+PEER_OUTER_DELIVERY_STILL_REQUIRED = (
+    "Peer delivery still required: you MUST Do domain=\"document_research\" "
+    "to deliver via send_peer_result. "
+    "Why: finishing a nested specialize (ranges/sheets/charts/…) or research without "
+    "send_peer_result is not peer delivery; Ready here leaves the asking peer waiting."
+)
+
+PEER_WORK_ENVELOPE_PREFIX = "[Peer work from:"
+
+
+def looks_like_peer_work_envelope(text: str | None) -> bool:
+    """True when *text* is (or starts as) a [Peer work from:…] turn envelope."""
+    if not text:
+        return False
+    return str(text).lstrip().startswith(PEER_WORK_ENVELOPE_PREFIX)
 
 
 def annotate_outer_peer_wait(payload: dict, *, peer_send_invoked: bool = False) -> dict:
@@ -660,36 +681,80 @@ def annotate_outer_peer_wait(payload: dict, *, peer_send_invoked: bool = False) 
         out["result"] = result + "\n" + PEER_OUTER_IDLE_AFTER_SEND
     return out
 
+
+def annotate_outer_peer_delivery_pending(payload: dict) -> dict:
+    """Stamp still-required peer delivery on an ok specialize return during Peer work.
+
+    Nested domains can finish successfully while the outer still owes
+    ``document_research`` → ``send_peer_result``. Sets ``instruction`` and appends
+    the same line on ``message`` / ``result`` so the outer cannot treat the hop as done.
+    """
+    if payload.get("status") != "ok":
+        return payload
+    blob = " ".join(
+        str(payload.get(key) or "") for key in ("message", "result", "answer", "instruction")
+    )
+    if PEER_OUTER_DELIVERY_STILL_REQUIRED in blob:
+        return payload
+    out = dict(payload)
+    message = str(out.get("message") or "")
+    out["message"] = (message + " " + PEER_OUTER_DELIVERY_STILL_REQUIRED).strip()
+    result = str(out.get("result") or "")
+    if result:
+        out["result"] = result + "\n" + PEER_OUTER_DELIVERY_STILL_REQUIRED
+    existing = out.get("instruction")
+    if isinstance(existing, str) and existing.strip():
+        out["instruction"] = (existing.rstrip() + " " + PEER_OUTER_DELIVERY_STILL_REQUIRED).strip()
+    else:
+        out["instruction"] = PEER_OUTER_DELIVERY_STILL_REQUIRED
+    return out
+
+
 # document_research specialized only. Short DO+why; catalog is appended when peers exist.
-# Open-peer hard fork: a matching Open peers entry means send_peer_message, not
-# silent delegate_read_document. Soft "change/compute/write vs file fact" let the
-# inner agent reopen a live peer (wasted work, races the peer reply).
-# Ask polarity: inner agents asked the peer only to dump blank/current content so
-# they could fill it in another app. That skips the peer write path — the live
-# sidebar owns the write tools for that file. Message must ask that peer to
-# perform the edit/fill and include the values/facts to write.
-# Reply path: send_peer_message is a side effect. Outer already stuffed the HTML/result
-# into task, so the smol "answer from the task alone → finish" rule otherwise skips
-# the send and the peer sidebar never sees the reply.
+# Hard fork ASK vs REPLY by whether the task contains a [Peer work from: …] envelope.
+# Ask path (no envelope): matching Open peers → send_peer_work only, then finish.
+# Never delegate_read_document on that open peer; never send_peer_result from the asker.
+# Soft "change/compute/write vs file fact" let the inner reopen a live peer (wasted
+# work, races the peer reply). Ask polarity: do not request a content dump so you
+# can fill elsewhere — the live sidebar owns the write tools.
+# Reply path (envelope present): send_peer_result is a side effect. Outer already
+# stuffed the HTML/result into task, so the smol "answer from the task alone →
+# finish" rule otherwise skips the send and the peer sidebar never sees the reply.
+# Naming "send_peer_result" / "reply back" in an *ask* task does NOT flip polarity —
+# only a [Peer work from: …] envelope in the task does.
 PEER_INNER_CHOICE_RULES = (
-    "PEER vs READ: When an Open peers entry matches the file the task is about, "
-    "Do send_peer_message(document_url=<peer uid, URL, or unique name>, message=<task>), not delegate_read_document. "
-    "Why: that sidebar is live and can change the document, run analysis, and use that app's tools; "
-    "silent reopen only peeks, duplicates work, and races the peer reply.\n"
-    "Do delegate_read_document only when the file is not in Open peers (nearby on disk / no live sidebar). "
+    "ASK vs REPLY: The reply path is only when the task contains a [Peer work from: …] "
+    "envelope. Mentioning send_peer_result, reply back, or delivering a result in an ask "
+    "task does not make this the reply path — only that envelope does.\n"
+    "ASK PATH (task is about an Open peer file; no [Peer work from: …] in the task): "
+    "Do send_peer_work(document_url=<peer uid, URL, or unique name>, "
+    "message=<task; say the answer must come back as a peer result>), "
+    "then specialized_workflow_finished. "
+    "NEVER delegate_read_document on that open peer. "
+    "NEVER send_peer_result from the asker. "
+    "Why: that sidebar is live and will send_peer_result back; silent reopen only peeks, "
+    "duplicates work, and races the peer reply; send_peer_result here stamps [Peer result "
+    "from: …] onto the peer instead of waiting for their reply.\n"
+    "When sending to an Open peer about that peer's own document and the task needs a "
+    "change, fill, or write, Do ask that peer in message to perform the edit/fill and "
+    "include the values/facts to write. "
+    "Why: that live sidebar owns the write tools for that file; asking only for a dump of "
+    "blank/current content so you can fill it elsewhere skips the peer write path.\n"
+    "Do delegate_read_document only when the file is not in Open peers (nearby on disk / "
+    "no live sidebar). "
     "Why: there is no live sidebar to ask.\n"
-    "When sending to an Open peer about that peer's own document and the task needs a change, fill, or write, "
-    "Do ask that peer in message to perform the edit/fill and include the values/facts to write. "
-    "Why: that live sidebar owns the write tools for that file; asking only for a dump of blank/current content so you can fill it elsewhere skips the peer write path.\n"
-    "When the task includes a peer_ask_id or says reply to a [Peer from: …] envelope you MUST send_peer_message("
-    "document_url=<uid or url from the envelope>, message=<one HTML/result string>, peer_ask_id=<id from the envelope>) "
-    "before specialized_workflow_finished. "
-    "Why: putting the reply only in answer stays inside this loop — the peer sidebar never sees it.\n"
-    "HTML, table, or other result text in the task is the message argument to send_peer_message, not a final answer. "
+    "REPLY PATH (task is to reply to a [Peer work from: …] envelope — outer stuffed "
+    "uid/url + HTML/result): you MUST send_peer_result("
+    "document_url=<uid or url from the envelope>, message=<one HTML/result string>) "
+    "before specialized_workflow_finished — that tool stamps [Peer result from: …]. "
+    "Why: putting the reply only in answer stays inside this loop — the peer sidebar "
+    "never sees it.\n"
+    "On the reply path only: HTML, table, or other result text in the task is the "
+    "message argument to send_peer_result, not a final answer. "
     "Why: the outer already did the local work; your job is deliver via the tool.\n"
-    "Do send_peer_message on a peer-reply task even when you can answer from the task alone. "
+    "Do send_peer_result on a peer-reply task even when you can answer from the task alone. "
     "Why: that rule is for silent research finishes; peer delivery is a tool side effect.\n"
-    "After ok/accepted you MUST call specialized_workflow_finished immediately. "
+    "After ok/accepted (ask or reply) you MUST call specialized_workflow_finished immediately. "
     "Why: the peer runs after this loop exits; waiting deadlocks the reply."
 )
 
@@ -773,16 +838,30 @@ def format_peer_outer_delegate_hint(model) -> str:
 
 
 def get_peer_messaging_prompt_block(model, ctx) -> str:
-    """Thin outer pointer when a v1 peer is open. No send_peer_message on this loop."""
+    """Thin outer pointer when a v1 peer is open. No send_peer_work/result on this loop.
+
+    ``list_v1_peers`` touches UNO (RuntimeUID / desktop catalog). Chat refresh can
+    run off-main; marshal like ``get_peer_inner_choice_block`` so the hint is not
+    silently dropped when assert_main_thread fails.
+    """
     if ctx is None or model is None:
         return ""
-    try:
+
+    def _build() -> str:
         from plugin.doc.peer_message import list_v1_peers
 
         peers = list_v1_peers(ctx, model)
         if not peers:
             return ""
         return format_peer_outer_delegate_hint(model)
+
+    try:
+        from plugin.framework.queue_executor import execute_on_main_thread
+        from plugin.framework.thread_guard import on_main_thread
+
+        if on_main_thread():
+            return _build()
+        return execute_on_main_thread(_build)
     except Exception:
         return ""
 

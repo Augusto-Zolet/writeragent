@@ -1,4 +1,4 @@
-"""Unit tests for A1 send_peer_message (no live soffice)."""
+"""Unit tests for A1 send_peer_work / send_peer_result (no live soffice)."""
 
 from __future__ import annotations
 
@@ -8,10 +8,14 @@ from unittest.mock import MagicMock, patch
 
 from plugin.doc.peer_message import (
     PEER_QUEUE_CAP,
+    PEER_RESULT_TOOL_NAME,
     PEER_SPECIALIZED_DOMAIN,
-    PEER_TOOL_NAME,
+    PEER_TOOL_NAMES,
+    PEER_WORK_DELIVERY_FOOTER,
+    PEER_WORK_TOOL_NAME,
     PeerPendingTurn,
-    SendPeerMessage,
+    SendPeerResult,
+    SendPeerWork,
     drop_listener_queue,
     enqueue_peer_turn,
     filter_peer_message_schemas,
@@ -103,12 +107,13 @@ def test_envelope_from_ctx_doc():
         name=ident["name"],
         uid=ident["uid"],
         url=ident["url"],
-        peer_ask_id="ask-1",
         message="Compute Q4.",
     )
-    assert wrapped.startswith("[Peer from: Budget 2026.ods | uid=uid-budget |")
-    assert "peer_ask_id=ask-1" in wrapped
-    assert wrapped.endswith("Compute Q4.")
+    assert wrapped.startswith("[Peer work from: Budget 2026.ods | uid=uid-budget |")
+    assert "peer_ask_id" not in wrapped
+    assert "Compute Q4." in wrapped
+    assert wrapped.endswith(PEER_WORK_DELIVERY_FOOTER)
+    assert "send_peer_result" in PEER_WORK_DELIVERY_FOOTER
 
 
 def test_envelope_untitled_url_empty():
@@ -215,10 +220,11 @@ def test_list_v1_peers_magicmock_ctx_does_not_hang():
     model.supportsService.return_value = False
     prompt = get_chat_system_prompt_for_document(model, ctx=ctx)
     assert isinstance(prompt, str)
-    assert "send_peer_message" not in prompt
+    assert "send_peer_work" not in prompt
+    assert "send_peer_result" not in prompt
 
 
-def test_outer_prompt_with_peers_has_no_send_peer_message():
+def test_outer_prompt_with_peers_has_no_peer_send_tools():
     from plugin.framework.prompts import format_peer_outer_delegate_hint, get_chat_system_prompt_for_document
 
     model = MagicMock()
@@ -229,57 +235,65 @@ def test_outer_prompt_with_peers_has_no_send_peer_message():
     outer = format_peer_outer_delegate_hint(model)
     assert outer in prompt
     assert "delegate_to_specialized_writer_toolset" in prompt
-    assert "send_peer_message" not in prompt
+    assert "send_peer_work" not in prompt  # outer does not ask; only names result delivery
+    assert "send_peer_result" in prompt  # deliver via send_peer_result after local work
     assert "PEER SIDEBARS" not in prompt
     assert "PEER vs READ" not in prompt
-    assert "[Peer from:" in prompt
-    assert "peer_ask_id" in prompt
+    assert "ASK vs REPLY" not in prompt
+    assert "[Peer work from:" in prompt or "[Peer from:" in prompt
+    assert "peer_ask_id" not in prompt
+
 
 
 def test_visibility_filter_alone_hides_tool():
     schemas = [
-        {"type": "function", "function": {"name": PEER_TOOL_NAME, "description": "base"}},
+        {"type": "function", "function": {"name": PEER_WORK_TOOL_NAME, "description": "base"}},
         {"type": "function", "function": {"name": "undo", "description": "u"}},
     ]
     out = filter_peer_message_schemas(schemas, ctx=object(), doc=object())
     names = [s["function"]["name"] for s in out]
-    assert PEER_TOOL_NAME not in names
+    assert PEER_WORK_TOOL_NAME not in names
     assert "undo" in names
 
 
 def test_visibility_filter_two_writer_hides_on_main():
-    """Experiment: outer chat never advertises send_peer_message, even with peers."""
+    """Experiment: outer chat never advertises peer send tools, even with peers."""
     schemas = [
-        {"type": "function", "function": {"name": PEER_TOOL_NAME, "description": "base"}},
+        {"type": "function", "function": {"name": PEER_WORK_TOOL_NAME, "description": "base"}},
         {"type": "function", "function": {"name": "undo", "description": "u"}},
     ]
     peers = [{"name": "Other.odt", "uid": "u2", "url": "file:///tmp/Other.odt", "type": "writer"}]
     with patch("plugin.doc.peer_message.list_v1_peers", return_value=peers):
         out = filter_peer_message_schemas(schemas, ctx=object(), doc=object())
     names = [s["function"]["name"] for s in out]
-    assert PEER_TOOL_NAME not in names
+    assert PEER_WORK_TOOL_NAME not in names
     assert "undo" in names
 
 
 def test_visibility_filter_two_writer_shows_catalog_on_specialized():
     schemas = [
-        {"type": "function", "function": {"name": PEER_TOOL_NAME, "description": "base"}},
+        {"type": "function", "function": {"name": PEER_WORK_TOOL_NAME, "description": "base"}},
+        {"type": "function", "function": {"name": PEER_RESULT_TOOL_NAME, "description": "base"}},
     ]
     peers = [{"name": "Other.odt", "uid": "u2", "url": "file:///tmp/Other.odt", "type": "writer"}]
     with patch("plugin.doc.peer_message.list_v1_peers", return_value=peers):
         out = filter_peer_message_schemas(
             schemas, ctx=object(), doc=object(), active_domain=PEER_SPECIALIZED_DOMAIN
         )
-    assert len(out) == 1
-    desc = out[0]["function"]["description"]
-    assert "Other.odt" in desc
-    assert "uid=u2" in desc
-    assert "type=writer" in desc
+    assert len(out) == 2
+    names = {s["function"]["name"] for s in out}
+    assert names == PEER_TOOL_NAMES
+    for schema in out:
+        desc = schema["function"]["description"]
+        assert "Other.odt" in desc
+        assert "uid=u2" in desc
+        assert "type=writer" in desc
 
 
 def test_visibility_filter_specialized_hides_when_alone():
     schemas = [
-        {"type": "function", "function": {"name": PEER_TOOL_NAME, "description": "base"}},
+        {"type": "function", "function": {"name": PEER_WORK_TOOL_NAME, "description": "base"}},
+        {"type": "function", "function": {"name": PEER_RESULT_TOOL_NAME, "description": "base"}},
     ]
     with patch("plugin.doc.peer_message.list_v1_peers", return_value=[]):
         out = filter_peer_message_schemas(
@@ -348,11 +362,11 @@ def test_addressing_unique_name():
 
 def test_queue_fifo_cap_overflow_and_stop_drops():
     listener = _Listener()
-    turns = [PeerPendingTurn(f"t{i}", False, f"id{i}") for i in range(PEER_QUEUE_CAP)]
+    turns = [PeerPendingTurn(f"t{i}", False) for i in range(PEER_QUEUE_CAP)]
     for turn in turns:
         assert enqueue_peer_turn(listener, turn) is None
     assert listener_queue_len(listener) == PEER_QUEUE_CAP
-    overflow = enqueue_peer_turn(listener, PeerPendingTurn("extra", False, "x"))
+    overflow = enqueue_peer_turn(listener, PeerPendingTurn("extra", False))
     assert overflow == "PEER_QUEUE_FULL"
     drop_listener_queue(listener)
     assert listener_queue_len(listener) == 0
@@ -360,7 +374,7 @@ def test_queue_fifo_cap_overflow_and_stop_drops():
 
 def test_schedule_does_not_start_while_drain_owned():
     listener = _Listener()
-    turn = PeerPendingTurn("wrapped", True, "ask")
+    turn = PeerPendingTurn("wrapped", True)
     with drain_owner_scope("stream"):
         err = schedule_peer_turn(listener, turn)
         assert err is None
@@ -375,7 +389,7 @@ def test_schedule_does_not_start_while_drain_owned():
 def test_user_busy_wins_over_queued_inject():
     listener = _Listener()
     listener.sidebar_state.send.is_busy = True
-    turn = PeerPendingTurn("wrapped", False, "ask")
+    turn = PeerPendingTurn("wrapped", False)
     assert schedule_peer_turn(listener, turn) is None
     assert listener.started == []
     assert listener_queue_len(listener) == 1
@@ -389,10 +403,10 @@ def test_p3_busy_then_queue_reply():
     listener = _Listener()
     listener.sidebar_state.send.is_busy = True
     wrapped = (
-        "[Peer from: BudgetPeer.ods | uid=calc-uid | url= | peer_ask_id=ask-1]\n\n"
+        "[Peer result from: BudgetPeer.ods | uid=calc-uid | url=]\n\n"
         "Total row written at A4:B4."
     )
-    turn = PeerPendingTurn(wrapped, False, "ask-1")
+    turn = PeerPendingTurn(wrapped, False)
     assert schedule_peer_turn(listener, turn) is None
     assert listener.started == []
     assert listener_queue_len(listener) == 1
@@ -403,8 +417,8 @@ def test_p3_busy_then_queue_reply():
 
 
 def test_p3_execute_queues_reply_while_writer_busy():
-    """Calc send_peer_message while Writer is rambling: accept, no inject, start later."""
-    tool = SendPeerMessage()
+    """Calc send_peer_result while Writer is rambling: accept, no inject, start later."""
+    tool = SendPeerResult()
     ctx = _ctx()
     peer = MagicMock()
     listener = _Listener()
@@ -418,7 +432,6 @@ def test_p3_execute_queues_reply_while_writer_busy():
                     ctx,
                     document_url="peer-uid",
                     message="Total row written at A4:B4.",
-                    peer_ask_id="ask-1",
                 )
     assert result["status"] == "ok"
     assert result["accepted"] is True
@@ -432,7 +445,7 @@ def test_p3_execute_queues_reply_while_writer_busy():
 
 
 def test_execute_status_ok_accepted():
-    tool = SendPeerMessage()
+    tool = SendPeerWork()
     ctx = _ctx()
     peer = MagicMock()
     listener = _Listener()
@@ -445,14 +458,15 @@ def test_execute_status_ok_accepted():
                     result = tool.execute(ctx, document_url="peer-uid", message="Do the thing")
     assert result["status"] == "ok"
     assert result["accepted"] is True
-    assert result["peer_ask_id"]
+    assert result.get("envelope_kind") == "work"
+    assert "peer_ask_id" not in result
     assert "specialized_workflow_finished immediately" in result["message"]
     assert listener.session.add_user_message.called
     assert listener.appended
 
 
 def test_execute_refuses_mcp_caller():
-    tool = SendPeerMessage()
+    tool = SendPeerWork()
     ctx = _ctx(caller="mcp")
     result = tool.execute(ctx, document_url="x", message="hi")
     assert result["status"] == "error"
@@ -461,7 +475,7 @@ def test_execute_refuses_mcp_caller():
 
 def test_execute_allows_specialized_document_research_caller():
     """Subagent ToolContext may not be caller=chat; domain must still inject."""
-    tool = SendPeerMessage()
+    tool = SendPeerWork()
     ctx = _ctx(caller="")
     ctx.active_domain = PEER_SPECIALIZED_DOMAIN
     peer = MagicMock()
@@ -491,7 +505,7 @@ def test_peer_send_caller_allowed_mcp_blocked_specialized_ok():
 
 
 def test_execute_missing_sidebar():
-    tool = SendPeerMessage()
+    tool = SendPeerWork()
     ctx = _ctx()
     peer = MagicMock()
     with patch("plugin.doc.peer_message.resolve_peer_target", return_value=(peer, None, "")):
@@ -504,14 +518,14 @@ def test_execute_missing_sidebar():
 
 
 def test_execute_queue_full():
-    tool = SendPeerMessage()
+    tool = SendPeerWork()
     ctx = _ctx()
     peer = MagicMock()
     listener = _Listener()
     panel = MagicMock()
     panel.send_listener = listener
     for i in range(PEER_QUEUE_CAP):
-        enqueue_peer_turn(listener, PeerPendingTurn(f"t{i}", False, str(i)))
+        enqueue_peer_turn(listener, PeerPendingTurn(f"t{i}", False))
     with patch("plugin.doc.peer_message.resolve_peer_target", return_value=(peer, None, "")):
         with patch("plugin.framework.uno_context.get_runtime_uid", return_value="peer-uid"):
             with patch("plugin.doc.live_panels.get_live_panel", return_value=panel):
@@ -523,16 +537,18 @@ def test_execute_queue_full():
 
 def test_registry_chat_tier_on_default_list():
     registry = ToolRegistry(services=None)
-    registry.register(SendPeerMessage())
+    registry.register(SendPeerWork())
+    registry.register(SendPeerResult())
     names = {t.name for t in registry.get_tools(doc_type="writer")}
-    assert PEER_TOOL_NAME in names
+    assert PEER_TOOL_NAMES <= names
     mcp_names = {t.name for t in registry.get_tools(exclude_tiers=frozenset({"specialized", "specialized_control", "chat"}))}
-    assert PEER_TOOL_NAME not in mcp_names
+    assert not (PEER_TOOL_NAMES & mcp_names)
 
 
 def test_schemas_main_hides_specialized_shows_when_peers_open():
     registry = ToolRegistry(services=None)
-    registry.register(SendPeerMessage())
+    registry.register(SendPeerWork())
+    registry.register(SendPeerResult())
     peers = [{"name": "Budget.ods", "uid": "u2", "url": "file:///tmp/Budget.ods", "type": "calc"}]
     with patch("plugin.doc.peer_message.list_v1_peers", return_value=peers):
         main = registry.get_schemas("openai", doc_type="writer", ctx=object(), doc=object())
@@ -553,18 +569,20 @@ def test_schemas_main_hides_specialized_shows_when_peers_open():
     main_names = [s["function"]["name"] for s in main]
     inner_names = [s["function"]["name"] for s in inner]
     mcp_names = [s.get("name") for s in mcp]
-    assert PEER_TOOL_NAME not in main_names
-    assert PEER_TOOL_NAME in inner_names
-    assert PEER_TOOL_NAME not in mcp_names
-    inner_desc = next(s["function"]["description"] for s in inner if s["function"]["name"] == PEER_TOOL_NAME)
-    assert "Budget.ods" in inner_desc
-    assert "uid=u2" in inner_desc
+    assert not (PEER_TOOL_NAMES & set(main_names))
+    assert PEER_TOOL_NAMES <= set(inner_names)
+    assert not (PEER_TOOL_NAMES & set(mcp_names))
+    for name in PEER_TOOL_NAMES:
+        inner_desc = next(s["function"]["description"] for s in inner if s["function"]["name"] == name)
+        assert "Budget.ods" in inner_desc
+        assert "uid=u2" in inner_desc
 
 
 def test_schemas_impress_doc_type_sees_peer_tool_on_specialized():
-    """Impress sidebar caches PresentationDocument only — tool must list that service."""
+    """Impress sidebar caches PresentationDocument only — tools must list that service."""
     registry = ToolRegistry(services=None)
-    registry.register(SendPeerMessage())
+    registry.register(SendPeerWork())
+    registry.register(SendPeerResult())
     peers = [{"name": "Memo.odt", "uid": "u2", "url": "", "type": "writer"}]
     with patch("plugin.doc.peer_message.list_v1_peers", return_value=peers):
         inner = registry.get_schemas(
@@ -581,32 +599,36 @@ def test_schemas_impress_doc_type_sees_peer_tool_on_specialized():
             doc=object(),
             active_domain=PEER_SPECIALIZED_DOMAIN,
         )
-    assert PEER_TOOL_NAME in [s["function"]["name"] for s in inner]
-    assert PEER_TOOL_NAME in [s["function"]["name"] for s in draw_inner]
+    assert PEER_TOOL_NAMES <= {s["function"]["name"] for s in inner}
+    assert PEER_TOOL_NAMES <= {s["function"]["name"] for s in draw_inner}
 
 
 def test_specialized_get_tools_includes_peer_when_peers_open():
     registry = ToolRegistry(services=None)
-    registry.register(SendPeerMessage())
+    registry.register(SendPeerWork())
+    registry.register(SendPeerResult())
     tools = registry.get_tools(doc_type="writer", active_domain=PEER_SPECIALIZED_DOMAIN, exclude_tiers=())
-    assert PEER_TOOL_NAME in {t.name for t in tools}
+    assert PEER_TOOL_NAMES <= {t.name for t in tools}
     peers = [{"name": "Budget.ods", "uid": "u2", "url": "", "type": "calc"}]
     with patch("plugin.doc.peer_message.list_v1_peers", return_value=peers):
         kept = filter_peer_tools_for_specialized(tools, uno_ctx=object(), doc=object())
-    assert PEER_TOOL_NAME in {t.name for t in kept}
+    assert PEER_TOOL_NAMES <= {t.name for t in kept}
     with patch("plugin.doc.peer_message.list_v1_peers", return_value=[]):
         dropped = filter_peer_tools_for_specialized(tools, uno_ctx=object(), doc=object())
-    assert PEER_TOOL_NAME not in {t.name for t in dropped}
+    assert not (PEER_TOOL_NAMES & {t.name for t in dropped})
 
 
 def test_is_mutation_false_and_sync():
-    tool = SendPeerMessage()
-    assert tool.detects_mutation() is False
-    assert tool.is_async() is False
-    assert tool.tier == "chat"
-    assert tool.name == "send_peer_message"
-    assert "com.sun.star.presentation.PresentationDocument" in tool.uno_services
-    assert "com.sun.star.drawing.DrawingDocument" in tool.uno_services
+    for tool in (SendPeerWork(), SendPeerResult()):
+        assert tool.detects_mutation() is False
+        assert tool.is_async() is False
+        assert tool.tier == "chat"
+        assert "com.sun.star.presentation.PresentationDocument" in tool.uno_services
+        assert "com.sun.star.drawing.DrawingDocument" in tool.uno_services
+    assert SendPeerWork().name == "send_peer_work"
+    assert SendPeerResult().name == "send_peer_result"
+    assert "peer_ask_id" not in SendPeerWork.parameters["properties"]
+    assert "peer_ask_id" not in SendPeerResult.parameters["properties"]
 
 
 def test_prompts_outer_thin_inner_choice():
@@ -619,25 +641,38 @@ def test_prompts_outer_thin_inner_choice():
         peer_outer_delegate_tool_name,
     )
 
-    assert "send_peer_message" not in PEER_OUTER_DELEGATE_HINT
+    assert "send_peer_work" not in PEER_OUTER_DELEGATE_HINT
+    assert "send_peer_result" in PEER_OUTER_DELEGATE_HINT
     assert "PEER SIDEBARS" not in PEER_OUTER_DELEGATE_HINT
     assert "document_research" in PEER_OUTER_DELEGATE_HINT
-    assert "[Peer from:" in PEER_OUTER_DELEGATE_HINT
-    assert "send_peer_message" in PEER_INNER_CHOICE_RULES
+    assert "[Peer work from:" in PEER_OUTER_DELEGATE_HINT
+    assert "[Peer result from:" in PEER_OUTER_DELEGATE_HINT
+    assert "send_peer_work" in PEER_INNER_CHOICE_RULES
+    assert "send_peer_result" in PEER_INNER_CHOICE_RULES
     assert "delegate_read_document" in PEER_INNER_CHOICE_RULES
     assert "specialized_workflow_finished immediately" in PEER_INNER_CHOICE_RULES
-    assert "you MUST send_peer_message" in PEER_INNER_CHOICE_RULES
+    assert "you MUST send_peer_result" in PEER_INNER_CHOICE_RULES
     assert "one HTML/result string" in PEER_INNER_CHOICE_RULES
-    assert "peer_ask_id" in PEER_INNER_CHOICE_RULES
+    assert "peer_ask_id" not in PEER_INNER_CHOICE_RULES
     assert "before specialized_workflow_finished" in PEER_INNER_CHOICE_RULES
     assert "peer sidebar never sees it" in PEER_INNER_CHOICE_RULES
-    assert "message argument to send_peer_message" in PEER_INNER_CHOICE_RULES
+    assert "message argument to send_peer_result" in PEER_INNER_CHOICE_RULES
     assert "other result text in the task" in PEER_INNER_CHOICE_RULES
     assert "answer from the task alone" in PEER_INNER_CHOICE_RULES
     assert "tool side effect" in PEER_INNER_CHOICE_RULES
-    # Open-peer hard fork: matching catalog entry → send_peer, not silent read.
-    assert "matches the file the task is about" in PEER_INNER_CHOICE_RULES
-    assert "not delegate_read_document" in PEER_INNER_CHOICE_RULES
+    # Ask vs reply polarity: only [Peer work from:] selects reply; ask never send_peer_result.
+    assert "ASK vs REPLY" in PEER_INNER_CHOICE_RULES
+    assert "ASK PATH" in PEER_INNER_CHOICE_RULES
+    assert "REPLY PATH" in PEER_INNER_CHOICE_RULES
+    assert "does not make this the reply path" in PEER_INNER_CHOICE_RULES
+    assert "only that envelope does" in PEER_INNER_CHOICE_RULES
+    assert "NEVER delegate_read_document on that open peer" in PEER_INNER_CHOICE_RULES
+    assert "NEVER send_peer_result from the asker" in PEER_INNER_CHOICE_RULES
+    assert "answer must come back as a peer result" in PEER_INNER_CHOICE_RULES
+    assert "stamps [Peer result" in PEER_INNER_CHOICE_RULES
+    assert "On the reply path only" in PEER_INNER_CHOICE_RULES
+    # Open-peer hard fork: matching catalog entry → send_peer_work, not silent read.
+    assert "about an Open peer file" in PEER_INNER_CHOICE_RULES
     assert "that sidebar is live" in PEER_INNER_CHOICE_RULES
     assert "duplicates work" in PEER_INNER_CHOICE_RULES
     assert "races the peer reply" in PEER_INNER_CHOICE_RULES
@@ -655,15 +690,24 @@ def test_prompts_outer_thin_inner_choice():
     assert "must change, compute, write" not in PEER_INNER_CHOICE_RULES
     assert "not a JSON array" in PEER_OUTER_DELEGATE_HINT
     assert "PEER SIDEBARS" not in PEER_INNER_CHOICE_RULES
+    # Tool descriptions keep the same ask/reply polarity.
+    assert "ASK PATH only" in SendPeerWork.description
+    assert "REPLY PATH only" in SendPeerResult.description
+    assert "merely mentions send_peer_result" in SendPeerResult.description
     # Idle-after-send: outer must Ready, not keep tooling in the same turn.
     assert "Stop tool use and Ready" in PEER_OUTER_DELEGATE_HINT
     assert "later user turn" in PEER_OUTER_DELEGATE_HINT
     assert "document_research, python, or query" in PEER_OUTER_DELEGATE_HINT
-    # Conditional reply: data/result inbound is local work only.
-    assert "only when the peer asked for work that needs an answer back" in PEER_OUTER_DELEGATE_HINT
+    # Work envelopes must re-delegate a reply; data/result inbound is local only.
+    assert "you MUST still Do {delegate}(domain=\"document_research\")" in PEER_OUTER_DELEGATE_HINT
+    assert "peer_ask_id" not in PEER_OUTER_DELEGATE_HINT
+    assert "deliver via send_peer_result" in PEER_OUTER_DELEGATE_HINT
+    assert "local sidebar answer never reaches" in PEER_OUTER_DELEGATE_HINT
+    assert "finishing those specializes is not delivery" in PEER_OUTER_DELEGATE_HINT
+    assert "ranges, sheets, charts" in PEER_OUTER_DELEGATE_HINT
     assert "Do not delegate an ack specialize" in PEER_OUTER_DELEGATE_HINT
-    assert "result table or HTML payload" in PEER_OUTER_DELEGATE_HINT
-    assert SendPeerMessage.parameters["properties"]["message"]["type"] == "string"
+    assert "not a new work request" in PEER_OUTER_DELEGATE_HINT
+    assert SendPeerWork.parameters["properties"]["message"]["type"] == "string"
 
     writer = MagicMock()
     writer.supportsService.side_effect = lambda s: s == "com.sun.star.text.TextDocument"
@@ -681,18 +725,23 @@ def test_prompts_outer_thin_inner_choice():
         inner = get_peer_inner_choice_block(object(), doc=object())
     assert outer == format_peer_outer_delegate_hint(calc)
     assert "delegate_to_specialized_calc_toolset" in outer
-    assert "send_peer_message" not in outer
+    assert "send_peer_work" not in outer
+    assert "send_peer_result" in outer
     assert "Budget.ods" in inner
     assert "uid=u2" in inner
     assert PEER_INNER_CHOICE_RULES in inner
     assert "Stop tool use and Ready" in outer
-    assert "only when the peer asked for work that needs an answer back" in outer
+    assert "you MUST still Do" in outer and "document_research" in outer
+    assert "local sidebar answer never reaches" in outer
     assert "Do not delegate an ack specialize" in outer
-    assert "send_peer_message" not in outer
+    assert "[Peer work from:" in outer
+    assert "[Peer result from:" in outer
+    assert "send_peer_work" not in outer
+    assert "send_peer_result" in outer
 
 
 def test_outer_hint_idle_after_send_and_conditional_reply():
-    """Outer hint encodes idle-after-send and reply-only-when-the-peer-asked."""
+    """Outer hint encodes idle-after-send and MUST-reply after work envelopes."""
     from plugin.framework.prompts import (
         PEER_OUTER_DELEGATE_HINT,
         PEER_OUTER_IDLE_AFTER_SEND,
@@ -701,7 +750,8 @@ def test_outer_hint_idle_after_send_and_conditional_reply():
     )
 
     assert PEER_OUTER_IDLE_AFTER_SEND in PEER_OUTER_DELEGATE_HINT
-    assert "send_peer_message" not in PEER_OUTER_IDLE_AFTER_SEND
+    assert "send_peer_work" not in PEER_OUTER_IDLE_AFTER_SEND
+    assert "send_peer_result" not in PEER_OUTER_IDLE_AFTER_SEND
     assert looks_like_peer_wait_outcome("Message sent to the peer. Waiting for reply.")
     assert looks_like_peer_wait_outcome('{"status": "ok", "accepted": true}')
     assert looks_like_peer_wait_outcome("waiting for a peer reply")
@@ -739,6 +789,63 @@ def test_outer_hint_idle_after_send_and_conditional_reply():
     assert already["message"].count(PEER_OUTER_IDLE_AFTER_SEND) == 1
 
 
+def test_annotate_outer_peer_delivery_pending():
+    """Non-delivery specialize returns stamp still-required delivery for the outer."""
+    from plugin.framework.prompts import (
+        PEER_OUTER_DELIVERY_STILL_REQUIRED,
+        annotate_outer_peer_delivery_pending,
+        looks_like_peer_work_envelope,
+    )
+
+    assert "send_peer_result" in PEER_OUTER_DELIVERY_STILL_REQUIRED
+    assert "ranges/sheets/charts" in PEER_OUTER_DELIVERY_STILL_REQUIRED
+    assert looks_like_peer_work_envelope(
+        "[Peer work from: Memo.odt | uid=u1 | url=]\n\nSort A2:B5"
+    )
+    assert looks_like_peer_work_envelope("  [Peer work from: X | uid=1 | url=]")
+    assert not looks_like_peer_work_envelope("[Peer result from: X | uid=1 | url=]")
+    assert not looks_like_peer_work_envelope("Sort A2:B5 descending")
+
+    pending = annotate_outer_peer_delivery_pending(
+        {
+            "status": "ok",
+            "message": "Specialized task (ranges) completed.",
+            "result": "Range A2:B5 sorted descending",
+        }
+    )
+    assert PEER_OUTER_DELIVERY_STILL_REQUIRED in pending["message"]
+    assert PEER_OUTER_DELIVERY_STILL_REQUIRED in pending["result"]
+    assert pending["instruction"] == PEER_OUTER_DELIVERY_STILL_REQUIRED
+
+    with_inst = annotate_outer_peer_delivery_pending(
+        {
+            "status": "ok",
+            "message": "done",
+            "result": "ok",
+            "instruction": "Populate the new sheet.",
+        }
+    )
+    assert with_inst["instruction"].startswith("Populate the new sheet.")
+    assert PEER_OUTER_DELIVERY_STILL_REQUIRED in with_inst["instruction"]
+
+    err = annotate_outer_peer_delivery_pending(
+        {"status": "error", "message": "Range A2:B5 sorted descending"}
+    )
+    assert err["message"] == "Range A2:B5 sorted descending"
+    assert "instruction" not in err
+
+    already = annotate_outer_peer_delivery_pending(
+        {
+            "status": "ok",
+            "message": "done " + PEER_OUTER_DELIVERY_STILL_REQUIRED,
+            "result": "sorted",
+            "instruction": PEER_OUTER_DELIVERY_STILL_REQUIRED,
+        }
+    )
+    assert already["message"].count(PEER_OUTER_DELIVERY_STILL_REQUIRED) == 1
+    assert already["instruction"] == PEER_OUTER_DELIVERY_STILL_REQUIRED
+
+
 def test_summarize_peer_tool_on_wire():
     from plugin.doc.peer_message import log_peer_tool_on_wire, summarize_peer_tool_on_wire
 
@@ -746,7 +853,7 @@ def test_summarize_peer_tool_on_wire():
     schemas = [
         {
             "function": {
-                "name": PEER_TOOL_NAME,
+                "name": PEER_WORK_TOOL_NAME,
                 "description": "base Open peers: Budget.ods (uid=u2, url=, type=calc).",
             }
         }
@@ -760,3 +867,29 @@ def test_chat_tier_excluded_from_mcp_frozensets():
 
     assert "chat" in MCP_DELEGATE_EXCLUDE_TIERS
     assert "chat" in MCP_DIRECT_FLAT_EXCLUDE_TIERS
+
+
+def test_format_peer_envelope_work_vs_result():
+    from plugin.doc.peer_message import PEER_WORK_DELIVERY_FOOTER, format_peer_envelope
+
+    work = format_peer_envelope(
+        name="A.ods", uid="u1", url="", message="do thing", kind="work"
+    )
+    result = format_peer_envelope(
+        name="A.ods", uid="u1", url="", message="<table/>", kind="result"
+    )
+    assert work.startswith("[Peer work from: A.ods |")
+    assert result.startswith("[Peer result from: A.ods |")
+    assert "peer_ask_id" not in work and "peer_ask_id" not in result
+    assert work == (
+        "[Peer work from: A.ods | uid=u1 | url=]\n\ndo thing\n\n"
+        + PEER_WORK_DELIVERY_FOOTER
+    )
+    assert result == "[Peer result from: A.ods | uid=u1 | url=]\n\n<table/>"
+    assert PEER_WORK_DELIVERY_FOOTER in work
+    assert PEER_WORK_DELIVERY_FOOTER not in result
+    assert 'domain="document_research"' in PEER_WORK_DELIVERY_FOOTER
+    assert "send_peer_result" in PEER_WORK_DELIVERY_FOOTER
+    assert "envelope header" in PEER_WORK_DELIVERY_FOOTER
+    assert "never reaches the asking peer" in PEER_WORK_DELIVERY_FOOTER
+    assert "nested specialize done is not peer delivery" in PEER_WORK_DELIVERY_FOOTER
