@@ -924,12 +924,15 @@ def coalesce_split_tool_calls(tool_calls: object) -> list[Any]:
     """
     if not isinstance(tool_calls, list):
         return []
-    kept: list[Any] = []
-    for tc in tool_calls:
-        if not isinstance(tc, dict):
+    kept: list[dict[str, Any]] = []
+    # ty: isinstance(list) on object, then isinstance(dict) on items, infers
+    # dict[Never, Never] so .get("function") is invalid-argument-type.
+    for raw in cast("list[Any]", tool_calls):
+        if not isinstance(raw, dict):
             continue
+        tc = cast("dict[str, Any]", raw)
         fn_raw = tc.get("function")
-        fn = fn_raw if isinstance(fn_raw, dict) else {}
+        fn = cast("dict[str, Any]", fn_raw if isinstance(fn_raw, dict) else {})
         name = fn.get("name")
         if name:
             kept_tc = dict(tc)
