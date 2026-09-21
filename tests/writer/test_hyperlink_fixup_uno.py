@@ -487,3 +487,35 @@ def test_hyperlink_url_across_two_outline_links_is_rejected_uno(ctx, doc):
     assert "LeftZZZZ" not in body, rows
     assert set(_urls_over(rows, "Left")) == {"#1.Left|outline"}, rows
     assert set(_urls_over(rows, "Right")) == {"#2.Right|outline"}, rows
+
+
+@native_test
+@with_native_doc("writer")
+def test_identical_replace_sets_outline_url_uno(ctx, doc):
+    """The visible title is already current, so the searched text is not in the URL.
+
+    Substitution cannot repair ``#1.Old title|outline``. ``hyperlink_url`` on an
+    identical replace sets that one target and leaves the following bookmark.
+    """
+    text, cursor = _clear(doc)
+    _append_linked(text, cursor, "New title", _OUTLINE)
+    _append_linked(text, cursor, " tail", _BOOKMARK)
+    preview = _apply(
+        doc, ctx, old_content="New title", content="New title",
+        hyperlink_url=_OUTLINE_NEW, dry_run=True)
+    assert preview.get("status") == "ok", preview
+    assert preview.get("dry_run") is True, preview
+    match = preview["matches"][0]
+    assert match.get("hyperlink_url") == _OUTLINE, preview
+    assert match.get("hyperlink_url_after") == _OUTLINE_NEW, preview
+    assert set(_urls_over(_portion_urls(doc), "New title")) == {_OUTLINE}
+    res = _apply(
+        doc, ctx, old_content="New title", content="New title",
+        hyperlink_url=_OUTLINE_NEW)
+    assert res.get("status") == "ok", res
+    assert res.get("hyperlink_url_after") == _OUTLINE_NEW, res
+    rows = _portion_urls(doc)
+    body = "".join(chunk for chunk, _url in rows)
+    assert body == "New title tail", rows
+    assert set(_urls_over(rows, "New title")) == {_OUTLINE_NEW}, rows
+    assert set(_urls_over(rows, "tail")) == {_BOOKMARK}, rows

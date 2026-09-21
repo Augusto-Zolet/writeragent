@@ -224,7 +224,8 @@ class ApplyDocumentContent(ToolBase):
       regex + paragraph chaining). See ``tests/writer/test_content_search_uno.py``.
       A match that sits in an outline hyperlink (``#…|outline``) also updates that
       target when the matched text occurs once in the URL outside that suffix, or
-      when ``hyperlink_url`` is passed for that one link. A repeated title is left
+      when ``hyperlink_url`` is passed for that one link. ``content`` may equal
+      ``old_content`` when only the URL is stale. A repeated title is left
       unchanged. Bookmark targets are not rewritten. See ``hyperlink_fixup``.
     """
 
@@ -241,7 +242,8 @@ class ApplyDocumentContent(ToolBase):
         "dry_run tags those replaceable rows with occurrence so you can pass the index back. "
         "An outline hyperlink (#…|outline) covering a replaced match is updated when the "
         "matched text occurs once in the target outside that suffix; pass hyperlink_url "
-        "to set a different target on that one link. Bookmark links are not rewritten."
+        "to set a different target on that one link, including when content equals "
+        "old_content and only the URL is stale. Bookmark links are not rewritten."
     )
     parameters = {
         "type": "object",
@@ -255,7 +257,7 @@ class ApplyDocumentContent(ToolBase):
             "dry_run": {"type": "boolean", "description": "For target='search': do NOT edit. Return replaceable matches (each tagged with occurrence) plus shape/comment previews, so you can check before committing."},
             "regex": {"type": "boolean", "description": "For target='search': treat old_content as a regular expression (default false = literal). Regex mode is single-paragraph (no cross-paragraph chaining)."},
             "case_sensitive": {"type": "boolean", "description": "For target='search': force case-sensitive (true) or case-insensitive (false) matching. Omit for the default lenient match."},
-            "hyperlink_url": {"type": "string", "description": ("For target='search' with position='replace', when the match overlaps exactly one outline hyperlink (#…|outline): set this exact URL instead of substituting the matched text. Omit it to update that target when the matched text occurs once outside the |outline suffix. Rejected with all_matches=true, with position='before'/'after', and when the match is not exactly one outline link. Bookmark targets are never rewritten.")},
+            "hyperlink_url": {"type": "string", "description": ("For target='search' with position='replace', when the match overlaps exactly one outline hyperlink (#…|outline): set this exact URL instead of substituting the matched text. content may equal old_content when the visible title is already correct and only the URL is stale. Omit it to update that target when the matched text occurs once outside the |outline suffix. Rejected with all_matches=true, with position='before'/'after', and when the match is not exactly one outline link. Bookmark targets are never rewritten.")},
         },
         "required": ["content"],
     }
