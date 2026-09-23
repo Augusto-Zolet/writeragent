@@ -5,10 +5,16 @@
 
 """Impress slide transition and layout tools."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, Any
 
 from plugin.draw.base import ToolDrawSlideLayoutBase, ToolDrawSlideTransitionsBase
 from plugin.draw.bridge import DrawBridge
+
+if TYPE_CHECKING:
+    from plugin.framework.tool import ToolContext
 
 log = logging.getLogger("nelson.draw")
 
@@ -100,7 +106,7 @@ def layout_id(name: str) -> int | None:
     return _LAYOUTS.get(key)
 
 
-def apply_slide_layout(page, name: str) -> str:
+def apply_slide_layout(page: Any, name: str) -> str:
     """Set ``page.Layout`` from a named layout. Returns the canonical name.
 
     Impress instantiates placeholders synchronously on this assignment — no
@@ -123,7 +129,7 @@ class GetSlideTransition(ToolDrawSlideTransitionsBase):
     parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}}, "required": []}
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any):
         page_idx = kwargs.get("page")
         page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
 
@@ -197,7 +203,7 @@ class SetSlideTransition(ToolDrawSlideTransitionsBase):
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any):
         page_idx = kwargs.get("page")
         page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         updated = []
@@ -315,7 +321,7 @@ class GetSlideLayout(ToolDrawSlideLayoutBase):
     parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}}, "required": []}
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any):
         page_idx = kwargs.get("page")
         page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         layout_id = page.Layout
@@ -335,7 +341,7 @@ class SetSlideLayout(ToolDrawSlideLayoutBase):
     uno_services = ["com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any):
         layout_name = kwargs.get("layout", "").strip().lower()
         if layout_id(layout_name) is None:
             return self._tool_error("Unknown layout: %s" % layout_name, available=sorted(_LAYOUTS.keys()))

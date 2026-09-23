@@ -5,8 +5,15 @@
 
 """Impress/Draw master slide tools."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from plugin.draw.base import ToolDrawSlideMastersBase
 from plugin.draw.bridge import DrawBridge
+
+if TYPE_CHECKING:
+    from plugin.framework.tool import ToolContext
 
 
 class ListMasterSlides(ToolDrawSlideMastersBase):
@@ -18,7 +25,7 @@ class ListMasterSlides(ToolDrawSlideMastersBase):
     parameters = {"type": "object", "properties": {}, "required": []}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any):
         doc = ctx.doc
         masters = doc.getMasterPages()
         result = []
@@ -43,7 +50,7 @@ class GetSlideMaster(ToolDrawSlideMastersBase):
     parameters = {"type": "object", "properties": {"page": {"type": "integer", "description": "0-based slide index (active slide if omitted)."}}, "required": []}
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any):
         page_idx = kwargs.get("page")
         page = DrawBridge.get_slide_for_tool(ctx.doc, page_idx)
         master = page.MasterPage
@@ -61,7 +68,7 @@ class SetSlideMaster(ToolDrawSlideMastersBase):
     uno_services = ["com.sun.star.drawing.DrawingDocument", "com.sun.star.presentation.PresentationDocument"]
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any):
         doc = ctx.doc
         page_idx = kwargs.get("page")
         page = DrawBridge.get_slide_for_tool(doc, page_idx)
