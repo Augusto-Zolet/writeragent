@@ -35,35 +35,36 @@ _WRITER_DRAW_SHAPE_DOCS = list(SHAPE_TOOL_UNO_SERVICES)
 
 
 class UpsertShape(DrawUpsertShape, ToolWriterShapeBase):
-    name = "shape_upsert"
-    uno_services = _WRITER_DRAW_SHAPE_DOCS
-    doc_types = ["writer", "calc", "draw", "impress"]
+    # Draw parent infers str/list[str] from unannotated assignments; keep ToolBase types.
+    name: str | None = "shape_upsert"  # type: ignore[assignment]
+    uno_services: list | None = _WRITER_DRAW_SHAPE_DOCS  # type: ignore[assignment]
+    doc_types: list[str] | None = ["writer", "calc", "draw", "impress"]  # type: ignore[assignment]
     # Specialized for all document types (use delegate_to_specialized_*_toolset(domain=shapes)).
-    tier = "specialized"
+    tier: str = "specialized"
 
 
 class DeleteShape(DrawDeleteShape, ToolWriterShapeBase):
-    name = "shape_delete"
-    uno_services = _WRITER_DRAW_SHAPE_DOCS
-    doc_types = ["writer", "calc", "draw", "impress"]
+    name: str | None = "shape_delete"  # type: ignore[assignment]
+    uno_services: list | None = _WRITER_DRAW_SHAPE_DOCS  # type: ignore[assignment]
+    doc_types: list[str] | None = ["writer", "calc", "draw", "impress"]  # type: ignore[assignment]
 
 
 class GetDrawSummary(DrawGetDrawSummary, ToolWriterShapeBase):
-    name = "shape_summary"
-    uno_services = _WRITER_DRAW_SHAPE_DOCS
-    doc_types = ["writer", "calc", "draw", "impress"]
+    name: str | None = "shape_summary"  # type: ignore[assignment]
+    uno_services: list | None = _WRITER_DRAW_SHAPE_DOCS  # type: ignore[assignment]
+    doc_types: list[str] | None = ["writer", "calc", "draw", "impress"]  # type: ignore[assignment]
 
 
 class ConnectShapes(DrawConnectShapes, ToolWriterShapeBase):
-    name = "shape_connect"
-    uno_services = _WRITER_DRAW_SHAPE_DOCS
-    doc_types = ["writer", "calc", "draw", "impress"]
+    name: str | None = "shape_connect"  # type: ignore[assignment]
+    uno_services: list | None = _WRITER_DRAW_SHAPE_DOCS  # type: ignore[assignment]
+    doc_types: list[str] | None = ["writer", "calc", "draw", "impress"]  # type: ignore[assignment]
 
 
 class GroupShapes(DrawGroupShapes, ToolWriterShapeBase):
-    name = "shape_group"
-    uno_services = _WRITER_DRAW_SHAPE_DOCS
-    doc_types = ["writer", "calc", "draw", "impress"]
+    name: str | None = "shape_group"  # type: ignore[assignment]
+    uno_services: list | None = _WRITER_DRAW_SHAPE_DOCS  # type: ignore[assignment]
+    doc_types: list[str] | None = ["writer", "calc", "draw", "impress"]  # type: ignore[assignment]
 
 
 def replace_text_in_shape(shape: Any, old: str, new: str):

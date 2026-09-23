@@ -89,6 +89,7 @@ _HARPER_FAIL_COOLDOWN_SEC = 30.0
 
 
 class HarperRuntimeState(enum.Enum):
+    # Enum members cannot take PEP 526 annotations (typing spec / ty / basedpyright).
     IDLE = "idle"
     RESOLVING = "resolving"
     READY = "ready"
