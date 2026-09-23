@@ -256,9 +256,9 @@ TOOLS FOR COMPLETION:
 
 
 class LibrarianOnboardingTool(ToolBase):
-    name = "librarian_onboarding"
-    description = "Librarian agent for new user onboarding."
-    parameters = {
+    name: str | None = "librarian_onboarding"
+    description: str = "Librarian agent for new user onboarding."
+    parameters: dict | None = {
         "type": "object",
         "properties": {
             "query": {"type": "string", "description": "User message"},
@@ -268,9 +268,9 @@ class LibrarianOnboardingTool(ToolBase):
         "required": ["query"],
     }
     # Hide from the default main-chat tool surface; librarian onboarding owns this tool.
-    tier = "specialized_control"
-    is_mutation = False
-    long_running = True
+    tier: str = "specialized_control"
+    is_mutation: bool | None = False
+    long_running: bool = True
 
     def is_async(self):
         return True
