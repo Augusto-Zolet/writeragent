@@ -72,6 +72,56 @@ def _json_bytes(payload: dict[str, Any]) -> bytes:
     return json.dumps(payload, allow_nan=False).encode("utf-8")
 
 
+def _source_text_from_part(
+    raw: Any,
+    *,
+    limit: int,
+    label: str,
+    required: bool,
+) -> tuple[str | None, dict[str, Any] | None]:
+    """Return ``(text, error_body)`` for peel text or a multipart byte part.
+
+    Multipart ``code`` / ``init_script`` are raw UTF-8. They used to be JSON
+    strings inside ``meta``, so the HTTP thread unescape-parsed formula source
+    it never executes. Cap the raw part on byte length, then decode once.
+    Peel still passes a ``str`` and character-caps ``code`` only. A non-string
+    peel ``init_script`` stays ignored.
+    """
+    if isinstance(raw, (bytes, bytearray)):
+        if len(raw) > limit:
+            return None, {
+                "status": "error",
+                "code": "CODE_TOO_LARGE",
+                "error": f"{label} exceeds max_code_chars ({limit}).",
+            }
+        if len(raw) == 0:
+            if required:
+                return None, {"status": "error", "error": "Missing 'code' string parameter."}
+            return None, None
+        try:
+            text = bytes(raw).decode("utf-8")
+        except UnicodeDecodeError:
+            return None, {"status": "error", "error": f"Invalid UTF-8 in {label} part."}
+        if required and text == "":
+            return None, {"status": "error", "error": "Missing 'code' string parameter."}
+        return text, None
+
+    if isinstance(raw, str):
+        if required and raw == "":
+            return None, {"status": "error", "error": "Missing 'code' string parameter."}
+        if required and len(raw) > limit:
+            return None, {
+                "status": "error",
+                "code": "CODE_TOO_LARGE",
+                "error": f"{label} exceeds max_code_chars ({limit}).",
+            }
+        return raw, None
+
+    if required:
+        return None, {"status": "error", "error": "Missing 'code' string parameter."}
+    return None, None
+
+
 def _start_raw_json(
     start_response: Any,
     status: str,
@@ -343,30 +393,22 @@ def create_wsgi_app(
 
             req_id = parts.req_id
 
-            code = parts.code
-            if not code or not isinstance(code, str):
-                err_body: dict[str, Any] = {"status": "error", "error": "Missing 'code' string parameter."}
-                if req_id is not None:
-                    err_body["id"] = req_id
-                return _start_json(
-                    start_response,
-                    "400 Bad Request",
-                    err_body,
-                )
-            if len(code) > settings.max_code_chars:
-                err_body = {
-                    "status": "error",
-                    "code": "CODE_TOO_LARGE",
-                    "error": f"code exceeds max_code_chars ({settings.max_code_chars}).",
-                }
+            code, err_body = _source_text_from_part(
+                parts.code,
+                limit=settings.max_code_chars,
+                label="code",
+                required=True,
+            )
+            if err_body is not None:
                 if req_id is not None:
                     err_body["id"] = req_id
                 return _start_json(start_response, "400 Bad Request", err_body)
+            assert code is not None
 
             if parts.has_session_id:
                 err_body = {
                     "status": "error",
-                    "error": "session_id must be provided as a URL query parameter (?session_id=...), not in the JSON body.",
+                    "error": "session_id must be provided as a URL query parameter (?session_id=...), not in the request body.",
                 }
                 if req_id is not None:
                     err_body["id"] = req_id
@@ -390,9 +432,16 @@ def create_wsgi_app(
                     err_body["id"] = req_id
                 return _start_json(start_response, "400 Bad Request", err_body)
 
-            init_script = parts.init_script
-            if init_script is not None and not isinstance(init_script, str):
-                init_script = None
+            init_script, err_body = _source_text_from_part(
+                parts.init_script,
+                limit=settings.max_code_chars,
+                label="init_script",
+                required=False,
+            )
+            if err_body is not None:
+                if req_id is not None:
+                    err_body["id"] = req_id
+                return _start_json(start_response, "400 Bad Request", err_body)
 
             # Lazy: auth/config layer stays free of plugin.framework.config.
             from compute_service.executor import timeout_ms_to_sec
