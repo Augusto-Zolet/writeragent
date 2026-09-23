@@ -31,7 +31,10 @@ from __future__ import annotations
 import logging
 import weakref
 from contextlib import contextmanager
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 from plugin.doc import doc_type as _doc_type
 from plugin.doc import text_helpers as _text_helpers
@@ -576,7 +579,7 @@ class DocumentService(ServiceBase):
         return key
 
     @contextmanager
-    def ignore_cache_invalidation(self):
+    def ignore_cache_invalidation(self) -> Generator[None, None, None]:
         """Suppress modify-driven cache drops (reentrant).
 
         Item 4 wraps ``_mcp_`` bookmark insert/strip so those mutations do not
