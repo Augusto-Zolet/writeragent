@@ -732,6 +732,12 @@ class DualStackThreadPoolHTTPServer(HTTPServer):
     """HTTPServer that listens on both IPv4 and IPv6 loopback (or a single host) using a ThreadPoolExecutor."""
 
     request_queue_size: int = 128
+    _dual_is_shut_down: threading.Event
+    _dual_shutdown_request: bool
+    executor: ThreadPoolExecutor
+    address_family: int
+    # Match TCPServer: tuple[str,int] is invariant vs the AF_INET/AF_INET6 union.
+    server_address: tuple[str | bytes | bytearray, int] | tuple[str | bytes | bytearray, int, int, int]
 
     def __init__(
         self,
@@ -791,7 +797,7 @@ class DualStackThreadPoolHTTPServer(HTTPServer):
         if not self.sockets:
             raise OSError(f"Could not bind to any address for {host}:{port}")
 
-        self.socket = self.sockets[0]
+        self.socket: socket.socket = self.sockets[0]
         self.address_family = self.socket.family
         actual_port = self.socket.getsockname()[1]
         self.server_address = (host, actual_port)
@@ -882,10 +888,15 @@ DualStackThreadingHTTPServer = DualStackThreadPoolHTTPServer
 class WSGIDualStackServer:
     """Wrapper that mixes DualStackThreadPoolHTTPServer with wsgiref.simple_server.WSGIServer."""
 
+    srv: Any
+
     def __init__(self, host: str, port: int, max_threads: int | None = None) -> None:
         from wsgiref.simple_server import WSGIRequestHandler, WSGIServer
 
         class _WSGIDualStackServer(DualStackThreadPoolHTTPServer, WSGIServer):
+            server_name: str
+            server_port: int
+
             def __init__(
                 self,
                 server_address: tuple[str, int],

@@ -77,6 +77,12 @@ def _ensure_paths(ctx: Any) -> None:
 class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
     """Holds the panel window; implements XToolPanel and XSidebarPanel."""
 
+    ctx: Any
+    PanelWindow: Any
+    Window: Any
+    parent_window: Any
+    resize_listener: Any
+
     def __init__(self, panel_window: Any, parent_window: Any, ctx: Any) -> None:
         self.ctx = ctx
         self.PanelWindow = panel_window
@@ -133,13 +139,20 @@ class PythonToolPanel(unohelper.Base, XToolPanel, XSidebarPanel):
 class PythonPanelElement(unohelper.Base, XUIElement):
     """XUIElement wrapper; creates panel window in getRealInterface() via ContainerWindowProvider."""
 
+    ctx: Any
+    xFrame: Any
+    xParentWindow: Any
+    m_panelRootWindow: Any
+
     def __init__(self, ctx: Any, frame: Any, parent_window: Any, resource_url: str) -> None:
         self.ctx = ctx
         self.xFrame = frame
         self.xParentWindow = parent_window
-        self.ResourceURL = resource_url
-        self.Frame = frame
-        self.Type = TOOLPANEL
+        # XUIElement exposes these as properties; assignment annotations avoid
+        # reportIncompatibleMethodOverride from a class-body instance attr.
+        self.ResourceURL: str = resource_url
+        self.Frame: Any = frame
+        self.Type: Any = TOOLPANEL
         self.toolpanel: Any = None
         self.m_panelRootWindow = None
         self.controller: Any = None
@@ -198,6 +211,8 @@ class PythonPanelElement(unohelper.Base, XUIElement):
 
 class PythonPanelFactory(unohelper.Base, XUIElementFactory):
     """Factory that creates PythonPanelElement instances for the LibrePy sidebar."""
+
+    ctx: Any
 
     def __init__(self, ctx: Any) -> None:
         self.ctx = ctx
