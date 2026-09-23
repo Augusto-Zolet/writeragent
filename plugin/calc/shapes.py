@@ -18,27 +18,27 @@ log = logging.getLogger("writeragent.calc")
 _CALC_DRAW_SHAPE_DOCS = list(SHAPE_TOOL_UNO_SERVICES)
 
 class UpsertShape(DrawUpsertShape, ToolCalcShapeBase):
-    name = "shape_upsert"
-    uno_services = _CALC_DRAW_SHAPE_DOCS
-    doc_types = ["writer", "calc", "draw", "impress"]
-    tier = "specialized"
+    name: str = "shape_upsert"  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
+    uno_services: list[str] = _CALC_DRAW_SHAPE_DOCS
+    doc_types: list[str] = ["writer", "calc", "draw", "impress"]  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
+    tier: str = "specialized"
 
 class DeleteShape(DrawDeleteShape, ToolCalcShapeBase):
-    name = "shape_delete"
-    uno_services = _CALC_DRAW_SHAPE_DOCS
-    doc_types = ["writer", "calc", "draw", "impress"]
+    name: str = "shape_delete"  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
+    uno_services: list[str] = _CALC_DRAW_SHAPE_DOCS
+    doc_types: list[str] = ["writer", "calc", "draw", "impress"]  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
 
 class GetDrawSummary(DrawGetDrawSummary, ToolCalcShapeBase):
-    name = "shape_summary"
-    uno_services = _CALC_DRAW_SHAPE_DOCS
-    doc_types = ["writer", "calc", "draw", "impress"]
+    name: str = "shape_summary"  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
+    uno_services: list[str] = _CALC_DRAW_SHAPE_DOCS
+    doc_types: list[str] = ["writer", "calc", "draw", "impress"]  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
 
 class ConnectShapes(DrawConnectShapes, ToolCalcShapeBase):
-    name = "shape_connect"
-    uno_services = _CALC_DRAW_SHAPE_DOCS
-    doc_types = ["writer", "calc", "draw", "impress"]
+    name: str = "shape_connect"  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
+    uno_services: list[str] = _CALC_DRAW_SHAPE_DOCS
+    doc_types: list[str] = ["writer", "calc", "draw", "impress"]  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
 
 class GroupShapes(DrawGroupShapes, ToolCalcShapeBase):
-    name = "shape_group"
-    uno_services = _CALC_DRAW_SHAPE_DOCS
-    doc_types = ["writer", "calc", "draw", "impress"]
+    name: str = "shape_group"  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
+    uno_services: list[str] = _CALC_DRAW_SHAPE_DOCS
+    doc_types: list[str] = ["writer", "calc", "draw", "impress"]  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
