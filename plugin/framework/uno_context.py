@@ -44,6 +44,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     import threading
+    from collections.abc import Generator
 
     from com.sun.star.awt import FocusEvent, MouseEvent
     from com.sun.star.lang import EventObject
@@ -216,7 +217,7 @@ def product_display_name(ctx: Any | None = None) -> str:
 
 
 @main_thread_only
-def get_ctx():
+def get_ctx() -> Any:
     """Return the UNO component context.
 
     Prefers the bootstrap context stored at extension init. ``uno.getComponentContext()``
@@ -587,7 +588,7 @@ def _focus_restore_target(explicit: Any = None) -> Any:
 
 
 @contextmanager
-def focus_preserved(ctx: Any, restore: Any = None):
+def focus_preserved(ctx: Any, restore: Any = None) -> Generator[None, None, None]:
     """Restore focus after a block that may steal it (RichTextControl reveal).
 
     If *restore* or :func:`set_default_focus_restore` is set, that control is
@@ -804,7 +805,7 @@ def uno_same(a: Any, b: Any) -> bool:
 
 
 @main_thread_only
-def resolve_document_by_url(ctx: Any, url: Any):
+def resolve_document_by_url(ctx: Any, url: Any) -> tuple[Any, str | None]:
     """Resolve an open document by URL or RuntimeUID. Must be called on the UNO main thread.
 
     ``url`` may be a document URL or a ``RuntimeUID`` (as returned by
