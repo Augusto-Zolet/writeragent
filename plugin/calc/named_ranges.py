@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from plugin.calc.address_utils import (
     index_to_column,
@@ -28,6 +28,9 @@ from plugin.calc.address_utils import (
 from plugin.calc.base import ToolCalcRangeBase
 from plugin.calc.bridge import CalcBridge
 from plugin.framework.errors import UnoObjectError, suppress_disposed
+
+if TYPE_CHECKING:
+    from plugin.framework.tool import ToolContext
 
 log = logging.getLogger("writeragent.calc")
 
@@ -221,7 +224,7 @@ class NamedRangeList(ToolCalcRangeBase):
     }
     is_mutation = False
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         scope_arg = kwargs.get("scope", "global")
         if scope_arg is None or str(scope_arg).strip() == "":
@@ -280,7 +283,7 @@ class NamedRangeGetInfo(ToolCalcRangeBase):
     }
     is_mutation = False
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         name = kwargs["name"].strip()
         scope_arg = kwargs.get("scope")
@@ -357,7 +360,7 @@ class NamedRangeAdd(ToolCalcRangeBase):
     }
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         name = kwargs["name"].strip()
         content = kwargs["content"].strip()
@@ -418,7 +421,7 @@ class NamedRangeEdit(ToolCalcRangeBase):
     }
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         name = kwargs["name"].strip()
         new_name = kwargs.get("new_name")
@@ -492,7 +495,7 @@ class NamedRangeDelete(ToolCalcRangeBase):
     }
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         name = kwargs["name"].strip()
         scope = kwargs.get("scope")
@@ -543,7 +546,7 @@ class NamedRangeCreateFromTitles(ToolCalcRangeBase):
     }
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         import uno
         bridge = CalcBridge(ctx.doc)
         range_str = kwargs["range"][0].strip()

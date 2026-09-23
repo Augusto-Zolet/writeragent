@@ -21,11 +21,18 @@ Each tool is a ToolBase subclass that instantiates CalcBridge and the
 appropriate helper class per call using ``ctx.doc``.
 """
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, Any
 
 from plugin.framework.errors import ToolExecutionError, UnoObjectError
 from plugin.framework.prompts import get_sheets_create_completion_instruction
 from plugin.framework.tool import ToolBase
+
+if TYPE_CHECKING:
+    from plugin.framework.tool import ToolContext
+
 from plugin.calc.base import ToolCalcSheetBase
 from plugin.calc.bridge import CalcBridge, filter_agent_sheet_names, is_agent_visible_sheet
 from plugin.calc.analyzer import SheetAnalyzer
@@ -41,7 +48,7 @@ class ListSheets(ToolCalcSheetBase):
     parameters = {"type": "object", "properties": {}}
     is_mutation = False
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         try:
             doc = bridge.get_active_document()
@@ -63,7 +70,7 @@ class SwitchSheet(ToolCalcSheetBase):
     parameters = {"type": "object", "properties": {"sheet": {"type": "string", "description": "Name of the sheet to switch to"}}, "required": ["sheet"]}
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         sheet_name = kwargs["sheet"]
 
@@ -112,7 +119,7 @@ class CreateSheet(ToolCalcSheetBase):
     }
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         sheet_name = kwargs["sheet"]
         position = kwargs.get("position")
@@ -147,7 +154,7 @@ class RenameSheet(ToolCalcSheetBase):
     parameters = {"type": "object", "properties": {"old_name": {"type": "string", "description": "Current name of the sheet"}, "new_name": {"type": "string", "description": "New name for the sheet"}}, "required": ["old_name", "new_name"]}
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         old_name = kwargs["old_name"]
         new_name = kwargs["new_name"]
@@ -177,7 +184,7 @@ class DeleteSheet(ToolCalcSheetBase):
     parameters = {"type": "object", "properties": {"sheet": {"type": "string", "description": "Name of the sheet to delete"}}, "required": ["sheet"]}
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         sheet_name = kwargs["sheet"]
 
@@ -205,7 +212,7 @@ class ProtectSheet(ToolCalcSheetBase):
     parameters = {"type": "object", "properties": {"sheet": {"type": "string", "description": "Sheet name (active sheet if empty)"}, "protect": {"type": "boolean", "description": "True to protect, False to unprotect (default: True)"}}, "required": []}
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         sheet_name = kwargs.get("sheet")
         should_protect = kwargs.get("protect", True)
@@ -244,7 +251,7 @@ class GetSheetSummary(ToolBase):
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = False
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         analyzer = SheetAnalyzer(bridge)
         sheet_name = kwargs.get("sheet")

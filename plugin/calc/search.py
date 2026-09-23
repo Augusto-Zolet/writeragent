@@ -5,11 +5,17 @@
 
 """Calc search tools: search_in_spreadsheet, replace_in_spreadsheet."""
 
+from __future__ import annotations
+
 import logging
+from typing import TYPE_CHECKING, Any
 
 from plugin.calc.base import ToolCalcSearchBase
 from plugin.calc.calc_utils import resolve_sheet
 from plugin.calc.spreadsheet_search import search_spreadsheet_cells
+
+if TYPE_CHECKING:
+    from plugin.framework.tool import ToolContext
 
 log = logging.getLogger("writeragent.calc")
 
@@ -34,7 +40,7 @@ class SearchInSpreadsheet(ToolCalcSearchBase):
     }
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         pattern = kwargs.get("pattern", "")
         if not pattern:
             return self._tool_error("pattern is required.")
@@ -77,7 +83,7 @@ class ReplaceInSpreadsheet(ToolCalcSearchBase):
     uno_services = ["com.sun.star.sheet.SpreadsheetDocument"]
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         search = kwargs.get("search", "")
         replace = kwargs.get("replace", "")
         if not search:

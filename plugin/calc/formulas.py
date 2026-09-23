@@ -29,12 +29,18 @@ Provides built-in Calc function discovery and arbitrary formula pre-evaluation t
 > `finally` block before returning.
 """
 
+from __future__ import annotations
+
 from plugin.framework.constants import now_aware
 import logging
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from plugin.framework.errors import ToolExecutionError
 from plugin.framework.tool import ToolBase
+
+if TYPE_CHECKING:
+    from plugin.framework.tool import ToolContext
+
 from plugin.calc.base import ToolCalcErrorBase
 
 try:
@@ -73,7 +79,7 @@ class ListCalcFunctions(ToolBase):
     tier = "core"
     is_mutation = False
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         filter_str = kwargs.get("filter", "").strip().upper()
         uno_ctx = ctx.ctx
         if not uno_ctx:
@@ -146,7 +152,7 @@ class EvaluateFormula(ToolCalcErrorBase):
     tier = "specialized"
     is_mutation = False
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         formula_string = kwargs.get("formula", "").strip()
         cell_address = kwargs.get("cell", "A1").strip()
         if not formula_string:

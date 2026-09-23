@@ -20,12 +20,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from plugin.framework.errors import UnoObjectError
 from plugin.calc.base import ToolCalcConditionalBase
 from plugin.calc.bridge import CalcBridge
 from plugin.calc.calc_utils import query_interface as _query_interface
+
+if TYPE_CHECKING:
+    from plugin.framework.tool import ToolContext
 
 log = logging.getLogger("writeragent.calc")
 
@@ -109,7 +112,7 @@ class ListConditionalFormats(ToolCalcConditionalBase):
     description = "List conditional formatting rules on a Calc cell range. Returns operator, formulas, and applied cell style for each rule. Extended LibreOffice operators (e.g. DUPLICATE) use operator_code when present."
     parameters = {"type": "object", "properties": {"range": {"type": "array", "items": {"type": "string"}, "description": "Cell range (e.g. [\"A1:D10\"]). If omitted, scans used area."}}, "required": []}
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         range_arg = kwargs.get("range") or []
         range_str = range_arg[0] if range_arg else None
@@ -126,7 +129,7 @@ class ListConditionalFormats(ToolCalcConditionalBase):
 
             formats = cell_range.getPropertyValue("ConditionalFormat")
             if formats is None or formats.getCount() == 0:
-                rules = []
+                rules: list[dict[str, Any]] = []
             else:
                 rules = []
                 for i in range(formats.getCount()):
@@ -166,7 +169,7 @@ class AddConditionalFormat(ToolCalcConditionalBase):
     }
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         range_str = kwargs["range"][0]
         operator = kwargs["operator"]
@@ -290,7 +293,7 @@ class RemoveConditionalFormats(ToolCalcConditionalBase):
     parameters = {"type": "object", "properties": {"range": {"type": "array", "items": {"type": "string"}, "description": "Cell range (e.g. [\"A1:D10\"])."}, "rule_index": {"type": "integer", "description": "0-based index of the rule to remove. If omitted, all rules are cleared."}}, "required": ["range"]}
     is_mutation = True
 
-    def execute(self, ctx, **kwargs):
+    def execute(self, ctx: ToolContext, **kwargs: Any) -> dict[str, Any]:
         bridge = CalcBridge(ctx.doc)
         range_str = kwargs["range"][0]
         index = kwargs.get("rule_index")
