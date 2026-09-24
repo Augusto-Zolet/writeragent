@@ -213,10 +213,12 @@ class ACPConnection:
             try:
                 if self._proc.stdout is None:
                     break
-                line = self._proc.stdout.readline()
-                if not line:
+                raw = self._proc.stdout.readline()
+                if not raw:
                     break
-                line = line.decode("utf-8", errors="replace").strip()
+                # Popen is binary. Reusing `line` for the decoded str leaves
+                # mypy on bytes, so find("{") and the debug f-string still see bytes.
+                line = raw.decode("utf-8", errors="replace").strip()
                 if not line:
                     continue
 

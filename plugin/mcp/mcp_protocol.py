@@ -32,7 +32,7 @@ import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -850,11 +850,17 @@ class MCPProtocolHandler:
         params = parsed.params
         req_id = parsed.req_id
 
-        handler = {"initialize": self._mcp_initialize, "ping": self._mcp_ping, "tools/list": self._mcp_tools_list, "tools/call": self._mcp_tools_call, "resources/list": self._mcp_resources_list, "prompts/list": self._mcp_prompts_list}.get(method)
-
         log.debug(f"*** MCP INCOMING METHOD: {method} (id={req_id}) ***")
 
-        if handler is None:
+        # tools/list and tools/call take document_url. A mixed dict is an
+        # unknown callable to mypy, so only the one-argument methods live here.
+        one_arg: dict[str, Callable[[Any], Any]] = {
+            "initialize": self._mcp_initialize,
+            "ping": self._mcp_ping,
+            "resources/list": self._mcp_resources_list,
+            "prompts/list": self._mcp_prompts_list,
+        }
+        if method not in one_arg and method not in ("tools/list", "tools/call"):
             return (400, wire_types.jsonrpc_failure(req_id, wire_types.METHOD_NOT_FOUND, "Unknown method: %s" % method))
 
         try:
@@ -863,7 +869,7 @@ class MCPProtocolHandler:
             elif method == "tools/call":
                 result = self._mcp_tools_call(params, document_url=document_url)
             else:
-                result = handler(params)
+                result = one_arg[method](params)
             preview = str(result)
             cap = 2000 if (isinstance(result, dict) and result.get("isError")) else 100
             log.debug("*** MCP RESULT: %s ***", preview[:cap])

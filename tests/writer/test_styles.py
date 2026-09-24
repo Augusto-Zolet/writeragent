@@ -16,7 +16,10 @@
 import pytest
 from unittest.mock import MagicMock, patch
 from plugin.writer.page import PageGetStyleProperties
-from plugin.writer.styles import StyleList, StyleGetInfo, ApplyStyle, StyleCreate, StyleImport, StyleUpdate
+from plugin.writer.styles import (
+    StyleList, StyleGetInfo, ApplyStyle, StyleCreate, StyleImport, StyleUpdate,
+    _close_style_names,
+)
 from plugin.tests.testing_utils import TestingFactory, WriterDocStub
 
 
@@ -431,6 +434,15 @@ def test_update_style_rejects_para_adjust_integer():
     assert res["status"] == "error"
     assert "left" in res["message"]
     style.setPropertyValue.assert_not_called()
+
+
+def test_close_style_names_prefers_exact_then_shortest_prefix():
+    """Exact case-insensitive hit wins; otherwise shortest prefix, then substring."""
+    names = ["Body Text Indent 2", "Body Text", "Text body"]
+    assert _close_style_names("body text", names) == ["Body Text"]
+    assert _close_style_names("body", names) == ["Body Text", "Body Text Indent 2"]
+    assert _close_style_names("indent", names) == ["Body Text Indent 2"]
+    assert _close_style_names("nope", names) == []
 
 
 def test_update_style_unknown_suggests_close_name():

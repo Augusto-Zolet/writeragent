@@ -145,9 +145,18 @@ def _close_style_names(wanted: str, names: list[str]) -> list[str]:
     """
     low = wanted.lower()
     exact = [n for n in names if n.lower() == low]
-    prefix = sorted((n for n in names if n.lower().startswith(low)), key=len)
-    contains = sorted((n for n in names if low in n.lower()), key=len)
-    return exact or prefix or contains
+    if exact:
+        return exact
+    # Empty list is falsy, so `exact or prefix` is not list[str] to ty
+    # (truthy arm is list[str] & ~AlwaysFalsy). sorted(generator, key=len)
+    # also widens to list[Sized] because len's parameter is Sized.
+    prefix = [n for n in names if n.lower().startswith(low)]
+    if prefix:
+        prefix.sort(key=len)
+        return prefix
+    contains = [n for n in names if low in n.lower()]
+    contains.sort(key=len)
+    return contains
 
 
 def _missing_style_error(tool: Any, style_name: str, family: str, style_family: Any, *, label: str = "Style") -> dict[str, Any]:
